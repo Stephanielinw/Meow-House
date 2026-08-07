@@ -7,8 +7,8 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <title>喵喵馆 MEEOW HOUSE v5.0</title>
 
-    <link rel="icon" type="image/png" href="https://files.catbox.moe/e15qui.png">
-    <link rel="apple-touch-icon" href="https://files.catbox.moe/e15qui.png">
+    <link rel="icon" type="image/png" href="https://files.catbox.moe/r74fqi.png">
+    <link rel="apple-touch-icon" href="https://files.catbox.moe/r74fqi.png">
 
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -89,6 +89,98 @@
             transform: scale(0.95);
             opacity: 0.8;
             filter: brightness(1.2);
+        }
+
+        /* ===== USER-MADE PIXEL CAT AVATARS =====
+           The artwork is rendered locally from each cat's saved configuration.
+           No AI or external image service is involved in this feature. */
+        .pixel-cat-frame {
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            isolation: isolate;
+            background:
+                radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%),
+                color-mix(in srgb, var(--ui-panel, #171821) 92%, transparent);
+        }
+
+        .pixel-cat-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        .pixel-cat-workshop-overlay {
+            background: color-mix(in srgb, var(--ui-bg, #101010) 76%, rgba(8, 10, 16, .74));
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        .pixel-cat-workshop {
+            width: min(94vw, 860px);
+            max-height: min(86dvh, 760px);
+            color: var(--ui-text, #f7f4ee);
+            background: var(--ui-card, rgba(28, 29, 38, .98));
+            border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--ui-border, rgba(255,255,255,.16)));
+            box-shadow: 0 28px 80px rgba(0, 0, 0, .38);
+        }
+
+        .pixel-cat-preview {
+            min-height: 270px;
+            display: grid;
+            place-items: center;
+            border-radius: 24px;
+            border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--ui-border, rgba(255,255,255,.16)));
+            background:
+                linear-gradient(135deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 56%),
+                color-mix(in srgb, var(--ui-panel, #171821) 95%, transparent);
+        }
+
+        .pixel-cat-preview img {
+            width: min(260px, 74vw);
+            height: 260px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        .pixel-cat-controls {
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            max-height: min(52dvh, 430px);
+            padding-right: 3px;
+        }
+
+        .pixel-cat-control {
+            background: color-mix(in srgb, var(--ui-panel, #1b1c25) 88%, transparent);
+            border: 1px solid var(--ui-border, rgba(255,255,255,.12));
+            border-radius: 16px;
+            padding: 10px;
+        }
+
+        .pixel-cat-control label {
+            color: var(--ui-muted, #a5a7b0);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .pixel-cat-control select,
+        .pixel-cat-control input[type="color"] {
+            color: var(--ui-text, #f7f4ee);
+            background: color-mix(in srgb, var(--ui-input, #111218) 92%, transparent);
+            border: 1px solid var(--ui-border, rgba(255,255,255,.16));
+            border-radius: 10px;
+        }
+
+        .pixel-cat-control select { min-height: 34px; padding: 0 8px; }
+        .pixel-cat-control input[type="color"] { width: 100%; height: 34px; padding: 3px; cursor: pointer; }
+
+        .pixel-cat-mode-active {
+            border-color: var(--accent) !important;
+            color: var(--ui-text-strong, #161616) !important;
+            background: var(--accent) !important;
         }
 
         /* ===== GLASSMORPHISM UTILITY CLASSES ===== */
@@ -3758,9 +3850,9 @@
                         class="sully-card p-3 shadow-2xl cursor-pointer relative group flex flex-col items-center" :class="{'opacity-75 grayscale-[30%]': cat.isOut}">
                         
                         <!-- Avatar Container with Glass Border -->
-                        <div class="relative w-full aspect-square mb-2.5 overflow-hidden rounded-2xl border border-white/10 shadow-inner group-hover:scale-[1.02] transition-transform">
-                            <img :src="cat.isHuman ? (cat.image_human || cat.image) : cat.image"
-                                class="w-full h-full object-cover rounded-2xl">
+                        <div class="relative w-full aspect-square mb-2.5 overflow-hidden rounded-2xl border border-white/10 shadow-inner group-hover:scale-[1.02] transition-transform" :class="{'pixel-cat-frame': isUsingPixelAvatar(cat)}">
+                            <img :src="getCatAvatarSource(cat)"
+                                class="w-full h-full object-contain rounded-2xl">
                             <span v-if="cat.isHuman"
                                 class="absolute top-1.5 right-1.5 bg-gradient-to-r from-pink-600 to-purple-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border border-white/20">猫耳模式</span>
                             <span v-if="cat.origin && currentHall.id !== 'gotham'"
@@ -3919,7 +4011,7 @@
                                     <i class="fas fa-paw text-6xl rotate-12"></i>
                                 </div>
                                 <div class="flex items-center gap-2 mb-2 relative z-10">
-                                    <img :src="cat.image" class="w-7 h-7 rounded-full border border-zinc-600 shadow-sm">
+                                    <img :src="getCatAvatarSource(cat)" class="w-7 h-7 rounded-full border border-zinc-600 shadow-sm object-contain">
                                     <div class="flex-1 min-w-0">
                                         <div class="text-[10px] font-bold text-gray-200 truncate">{{ cat.name }}</div>
                                         <div class="text-[8px] text-gray-500">{{ t.date }}</div>
@@ -3976,7 +4068,7 @@
                                 class="shrink-0 w-20 flex flex-col items-center gap-1 cursor-pointer transition-all"
                                 :class="exploreState.companion?.id === cat.id ? 'scale-110' : 'opacity-60 hover:opacity-100'">
                                 <div class="relative">
-                                    <img :src="cat.image" class="w-12 h-12 rounded-full border-2"
+                                    <img :src="getCatAvatarSource(cat)" class="w-12 h-12 rounded-full border-2 object-contain"
                                         :class="exploreState.companion?.id === cat.id ? 'border-yellow-600 shadow-[0_0_10px_rgba(212,175,55,0.5)]' : 'border-zinc-600'">
                                     <div v-if="cat.isOut"
                                         class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center text-[8px] text-white">
@@ -4013,8 +4105,8 @@
                         </div>
                         <div class="flex items-center gap-4">
                             <div class="flex items-center gap-1">
-                                <img :src="exploreState.companion.image"
-                                    class="w-5 h-5 rounded-full border border-zinc-700">
+                                <img :src="getCatAvatarSource(exploreState.companion)"
+                                    class="w-5 h-5 rounded-full border border-zinc-700 object-contain">
                                 <span class="text-[10px] font-bold text-gray-400">{{ exploreState.companion.name
                                     }}</span>
                             </div>
@@ -4127,8 +4219,8 @@
                     </div>
                     <div class="flex items-center gap-3.5">
                         <div class="relative shrink-0">
-                            <img :src="selectedCat.isHuman ? (selectedCat.image_human || selectedCat.image) : selectedCat.image"
-                                class="w-16 h-16 rounded-2xl object-cover border-2 border-yellow-500/50 shadow-xl"
+                            <img :src="getCatAvatarSource(selectedCat)"
+                                class="w-16 h-16 rounded-2xl object-contain border-2 border-yellow-500/50 shadow-xl"
                                 :class="{'grayscale': selectedCat.isOut}">
                             <span v-if="selectedCat.isOut" class="absolute -bottom-1 -right-1 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold shadow">外出中</span>
                         </div>
@@ -4198,8 +4290,8 @@
                         <div v-for="(msg, index) in selectedCat.chatHistory" :key="index"
                             :class="['chat-bubble-wrapper msg-pop-in', msg.role === 'user' ? 'justify-end' : 'justify-start']">
                             <div v-if="msg.role === 'assistant' && !msg.isSystem" class="chat-avatar shrink-0">
-                                <img :src="selectedCat.image"
-                                    class="w-8 h-8 rounded-2xl border border-white/20 shadow-md object-cover" />
+                                <img :src="getCatAvatarSource(selectedCat)"
+                                    class="w-8 h-8 rounded-2xl border border-white/20 shadow-md object-contain" />
                             </div>
                             <div
                                 :class="['chat-bubble-v2 sully-card', msg.role === 'user' ? 'chat-v2-user bg-yellow-500/90 text-black font-medium border-yellow-400' : (msg.isSystem ? 'chat-v2-system' : 'chat-v2-ai bg-zinc-900/90 text-gray-100 border-white/10'), {'chat-thinking': msg.isThinking}]">
@@ -4825,8 +4917,8 @@
                                                         phoneIdentities[user.phoneData.friendRequests.find(r => r.id ===
                                                         phoneState.selectedFriendRequestId).catId].name }}</span>
                                                     <div class="w-12 h-12 bg-gray-200 rounded overflow-hidden">
-                                                        <img :src="cats.find(c => c.id === user.phoneData.friendRequests.find(r => r.id === phoneState.selectedFriendRequestId).catId).image"
-                                                            class="w-full h-full object-cover">
+                                                        <img :src="getCatAvatarSource(cats.find(c => c.id === user.phoneData.friendRequests.find(r => r.id === phoneState.selectedFriendRequestId).catId))"
+                                                            class="w-full h-full object-contain">
                                                     </div>
                                                 </div>
                                             </div>
@@ -6426,6 +6518,19 @@
                 <h3 class="font-extrabold text-white text-sm mb-3 flex items-center gap-2"><i class="fas fa-user-gear text-yellow-500"></i> 管理特工: {{ selectedCat.name }}</h3>
                 <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改昵称</label>
                 <input v-model="selectedCat.name" class="mb-3 bg-black/40 border border-white/10 text-xs text-white rounded-xl px-3 py-2">
+                <div class="mb-3 rounded-2xl border border-white/10 bg-black/25 p-3">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <div>
+                            <div class="text-xs font-bold text-gray-200"><i class="fas fa-paw text-yellow-500 mr-1"></i>全身像素猫</div>
+                            <div class="text-[9px] text-gray-400 mt-0.5">完全由你手动捏制，不调用 AI。</div>
+                        </div>
+                        <span class="text-[9px] px-2 py-1 rounded-full" :class="selectedCat.avatarMode === 'pixel' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-gray-400'">{{ selectedCat.avatarMode === 'pixel' ? '已启用' : '原头像' }}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="openPixelAvatarWorkshop" class="sully-btn flex-1 bg-yellow-500/90 hover:bg-yellow-400 text-black py-2 rounded-xl text-[10px] font-black"><i class="fas fa-wand-magic-sparkles mr-1"></i>{{ selectedCat.pixelAvatar ? '编辑捏猫' : '开始捏猫' }}</button>
+                        <button v-if="selectedCat.avatarMode === 'pixel'" @click="useOriginalAvatar" class="sully-btn bg-white/10 hover:bg-white/20 text-gray-200 px-3 py-2 rounded-xl text-[10px] font-bold">用原图</button>
+                    </div>
+                </div>
                 <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改照片 (默认形态)</label>
                 <input type="file" @change="(e)=>handleSpecificImageUpload(e, 'default')" class="mb-3 text-xs w-full text-gray-300">
                 <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改照片 (拟人形态)</label>
@@ -6435,6 +6540,75 @@
                     <button @click="releaseCat" class="sully-btn flex-1 bg-red-900/80 hover:bg-red-800 text-red-200 py-2.5 rounded-xl text-xs font-bold border border-red-500/30" :disabled="isReleasing">{{ isReleasing ? '告别中...' : '放生 (删除)' }}</button>
                 </div>
             </div>
+        </div>
+
+        <!-- Full-body pixel cat workshop. It is local-only and never calls AI. -->
+        <div v-if="showPixelAvatarModal && selectedCat && pixelAvatarDraft"
+            class="pixel-cat-workshop-overlay fixed inset-0 z-[850] p-3 sm:p-5 flex items-center justify-center">
+            <section class="pixel-cat-workshop rounded-[2rem] overflow-hidden flex flex-col" role="dialog" aria-modal="true" aria-label="全身像素捏猫工坊">
+                <header class="px-5 py-4 shrink-0 flex items-center justify-between gap-3 border-b" style="border-color: var(--ui-border, rgba(255,255,255,.12));">
+                    <div>
+                        <p class="text-[10px] font-black tracking-[.18em]" style="color: var(--accent);">MEEOW HOUSE · PIXEL CAT</p>
+                        <h2 class="font-black text-base mt-1">{{ selectedCat.name }} 的全身捏猫工坊</h2>
+                    </div>
+                    <button @click="closePixelAvatarWorkshop" class="sully-btn w-9 h-9 rounded-xl border text-lg" style="border-color: var(--ui-border, rgba(255,255,255,.14)); color: var(--ui-text, #fff);" aria-label="关闭捏猫工坊"><i class="fas fa-times"></i></button>
+                </header>
+                <div class="grid md:grid-cols-[.86fr_1.14fr] gap-4 p-4 sm:p-5 min-h-0 overflow-y-auto custom-scrollbar">
+                    <div class="pixel-cat-preview sticky top-0 self-start">
+                        <img :src="makePixelCatAvatar(pixelAvatarDraft, selectedCat.name)" alt="全身像素猫实时预览">
+                    </div>
+                    <div class="pixel-cat-controls grid grid-cols-2 gap-2.5 content-start">
+                        <div class="pixel-cat-control col-span-2 grid grid-cols-3 gap-2">
+                            <label>姿势
+                                <select v-model="pixelAvatarDraft.pose" class="mt-1 w-full"><option value="stand">站立</option><option value="sit">坐下</option><option value="loaf">趴卧</option></select>
+                            </label>
+                            <label>体型
+                                <select v-model="pixelAvatarDraft.bodyShape" class="mt-1 w-full"><option value="slim">纤细</option><option value="round">圆润</option><option value="long">修长</option></select>
+                            </label>
+                            <label>腿长
+                                <select v-model="pixelAvatarDraft.legs" class="mt-1 w-full"><option value="short">短腿</option><option value="standard">标准</option><option value="long">长腿</option></select>
+                            </label>
+                        </div>
+                        <div class="pixel-cat-control">
+                            <label>耳朵
+                                <select v-model="pixelAvatarDraft.ears" class="mt-1 w-full"><option value="pointed">尖耳</option><option value="round">圆耳</option><option value="tuft">簇耳</option></select>
+                            </label>
+                        </div>
+                        <div class="pixel-cat-control">
+                            <label>脸型
+                                <select v-model="pixelAvatarDraft.face" class="mt-1 w-full"><option value="soft">柔和</option><option value="sharp">锐利</option><option value="muzzle">口鼻</option></select>
+                            </label>
+                        </div>
+                        <div class="pixel-cat-control">
+                            <label>尾巴
+                                <select v-model="pixelAvatarDraft.tail" class="mt-1 w-full"><option value="long">长尾</option><option value="curl">卷尾</option><option value="fluffy">蓬尾</option></select>
+                            </label>
+                        </div>
+                        <div class="pixel-cat-control">
+                            <label>花纹
+                                <select v-model="pixelAvatarDraft.markings" class="mt-1 w-full"><option value="solid">纯色</option><option value="tuxedo">燕尾服</option><option value="tabby">虎斑</option><option value="spots">斑点</option><option value="mask">面罩</option></select>
+                            </label>
+                        </div>
+                        <div class="pixel-cat-control col-span-2">
+                            <label>配饰
+                                <select v-model="pixelAvatarDraft.accessory" class="mt-1 w-full"><option value="none">无配饰</option><option value="collar">项圈</option><option value="bow">蝴蝶结</option><option value="cape">披风</option><option value="crown">小王冠</option></select>
+                            </label>
+                        </div>
+                        <div class="pixel-cat-control"><label>身体颜色<input v-model="pixelAvatarDraft.colors.body" type="color" class="mt-1"></label></div>
+                        <div class="pixel-cat-control"><label>腹部颜色<input v-model="pixelAvatarDraft.colors.belly" type="color" class="mt-1"></label></div>
+                        <div class="pixel-cat-control"><label>花纹颜色<input v-model="pixelAvatarDraft.colors.marking" type="color" class="mt-1"></label></div>
+                        <div class="pixel-cat-control"><label>描边颜色<input v-model="pixelAvatarDraft.colors.outline" type="color" class="mt-1"></label></div>
+                        <div class="pixel-cat-control"><label>左眼颜色<input v-model="pixelAvatarDraft.colors.eyeLeft" type="color" class="mt-1"></label></div>
+                        <div class="pixel-cat-control"><label>右眼颜色<input v-model="pixelAvatarDraft.colors.eyeRight" type="color" class="mt-1"></label></div>
+                        <div class="pixel-cat-control col-span-2"><label>配饰颜色<input v-model="pixelAvatarDraft.colors.accessory" type="color" class="mt-1"></label></div>
+                    </div>
+                </div>
+                <footer class="px-4 sm:px-5 py-4 shrink-0 flex gap-2.5 border-t" style="border-color: var(--ui-border, rgba(255,255,255,.12));">
+                    <button @click="resetPixelAvatarDraft" class="sully-btn flex-1 py-2.5 rounded-xl text-xs font-bold border" style="border-color: var(--ui-border, rgba(255,255,255,.14)); color: var(--ui-text, #fff);">恢复模板</button>
+                    <button @click="randomizePixelAvatarDraft" class="sully-btn flex-1 py-2.5 rounded-xl text-xs font-bold border" style="border-color: var(--accent); color: var(--accent);"><i class="fas fa-dice mr-1"></i>随机配色</button>
+                    <button @click="savePixelAvatar" class="sully-btn flex-[1.35] py-2.5 rounded-xl text-xs font-black" style="background: var(--accent); color: var(--ui-text-strong, #161616);"><i class="fas fa-floppy-disk mr-1"></i>保存并启用</button>
+                </footer>
+            </section>
         </div>
 
         <!-- Diary/Logs Modal -->
@@ -6653,8 +6827,8 @@
                                 :class="focusSetupData.selectedCatIds.includes(cat.id) ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'border-zinc-700 hover:border-zinc-500'">
                                 <div class="absolute inset-0 bg-black/40 group-hover:bg-transparent transition-colors z-10"
                                     :class="{'hidden': focusSetupData.selectedCatIds.includes(cat.id)}"></div>
-                                <img :src="cat.isHuman ? (cat.image_human || cat.image) : cat.image"
-                                    class="w-full aspect-square object-cover">
+                                <img :src="getCatAvatarSource(cat)"
+                                    class="w-full aspect-square object-contain">
                                 <div
                                     class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent pt-6 pb-1 px-1 text-center z-20">
                                     <span class="text-[10px] font-bold text-white truncate block">{{ cat.name }}</span>
@@ -6684,8 +6858,8 @@
             <div class="meeow-focus-header relative z-10 flex flex-col items-center">
                 <div class="flex justify-center flex-wrap gap-2 mb-4">
                     <div v-for="cat in focusCats" :key="cat.id" class="flex flex-col items-center">
-                        <img :src="cat.isHuman ? (cat.image_human || cat.image) : cat.image"
-                            class="meeow-focus-cat-avatar w-16 h-16 rounded-full border-2 object-cover mb-1">
+                        <img :src="getCatAvatarSource(cat)"
+                            class="meeow-focus-cat-avatar w-16 h-16 rounded-full border-2 object-contain mb-1">
                         <span class="text-[10px] text-gray-300">{{ cat.name }}</span>
                     </div>
                 </div>
@@ -7287,6 +7461,9 @@
                     diary: Array.isArray(cat.diary) ? cat.diary : [],
                     logs: Array.isArray(cat.logs) ? cat.logs : [],
                     chatHistory: Array.isArray(cat.chatHistory) ? cat.chatHistory : [],
+                    // Pixel avatars are optional and deliberately never replace legacy uploads.
+                    avatarMode: cat.avatarMode === 'pixel' && cat.pixelAvatar ? 'pixel' : 'image',
+                    pixelAvatar: cat.pixelAvatar && typeof cat.pixelAvatar === 'object' ? cat.pixelAvatar : null,
                     lastStatusUpdateTime: cat.lastStatusUpdateTime || 0,
                     isVisiting: Boolean(cat.isVisiting),
                     visitOriginHallId: cat.visitOriginHallId || null,
@@ -7723,6 +7900,8 @@
                 const selectedCat = ref(null);
                 const chatInput = ref('');
                 const thinkingStates = reactive({});
+                const showPixelAvatarModal = ref(false);
+                const pixelAvatarDraft = ref(null);
                 const isInteracting = ref(false);
                 const isUpdatingStatus = ref(false);
                 const showBag = ref(false);
@@ -7992,7 +8171,7 @@
                     const hall = halls.value.find(item => item.id === cat.hallId);
                     return [cat.id, {
                         name: cat.humanName || cat.name,
-                        avatar: cat.image_human || cat.image || 'https://placehold.co/100x100/64748b/ffffff?text=Cat',
+                        avatar: getCatAvatarSource(cat),
                         role: hall ? `${hall.name} · ${cat.trickArchetype || '馆舍来客'}` : (cat.trickArchetype || '馆舍来客'),
                         color: cat.color || '#07a86b'
                     }];
@@ -8385,6 +8564,143 @@ ${buildCatMemoryContext(cat)}`;
 
                 const normalizeHexColor = (color, fallback = '#64748b') => /^#[0-9a-f]{6}$/i.test(String(color || '').trim()) ? String(color).trim() : fallback;
                 const escapeSvgText = (value) => String(value || '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[char]));
+                const cloneData = (value) => JSON.parse(JSON.stringify(value));
+                const PIXEL_AVATAR_OPTIONS = {
+                    pose: ['stand', 'sit', 'loaf'],
+                    bodyShape: ['slim', 'round', 'long'],
+                    ears: ['pointed', 'round', 'tuft'],
+                    face: ['soft', 'sharp', 'muzzle'],
+                    legs: ['short', 'standard', 'long'],
+                    tail: ['long', 'curl', 'fluffy'],
+                    markings: ['solid', 'tuxedo', 'tabby', 'spots', 'mask'],
+                    accessory: ['none', 'collar', 'bow', 'cape', 'crown']
+                };
+                const pixelChoice = (value, options, fallback) => options.includes(value) ? value : fallback;
+                const createPixelAvatarConfig = (cat = {}) => ({
+                    version: 1,
+                    pose: 'stand',
+                    bodyShape: 'round',
+                    ears: 'pointed',
+                    face: 'soft',
+                    legs: 'standard',
+                    tail: 'long',
+                    markings: 'solid',
+                    accessory: 'none',
+                    colors: {
+                        outline: '#2c2930',
+                        body: normalizeHexColor(cat.color, '#b98560'),
+                        belly: '#f4e5d0',
+                        marking: '#6d4c41',
+                        eyeLeft: '#81c7b9',
+                        eyeRight: '#81c7b9',
+                        accessory: '#efb23a'
+                    }
+                });
+                const normalizePixelAvatarConfig = (raw, cat = {}) => {
+                    const base = createPixelAvatarConfig(cat);
+                    const source = raw && typeof raw === 'object' ? raw : {};
+                    const colors = source.colors && typeof source.colors === 'object' ? source.colors : {};
+                    Object.keys(base.colors).forEach(key => { base.colors[key] = normalizeHexColor(colors[key], base.colors[key]); });
+                    Object.keys(PIXEL_AVATAR_OPTIONS).forEach(key => { base[key] = pixelChoice(source[key], PIXEL_AVATAR_OPTIONS[key], base[key]); });
+                    return base;
+                };
+                const isUsingPixelAvatar = (cat) => Boolean(cat && cat.avatarMode === 'pixel' && cat.pixelAvatar && !cat.isHuman);
+                const makePixelCatAvatar = (raw, name = 'Meeow') => {
+                    const config = normalizePixelAvatarConfig(raw);
+                    const c = config.colors;
+                    const outline = c.outline;
+                    const dimensions = {
+                        slim: { bodyX: 49, bodyW: 62, headX: 45, headW: 70 },
+                        round: { bodyX: 40, bodyW: 80, headX: 40, headW: 80 },
+                        long: { bodyX: 45, bodyW: 70, headX: 43, headW: 74 }
+                    }[config.bodyShape];
+                    const legHeight = { short: 28, standard: 40, long: 54 }[config.legs];
+                    const pose = config.pose;
+                    const ear = config.ears === 'round'
+                        ? '<path d="M48 78Q41 55 59 57l8 20M112 78q7-23 25-21 0 16-9 21"/>'
+                        : config.ears === 'tuft'
+                            ? '<path d="M48 82 50 48l18 24m44 10 10-34 13 30m-79-29 4-13m68 13 4-13"/>'
+                            : '<path d="M47 80 53 47l19 26m40 7 12-33 13 33"/>';
+                    const tailPath = pose === 'sit'
+                        ? (config.tail === 'curl' ? 'M111 160q35 9 24 34-8 16-31 0' : config.tail === 'fluffy' ? 'M111 158q43 12 29 42-12 18-37 0' : 'M110 161q35 13 25 42-9 17-31 2')
+                        : pose === 'loaf'
+                            ? (config.tail === 'curl' ? 'M118 145q32-12 32 12 0 17-28 10' : 'M114 146q42-10 37 23-4 18-34 10')
+                            : (config.tail === 'curl' ? 'M108 142q43-8 39-41-2-15-18-13-12 2-8 17' : config.tail === 'fluffy' ? 'M107 144q45-9 42-50-2-18-21-16-15 4-10 23' : 'M109 144q39-12 35-49-1-16-16-15-14 3-10 21');
+                    const tail = '<path d="' + tailPath + '" fill="none" stroke="' + outline + '" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/><path d="' + tailPath + '" fill="none" stroke="' + c.body + '" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>';
+                    const body = pose === 'loaf'
+                        ? '<path d="M34 128q8-31 46-31t46 31v23q0 18-20 18H54q-20 0-20-18z"/>'
+                        : pose === 'sit'
+                            ? '<path d="M' + dimensions.bodyX + ' 108q' + (dimensions.bodyW / 2) + '-17 ' + dimensions.bodyW + ' 0v48q0 21-16 26H56q-17-5-17-26z"/>'
+                            : '<path d="M' + dimensions.bodyX + ' 106q' + (dimensions.bodyW / 2) + '-16 ' + dimensions.bodyW + ' 0v55q0 14-15 14H' + (dimensions.bodyX + 15) + 'q-15 0-15-14z"/>';
+                    const legs = pose === 'loaf' ? '<path d="M50 156h22m16 0h22"/>' : pose === 'sit' ? '<path d="M58 166v17m43-17v17"/>' : '<path d="M' + (dimensions.bodyX + 16) + ' 165v' + legHeight + 'm' + (dimensions.bodyW - 32) + '-' + legHeight + 'v' + legHeight + '"/>';
+                    const marking = config.markings === 'tuxedo'
+                        ? '<path d="M65 109h30l-6 41H71z" fill="' + c.belly + '" stroke="none"/><path d="M73 86h14l-7 9z" fill="' + c.belly + '" stroke="none"/>'
+                        : config.markings === 'tabby'
+                            ? '<path d="M59 99l10 10m11-13 0 14m12-11-10 10M60 130l9 8m21-8-9 8" fill="none" stroke="' + c.marking + '" stroke-width="6" stroke-linecap="square"/>'
+                            : config.markings === 'spots'
+                                ? '<circle cx="61" cy="122" r="8" fill="' + c.marking + '"/><circle cx="96" cy="133" r="7" fill="' + c.marking + '"/><circle cx="78" cy="151" r="6" fill="' + c.marking + '"/>'
+                                : config.markings === 'mask'
+                                    ? '<path d="M51 81q29-20 58 0l-5 25q-24 13-48 0z" fill="' + c.marking + '" stroke="none"/>'
+                                    : '';
+                    const faceDetail = config.face === 'sharp'
+                        ? '<path d="M61 96l10-3m18 0 10 3M75 112l5 4 5-4" fill="none" stroke="' + outline + '" stroke-width="4" stroke-linecap="square"/>'
+                        : config.face === 'muzzle'
+                            ? '<ellipse cx="69" cy="112" rx="13" ry="10" fill="' + c.belly + '"/><ellipse cx="91" cy="112" rx="13" ry="10" fill="' + c.belly + '"/><path d="M76 111h8l-4 5z" fill="' + c.marking + '"/>'
+                            : '<path d="M67 112q13 12 26 0" fill="none" stroke="' + outline + '" stroke-width="4" stroke-linecap="round"/>';
+                    const accessory = config.accessory === 'collar'
+                        ? '<path d="M55 126q25 12 50 0v10q-25 12-50 0z" fill="' + c.accessory + '" stroke="' + outline + '" stroke-width="4"/><circle cx="80" cy="139" r="5" fill="' + c.belly + '" stroke="' + outline + '" stroke-width="3"/>'
+                        : config.accessory === 'bow'
+                            ? '<path d="M80 135 61 126v20l19-7 19 7v-20z" fill="' + c.accessory + '" stroke="' + outline + '" stroke-width="4" stroke-linejoin="round"/><circle cx="80" cy="136" r="5" fill="' + c.belly + '" stroke="' + outline + '" stroke-width="3"/>'
+                            : config.accessory === 'cape'
+                                ? '<path d="M53 130q27 19 54 0l8 47-35-12-35 12z" fill="' + c.accessory + '" stroke="' + outline + '" stroke-width="4" stroke-linejoin="round"/>'
+                                : config.accessory === 'crown'
+                                    ? '<path d="M58 69v-19l14 11 8-15 8 15 14-11v19z" fill="' + c.accessory + '" stroke="' + outline + '" stroke-width="4" stroke-linejoin="round"/>'
+                                    : '';
+                    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 220" role="img" aria-label="' + escapeSvgText(name) + ' 的全身像素猫" shape-rendering="crispEdges"><g stroke="' + outline + '" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">' + tail + '<g fill="' + c.body + '">' + body + '<path d="M' + dimensions.headX + ' 78q0-28 ' + (dimensions.headW / 2) + '-28t' + (dimensions.headW / 2) + ' 28v29q0 24-' + (dimensions.headW / 2) + ' 24t-' + (dimensions.headW / 2) + ' 24z"/>' + ear + '</g><g fill="none">' + legs + '</g></g>' + marking + '<g><ellipse cx="65" cy="95" rx="7" ry="10" fill="' + c.eyeLeft + '" stroke="' + outline + '" stroke-width="4"/><ellipse cx="95" cy="95" rx="7" ry="10" fill="' + c.eyeRight + '" stroke="' + outline + '" stroke-width="4"/><path d="M78 104h4l-2 3z" fill="' + c.marking + '"/></g>' + faceDetail + accessory + '</svg>';
+                    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+                };
+                const getCatAvatarSource = (cat) => {
+                    if (!cat) return makeStableCatAvatar('Cat');
+                    if (cat.isHuman) return cat.image_human || cat.image || makeStableCatAvatar(cat.name, cat.color);
+                    if (isUsingPixelAvatar(cat)) return makePixelCatAvatar(cat.pixelAvatar, cat.name);
+                    return cat.image || makeStableCatAvatar(cat.name, cat.color);
+                };
+                const openPixelAvatarWorkshop = () => {
+                    if (!selectedCat.value) return;
+                    pixelAvatarDraft.value = normalizePixelAvatarConfig(selectedCat.value.pixelAvatar, selectedCat.value);
+                    showEditCatModal.value = false;
+                    showPixelAvatarModal.value = true;
+                };
+                const closePixelAvatarWorkshop = () => { showPixelAvatarModal.value = false; pixelAvatarDraft.value = null; };
+                const savePixelAvatar = () => {
+                    if (!selectedCat.value || !pixelAvatarDraft.value) return;
+                    selectedCat.value.pixelAvatar = normalizePixelAvatarConfig(pixelAvatarDraft.value, selectedCat.value);
+                    selectedCat.value.avatarMode = 'pixel';
+                    closePixelAvatarWorkshop();
+                    showToast('全身像素猫已保存并启用', 'success');
+                };
+                const useOriginalAvatar = () => {
+                    if (!selectedCat.value) return;
+                    selectedCat.value.avatarMode = 'image';
+                    showToast('已切回原头像', 'info');
+                };
+                const resetPixelAvatarDraft = () => {
+                    if (!selectedCat.value) return;
+                    pixelAvatarDraft.value = createPixelAvatarConfig(selectedCat.value);
+                };
+                const randomizePixelAvatarDraft = () => {
+                    if (!pixelAvatarDraft.value) return;
+                    const pick = (list) => list[Math.floor(Math.random() * list.length)];
+                    const palette = ['#ef9b6a', '#a97354', '#30343f', '#f4e2c6', '#93b7be', '#c9a6d6', '#d96c75', '#e2b24a', '#7fb069', '#5f7c8a'];
+                    const draft = pixelAvatarDraft.value;
+                    Object.keys(PIXEL_AVATAR_OPTIONS).forEach(key => { draft[key] = pick(PIXEL_AVATAR_OPTIONS[key]); });
+                    draft.colors.body = pick(palette);
+                    draft.colors.belly = pick(['#fff3df', '#f2ddd0', '#e8ecef', '#f4e8bd']);
+                    draft.colors.marking = pick(palette);
+                    draft.colors.eyeLeft = pick(['#78c6c0', '#88aee8', '#d4ad55', '#9bcf74']);
+                    draft.colors.eyeRight = pick(['#78c6c0', '#88aee8', '#d4ad55', '#d982a1']);
+                    draft.colors.accessory = pick(palette);
+                };
                 const makeStableCatAvatar = (name, color = '#64748b') => {
                     const fill = normalizeHexColor(color);
                     const initial = String(name || 'C').trim().replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase() || 'C';
@@ -12525,7 +12841,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText,
                     chatInput, thinkingStates, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showEditCatModal, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall,
@@ -12542,6 +12858,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     formatTime: (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`,
                     stopFocus, focusMessage, currentNoise, customNoiseUrl, playNoise, audioPlayer, harassCat, currentFocusLog, isFinishingFocus, focusSettlementLoading,
                     toggleHumanMode, handleSpecificImageUpload, releaseCat, shareMemory,
+                    getCatAvatarSource, isUsingPixelAvatar, makePixelCatAvatar, openPixelAvatarWorkshop, closePixelAvatarWorkshop, savePixelAvatar, useOriginalAvatar, resetPixelAvatarDraft, randomizePixelAvatarDraft,
                     showFocusSetupModal, focusSetupData, availableCatsForFocus, canStartFocus, openFocusSetupModal, toggleFocusCat, startFocus,
                     currentFocusVoice, currentFocusVoiceCat,
                     currentSettlement, unreadMailCount, openMailbox, claimMailItem, todayEvent,
