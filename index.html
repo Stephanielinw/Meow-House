@@ -3872,8 +3872,24 @@
             color: var(--ui-text) !important;
         }
         #app .phone-chat-message-area { background: color-mix(in srgb, var(--ui-surface-soft) 76%, var(--ui-bg)) !important; }
-        #app .phone-chat-user-bubble { background: var(--accent) !important; color: var(--ui-button-text, #182116) !important; }
-        #app .phone-chat-cat-bubble { background: var(--ui-surface-strong) !important; color: var(--ui-text) !important; border: 1px solid var(--ui-border); }
+        /* Chat bubbles borrow the softer, layered rhythm used by the cat-detail chat.
+           Keeping their own classes prevents the phone shell from inheriting old WeChat gray boxes. */
+        #app .phone-chat-user-bubble {
+            background: var(--accent) !important;
+            color: var(--ui-button-text, #182116) !important;
+            border: 1px solid color-mix(in srgb, var(--accent) 76%, var(--ui-border)) !important;
+            border-radius: 18px 7px 18px 18px !important;
+            box-shadow: var(--ui-shadow-soft) !important;
+            padding: 10px 13px !important;
+        }
+        #app .phone-chat-cat-bubble {
+            background: var(--ui-surface-strong) !important;
+            color: var(--ui-text) !important;
+            border: 1px solid var(--ui-border) !important;
+            border-radius: 7px 18px 18px 18px !important;
+            box-shadow: var(--ui-shadow-soft) !important;
+            padding: 10px 13px !important;
+        }
         #app .phone-chat-tool-button,
         #app .phone-chat-more-button {
             background: var(--ui-surface-hover) !important;
@@ -3883,10 +3899,12 @@
         #app .phone-chat-tool-button:active,
         #app .phone-chat-more-button:active { background: var(--accent-dim) !important; }
         #app .phone-chat-input {
-            background: var(--ui-surface-hover) !important;
+            background: var(--ui-input, var(--ui-surface-soft)) !important;
             border: 1px solid var(--ui-border) !important;
             color: var(--ui-text) !important;
+            opacity: 1 !important;
         }
+        #app .phone-chat-input:disabled { background: var(--ui-input, var(--ui-surface-soft)) !important; color: var(--ui-text) !important; }
         #app .phone-chat-input::placeholder { color: var(--ui-text-subtle) !important; opacity: 1; }
         #app .phone-chat-send,
         #app .phone-chat-reply {
@@ -3903,6 +3921,47 @@
             box-shadow: var(--ui-shadow-soft) !important;
         }
         #app .phone-chat-menu button { color: var(--ui-text) !important; background: var(--ui-surface-hover) !important; }
+        #app .phone-chat-reply-trigger {
+            background: var(--accent) !important;
+            color: var(--ui-button-text, #182116) !important;
+            border: 1px solid color-mix(in srgb, var(--accent) 74%, var(--ui-border)) !important;
+            box-shadow: var(--ui-shadow-soft) !important;
+        }
+        #app .phone-chat-reply-trigger:disabled {
+            background: var(--ui-surface-hover) !important;
+            color: var(--ui-text-subtle) !important;
+            box-shadow: none !important;
+        }
+        #app .phone-compose-overlay {
+            background: color-mix(in srgb, var(--ui-bg-deep, var(--ui-bg)) 62%, transparent) !important;
+            z-index: 1500 !important;
+        }
+        #app .phone-compose-card {
+            background: var(--ui-surface-strong) !important;
+            color: var(--ui-text) !important;
+            border: 1px solid var(--ui-border-strong, var(--ui-border)) !important;
+            box-shadow: var(--ui-shadow) !important;
+        }
+        #app .phone-compose-card h3,
+        #app .phone-compose-card p { color: var(--ui-text) !important; }
+        #app .phone-compose-card textarea,
+        #app .phone-compose-card input {
+            background: var(--ui-input, var(--ui-surface-soft)) !important;
+            color: var(--ui-text) !important;
+            border: 1px solid var(--ui-border) !important;
+        }
+        #app .phone-compose-card textarea::placeholder,
+        #app .phone-compose-card input::placeholder { color: var(--ui-text-subtle) !important; opacity: 1; }
+        #app .phone-compose-cancel {
+            background: var(--ui-surface-hover) !important;
+            color: var(--ui-text) !important;
+            border: 1px solid var(--ui-border) !important;
+        }
+        #app .phone-compose-confirm {
+            background: var(--accent) !important;
+            color: var(--ui-button-text, #182116) !important;
+            border: 1px solid color-mix(in srgb, var(--accent) 74%, var(--ui-border)) !important;
+        }
 
         #app .focus-music-player {
             background: var(--ui-surface-strong);
@@ -5420,8 +5479,13 @@
                                                     <span class="text-[10px] text-green-600">在线</span>
                                                 </div>
                                             </div>
-                                            <div class="relative min-w-[54px] text-right">
-                                                <button @click="phoneState.chatOptionsOpen = !phoneState.chatOptionsOpen" class="phone-chat-more-button px-2 py-1 rounded-lg text-[11px] font-bold" aria-label="更多聊天操作">
+                                            <div class="relative min-w-[104px] flex items-center justify-end gap-1.5">
+                                                <button type="button" @click="requestPhoneReply" :disabled="!hasPendingPhoneReply(phoneState.selectedContactId) || phoneState.isTyping"
+                                                    class="phone-chat-reply-trigger h-8 w-8 rounded-lg text-xs disabled:opacity-70"
+                                                    title="让 TA 回复" aria-label="让 TA 回复">
+                                                    <i :class="phoneState.isTyping ? 'fas fa-ellipsis animate-pulse' : 'fas fa-bolt'"></i>
+                                                </button>
+                                                <button type="button" @click="phoneState.chatOptionsOpen = !phoneState.chatOptionsOpen" class="phone-chat-more-button px-2 py-1 rounded-lg text-[11px] font-bold" aria-label="更多聊天操作">
                                                     更多 <i class="fas fa-ellipsis-v ml-0.5"></i>
                                                 </button>
                                                 <div v-if="phoneState.chatOptionsOpen" class="phone-chat-menu absolute right-0 top-10 z-40 p-1.5 rounded-xl w-32 text-left">
@@ -5464,7 +5528,7 @@
                                                                 </span>{{ msg.quotedMsg.content }}
                                                             </div>
                                                             <!-- Bubble -->
-                                                            <div :class="msg.role === 'user' ? 'phone-chat-user-bubble' : 'phone-chat-cat-bubble'"
+                                                            <div :class="msg.role === 'user' ? 'phone-chat-user-bubble chat-bubble-v2 chat-v2-user' : 'phone-chat-cat-bubble chat-bubble-v2 chat-v2-ai'"
                                                                 @contextmenu.prevent="showMsgMenu($event, msg, idx)"
                                                                 @touchstart="startLongPress($event, msg, idx)"
                                                                 @touchend="cancelLongPress"
@@ -5587,20 +5651,20 @@
 
                                             <!-- Tool bar: short labels make every action discoverable on touch screens. -->
                                             <div class="phone-chat-tools flex gap-2 px-3 py-2 overflow-x-auto border-t">
-                                                <button @click="$refs.phoneImageInput.click()" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
+                                                <button type="button" @click="$refs.phoneImageInput.click()" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
                                                     title="发送图片"><i class="far fa-image mr-1"></i>图片</button>
-                                                <button @click="showPhoneImageDescModal = true" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
+                                                <button type="button" @click="openPhoneImageComposer" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
                                                     title="发送照片描述"><i class="fas fa-camera mr-1"></i>相机</button>
-                                                <button @click="showPhoneLocationModal = true" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
+                                                <button type="button" @click="openPhoneLocationComposer" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
                                                     title="发送位置"><i class="fas fa-map-marker-alt mr-1"></i>位置</button>
-                                                <button
-                                                    @click="phoneMoneyType = 'red-envelope'; showPhoneMoneyModal = true"
+                                                <button type="button"
+                                                    @click="openPhoneMoneyComposer('red-envelope')"
                                                     class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0" title="发红包"><i
                                                         class="fas fa-gift mr-1"></i>红包</button>
-                                                <button @click="phoneMoneyType = 'transfer'; showPhoneMoneyModal = true"
+                                                <button type="button" @click="openPhoneMoneyComposer('transfer')"
                                                     class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0" title="转账"><i
                                                         class="fas fa-dollar-sign mr-1"></i>转账</button>
-                                                <button @click="phoneShowEmojiPicker = !phoneShowEmojiPicker"
+                                                <button type="button" @click="togglePhoneEmojiPicker"
                                                     class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0" title="表情"><i
                                                         class="far fa-smile mr-1"></i>表情</button>
                                                 <input type="file" ref="phoneImageInput" class="hidden" accept="image/*"
@@ -5620,15 +5684,8 @@
                                                 <input ref="phoneInputRef" v-model="phoneChatInput"
                                                     @keydown.enter.prevent="sendPhoneMessage" placeholder="发送消息..."
                                                     class="phone-chat-input flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none shadow-sm">
-                                                <button @click="sendPhoneMessage" :disabled="!phoneChatInput.trim()"
+                                                <button type="button" @click="sendPhoneMessage" :disabled="!phoneChatInput.trim()"
                                                     class="phone-chat-send px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 transition-opacity">发送</button>
-                                            </div>
-                                            <div class="px-3 pb-3">
-                                                <button @click="requestPhoneReply" :disabled="!hasPendingPhoneReply(phoneState.selectedContactId) || phoneState.isTyping"
-                                                    class="phone-chat-reply w-full rounded-xl py-2 text-xs font-extrabold disabled:opacity-50">
-                                                    <i :class="phoneState.isTyping ? 'fas fa-ellipsis animate-pulse' : 'fas fa-comment-dots'" class="mr-1.5"></i>{{ phoneState.isTyping ? '正在等 TA 回复…' : '让 TA 回复' }}
-                                                </button>
-                                                <p class="mt-1.5 text-center text-[9px]" style="color: var(--ui-text-subtle);">可连续发送多条，确认说完后再请求回复。</p>
                                             </div>
                                         </div>
 
@@ -7777,59 +7834,59 @@
 
         <!-- Image Description Modal -->
         <div v-if="showPhoneImageDescModal"
-            class="fixed inset-0 bg-black/80 z-[400] flex items-center justify-center p-6 backdrop-blur-sm">
-            <div class="bg-zinc-900 w-full max-w-sm rounded-2xl border border-zinc-700 shadow-2xl p-6">
-                <h3 class="text-lg font-bold text-gray-200 mb-4 flex items-center gap-2">
-                    <i class="fas fa-camera text-yellow-500"></i> 描述你发送的图片
+            class="phone-compose-overlay fixed inset-0 flex items-center justify-center p-6 backdrop-blur-sm">
+            <div class="phone-compose-card w-full max-w-sm rounded-2xl shadow-2xl p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <i class="fas fa-camera" style="color: var(--accent);"></i> 描述你发送的图片
                 </h3>
                 <textarea v-model="phoneImageDesc" placeholder="例如：我正在吃的一份超大份芝士披萨..."
-                    class="w-full bg-zinc-800 border border-zinc-700 rounded-xl p-4 text-sm text-gray-200 focus:outline-none focus:border-yellow-600 mb-4"
+                    class="w-full rounded-xl p-4 text-sm focus:outline-none mb-4"
                     rows="3"></textarea>
                 <div class="flex gap-2">
                     <button @click="showPhoneImageDescModal = false; phoneImageDesc = ''"
-                        class="flex-1 py-3 bg-zinc-800 text-gray-400 rounded-xl font-bold hover:bg-zinc-700 transition-colors">取消</button>
+                        class="phone-compose-cancel flex-1 py-3 rounded-xl font-bold transition-colors">取消</button>
                     <button @click="sendPhoneDescImage" :disabled="!phoneImageDesc.trim()"
-                        class="flex-1 py-3 bg-yellow-600 text-black rounded-xl font-bold hover:bg-yellow-500 transition-colors disabled:opacity-50">发送</button>
+                        class="phone-compose-confirm flex-1 py-3 rounded-xl font-bold transition-colors disabled:opacity-50">发送</button>
                 </div>
             </div>
         </div>
 
         <!-- Phone: Custom Location Modal -->
         <div v-if="showPhoneLocationModal"
-            class="fixed inset-0 bg-black/80 z-[400] flex items-center justify-center p-6 backdrop-blur-sm">
-            <div class="bg-zinc-900 w-full max-w-sm rounded-2xl border border-zinc-700 p-6 shadow-2xl">
-                <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center"><i
+            class="phone-compose-overlay fixed inset-0 flex items-center justify-center p-6 backdrop-blur-sm">
+            <div class="phone-compose-card w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+                <h3 class="text-xl font-bold mb-4 flex items-center"><i
                         class="fas fa-map-marker-alt mr-2"></i> 共享实时位置</h3>
-                <p class="text-xs text-gray-500 mb-4">输入你当前所在的位置；角色会依据所属馆舍与原作背景回应。</p>
+                <p class="text-xs mb-4">输入你当前所在的位置；角色会依据所属馆舍与原作背景回应。</p>
                 <input v-model="phoneLocationInput" placeholder="输入地点描述..."
-                    class="w-full bg-zinc-800 border-zinc-700 rounded-xl p-4 text-sm mb-6 focus:border-red-600 transition-colors"
+                    class="w-full rounded-xl p-4 text-sm mb-6 transition-colors"
                     @keyup.enter="sendPhoneLocation">
                 <div class="flex gap-3">
                     <button @click="showPhoneLocationModal = false; phoneLocationInput = ''"
-                        class="flex-1 py-3 bg-zinc-800 text-gray-400 rounded-xl font-bold hover:bg-zinc-700 transition-colors">取消</button>
+                        class="phone-compose-cancel flex-1 py-3 rounded-xl font-bold transition-colors">取消</button>
                     <button @click="sendPhoneLocation" :disabled="!phoneLocationInput.trim()"
-                        class="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-500 transition-colors disabled:opacity-50">共享</button>
+                        class="phone-compose-confirm flex-1 py-3 rounded-xl font-bold transition-colors disabled:opacity-50">共享</button>
                 </div>
             </div>
         </div>
 
         <!-- Phone: Money Modal -->
         <div v-if="showPhoneMoneyModal"
-            class="fixed inset-0 bg-black/80 z-[400] flex items-center justify-center p-6 backdrop-blur-sm">
-            <div class="bg-zinc-900 w-full max-w-sm rounded-2xl border border-zinc-700 p-6 shadow-2xl">
-                <h3 class="text-xl font-bold text-orange-600 mb-4 flex items-center">
+            class="phone-compose-overlay fixed inset-0 flex items-center justify-center p-6 backdrop-blur-sm">
+            <div class="phone-compose-card w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
                     <i v-if="phoneMoneyType === 'red-envelope'" class="fas fa-gift mr-2"></i>
                     <i v-else class="fas fa-dollar-sign mr-2"></i>
                     {{ phoneMoneyType === 'red-envelope' ? '发红包' : '转账' }}
                 </h3>
-                <p class="text-xs text-gray-500 mb-4">输入金额（当前余额: {{ user.coins }} G）</p>
+                <p class="text-xs mb-4">输入金额（当前余额: {{ user.coins }} G）</p>
                 <input type="number" v-model.number="phoneMoneyAmount"
-                    class="w-full bg-zinc-800 border-zinc-700 rounded-xl p-4 text-sm mb-6 focus:border-orange-600 transition-colors">
+                    class="w-full rounded-xl p-4 text-sm mb-6 transition-colors">
                 <div class="flex gap-3">
                     <button @click="showPhoneMoneyModal = false"
-                        class="flex-1 py-3 bg-zinc-800 text-gray-400 rounded-xl font-bold hover:bg-zinc-700 transition-colors">取消</button>
+                        class="phone-compose-cancel flex-1 py-3 rounded-xl font-bold transition-colors">取消</button>
                     <button @click="sendPhoneMoney" :disabled="phoneMoneyAmount <= 0 || user.coins < phoneMoneyAmount"
-                        class="flex-1 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-500 transition-colors disabled:opacity-50">
+                        class="phone-compose-confirm flex-1 py-3 rounded-xl font-bold transition-colors disabled:opacity-50">
                         {{ phoneMoneyType === 'red-envelope' ? '塞进红包' : '立即转账' }}
                     </button>
                 </div>
@@ -11398,6 +11455,34 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     showPhotoDescModal.value = false;
                 };
 
+                // Keep tool actions explicit.  The old template mutated several refs
+                // inline, while some of those refs/functions were not exposed from
+                // setup(), which Safari surfaced as an apparently dead button.
+                const closePhoneComposePanels = () => {
+                    phoneShowEmojiPicker.value = false;
+                    showPhoneImageDescModal.value = false;
+                    showPhoneLocationModal.value = false;
+                    showPhoneMoneyModal.value = false;
+                };
+                const openPhoneImageComposer = () => {
+                    closePhoneComposePanels();
+                    showPhoneImageDescModal.value = true;
+                };
+                const openPhoneLocationComposer = () => {
+                    closePhoneComposePanels();
+                    showPhoneLocationModal.value = true;
+                };
+                const openPhoneMoneyComposer = (type = 'red-envelope') => {
+                    closePhoneComposePanels();
+                    phoneMoneyType.value = type === 'transfer' ? 'transfer' : 'red-envelope';
+                    showPhoneMoneyModal.value = true;
+                };
+                const togglePhoneEmojiPicker = () => {
+                    const next = !phoneShowEmojiPicker.value;
+                    closePhoneComposePanels();
+                    phoneShowEmojiPicker.value = next;
+                };
+
                 watch(() => phoneState.currentApp, (nextApp) => {
                     resetPhoneTransientUI();
                     if (nextApp !== 'chat') {
@@ -11441,14 +11526,25 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     showToast(`成功领取 ${amount} G！`, 'success');
                 };
 
+                const EMPTY_PHONE_HISTORY = Object.freeze([]);
+                // Render helpers must be pure.  Creating a new reactive chat while
+                // Vue is rendering the list led to intermittent update loops and
+                // touch events getting stranded in iOS Safari.
                 const getPhoneChatHistory = (id) => {
-                    if (!user.phoneData.chats) user.phoneData.chats = [];
+                    if (!id || !Array.isArray(user.phoneData?.chats)) return EMPTY_PHONE_HISTORY;
+                    const catId = getCanonicalCatId(id);
+                    const chat = user.phoneData.chats.find(c => sameCatId(c.contactId, catId));
+                    return Array.isArray(chat?.history) ? chat.history : EMPTY_PHONE_HISTORY;
+                };
+                const ensurePhoneChatHistory = (id) => {
+                    if (!Array.isArray(user.phoneData.chats)) user.phoneData.chats = [];
                     const catId = getCanonicalCatId(id);
                     let chat = user.phoneData.chats.find(c => sameCatId(c.contactId, catId));
                     if (!chat) {
                         chat = { contactId: catId, history: [] };
                         user.phoneData.chats.push(chat);
                     }
+                    if (!Array.isArray(chat.history)) chat.history = [];
                     return chat.history;
                 };
                 const getPhoneLastMessage = (id) => {
@@ -11507,7 +11603,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         at: now.toISOString(),
                         ...extra
                     };
-                    getPhoneChatHistory(catId).push(message);
+                    ensurePhoneChatHistory(catId).push(message);
                     appendPhoneChatMemory(cat, message);
                     scrollPhoneChatToBottom();
                     return message;
@@ -11519,6 +11615,57 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     return history.slice(lastReplyIndex + 1).filter(message => message.role === 'user' && !message.recalled);
                 };
                 const hasPendingPhoneReply = (contactId) => Boolean(contactId && getPendingPhoneMessages(contactId).length);
+                const insertEmoji = (emoji) => {
+                    phoneChatInput.value = `${phoneChatInput.value || ''}${emoji}`;
+                    phoneShowEmojiPicker.value = false;
+                    nextTick(() => phoneInputRef.value?.focus());
+                };
+                let phoneLongPressTimer = null;
+                const cancelLongPress = () => {
+                    if (phoneLongPressTimer) clearTimeout(phoneLongPressTimer);
+                    phoneLongPressTimer = null;
+                };
+                const showMsgMenu = (event, msg, idx) => {
+                    cancelLongPress();
+                    const point = event?.touches?.[0] || event?.changedTouches?.[0] || event || {};
+                    phoneState.msgMenu = {
+                        show: true,
+                        x: Math.max(12, Math.min((point.clientX || 24), window.innerWidth - 156)),
+                        y: Math.max(12, Math.min((point.clientY || 24), window.innerHeight - 178)),
+                        msg,
+                        idx
+                    };
+                };
+                const startLongPress = (event, msg, idx) => {
+                    cancelLongPress();
+                    phoneLongPressTimer = setTimeout(() => showMsgMenu(event, msg, idx), 520);
+                };
+                const replyToMsg = (msg) => {
+                    if (!msg) return;
+                    phoneState.replyToMsg = msg;
+                    nextTick(() => phoneInputRef.value?.focus());
+                };
+                const reactToMsg = (msg, emoji) => {
+                    if (!msg || !emoji) return;
+                    if (!Array.isArray(msg.reactions)) msg.reactions = [];
+                    const found = msg.reactions.find(item => item.emoji === emoji);
+                    if (found) found.count = Number(found.count || 0) + 1;
+                    else msg.reactions.push({ emoji, count: 1 });
+                };
+                const copyMsg = async (msg) => {
+                    const text = cleanText(msg?.content || '');
+                    if (!text) return;
+                    try { await navigator.clipboard?.writeText(text); showToast('消息已复制', 'success'); }
+                    catch (error) { showToast('浏览器不允许复制这条消息。', 'info'); }
+                };
+                const recallMsg = (idx) => {
+                    const history = getPhoneChatHistory(phoneState.selectedContactId);
+                    const message = history[idx];
+                    if (!message || message.role !== 'user') return;
+                    message.type = 'system';
+                    message.content = '你撤回了一条消息';
+                    message.recalled = true;
+                };
                 const closePhoneChat = () => {
                     resetPhoneTransientUI();
                     phoneState.selectedContactId = null;
@@ -11559,8 +11706,9 @@ ${pendingText}
 2. 禁止动作括号、【动作】、舞台指示、环境描写、第三人称旁白、角色名加冒号、小说式心理或肢体描写。
 3. 不要解释设定，不要提及“猫”“馆舍秘密”“AI”或正在扮演角色；不以默认哥谭/夜巡/英雄任务作为理由。
 4. 语气必须贴合原作人格和 ${hall.name} 的作品边界，亲密度代表熟悉程度而非敌意。保持独立与边界，但默认相信馆长没有恶意。
-5. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
-6. 总长 20–120 个汉字，直接给出消息正文。
+5. 必须参考角色此刻在馆内的真实状态与当天时间线，用一个正常人会说的、自然克制的方式让回复与状态相连（例如刚睡醒可说“刚醒”，正在吃东西可说“刚吃完”，外出可说“现在不太方便”）。不要旁白解释，也不要直接说自己是一只猫。
+6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
+7. 总长 20–120 个汉字，直接给出消息正文。
 
 ${buildCatMemoryContext(cat)}`;
                     try {
@@ -14436,13 +14584,15 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef,
                     openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime,
+                    openPhoneImageComposer, openPhoneLocationComposer, openPhoneMoneyComposer, togglePhoneEmojiPicker, phoneShowEmojiPicker, insertEmoji,
+                    showMsgMenu, startLongPress, cancelLongPress, replyToMsg, reactToMsg, copyMsg, recallMsg,
                     openMomentsSettings, saveMomentsSettings, likeMoment, addComment, postMoment,
                     generatePhoneNews, generatePhoneMoments,
                     addWalletTransaction,
                     showPhoneLocationModal, phoneLocationInput, showPhoneMoneyModal, phoneMoneyAmount, phoneMoneyType, showPhotoDescModal, currentPhotoDesc, scanSignal, hackCamera,
                     unlockCodexEntry, generateGNNContent, gnnLoading,
                     groupChatState, sendGroupMessage, catchInTheAct,
-                    sendPhoneMoney, openPhotoDesc,
+                    sendPhoneRealImage, sendPhoneLocation, sendPhoneMoney, openPhotoDesc,
                     phoneInputRef,
                     initTetris, tetrisAction, endGame, tetrisState, mergeState, handleMergeTouchStart, handleMergeTouchEnd, matchState, initMerge, initMatch, matchClick,
                     SLOT_BETS, slotState, initSlots, spinSlots, collectSlotWin, gambleSlotWin, closeSlots,
