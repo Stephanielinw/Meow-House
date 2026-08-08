@@ -1524,15 +1524,19 @@
             --ui-bg: #0b0d12;
             --ui-surface: rgba(24, 26, 38, 0.72);
             --ui-surface-strong: rgba(16, 18, 27, 0.9);
+            --ui-nav-surface: rgba(18, 22, 34, 0.96);
             --ui-surface-soft: rgba(255, 255, 255, 0.045);
             --ui-surface-hover: rgba(42, 44, 60, 0.78);
+            --ui-input: var(--ui-surface-hover);
             --ui-border: rgba(255, 255, 255, 0.105);
             --ui-border-strong: rgba(255, 255, 255, 0.17);
             --ui-gold: #e0b85c;
             --ui-gold-soft: rgba(224, 184, 92, 0.13);
             --ui-text: #f4f1e8;
+            --ui-text-strong: #171a20;
             --ui-text-muted: #a7a7b3;
             --ui-text-subtle: #777987;
+            --ui-button-text: #171a20;
             --ui-shadow: 0 18px 46px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.08);
             --ui-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.055);
             --ui-radius-xl: 26px;
@@ -1696,22 +1700,36 @@
         #app .gotham-statusbar {
             min-height: 34px;
             padding: 7px 14px 6px;
-            background: rgba(10, 12, 18, 0.72) !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+            background: transparent !important;
+            border-bottom: 0 !important;
             color: var(--ui-text-muted) !important;
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
+            box-shadow: none !important;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
         }
 
         /* Some iOS bookmark / standalone layouts already own the physical
          * status area. Keep a safe, neutral spacer there without duplicating
          * unreadable system text. */
         #app .gotham-statusbar.statusbar-blank {
-            background: #fff !important;
-            border-bottom-color: transparent !important;
-            box-shadow: none !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
+            background: transparent !important;
+            border-bottom: 0 !important;
+        }
+
+        #app .gotham-statusbar .text-white,
+        #app .gotham-statusbar .text-gray-200 {
+            color: var(--ui-text) !important;
+        }
+
+        #app .gotham-statusbar .text-gray-400,
+        #app .gotham-statusbar .text-gray-600 {
+            color: var(--ui-text-muted) !important;
+        }
+
+        #app .gotham-statusbar .text-yellow-500,
+        #app .gotham-statusbar .text-yellow-600,
+        #app .gotham-statusbar .text-yellow-400 {
+            color: var(--accent) !important;
         }
 
         #app .meeow-hall-entry-screen {
@@ -1719,6 +1737,12 @@
             color: var(--ui-text);
             backdrop-filter: blur(18px);
             -webkit-backdrop-filter: blur(18px);
+        }
+
+        #app .meeow-modal-overlay {
+            background: color-mix(in srgb, var(--ui-bg) 70%, rgba(8, 10, 16, .72));
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
 
         #app .meeow-hall-entry-card {
@@ -2165,9 +2189,9 @@
             box-sizing: border-box;
             padding: 6px 8px 7px !important;
             border-radius: 24px !important;
-            background: rgba(14, 16, 24, 0.84) !important;
-            border: 1px solid rgba(255, 255, 255, 0.12) !important;
-            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+            background: var(--ui-nav-surface) !important;
+            border: 1px solid var(--ui-border) !important;
+            box-shadow: var(--ui-shadow-soft) !important;
             backdrop-filter: blur(26px);
             -webkit-backdrop-filter: blur(26px);
         }
@@ -2181,6 +2205,11 @@
         }
 
         #app .gotham-nav .nav-item {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 100%;
+            padding: 0;
+            background: transparent;
             height: 100%;
             margin: 0 2px;
             gap: 3px;
@@ -2480,6 +2509,7 @@
             --ui-bg: #f3e9dc;
             --ui-surface: rgba(255, 250, 243, 0.8);
             --ui-surface-strong: rgba(252, 246, 237, 0.94);
+            --ui-nav-surface: rgba(239, 222, 201, 0.97);
             --ui-surface-soft: rgba(138, 90, 45, 0.065);
             --ui-surface-hover: rgba(255, 255, 255, 0.9);
             --ui-border: rgba(129, 86, 48, 0.18);
@@ -2504,6 +2534,7 @@
             --ui-bg: #fff0f4;
             --ui-surface: rgba(255, 250, 252, 0.82);
             --ui-surface-strong: rgba(255, 247, 250, 0.95);
+            --ui-nav-surface: rgba(255, 224, 235, 0.97);
             --ui-surface-soft: rgba(232, 91, 126, 0.065);
             --ui-surface-hover: rgba(255, 255, 255, 0.92);
             --ui-border: rgba(221, 91, 126, 0.18);
@@ -2528,6 +2559,7 @@
             --ui-bg: #edf7ff;
             --ui-surface: rgba(250, 253, 255, 0.82);
             --ui-surface-strong: rgba(246, 251, 255, 0.95);
+            --ui-nav-surface: rgba(217, 237, 252, 0.98);
             --ui-surface-soft: rgba(75, 148, 220, 0.065);
             --ui-surface-hover: rgba(255, 255, 255, 0.94);
             --ui-border: rgba(76, 142, 201, 0.19);
@@ -2552,6 +2584,7 @@
             --ui-bg: #f4f6dd;
             --ui-surface: rgba(255, 255, 248, 0.84);
             --ui-surface-strong: rgba(255, 255, 247, 0.96);
+            --ui-nav-surface: rgba(227, 241, 203, 0.98);
             --ui-surface-soft: rgba(112, 156, 65, 0.085);
             --ui-surface-hover: rgba(255, 255, 255, 0.96);
             --ui-border: rgba(90, 127, 51, 0.2);
@@ -2590,13 +2623,15 @@
         html[data-theme='cappuccino'] #app .gotham-statusbar,
         html[data-theme='strawberry'] #app .gotham-statusbar,
         html[data-theme='sky'] #app .gotham-statusbar,
+        html[data-theme='grape'] #app .gotham-statusbar,
         html[data-theme='cappuccino'] #app .gotham-topbar,
         html[data-theme='strawberry'] #app .gotham-topbar,
         html[data-theme='sky'] #app .gotham-topbar,
         html[data-theme='cappuccino'] #app .gotham-nav,
         html[data-theme='strawberry'] #app .gotham-nav,
-        html[data-theme='sky'] #app .gotham-nav {
-            background: var(--ui-surface-strong) !important;
+        html[data-theme='sky'] #app .gotham-nav,
+        html[data-theme='grape'] #app .gotham-nav {
+            background: transparent !important;
             border-color: var(--ui-border) !important;
             box-shadow: var(--ui-shadow-soft) !important;
             color: var(--ui-text) !important;
@@ -3766,16 +3801,129 @@
             }
             #app .meeow-explore-chat { padding: 14px !important; }
         }
+
+        /* ===== MEEOW PHONE / DETAIL REFINEMENT =====
+           Keep the iOS safe area visually continuous with the house surface.
+           It is a spacer for the physical status area, not a second header. */
+        #app .gotham-statusbar {
+            min-height: 0 !important;
+            height: 34px;
+            padding: 6px 14px 4px !important;
+            background: transparent !important;
+            border-bottom: 0 !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        #app .gotham-statusbar.statusbar-blank {
+            height: max(0px, var(--safe-top));
+            min-height: 0;
+            padding: 0 !important;
+            border: 0 !important;
+        }
+        #app .gotham-statusbar + #notification-bar { top: calc(var(--safe-top) + 10px); }
+
+        #app.app-container.is-detail-view .gotham-content {
+            padding-bottom: max(10px, var(--safe-bottom)) !important;
+        }
+        #app .gotham-detail-page .gotham-chat-panel {
+            height: clamp(320px, 44dvh, 470px) !important;
+            min-height: 320px !important;
+            margin-bottom: 0 !important;
+        }
+        @media (max-height: 740px) {
+            #app .gotham-detail-page .gotham-chat-panel {
+                height: clamp(300px, 42dvh, 380px) !important;
+                min-height: 300px !important;
+            }
+        }
+
+        #app .gotham-detail-page .sully-btn,
+        #app .gotham-detail-page .sully-card,
+        #app .gotham-detail-page .chat-bubble-v2 {
+            background: var(--ui-surface-strong) !important;
+            border-color: var(--ui-border) !important;
+            color: var(--ui-text) !important;
+        }
+        #app .gotham-detail-page .chat-v2-user {
+            background: var(--accent) !important;
+            color: var(--ui-button-text, #182116) !important;
+        }
+        #app .gotham-detail-page .chat-v2-ai,
+        #app .gotham-detail-page .chat-v2-system {
+            background: var(--ui-surface-soft) !important;
+            color: var(--ui-text) !important;
+        }
+        #app .gotham-detail-page .text-white,
+        #app .gotham-detail-page .text-gray-100,
+        #app .gotham-detail-page .text-gray-200,
+        #app .gotham-detail-page .text-gray-300 { color: var(--ui-text) !important; }
+
+        #app .phone-chat-shell {
+            background: var(--ui-surface-soft) !important;
+            color: var(--ui-text) !important;
+        }
+        #app .phone-chat-header,
+        #app .phone-chat-composer,
+        #app .phone-chat-tools,
+        #app .phone-chat-message-area {
+            background: var(--ui-surface-strong) !important;
+            border-color: var(--ui-border) !important;
+            color: var(--ui-text) !important;
+        }
+        #app .phone-chat-message-area { background: color-mix(in srgb, var(--ui-surface-soft) 76%, var(--ui-bg)) !important; }
+        #app .phone-chat-user-bubble { background: var(--accent) !important; color: var(--ui-button-text, #182116) !important; }
+        #app .phone-chat-cat-bubble { background: var(--ui-surface-strong) !important; color: var(--ui-text) !important; border: 1px solid var(--ui-border); }
+        #app .phone-chat-tool-button,
+        #app .phone-chat-more-button {
+            background: var(--ui-surface-hover) !important;
+            color: var(--ui-text) !important;
+            border: 1px solid var(--ui-border) !important;
+        }
+        #app .phone-chat-tool-button:active,
+        #app .phone-chat-more-button:active { background: var(--accent-dim) !important; }
+        #app .phone-chat-input {
+            background: var(--ui-surface-hover) !important;
+            border: 1px solid var(--ui-border) !important;
+            color: var(--ui-text) !important;
+        }
+        #app .phone-chat-input::placeholder { color: var(--ui-text-subtle) !important; opacity: 1; }
+        #app .phone-chat-send,
+        #app .phone-chat-reply {
+            background: var(--accent) !important;
+            color: var(--ui-button-text, #182116) !important;
+            border: 1px solid color-mix(in srgb, var(--accent) 74%, var(--ui-border)) !important;
+        }
+        #app .phone-chat-send:disabled,
+        #app .phone-chat-reply:disabled { background: var(--ui-surface-hover) !important; color: var(--ui-text-subtle) !important; border-color: var(--ui-border) !important; }
+        #app .phone-chat-time { color: var(--ui-text-subtle) !important; }
+        #app .phone-chat-menu {
+            background: var(--ui-surface-strong) !important;
+            border: 1px solid var(--ui-border) !important;
+            box-shadow: var(--ui-shadow-soft) !important;
+        }
+        #app .phone-chat-menu button { color: var(--ui-text) !important; background: var(--ui-surface-hover) !important; }
+
+        #app .focus-music-player {
+            background: var(--ui-surface-strong);
+            border: 1px solid var(--ui-border);
+            color: var(--ui-text);
+        }
+        #app .focus-music-player input,
+        #app .focus-music-player select {
+            background: var(--ui-surface-hover);
+            border: 1px solid var(--ui-border);
+            color: var(--ui-text);
+        }
     </style>
 </head>
 
 <body>
     <div id="app" class="app-container" :class="{ 'is-detail-view': currentTab === 'detail' }" v-cloak>
 
-        <!-- ===== BATPHONE OS SYSTEM STATUS BAR (SullyOS Style) ===== -->
+        <!-- ===== MEEOW OS SAFE AREA / OPTIONAL STATUS TEXT ===== -->
         <div class="gotham-statusbar w-full px-4 pt-1 pb-1 flex justify-between items-center z-[500] select-none text-[11px] font-mono tracking-wider shrink-0"
-            :class="{ 'statusbar-blank': !uiShowStatusbar }"
-            style="background: rgba(10, 10, 15, 0.95); border-bottom: 1px solid rgba(255, 255, 255, 0.05); color: #a1a1aa;">
+            :class="{ 'statusbar-blank': !uiShowStatusbar }">
             <template v-if="uiShowStatusbar">
             <!-- Left: Time & Bat Icon -->
             <div class="flex items-center gap-1.5 font-bold text-white">
@@ -5028,9 +5176,9 @@
                                                     暂无消息。去通讯录看看有没有新的朋友？
                                                 </div>
                                                 <div class="bg-white">
-                                                    <div v-for="cat in friendsList" :key="'phone-chat-' + cat.id"
+                                                    <button v-for="cat in friendsList" :key="'phone-chat-' + cat.id" type="button"
                                                         @click="openPhoneChat(cat.id)"
-                                                        class="flex items-center gap-3 p-3 border-b border-gray-50 active:bg-gray-100 cursor-pointer">
+                                                        class="w-full flex items-center gap-3 p-3 border-b border-gray-50 active:bg-gray-100 cursor-pointer text-left">
                                                         <img :src="phoneIdentities[cat.id].avatar"
                                                             class="w-12 h-12 rounded-md object-cover">
                                                         <div class="flex-1 min-w-0">
@@ -5043,7 +5191,7 @@
                                                             <div class="text-xs text-gray-400 truncate">{{
                                                                 getPhoneLastMessage(cat.id) }}</div>
                                                         </div>
-                                                    </div>
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -5126,14 +5274,14 @@
                                             <div class="bg-white">
                                                 <div v-if="friendsList.length === 0"
                                                     class="p-10 text-center text-gray-400 text-sm">暂无好友</div>
-                                                <div v-for="cat in friendsList" :key="'contact-' + cat.id"
+                                                <button v-for="cat in friendsList" :key="'contact-' + cat.id" type="button"
                                                     @click="openPhoneChat(cat.id)"
-                                                    class="flex items-center gap-3 p-3 border-b border-gray-50 active:bg-gray-100 cursor-pointer">
+                                                    class="w-full flex items-center gap-3 p-3 border-b border-gray-50 active:bg-gray-100 cursor-pointer text-left">
                                                     <img :src="phoneIdentities[cat.id].avatar"
                                                         class="w-10 h-10 rounded-md object-cover">
                                                     <span class="text-black text-base">{{ phoneIdentities[cat.id].name
                                                         }}</span>
-                                                </div>
+                                                </button>
                                             </div>
 
                                             <!-- Alphabet Index -->
@@ -5185,7 +5333,7 @@
                                                         <button v-if="req.status === 'pending'"
                                                             @click.stop="phoneState.selectedFriendRequestId = req.id"
                                                             class="bg-[#07c160] text-white px-3 py-1 rounded text-xs font-bold">查看</button>
-                                                        <span v-else class="text-xs text-gray-400">已添加</span>
+                                                        <button v-else type="button" @click.stop="openPhoneChat(req.catId)" class="text-xs text-[#576b95] font-bold">去聊天</button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -5256,15 +5404,13 @@
                                         </div>
                                     </div>
 
-                                    <!-- Chat Detail (REBUILT - TuK QQ Style) -->
-                                    <div v-if="phoneState.selectedContactId" class="flex flex-col h-full text-black"
-                                        :style="`background: ${phoneState.chatBg || '#ededed'};`">
-                                        <!-- HEADER: frosted glass -->
-                                        <div class="h-14 flex items-center px-3 sticky top-0 z-20 shrink-0"
-                                            style="background: rgba(247,247,247,0.92); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.07);">
-                                            <button @click="phoneState.selectedContactId = null"
-                                                class="w-8 text-gray-600 text-lg mr-2"><i
-                                                    class="fas fa-chevron-left"></i></button>
+                                    <!-- Chat Detail: a compact, explicit phone conversation surface. -->
+                                    <div v-if="phoneState.selectedContactId" class="phone-chat-shell flex flex-col h-full relative">
+                                        <!-- HEADER -->
+                                        <div class="phone-chat-header h-14 flex items-center px-3 sticky top-0 z-20 shrink-0 border-b">
+                                            <button @click="closePhoneChat"
+                                                class="min-w-[54px] text-sm font-bold text-left" aria-label="返回聊天列表"><i
+                                                    class="fas fa-chevron-left mr-1"></i>返回</button>
                                             <div class="flex-1 text-center">
                                                 <div class="font-bold text-sm leading-tight">{{
                                                     phoneIdentities[phoneState.selectedContactId].name }}</div>
@@ -5274,28 +5420,25 @@
                                                     <span class="text-[10px] text-green-600">在线</span>
                                                 </div>
                                             </div>
-                                            <!-- Right buttons -->
-                                            <div class="flex items-center gap-3">
-                                                <!-- Nudge button 戳一戳 -->
-                                                <button @click="nudgeContact()" class="text-gray-500 text-sm"
-                                                    title="戳一戳">
-                                                    <i class="fas fa-hand-pointer"></i>
+                                            <div class="relative min-w-[54px] text-right">
+                                                <button @click="phoneState.chatOptionsOpen = !phoneState.chatOptionsOpen" class="phone-chat-more-button px-2 py-1 rounded-lg text-[11px] font-bold" aria-label="更多聊天操作">
+                                                    更多 <i class="fas fa-ellipsis-v ml-0.5"></i>
                                                 </button>
-                                                <button class="text-gray-500 text-xl"><i
-                                                        class="fas fa-ellipsis-v"></i></button>
+                                                <div v-if="phoneState.chatOptionsOpen" class="phone-chat-menu absolute right-0 top-10 z-40 p-1.5 rounded-xl w-32 text-left">
+                                                    <button @click="reRollLastPhoneMessage(); phoneState.chatOptionsOpen = false" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left"><i class="fas fa-rotate mr-1.5"></i>重抽回复</button>
+                                                    <button @click="closePhoneChat" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left mt-1"><i class="fas fa-comments mr-1.5"></i>返回列表</button>
+                                                </div>
                                             </div>
                                         </div>
 
                                         <!-- MESSAGES AREA -->
-                                        <div class="flex-1 overflow-y-auto p-3 pb-2 space-y-1 custom-scrollbar"
+                                        <div class="phone-chat-message-area flex-1 overflow-y-auto p-3 pb-2 space-y-1 custom-scrollbar"
                                             ref="phoneChatRef">
                                             <template
                                                 v-for="(msg, idx) in getPhoneChatHistory(phoneState.selectedContactId)"
                                                 :key="idx">
-                                                <!-- Time divider every ~5 messages or first -->
-                                                <div v-if="idx === 0 || idx % 6 === 0" class="chat-time-divider my-2">
-                                                    <span>{{ new Date(msg.ts || Date.now()).toLocaleTimeString('zh-CN',
-                                                        {hour:'2-digit', minute:'2-digit'}) }}</span>
+                                                <div v-if="shouldShowPhoneDateDivider(phoneState.selectedContactId, idx)" class="chat-time-divider my-2">
+                                                    <span>{{ formatPhoneMessageDate(msg) }}</span>
                                                 </div>
 
                                                 <!-- System / nudge message -->
@@ -5321,7 +5464,7 @@
                                                                 </span>{{ msg.quotedMsg.content }}
                                                             </div>
                                                             <!-- Bubble -->
-                                                            <div :class="msg.role === 'user' ? 'msg-bubble-right' : 'msg-bubble-left'"
+                                                            <div :class="msg.role === 'user' ? 'phone-chat-user-bubble' : 'phone-chat-cat-bubble'"
                                                                 @contextmenu.prevent="showMsgMenu($event, msg, idx)"
                                                                 @touchstart="startLongPress($event, msg, idx)"
                                                                 @touchend="cancelLongPress"
@@ -5399,6 +5542,7 @@
                                                                     <i class="fas fa-redo-alt"></i>
                                                                 </button>
                                                             </div>
+                                                            <div class="phone-chat-time mt-1 px-1 text-[9px]">{{ formatPhoneMessageTime(msg) }}</div>
                                                             <!-- Emoji reactions -->
                                                             <div v-if="msg.reactions && msg.reactions.length > 0"
                                                                 class="flex flex-wrap gap-1 mt-1">
@@ -5427,8 +5571,7 @@
                                         </div>
 
                                         <!-- INPUT AREA -->
-                                        <div class="shrink-0 bg-[#f5f5f8]"
-                                            style="border-top:1px solid rgba(0,0,0,0.08);">
+                                        <div class="phone-chat-composer shrink-0 border-t">
                                             <!-- Reply preview bar -->
                                             <div v-if="phoneState.replyToMsg" class="reply-preview-bar">
                                                 <div class="flex-1 min-w-0">
@@ -5442,29 +5585,24 @@
                                                     class="text-gray-400 ml-2">×</button>
                                             </div>
 
-                                            <!-- Tool bar (scrollable) -->
-                                            <div class="chat-tool-bar">
-                                                <button @click="$refs.phoneImageInput.click()" class="chat-tool-btn"
-                                                    title="图片"><i class="far fa-image"></i></button>
-                                                <button @click="showPhoneImageDescModal = true" class="chat-tool-btn"
-                                                    title="相机"><i class="fas fa-camera"></i></button>
-                                                <button @click="showPhoneLocationModal = true" class="chat-tool-btn"
-                                                    title="定位"><i
-                                                        class="fas fa-map-marker-alt text-red-400"></i></button>
+                                            <!-- Tool bar: short labels make every action discoverable on touch screens. -->
+                                            <div class="phone-chat-tools flex gap-2 px-3 py-2 overflow-x-auto border-t">
+                                                <button @click="$refs.phoneImageInput.click()" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
+                                                    title="发送图片"><i class="far fa-image mr-1"></i>图片</button>
+                                                <button @click="showPhoneImageDescModal = true" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
+                                                    title="发送照片描述"><i class="fas fa-camera mr-1"></i>相机</button>
+                                                <button @click="showPhoneLocationModal = true" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
+                                                    title="发送位置"><i class="fas fa-map-marker-alt mr-1"></i>位置</button>
                                                 <button
                                                     @click="phoneMoneyType = 'red-envelope'; showPhoneMoneyModal = true"
-                                                    class="chat-tool-btn" title="红包"><i
-                                                        class="fas fa-gift text-orange-400"></i></button>
+                                                    class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0" title="发红包"><i
+                                                        class="fas fa-gift mr-1"></i>红包</button>
                                                 <button @click="phoneMoneyType = 'transfer'; showPhoneMoneyModal = true"
-                                                    class="chat-tool-btn" title="转账"><i
-                                                        class="fas fa-dollar-sign text-green-500"></i></button>
-                                                <button @click="sendVoiceMsg()" class="chat-tool-btn" title="语音"><i
-                                                        class="fas fa-microphone text-purple-400"></i></button>
-                                                <button @click="nudgeContact()" class="chat-tool-btn" title="戳一戳"><i
-                                                        class="fas fa-hand-pointer text-yellow-500"></i></button>
+                                                    class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0" title="转账"><i
+                                                        class="fas fa-dollar-sign mr-1"></i>转账</button>
                                                 <button @click="phoneShowEmojiPicker = !phoneShowEmojiPicker"
-                                                    class="chat-tool-btn" title="表情"><i
-                                                        class="far fa-smile text-yellow-500"></i></button>
+                                                    class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0" title="表情"><i
+                                                        class="far fa-smile mr-1"></i>表情</button>
                                                 <input type="file" ref="phoneImageInput" class="hidden" accept="image/*"
                                                     @change="sendPhoneRealImage">
                                             </div>
@@ -5481,9 +5619,16 @@
                                             <div class="flex gap-2 items-end px-3 py-2">
                                                 <input ref="phoneInputRef" v-model="phoneChatInput"
                                                     @keydown.enter.prevent="sendPhoneMessage" placeholder="发送消息..."
-                                                    class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-400 shadow-sm">
+                                                    class="phone-chat-input flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none shadow-sm">
                                                 <button @click="sendPhoneMessage" :disabled="!phoneChatInput.trim()"
-                                                    class="bg-[#07c160] text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 transition-opacity">发送</button>
+                                                    class="phone-chat-send px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 transition-opacity">发送</button>
+                                            </div>
+                                            <div class="px-3 pb-3">
+                                                <button @click="requestPhoneReply" :disabled="!hasPendingPhoneReply(phoneState.selectedContactId) || phoneState.isTyping"
+                                                    class="phone-chat-reply w-full rounded-xl py-2 text-xs font-extrabold disabled:opacity-50">
+                                                    <i :class="phoneState.isTyping ? 'fas fa-ellipsis animate-pulse' : 'fas fa-comment-dots'" class="mr-1.5"></i>{{ phoneState.isTyping ? '正在等 TA 回复…' : '让 TA 回复' }}
+                                                </button>
+                                                <p class="mt-1.5 text-center text-[9px]" style="color: var(--ui-text-subtle);">可连续发送多条，确认说完后再请求回复。</p>
                                             </div>
                                         </div>
 
@@ -6481,8 +6626,8 @@
                         </div>
                         <div class="col-span-2 flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-900/60 px-3 py-2.5">
                             <div>
-                                <div class="text-[10px] text-gray-300 font-bold">显示顶端系统状态栏</div>
-                                <div class="text-[9px] text-gray-500 mt-0.5">关闭后保留白色安全区，不显示馆内时间与信号文字</div>
+                                <div class="text-[10px] text-gray-300 font-bold">显示馆内状态文字</div>
+                                <div class="text-[9px] text-gray-500 mt-0.5">关闭后只保留连续的 iOS 安全区，不显示虚拟时间与信号</div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
                                 <input type="checkbox" v-model="uiShowStatusbar" @change="saveStatusbarPreference" class="sr-only peer">
@@ -6514,6 +6659,15 @@
                                 <button @click="applyCustomFont()" class="py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold">加载并应用</button>
                                 <button @click="resetCustomFont" class="py-2 rounded-lg bg-zinc-700 text-gray-200 text-xs font-bold">恢复默认</button>
                             </div>
+                        </div>
+                        <div class="col-span-2 border-t border-zinc-700 pt-4">
+                            <div class="flex justify-between gap-3 mb-2">
+                                <span class="text-[10px] text-gray-400 uppercase font-bold">专注音乐搜索服务（可选）</span>
+                                <span class="text-[9px] text-gray-500">本地上传 / HTTPS 直链无需配置</span>
+                            </div>
+                            <input v-model.trim="settings.musicSearchEndpoint" type="url" placeholder="https://你的合法音乐服务/search"
+                                class="w-full bg-zinc-900 border border-zinc-700 text-gray-200 text-xs rounded-lg px-3 py-2 font-mono focus:border-yellow-600 outline-none">
+                            <p class="text-[10px] text-gray-500 mt-2 leading-relaxed">仅接受 HTTPS。服务应返回音频 HTTPS 链接；不会内置或调用第三方聚合音乐接口。</p>
                         </div>
                     </div>
                 </div>
@@ -6692,7 +6846,7 @@
                                 class="text-[9px] font-mono font-bold border px-2 py-0.5 rounded-full uppercase">{{ report.status }}</span>
                         </div>
                         <h3 class="font-bold text-sm mb-1">{{ report.missionName }}</h3>
-                        <div class="text-[10px] font-mono mb-2" style="color: var(--ui-text-muted)">记录人: {{ report.executor }} | 耗时: {{ Math.floor(report.duration/60) }}m</div>
+                        <div class="text-[10px] font-mono mb-2" style="color: var(--ui-text-muted)">记录人: {{ (report.executor === 'Raccoon S' || report.executor === '浣熊S') ? '奈恩' : report.executor }} | 耗时: {{ Math.floor(report.duration/60) }}m</div>
                         <div class="archive-summary p-2.5 rounded-xl text-xs italic font-serif">“{{ report.summary }}”</div>
                         <details v-if="report.logs && report.logs.length" class="mt-2 text-[10px]" style="color: var(--ui-text-muted)">
                             <summary class="archive-live-log cursor-pointer select-none font-mono">LIVE LOG · 本次记录</summary>
@@ -6843,30 +6997,30 @@
                     <button @click="showEditCatModal = false" class="sully-btn w-8 h-8 rounded-xl text-sm" style="background: var(--ui-surface-hover); color: var(--ui-text);" aria-label="关闭管理面板"><i class="fas fa-times"></i></button>
                 </header>
                 <div class="meeow-modal-body p-5">
-                <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改昵称</label>
-                <input v-model="selectedCat.name" class="mb-3 bg-black/40 border border-white/10 text-xs text-white rounded-xl px-3 py-2">
-                <section class="mb-4 rounded-2xl border border-white/15 bg-black/25 p-3">
+                <label class="text-[10px] font-mono mb-1 block" style="color: var(--ui-text-muted);">修改昵称</label>
+                <input v-model="selectedCat.name" class="mb-3 border text-xs rounded-xl px-3 py-2" style="background: var(--ui-surface-hover); border-color: var(--ui-border); color: var(--ui-text);">
+                <section class="mb-4 rounded-2xl border p-3" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
                     <div class="flex items-start justify-between gap-3 mb-2.5">
                         <div class="min-w-0">
-                            <p class="text-xs font-black text-white"><i class="fas fa-cat text-yellow-400 mr-1"></i>用户上传的全身动作素材</p>
-                            <p class="text-[9px] leading-relaxed text-gray-400 mt-1">在 Pony Town 亲手捏好后上传透明 PNG / WebP。站立图会替代头像；其余动作会保留给馆内地图与状态展示。</p>
+                            <p class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-cat mr-1" style="color: var(--accent);"></i>用户上传的全身动作素材</p>
+                            <p class="text-[9px] leading-relaxed mt-1" style="color: var(--ui-text-muted);">在 Pony Town 亲手捏好后上传透明 PNG / WebP。站立图会替代头像；其余动作会保留给馆内地图与状态展示。</p>
                         </div>
                         <div class="shrink-0 flex flex-col items-end gap-1.5">
                             <a href="https://pony.town/" target="_blank" rel="noopener noreferrer" class="text-[9px] font-black" style="color: var(--accent);"><i class="fas fa-arrow-up-right-from-square mr-1"></i>前往 Pony Town 捏猫</a>
-                            <span class="text-[9px] px-2 py-1 rounded-full" :class="selectedCat.avatarMode === 'sprite' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-gray-400'">{{ selectedCat.avatarMode === 'sprite' ? '已用站立图' : '原头像' }}</span>
+                            <span class="text-[9px] px-2 py-1 rounded-full" :style="selectedCat.avatarMode === 'sprite' ? 'background: color-mix(in srgb, #22c55e 18%, transparent); color: #16803b;' : 'background: var(--ui-surface-hover); color: var(--ui-text-muted);'">{{ selectedCat.avatarMode === 'sprite' ? '已用站立图' : '原头像' }}</span>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <article v-for="action in spriteActionDefinitions" :key="action.key" class="rounded-xl border border-white/10 bg-white/[.04] p-2">
+                        <article v-for="action in spriteActionDefinitions" :key="action.key" class="rounded-xl border p-2" style="background: var(--ui-surface-hover); border-color: var(--ui-border);">
                             <div class="flex gap-2 min-w-0">
-                                <div class="w-12 h-12 shrink-0 rounded-lg border border-white/10 bg-black/25 flex items-center justify-center overflow-hidden">
+                                <div class="w-12 h-12 shrink-0 rounded-lg border flex items-center justify-center overflow-hidden" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
                                     <img v-if="getSpriteAssetSource(selectedCat, action.key)" :src="getSpriteAssetSource(selectedCat, action.key)" :alt="action.label" class="w-full h-full object-contain" style="image-rendering: pixelated;">
-                                    <i v-else :class="['fas', action.icon, 'text-gray-600', 'text-sm']"></i>
+                                    <i v-else :class="['fas', action.icon, 'text-sm']" style="color: var(--ui-text-subtle);"></i>
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-[10px] font-bold text-gray-100 truncate">{{ action.label }}</p>
-                                    <p class="text-[8px] text-gray-500 truncate">{{ getSpriteAssetLabel(selectedCat, action.key) }}</p>
-                                    <label :for="'sprite-upload-' + action.key" class="inline-flex mt-1.5 cursor-pointer text-[9px] font-bold text-yellow-300 hover:text-yellow-200"><i class="fas fa-upload mr-1"></i>上传</label>
+                                    <p class="text-[10px] font-bold truncate" style="color: var(--ui-text);">{{ action.label }}</p>
+                                    <p class="text-[8px] truncate" style="color: var(--ui-text-muted);">{{ getSpriteAssetLabel(selectedCat, action.key) }}</p>
+                                    <label :for="'sprite-upload-' + action.key" class="inline-flex mt-1.5 cursor-pointer text-[9px] font-bold" style="color: var(--accent);"><i class="fas fa-upload mr-1"></i>上传</label>
                                     <input :id="'sprite-upload-' + action.key" class="hidden" type="file" accept="image/png,image/webp,.png,.webp" @change="(event) => handleSpriteAssetUpload(event, action.key)">
                                 </div>
                             </div>
@@ -6881,7 +7035,7 @@
                         <button v-if="selectedCat.spriteAssets?.stand?.assetId" @click="useSpriteAvatar(selectedCat)" class="sully-btn flex-1 bg-emerald-500/80 hover:bg-emerald-400 text-emerald-950 py-2 rounded-xl text-[10px] font-black"><i class="fas fa-image mr-1"></i>使用站立图</button>
                         <button v-if="selectedCat.avatarMode === 'sprite'" @click="useOriginalAvatar" class="sully-btn flex-1 bg-white/10 hover:bg-white/20 text-gray-200 py-2 rounded-xl text-[10px] font-bold">切回原头像</button>
                     </div>
-                    <p class="mt-2 text-[8px] leading-relaxed text-gray-500">建议使用 256×256 或 512×512 的透明画布，并让四脚落在同一底线；行走图可上传 1 / 2 / 4 / 6 / 8 帧横向精灵图。</p>
+                    <p class="mt-2 text-[8px] leading-relaxed" style="color: var(--ui-text-muted);">建议使用 256×256 或 512×512 的透明画布，并让四脚落在同一底线；行走图可上传 1 / 2 / 4 / 6 / 8 帧横向精灵图。</p>
                 </section>
                 <div v-if="pixelAvatarWorkshopEnabled" class="mb-3 rounded-2xl border border-white/10 bg-black/25 p-3">
                     <div class="flex items-center justify-between gap-2 mb-2">
@@ -7022,6 +7176,29 @@
                     {{ currentSpecialEventContent }}</div>
                 <button @click="closeSpecialEvent"
                     class="w-full bg-pink-600 text-white py-3 rounded font-bold hover:bg-pink-500 shadow-lg">珍藏这份回忆</button>
+            </div>
+        </div>
+
+        <!-- Pending daily archive decision (shown after a stopped/failed 03:00 run) -->
+        <div v-if="dailyArchiveResumeModal.show" class="fixed inset-0 z-[100101] flex items-center justify-center p-5 meeow-modal-overlay">
+            <div class="sully-glass w-full max-w-sm rounded-[26px] p-6 shadow-2xl">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center bg-[var(--accent-dim)] text-[var(--accent)] shrink-0">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="font-extrabold text-[var(--ui-text)]">昨日归档待完成</h2>
+                        <p class="mt-1 text-xs leading-relaxed text-[var(--ui-text-muted)]">{{ dailyArchiveResumeModal.archiveDateKey }} 的聊天、互动与监控还没有清空，也没有写入半份归档。</p>
+                    </div>
+                </div>
+                <div class="mt-4 max-h-28 overflow-y-auto rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-soft)] p-3 text-xs leading-relaxed text-[var(--ui-text-muted)] whitespace-pre-wrap">
+                    {{ dailyArchiveResumeModal.errorMessage }}
+                </div>
+                <p class="mt-3 text-xs leading-relaxed text-[var(--ui-text-subtle)]">确认反代恢复后可重新归档；暂不处理不会影响你继续使用喵喵馆。</p>
+                <div class="mt-5 grid grid-cols-2 gap-3">
+                    <button type="button" @click="dismissPendingDailyArchive" class="rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-soft)] py-3 text-sm font-bold text-[var(--ui-text-muted)]">暂不处理</button>
+                    <button type="button" @click="resumePendingDailyArchive" class="rounded-xl bg-[var(--accent)] py-3 text-sm font-extrabold text-[var(--ui-button-text,#182012)]">重新归档</button>
+                </div>
             </div>
         </div>
 
@@ -7272,6 +7449,52 @@
                             class="bg-zinc-700 hover:bg-zinc-600 text-white px-2 py-1 rounded text-[10px] font-bold transition">
                             <i class="fas fa-play"></i>
                         </button>
+                    </div>
+                </div>
+                <div class="focus-music-player rounded-xl p-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <div>
+                            <div class="text-xs font-extrabold"><i class="fas fa-headphones mr-1.5"></i>专注音乐</div>
+                            <div class="text-[9px] mt-0.5" style="color: var(--ui-text-subtle)">{{ currentFocusMusicTrack ? currentFocusMusicTrack.title : '还没有加入曲目' }}</div>
+                        </div>
+                        <button @click="focusMusic.expanded = !focusMusic.expanded" class="focus-music-toggle px-2.5 py-1.5 rounded-lg text-[10px] font-bold">
+                            {{ focusMusic.expanded ? '收起' : '打开播放列表' }}
+                        </button>
+                    </div>
+                    <div v-if="focusMusic.expanded" class="mt-3 space-y-2.5">
+                        <div v-if="currentFocusMusicTrack" class="space-y-1.5">
+                            <div class="flex items-center gap-2">
+                                <button @click="toggleFocusMusic" class="focus-music-play w-9 h-9 rounded-lg shrink-0"><i :class="isFocusMusicPlaying ? 'fas fa-pause' : 'fas fa-play'"></i></button>
+                                <input type="range" min="0" :max="Math.max(1, focusMusic.duration)" :value="focusMusic.position" @input="seekFocusMusic" class="flex-1">
+                                <button @click="settings.focusMusicLoop = !settings.focusMusicLoop" class="focus-music-loop text-[10px] px-2 py-1 rounded-lg" :class="{ 'is-active': settings.focusMusicLoop }"><i class="fas fa-repeat"></i></button>
+                            </div>
+                            <div class="flex items-center gap-2 text-[9px]" style="color: var(--ui-text-subtle)">
+                                <span>{{ formatFocusMusicTime(focusMusic.position) }} / {{ formatFocusMusicTime(focusMusic.duration) }}</span>
+                                <label class="ml-auto flex items-center gap-1">音量 <input type="range" min="0" max="1" step="0.05" v-model.number="settings.focusMusicVolume" @input="syncFocusMusicVolume" class="w-20"></label>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-[1fr_auto] gap-2">
+                            <input v-model.trim="focusMusic.draftUrl" placeholder="https 音频直链" class="focus-music-input rounded-lg px-2 py-2 text-[10px]">
+                            <button @click="addFocusMusicUrl" class="focus-music-add rounded-lg px-2 text-[10px] font-bold">加入</button>
+                        </div>
+                        <input v-model.trim="focusMusic.draftTitle" placeholder="曲目名称（可选）" class="focus-music-input w-full rounded-lg px-2 py-2 text-[10px]">
+                        <label class="focus-music-upload rounded-lg py-2 text-center text-[10px] font-bold block cursor-pointer"><i class="fas fa-file-audio mr-1"></i>上传本地音频<input type="file" accept="audio/*" class="hidden" @change="handleFocusMusicUpload"></label>
+                        <div class="focus-music-search rounded-lg p-2">
+                            <label class="text-[9px] font-bold block mb-1">音乐搜索服务（可选）</label>
+                            <input v-model.trim="settings.musicSearchEndpoint" placeholder="https://你的服务/search" class="focus-music-input w-full rounded-lg px-2 py-2 text-[10px]">
+                            <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
+                                <input v-model.trim="focusMusic.searchQuery" @keyup.enter="searchFocusMusic" placeholder="搜索曲目（需先配置服务）" class="focus-music-input rounded-lg px-2 py-2 text-[10px]">
+                                <button @click="searchFocusMusic" :disabled="focusMusic.isSearching" class="focus-music-add rounded-lg px-2 text-[10px] font-bold">搜索</button>
+                            </div>
+                            <p class="text-[8px] mt-1" style="color: var(--ui-text-subtle)">服务需返回音频 HTTPS URL；未配置时仅支持本地上传和直链。</p>
+                            <button v-for="item in focusMusic.searchResults" :key="item.url" @click="addFocusMusicTrack(item)" class="w-full text-left mt-1.5 px-2 py-1.5 rounded-lg text-[10px] focus-music-result"><b>{{ item.title }}</b><span v-if="item.artist"> · {{ item.artist }}</span></button>
+                        </div>
+                        <div v-if="settings.focusMusicPlaylist.length" class="max-h-24 overflow-y-auto custom-scrollbar space-y-1">
+                            <div v-for="(track, index) in settings.focusMusicPlaylist" :key="track.id || track.url" class="flex items-center gap-2 p-1.5 rounded-lg focus-music-track" :class="{ 'is-current': focusMusic.currentIndex === index }">
+                                <button @click="playFocusMusic(index)" class="flex-1 min-w-0 text-left truncate text-[10px]">{{ track.title || '未命名曲目' }}</button>
+                                <button @click="removeFocusMusic(index)" class="text-[10px] px-1.5" aria-label="移除曲目"><i class="fas fa-xmark"></i></button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -7630,30 +7853,34 @@
         </div>
 
         <audio ref="audioPlayer" loop style="display:none;" @play="isFocusAudioPlaying = true"
-            @pause="isFocusAudioPlaying = false" @error="showToast('音频加载失败，请检查 URL', 'error')"></audio>
+            @pause="isFocusAudioPlaying = false" @error="showToast('白噪音加载失败，请检查 URL', 'error')"></audio>
+        <audio ref="focusMusicAudioPlayer" style="display:none;" :loop="settings.focusMusicLoop"
+            @play="focusMusicPlaying = true; isFocusAudioPlaying = true" @pause="focusMusicPlaying = false; isFocusAudioPlaying = false"
+            @timeupdate="updateFocusMusicProgress" @loadedmetadata="updateFocusMusicProgress"
+            @ended="handleFocusMusicEnded" @error="handleFocusMusicError"></audio>
 
         <div v-if="!isFocusing && currentTab !== 'detail'" class="gotham-nav nav-bar sully-glass flex flex-col justify-between pt-1 pb-0.5 border-t border-white/10 shadow-2xl">
             <div class="flex justify-around items-center w-full flex-1">
-                <div class="nav-item sully-btn" :class="{ active: currentTab === 'mission' }" @click="navigateToTab('mission')">
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'mission' }" @click="navigateToTab('mission')" aria-label="任务">
                     <i class="fas fa-tasks"></i>
                     <span>任务</span>
-                </div>
-                <div class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="openCurrentHall">
+                </button>
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="openCurrentHall" aria-label="喵喵馆">
                     <i class="fas fa-couch"></i>
                     <span>喵喵馆</span>
-                </div>
-                <div class="nav-item sully-btn" :class="{ active: currentTab === 'explore' }" @click="navigateToTab('explore')">
+                </button>
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'explore' }" @click="navigateToTab('explore')" aria-label="外出">
                     <i class="fas fa-compass"></i>
                     <span>外出</span>
-                </div>
-                <div class="nav-item sully-btn" :class="{ active: currentTab === 'phone' }" @click="navigateToTab('phone')">
+                </button>
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'phone' }" @click="navigateToTab('phone')" aria-label="手机">
                     <i class="fas fa-mobile-alt"></i>
                     <span>手机</span>
-                </div>
-                <div class="nav-item sully-btn" :class="{ active: currentTab === 'settings' }" @click="navigateToTab('settings')">
+                </button>
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'settings' }" @click="navigateToTab('settings')" aria-label="终端">
                     <i class="fas fa-sliders-h"></i>
                     <span>终端</span>
-                </div>
+                </button>
             </div>
             <!-- iOS Style Home Indicator Bar -->
             <div class="home-indicator-bar"></div>
@@ -7696,6 +7923,7 @@
                 // A separate key keeps legacy calendar-day values from causing an
                 // accidental archive immediately after upgrading.
                 const OPERATIONAL_DAY_KEY = 'meeow_operational_day_key';
+                const DAILY_ARCHIVE_PENDING_KEY = 'meeow_daily_archive_pending_v1';
                 const OPERATIONAL_DAY_START_HOUR = 3;
 
                 let initialUser = {
@@ -7836,7 +8064,11 @@
                     customFontUrl: '',
                     customFontFamily: '',
                     customFontEnabled: false,
-                    hallDisplayMode: 'text'
+                    hallDisplayMode: 'text',
+                    focusMusicPlaylist: [],
+                    focusMusicVolume: 0.7,
+                    focusMusicLoop: true,
+                    musicSearchEndpoint: ''
                 };
 
                 let savedData = localStorage.getItem(STORAGE_KEY);
@@ -7940,6 +8172,10 @@
                                 parsed.settings.baseUrl = '';
                             }
                             Object.assign(settings, parsed.settings);
+                            if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
+                            settings.focusMusicVolume = Math.max(0, Math.min(1, Number(settings.focusMusicVolume ?? 0.7)));
+                            settings.focusMusicLoop = settings.focusMusicLoop !== false;
+                            settings.musicSearchEndpoint = typeof settings.musicSearchEndpoint === 'string' ? settings.musicSearchEndpoint : '';
                         }
                         if (parsed.cats && parsed.cats.length > 0) cats.value = parsed.cats;
                         if (parsed.halls && parsed.halls.length > 0) halls.value = parsed.halls;
@@ -8414,6 +8650,11 @@
                     waitInfo: '',
                     isDeciding: false
                 });
+                const dailyArchiveResumeModal = reactive({
+                    show: false,
+                    archiveDateKey: '',
+                    errorMessage: ''
+                });
                 const apiRequestQueue = [];
                 const cancelledApiBatches = new Set();
                 const apiRequestDedupe = new Map();
@@ -8488,6 +8729,19 @@
                 const currentNoise = ref('none');
                 const customNoiseUrl = ref('');
                 const audioPlayer = ref(null);
+                const focusMusicAudioPlayer = ref(null);
+                const focusMusicPlaying = ref(false);
+                const focusMusic = reactive({
+                    expanded: false,
+                    currentIndex: -1,
+                    position: 0,
+                    duration: 0,
+                    draftUrl: '',
+                    draftTitle: '',
+                    searchQuery: '',
+                    searchResults: [],
+                    isSearching: false
+                });
                 const isProcessingFocusTick = ref(false);
                 const isFinishingFocus = ref(false);
                 const focusSettlementLoading = reactive({
@@ -8529,25 +8783,35 @@
                 // System Log & Notification Refs
                 const systemLogs = ref([]);
                 const logWindow = ref(null);
-                const notification = reactive({ title: '', message: '', avatar: '', visible: false });
+                const notification = reactive({ title: '', message: '', avatar: '', type: 'info', visible: false });
                 let notificationTimer = null;
 
-                const showNotification = (title, message, avatarUrl = 'https://i.postimg.cc/qRqpK5kP/anime-avatar.jpg') => {
+                const showNotification = (title, message, avatarUrl = '', type = 'info') => {
                     notification.title = title;
                     notification.message = message;
                     notification.avatar = avatarUrl;
+                    notification.type = type;
                     notification.visible = true;
                     if (notificationTimer) clearTimeout(notificationTimer);
                     notificationTimer = setTimeout(() => { notification.visible = false; }, 5000);
                 };
-                const hideNotification = () => { notification.visible = false; };
+                const hideNotification = () => {
+                    if (notificationTimer) clearTimeout(notificationTimer);
+                    notification.visible = false;
+                };
 
                 // Focus Island State
                 const isFocusAudioPlaying = ref(false);
                 const toggleFocusAudioIsland = () => {
-                    if (!audioPlayer.value) return;
+                    const musicPlayer = focusMusicAudioPlayer.value;
+                    if (musicPlayer?.src) {
+                        if (musicPlayer.paused) playFocusMusic(focusMusic.currentIndex < 0 ? 0 : focusMusic.currentIndex);
+                        else musicPlayer.pause();
+                        return;
+                    }
+                    if (!audioPlayer.value?.src) return;
                     if (audioPlayer.value.paused) {
-                        audioPlayer.value.play().catch(e => console.error(e));
+                        audioPlayer.value.play().catch(() => showToast('白噪音无法播放。', 'error'));
                     } else {
                         audioPlayer.value.pause();
                     }
@@ -8672,6 +8936,10 @@
                     chatTab: 'chat', // 'chat', 'contacts', 'discover', 'moments', 'new-friends'
                     selectedContactId: null,
                     selectedFriendRequestId: null,
+                    replyToMsg: null,
+                    nudgeVisible: false,
+                    chatOptionsOpen: false,
+                    msgMenu: { show: false, x: 0, y: 0, msg: null, idx: -1 },
                     isTyping: false,
                     tarotQuestion: '',
                     tarotResult: null,
@@ -8954,9 +9222,12 @@ ${buildCatMemoryContext(cat)}`;
                     }
                 };
 
+                const sameCatId = (left, right) => String(left) === String(right);
+                const getCanonicalCatId = (id) => cats.value.find(cat => sameCatId(cat.id, id))?.id ?? id;
+
                 const friendsList = computed(() => {
                     if (!user.phoneData || !user.phoneData.friends) return [];
-                    return cats.value.filter(cat => user.phoneData.friends.includes(cat.id));
+                    return cats.value.filter(cat => user.phoneData.friends.some(id => sameCatId(id, cat.id)));
                 });
 
                 const friendRequestInFlight = new Set();
@@ -8971,23 +9242,24 @@ ${buildCatMemoryContext(cat)}`;
                     if (!user.phoneData.friendRequests) user.phoneData.friendRequests = [];
                     if (!user.phoneData.friendRequestSentCatIds) user.phoneData.friendRequestSentCatIds = [];
 
-                    if (user.phoneData.friends.includes(catId)) return;
-                    if (user.phoneData.friendRequests.some(r => r.catId === catId)) return;
-                    if (user.phoneData.friendRequestSentCatIds.includes(catId)) return;
-                    if (friendRequestInFlight.has(catId)) return;
+                    const canonicalCatId = getCanonicalCatId(catId);
+                    if (user.phoneData.friends.some(id => sameCatId(id, canonicalCatId))) return;
+                    if (user.phoneData.friendRequests.some(r => sameCatId(r.catId, canonicalCatId))) return;
+                    if (user.phoneData.friendRequestSentCatIds.some(id => sameCatId(id, canonicalCatId))) return;
+                    if (friendRequestInFlight.has(String(canonicalCatId))) return;
 
-                    const cat = cats.value.find(c => c.id === catId);
+                    const cat = cats.value.find(c => sameCatId(c.id, canonicalCatId));
                     if (!cat) return;
-                    friendRequestInFlight.add(catId);
+                    friendRequestInFlight.add(String(canonicalCatId));
 
-                    const identity = phoneIdentities.value[catId] || { name: cat.name, role: '神秘人' };
+                    const identity = phoneIdentities.value[cat.id] || { name: cat.name, role: '神秘人' };
                     // Persist the first-contact event before any network wait so a
                     // queue timeout, tab switch, or operating-day reset can never
                     // silently lose (or duplicate) this cat's single request.
-                    user.phoneData.friendRequestSentCatIds.push(catId);
+                    user.phoneData.friendRequestSentCatIds.push(cat.id);
                     const request = {
                         id: Date.now() + Math.random(),
-                        catId,
+                        catId: cat.id,
                         message: createFriendRequestFallback(cat, identity),
                         status: 'pending',
                         time: new Date().toLocaleString()
@@ -8997,7 +9269,7 @@ ${buildCatMemoryContext(cat)}`;
                     showNotification('收到新的好友申请', `${identity.name} 想和你建立一个方便联络的渠道。`, getCatAvatarSource(cat));
 
                     if (!settings.apiKey) {
-                        friendRequestInFlight.delete(catId);
+                        friendRequestInFlight.delete(String(canonicalCatId));
                         return;
                     }
 
@@ -9015,26 +9287,32 @@ ${buildCatMemoryContext(cat)}`;
                     } catch (e) {
                         console.error("Friend request generation failed", e);
                     } finally {
-                        friendRequestInFlight.delete(catId);
+                        friendRequestInFlight.delete(String(canonicalCatId));
                     }
                 };
 
                 const acceptFriendRequest = (request) => {
                     if (!request) return;
+                    const catId = getCanonicalCatId(request.catId);
+                    const cat = cats.value.find(item => sameCatId(item.id, catId));
+                    if (!cat) {
+                        showToast('这位联系人已不在当前存档中。', 'error');
+                        return;
+                    }
                     if (!user.phoneData.friends) user.phoneData.friends = [];
-                    if (!user.phoneData.friends.includes(request.catId)) {
-                        user.phoneData.friends.push(request.catId);
+                    if (!user.phoneData.friends.some(id => sameCatId(id, catId))) {
+                        user.phoneData.friends.push(catId);
                     }
                     request.status = 'accepted';
                     if (!Array.isArray(user.phoneData.chats)) user.phoneData.chats = [];
-                    if (!user.phoneData.chats.some(chat => chat.contactId === request.catId)) {
-                        user.phoneData.chats.push({ contactId: request.catId, history: [] });
+                    if (!user.phoneData.chats.some(chat => sameCatId(chat.contactId, catId))) {
+                        user.phoneData.chats.push({ contactId: catId, history: [] });
                     }
                     phoneState.selectedFriendRequestId = null;
                     phoneState.chatTab = 'chat';
                     phoneState.currentApp = 'chat';
-                    openPhoneChat(request.catId);
-                    const contactName = phoneIdentities.value[request.catId]?.name || cats.value.find(cat => cat.id === request.catId)?.name || '新联系人';
+                    openPhoneChat(catId);
+                    const contactName = phoneIdentities.value[catId]?.name || cat.name || '新联系人';
                     showToast(`已添加 ${contactName} 为好友`, 'success');
                 };
 
@@ -9066,10 +9344,17 @@ ${buildCatMemoryContext(cat)}`;
                 };
 
                 const showToast = (message, type = 'info') => {
-                    notification.message = message;
-                    notification.type = type;
-                    notification.visible = true;
-                    setTimeout(() => { notification.visible = false; }, 3000);
+                    const toastMeta = {
+                        success: { title: '操作完成', icon: '' },
+                        error: { title: '系统提示', icon: '' },
+                        loading: { title: '正在处理', icon: '' },
+                        warn: { title: '需要留意', icon: '' },
+                        info: { title: '馆舍通知', icon: '' }
+                    };
+                    const meta = toastMeta[type] || toastMeta.info;
+                    showNotification(meta.title, message, meta.icon, type);
+                    if (notificationTimer) clearTimeout(notificationTimer);
+                    notificationTimer = setTimeout(() => { notification.visible = false; }, type === 'loading' ? 7000 : 3000);
                 };
 
                 const cleanText = (text) => {
@@ -9769,14 +10054,24 @@ ${buildCatMemoryContext(cat)}`;
                     return assertValidAIContent(content);
                 };
 
-                const _waitForRetryDecision = (request, lastError) => {
+                const isConfigurationOrRouteError = (error) => {
+                    const message = getReadableAPIError(error);
+                    return /No API Key|缺少\s*API\s*密钥|HTTP\s*404\b|not found|反代地址无效/i.test(message);
+                };
+
+                const _waitForRetryDecision = (request, lastError, attemptsUsed = 5, immediateDecision = false) => {
                     return new Promise((resolve) => {
                         request.resolveRetryDecision = resolve;
                         apiRetryModal.requestId = request.id;
                         apiRetryModal.operationLabel = request.label;
                         apiRetryModal.round = request.round;
-                        apiRetryModal.errorMessage = `连续 5 次请求均失败。\n\n最后一次错误：\n${getReadableAPIError(lastError)}\n\n你可以停止本次请求，或明确再开启一轮 5 次尝试。`;
-                        apiRetryModal.waitInfo = /超时/.test(getReadableAPIError(lastError))
+                        apiRetryModal.attempt = attemptsUsed;
+                        apiRetryModal.errorMessage = immediateDecision
+                            ? `当前连接配置或反代路由无法使用，已停止自动重试。\n\n错误详情：\n${getReadableAPIError(lastError)}\n\n请确认 API 密钥和反代地址后，再决定是否重新尝试。`
+                            : `连续 ${attemptsUsed} 次请求均失败。\n\n最后一次错误：\n${getReadableAPIError(lastError)}\n\n你可以停止本次请求，或明确再开启一轮 5 次尝试。`;
+                        apiRetryModal.waitInfo = immediateDecision
+                            ? '此类配置或 404 错误不会自动空转；停止后可进入终端检查连接设置。'
+                            : /超时/.test(getReadableAPIError(lastError))
                             ? '本轮最后一次请求已等待 40 秒后中止；不会继续在后台挂起。'
                             : '本轮 5 次尝试均已结束；选择“继续重试”才会开始新的 5 次。';
                         apiRetryModal.isDeciding = false;
@@ -9833,8 +10128,11 @@ ${buildCatMemoryContext(cat)}`;
                     while (!request.cancelled && !cancelledApiBatches.has(request.batchId)) {
                         request.round += 1;
                         let lastError = null;
+                        let attemptsUsed = 0;
+                        let immediateDecision = false;
 
                         for (let attempt = 1; attempt <= MAX_AUTO_RETRIES; attempt++) {
+                            attemptsUsed = attempt;
                             if (request.cancelled || cancelledApiBatches.has(request.batchId)) throw new AIRequestCancelledError();
                             try {
                                 if (attempt > 1) {
@@ -9864,12 +10162,17 @@ ${buildCatMemoryContext(cat)}`;
                                 lastError = e;
                                 addLog(`API REQUEST #${request.id} ATTEMPT ${attempt} FAILED: ${getReadableAPIError(e)}`, 'error');
                                 console.warn(`[callAI #${request.id}] Attempt ${attempt} failed:`, e.message);
+                                if (isConfigurationOrRouteError(e)) {
+                                    immediateDecision = true;
+                                    addLog(`API REQUEST #${request.id} STOPPED AUTO-RETRY: configuration or route error.`, 'warn');
+                                    break;
+                                }
                             }
                         }
 
-                        addLog(`API REQUEST #${request.id} FAILED 5 TIMES. Waiting for user decision.`, 'error');
-                        if (request.priority !== 'background') showToast(`连续 ${MAX_AUTO_RETRIES} 次请求失败，请查看错误窗口`, "error");
-                        const decision = await _waitForRetryDecision(request, lastError);
+                        addLog(`API REQUEST #${request.id} ${immediateDecision ? 'NEEDS CONFIGURATION DECISION' : 'FAILED 5 TIMES'}. Waiting for user decision.`, 'error');
+                        if (request.priority !== 'background') showToast(immediateDecision ? '连接配置或反代路由有误，请查看错误窗口' : `连续 ${MAX_AUTO_RETRIES} 次请求失败，请查看错误窗口`, "error");
+                        const decision = await _waitForRetryDecision(request, lastError, attemptsUsed, immediateDecision);
                         if (decision !== 'retry' || request.cancelled || cancelledApiBatches.has(request.batchId)) {
                             throw new AIRequestCancelledError();
                         }
@@ -10107,6 +10410,10 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 
                 const navigateToTab = (tab) => {
                     rememberHallScrollPosition();
+                    if (tab === 'phone') {
+                        resetPhoneTransientUI?.();
+                        addLog('NAVIGATION: 打开手机页面', 'info');
+                    }
                     currentTab.value = tab;
                 };
 
@@ -11074,17 +11381,25 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const phoneShowEmojiPicker = ref(false);
 
                 // A phone sub-app must never leave an invisible full-screen layer
-                // above the next app. Reset only transient overlays on app changes;
-                // the saved contacts and conversations remain untouched.
-                watch(() => phoneState.currentApp, (nextApp) => {
+                // above the next app. Reset only transient overlays; saved contacts
+                // and conversations deliberately remain untouched.
+                const resetPhoneTransientUI = () => {
                     phoneShowEmojiPicker.value = false;
                     phoneState.showMomentsSettings = false;
                     phoneState.showPostMomentModal = false;
                     phoneState.commentingOn = null;
+                    phoneState.replyToMsg = null;
+                    phoneState.nudgeVisible = false;
+                    phoneState.chatOptionsOpen = false;
+                    phoneState.msgMenu = { show: false, x: 0, y: 0, msg: null, idx: -1 };
                     showPhoneImageDescModal.value = false;
                     showPhoneLocationModal.value = false;
                     showPhoneMoneyModal.value = false;
                     showPhotoDescModal.value = false;
+                };
+
+                watch(() => phoneState.currentApp, (nextApp) => {
+                    resetPhoneTransientUI();
                     if (nextApp !== 'chat') {
                         phoneState.selectedContactId = null;
                         phoneState.selectedFriendRequestId = null;
@@ -11092,7 +11407,22 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 });
 
                 const openPhoneChat = (id) => {
-                    phoneState.selectedContactId = id;
+                    const catId = getCanonicalCatId(id);
+                    const cat = cats.value.find(item => sameCatId(item.id, catId));
+                    if (!cat) {
+                        showToast('找不到这位联系人。', 'error');
+                        return;
+                    }
+                    if (!Array.isArray(user.phoneData.chats)) user.phoneData.chats = [];
+                    if (!user.phoneData.chats.some(chat => sameCatId(chat.contactId, catId))) {
+                        user.phoneData.chats.push({ contactId: catId, history: [] });
+                    }
+                    resetPhoneTransientUI();
+                    phoneState.currentApp = 'chat';
+                    phoneState.chatTab = 'chat';
+                    phoneState.selectedFriendRequestId = null;
+                    phoneState.selectedContactId = catId;
+                    addLog(`PHONE CHAT OPENED: ${cat.name}`, 'info');
                     nextTick(() => {
                         if (phoneChatRef.value) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
                     });
@@ -11113,9 +11443,10 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
 
                 const getPhoneChatHistory = (id) => {
                     if (!user.phoneData.chats) user.phoneData.chats = [];
-                    let chat = user.phoneData.chats.find(c => c.contactId === id);
+                    const catId = getCanonicalCatId(id);
+                    let chat = user.phoneData.chats.find(c => sameCatId(c.contactId, catId));
                     if (!chat) {
-                        chat = { contactId: id, history: [] };
+                        chat = { contactId: catId, history: [] };
                         user.phoneData.chats.push(chat);
                     }
                     return chat.history;
@@ -11126,136 +11457,151 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 };
                 const getPhoneLastTime = (id) => {
                     const history = getPhoneChatHistory(id);
-                    return history.length > 0 ? history[history.length - 1].time : "";
+                    return history.length > 0 ? formatPhoneMessageTime(history[history.length - 1]) : "";
+                };
+                const phoneMessageDate = (message) => {
+                    const raw = message?.at || message?.createdAt || message?.ts || message?.timestamp;
+                    const parsed = raw ? new Date(raw) : new Date();
+                    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+                };
+                const phoneDateKey = (message) => {
+                    const date = phoneMessageDate(message);
+                    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                };
+                const formatPhoneMessageDate = (message) => {
+                    const date = phoneMessageDate(message);
+                    const today = phoneDateKey({ at: new Date().toISOString() });
+                    return phoneDateKey(message) === today ? '今天' : `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+                };
+                const formatPhoneMessageTime = (message) => {
+                    const date = phoneMessageDate(message);
+                    const clock = date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    return phoneDateKey(message) === phoneDateKey({ at: new Date().toISOString() }) ? clock : `${formatPhoneMessageDate(message)} ${clock}`;
+                };
+                const shouldShowPhoneDateDivider = (contactId, index) => {
+                    const history = getPhoneChatHistory(contactId);
+                    return index === 0 || phoneDateKey(history[index]) !== phoneDateKey(history[index - 1]);
+                };
+                const scrollPhoneChatToBottom = () => nextTick(() => {
+                    if (phoneChatRef.value) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
+                });
+                const appendPhoneChatMemory = (cat, message) => {
+                    if (!cat || message.type === 'system') return;
+                    const speaker = message.role === 'user' ? '馆长' : cat.name;
+                    const kind = message.type === 'image' ? `照片：${message.desc || '图片'}` : message.type === 'location' ? `位置：${message.content}` : `${message.content || ''}`;
+                    const text = cleanText(kind);
+                    if (!text) return;
+                    appendInteractionEvent(cat, message.role === 'user' ? 'phone-message-user' : 'phone-message-cat', `【喵信 · ${speaker}】${text}`, { source: 'phone-chat', messageAt: message.at || new Date().toISOString(), phoneType: message.type || 'text' });
+                    appendMonitorEvent(cat, `【喵信】${speaker}：${text}`, 'phone-chat', { phoneType: message.type || 'text' });
+                };
+                const appendPhoneMessage = (contactId, role, type, content, extra = {}) => {
+                    const catId = getCanonicalCatId(contactId);
+                    const cat = cats.value.find(item => sameCatId(item.id, catId));
+                    const now = new Date();
+                    const message = {
+                        role,
+                        type: type || 'text',
+                        content: String(content ?? ''),
+                        time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                        ts: now.getTime(),
+                        at: now.toISOString(),
+                        ...extra
+                    };
+                    getPhoneChatHistory(catId).push(message);
+                    appendPhoneChatMemory(cat, message);
+                    scrollPhoneChatToBottom();
+                    return message;
+                };
+                const getPendingPhoneMessages = (contactId) => {
+                    const history = getPhoneChatHistory(contactId);
+                    let lastReplyIndex = -1;
+                    history.forEach((message, index) => { if (message.role === 'assistant') lastReplyIndex = index; });
+                    return history.slice(lastReplyIndex + 1).filter(message => message.role === 'user' && !message.recalled);
+                };
+                const hasPendingPhoneReply = (contactId) => Boolean(contactId && getPendingPhoneMessages(contactId).length);
+                const closePhoneChat = () => {
+                    resetPhoneTransientUI();
+                    phoneState.selectedContactId = null;
+                    phoneState.selectedFriendRequestId = null;
+                    phoneState.chatTab = 'chat';
+                };
+                const validatePhoneChatReply = (reply) => {
+                    const text = cleanText(reply || '');
+                    if (!text || text.length > 240) return '喵信回复为空或过长。';
+                    if (/【[^】]{2,}】|\[[^\]\n]{3,}\]/.test(text)) return '喵信回复包含动作或旁白括号。';
+                    if (/(?:^|\n)\s*(?:旁白|动作|场景|环境|镜头)\s*[:：]/.test(text)) return '喵信回复使用了旁白格式。';
+                    return true;
+                };
+                const requestPhoneReply = async () => {
+                    const contactId = phoneState.selectedContactId;
+                    if (!contactId || phoneState.isTyping) return;
+                    const catId = getCanonicalCatId(contactId);
+                    const cat = cats.value.find(item => sameCatId(item.id, catId));
+                    const contact = phoneIdentities.value[catId];
+                    const pending = getPendingPhoneMessages(catId);
+                    if (!cat || !contact || !pending.length) return;
+                    const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
+                    const pendingText = pending.map(message => {
+                        if (message.type === 'image') return `馆长发来照片：${message.desc || '一张图片'}`;
+                        if (message.type === 'location') return `馆长分享了位置：${message.content}`;
+                        if (message.type === 'red-envelope' || message.type === 'transfer') return `馆长发送${message.type === 'red-envelope' ? '红包' : '转账'}：${message.content} G`;
+                        return `馆长：${message.content}`;
+                    }).join('\n');
+                    phoneState.isTyping = true;
+                    const prompt = `
+【喵信私聊】
+你正在以 ${contact.name} 的公开身份，和馆长进行一对一文字聊天。馆长是安全、善意的共同生活者；你需要建立可靠的沟通方式，但不能泄露自己在喵喵馆中的猫形态或任何秘密。
+本轮待回复的分段消息：
+${pendingText}
+
+严格输出规则：
+1. 只写可直接发送到聊天软件里的自然文字消息，使用简体中文；可以一两句简短分段或普通表情。
+2. 禁止动作括号、【动作】、舞台指示、环境描写、第三人称旁白、角色名加冒号、小说式心理或肢体描写。
+3. 不要解释设定，不要提及“猫”“馆舍秘密”“AI”或正在扮演角色；不以默认哥谭/夜巡/英雄任务作为理由。
+4. 语气必须贴合原作人格和 ${hall.name} 的作品边界，亲密度代表熟悉程度而非敌意。保持独立与边界，但默认相信馆长没有恶意。
+5. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
+6. 总长 20–120 个汉字，直接给出消息正文。
+
+${buildCatMemoryContext(cat)}`;
+                    try {
+                        const reply = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 450, ThinkingLevel.LOW, {
+                            label: `PHONE CHAT · ${contact.name}`,
+                            priority: 'foreground',
+                            validateResponse: validatePhoneChatReply
+                        });
+                        appendPhoneMessage(catId, 'assistant', 'text', cleanText(reply));
+                    } catch (error) {
+                        if (!(error instanceof AIRequestCancelledError)) showToast('这次没有收到回复，可以稍后再试。', 'error');
+                    } finally {
+                        phoneState.isTyping = false;
+                        scrollPhoneChatToBottom();
+                    }
                 };
                 const reRollLastPhoneMessage = async () => {
                     const contactId = phoneState.selectedContactId;
-                    if (!contactId) return;
-                    const history = getPhoneChatHistory(contactId);
-                    if (history.length > 0 && history[history.length - 1].role === 'assistant') {
-                        history.pop();
-                        const lastUserMsg = [...history].reverse().find(m => m.role === 'user');
-                        if (lastUserMsg) {
-                            addLog(`[RE-ROLL] 重新建立与 ${phoneIdentities.value[contactId].name} 的视讯连接...`);
-                            await sendPhoneMessageInternal(lastUserMsg.type, lastUserMsg.content, lastUserMsg.desc, true);
-                        }
-                    }
-                };
-
-                const sendPhoneMessage = async (typeArg = 'text', contentArg = null, descArg = null) => {
-                    await sendPhoneMessageInternal(typeArg, contentArg, descArg, false);
-                };
-
-                const sendPhoneMessageInternal = async (typeArg = 'text', contentArg = null, descArg = null, isReRoll = false) => {
-                    const type = (typeof typeArg === 'string') ? typeArg : 'text';
-                    const content = (typeof contentArg === 'string') ? contentArg : (contentArg instanceof Event ? null : contentArg);
-                    const desc = (typeof descArg === 'string') ? descArg : null;
-
-                    const contactId = phoneState.selectedContactId;
                     if (!contactId || phoneState.isTyping) return;
-
-                    const msgContent = content || phoneChatInput.value;
-                    if (!msgContent.trim() && type === 'text') return;
-
-                    const contact = phoneIdentities.value[contactId];
-                    const cat = cats.value.find(c => c.id === contactId);
                     const history = getPhoneChatHistory(contactId);
-
-                    if (!isReRoll) {
-                        const userMsgObj = {
-                            role: 'user',
-                            type,
-                            content: msgContent,
-                            desc,
-                            time: getCurrentTimeStr(),
-                            ts: Date.now()
-                        };
-                        history.push(userMsgObj);
-
-                        if (type === 'text' && !content) {
-                            phoneChatInput.value = '';
-                            if (phoneInputRef.value) phoneInputRef.value.value = '';
-                        }
+                    if (history.at(-1)?.role !== 'assistant') {
+                        showToast('先让 TA 回复后才能重抽。', 'info');
+                        return;
                     }
-                    nextTick(() => { if (phoneChatRef.value) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight; });
-
-                    phoneState.isTyping = true;
-                    const catStatusContext = `[CAT STATUS]: ${cat.name} is currently ${cat.status}. Inner voice: ${cat.innerVoice}.`;
-                    const catHall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
-
-                    let userContext = "";
-                    if (type === 'image') {
-                        userContext = `The user sent an image. Description: ${desc || 'A real image file'}.`;
-                    } else if (type === 'location') {
-                        userContext = `The user shared their location: "${msgContent}". It is related to ${catHall.name}; react according to this character's original work and personality, without assuming Gotham, a patrol, or a superhero setting.`;
-                    } else if (type === 'red-envelope' || type === 'transfer') {
-                        userContext = `The user sent you a ${type === 'red-envelope' ? 'Red Envelope' : 'Transfer'} of ${msgContent} coins.`;
-                    } else {
-                        userContext = `User Message: "${msgContent}"`;
-                    }
-
-                    const prompt = `
-                    Identity: You are ${contact.name} (${contact.role}), from ${catHall.name}. 
-                    Secret: You are actually the cat ${cat.name} in the user's house, but the user DOES NOT KNOW. 
-                    Context: ${catStatusContext}
-                    ${userContext}
-                    Task: Reply to the user as ${contact.name}. 
-                    Rules:
-                    1. **STRICTLY HIDE** your cat identity. 
-                    2. **LOGIC C:** Your reply MUST subtly reflect your current cat status.
-                    3. **LOCATION REACTION:** If the user shared a location, react only from ${catHall.name} and this character's own original-work context. Do not invent Gotham, patrols, Wayne, or a superhero identity unless this cat belongs to Gotham hall.
-                    4. **MONEY REACTION:** If the user sent money, react strictly based on your established personality.
-                    5. Preserve ${cat.name}'s original canon, values, voice, and relationships. Never flatten them into a generic heroic or cute-cat reply.
-                    6. Language: Simplified Chinese. Max 50 words.
-                    ${buildCatMemoryContext(cat)}
-                    `;
-                    try {
-                        const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000, ThinkingLevel.LOW, {
-                            label: `PHONE CHAT · ${contact.name}`,
-                            priority: 'foreground'
-                        });
-                        history.push({ role: 'assistant', content: cleanText(res), time: getCurrentTimeStr() });
-
-                        // Probability of AI sending something back
-                        const rand = Math.random();
-                        if (rand < 0.15) { // 15% chance to send money or photo
-                            setTimeout(async () => {
-                                phoneState.isTyping = true;
-                                const actionRand = Math.random();
-                                if (actionRand < 0.6) { // 60% of that 15% is money
-                                    const amount = Math.floor(Math.random() * 500) + 100;
-                                    const moneyType = Math.random() > 0.5 ? 'red-envelope' : 'transfer';
-                                    addWalletTransaction('in', amount, `${contact.name}的${moneyType === 'red-envelope' ? '红包' : '转账'}`, `来自：${contact.name}`);
-                                    history.push({
-                                        role: 'assistant',
-                                        type: moneyType,
-                                        content: amount.toString(),
-                                        time: getCurrentTimeStr()
-                                    });
-                                    showToast(`${contact.name} 给你发了一个${moneyType === 'red-envelope' ? '红包' : '转账'}`, 'success');
-                                } else { // 40% of that 15% is a photo
-                                    const photoDescPrompt = `Generate a short, vivid description of a photo that ${contact.name} would send to the user right now. Hall: ${catHall.name}. Context: ${catStatusContext}. It must fit the character's original work and current activity; do not default to Gotham or a superhero scene.\n${buildCatMemoryContext(cat)}`;
-                                    const photoDesc = await callAI(photoDescPrompt, "Generate a one-sentence description in SIMPLIFIED CHINESE.", 300, ThinkingLevel.LOW, {
-                                        label: `PHONE PHOTO · ${contact.name}`,
-                                        priority: 'background'
-                                    });
-                                    history.push({
-                                        role: 'assistant',
-                                        type: 'image',
-                                        content: 'https://picsum.photos/seed/' + Date.now() + '/400/300',
-                                        desc: cleanText(photoDesc),
-                                        time: getCurrentTimeStr()
-                                    });
-                                }
-                                phoneState.isTyping = false;
-                                nextTick(() => { if (phoneChatRef.value) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight; });
-                            }, 2000);
-                        }
-                    } catch (e) {
-                        history.push({ role: 'assistant', content: "[信号干扰...无法回复]", time: getCurrentTimeStr() });
-                    } finally {
-                        phoneState.isTyping = false;
-                        nextTick(() => { if (phoneChatRef.value) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight; });
+                    history.pop();
+                    await requestPhoneReply();
+                };
+                const sendPhoneMessage = (typeArg = 'text', contentArg = null, descArg = null) => {
+                    const type = typeof typeArg === 'string' ? typeArg : 'text';
+                    const content = typeof contentArg === 'string' ? contentArg : (contentArg instanceof Event ? '' : contentArg);
+                    const text = String(content ?? phoneChatInput.value ?? '').trim();
+                    if (!phoneState.selectedContactId || (!text && type === 'text')) return;
+                    const quotedMsg = phoneState.replyToMsg ? {
+                        sender: phoneState.replyToMsg.sender || (phoneState.replyToMsg.role === 'user' ? '我' : phoneIdentities.value[phoneState.selectedContactId]?.name),
+                        content: phoneState.replyToMsg.content
+                    } : null;
+                    appendPhoneMessage(phoneState.selectedContactId, 'user', type, text, { desc: typeof descArg === 'string' ? descArg : null, quotedMsg });
+                    phoneState.replyToMsg = null;
+                    if (type === 'text' && !contentArg) {
+                        phoneChatInput.value = '';
+                        if (phoneInputRef.value) phoneInputRef.value.value = '';
                     }
                 };
 
@@ -12279,7 +12625,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
 - Last 5 permanent diary entries: ${getPermanentDiaryEntries(cat).join(' | ') || 'None'}
 - Last 5 focus records: ${getCatFocusReports(cat).join(' | ') || 'None'}
 - Last 3 travelogues: ${travelogues.join(' | ') || 'None'}
-- Latest Raccoon S house briefing: ${briefing ? cleanText(briefing.summary || '') : 'None'}
+- Latest Nain house briefing: ${briefing ? cleanText(briefing.summary || '') : 'None'}
 ${options.extra || ''}
 [CONTINUITY RULE] Read this timeline before writing. Continue from the latest plausible action; do not repeat a stale status after meaningful time has passed. The stored original-character prompt and immutable identity are binding: never OOC, never generic cute-cat behavior, and never impose a DC/superhero premise outside a hall where it belongs.`;
                 };
@@ -12300,10 +12646,53 @@ ${options.extra || ''}
                     date.setDate(date.getDate() - 1);
                     return date;
                 };
-                const captureDailySnapshot = () => ({
+                const getPreviousOperationalDayKey = (value = new Date()) => getLocalDateKey(getPreviousOperationalDate(value));
+                const recordMatchesOperationalDay = (record, dateKey) => {
+                    if (!record || !dateKey) return false;
+                    const stampedKey = record.dateKey || (record.at ? getOperationalDayKey(new Date(record.at)) : '');
+                    // Old saves may not have timestamps. They can only belong to
+                    // the currently archived set, never to future interactions.
+                    return !stampedKey || stampedKey === dateKey;
+                };
+                const getDailyArchivePending = () => {
+                    try {
+                        const pending = JSON.parse(localStorage.getItem(DAILY_ARCHIVE_PENDING_KEY) || 'null');
+                        return pending && pending.archiveDateKey && pending.operationalKey ? pending : null;
+                    } catch (error) {
+                        localStorage.removeItem(DAILY_ARCHIVE_PENDING_KEY);
+                        return null;
+                    }
+                };
+                const saveDailyArchivePending = (pending) => {
+                    localStorage.setItem(DAILY_ARCHIVE_PENDING_KEY, JSON.stringify(pending));
+                    return pending;
+                };
+                const clearDailyArchivePending = () => localStorage.removeItem(DAILY_ARCHIVE_PENDING_KEY);
+                const findLegacyArchiveDateKey = (operationalKey) => {
+                    const keys = [];
+                    const addDate = (value) => {
+                        if (!value) return;
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) keys.push(String(value));
+                        else {
+                            const parsed = new Date(value);
+                            if (!Number.isNaN(parsed.getTime())) keys.push(getOperationalDayKey(parsed));
+                        }
+                    };
+                    addDate(user.dailyRecordDate);
+                    addDate(user.lastLogin);
+                    addDate(localStorage.getItem(DAILY_RECORD_RESET_KEY));
+                    addDate(localStorage.getItem('last_login_date'));
+                    addDate(localStorage.getItem('last_diary_date'));
+                    cats.value.forEach(cat => {
+                        [...(cat.chatHistory || []), ...(cat.todayInteractions || []), ...(cat.diary || [])]
+                            .forEach(record => addDate(record?.at || record?.dateKey));
+                    });
+                    return keys.filter(key => key && key < operationalKey).sort().pop() || '';
+                };
+                const captureDailySnapshot = (archiveDateKey = getPreviousOperationalDayKey()) => ({
                     capturedAt: new Date().toISOString(),
                     date: getPreviousOperationalDate().toLocaleDateString(),
-                    dateKey: getLocalDateKey(getPreviousOperationalDate()),
+                    dateKey: archiveDateKey,
                     cats: cats.value.map(cat => ({
                         id: cat.id,
                         name: cat.name,
@@ -12316,9 +12705,9 @@ ${options.extra || ''}
                         isOut: cat.isOut,
                         isHuman: cat.isHuman,
                         lastStatusUpdateTime: cat.lastStatusUpdateTime,
-                        chatHistory: [...(cat.chatHistory || [])],
-                        todayInteractions: [...(cat.todayInteractions || [])],
-                        monitor: [...(cat.diary || [])],
+                        chatHistory: (cat.chatHistory || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
+                        todayInteractions: (cat.todayInteractions || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
+                        monitor: (cat.diary || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
                         travelogues: [...(cat.travelogues || [])]
                     })),
                     missionReports: [...(user.missionReports || [])],
@@ -12337,12 +12726,18 @@ ${options.extra || ''}
                     return (snapshotCat.todayInteractions || []).some(event => triggerTypes.has(event.type)) ||
                         (snapshotCat.chatHistory || []).length > 0; // compatibility for a save made before typed events
                 };
-                const clearDailyCatRecords = (dateKey = getOperationalDayKey()) => {
+                const clearDailyCatRecords = (dateKey = getOperationalDayKey(), archivedBefore = null) => {
+                    const cutoff = archivedBefore ? new Date(archivedBefore).getTime() : Number.POSITIVE_INFINITY;
+                    const shouldKeep = (record) => {
+                        if (!Number.isFinite(cutoff)) return false;
+                        const timestamp = record?.at ? new Date(record.at).getTime() : NaN;
+                        return Number.isFinite(timestamp) && timestamp > cutoff;
+                    };
                     cats.value.forEach(cat => {
-                        cat.chatHistory = [];
-                        cat.todayInteractions = [];
-                        cat.diary = [];
-                        cat.autoReply = '';
+                        cat.chatHistory = (cat.chatHistory || []).filter(shouldKeep);
+                        cat.todayInteractions = (cat.todayInteractions || []).filter(shouldKeep);
+                        cat.diary = (cat.diary || []).filter(shouldKeep);
+                        if (!cat.chatHistory.length && !cat.todayInteractions.length && !cat.diary.length) cat.autoReply = '';
                         cat.hasHackedThisPatrol = false;
                         cat.lastInteractionTimestamp = 0;
                     });
@@ -12377,7 +12772,7 @@ ${options.extra || ''}
                 const getDailyArchiveTargets = (snapshot) => (snapshot.cats || []).filter(hasDailyDiaryTrigger);
                 const validateDailyArchivePackage = (payload, snapshot) => {
                     if (!payload || typeof payload !== 'object') return '归档包不是有效 JSON 对象。';
-                    if (!cleanText(payload.summary || '')) return '归档包缺少 Raccoon S 昨日总结。';
+                    if (!cleanText(payload.summary || '')) return '归档包缺少奈恩昨日总结。';
                     const expectedIds = getDailyArchiveTargets(snapshot).map(cat => String(cat.id));
                     const diaryRows = Array.isArray(payload.diaries) ? payload.diaries : [];
                     const actualIds = new Set(diaryRows.filter(item => cleanText(item?.content || '')).map(item => String(item.catId)));
@@ -12424,7 +12819,7 @@ ${JSON.stringify(diaryContext)}
 
 请只输出一个严格 JSON 对象，不要 Markdown、不要解释、不要代码围栏：
 {
-  "summary":"Raccoon S 以活泼、幽默、略带调侃但可靠的合伙人口吻写 100-160 字昨日全馆总结；优先总结待办、DDL、日程、专注完成/中止和奖励，猫咪只在确有重要事件时一句带过。",
+  "summary":"奈恩以活泼、幽默、略带调侃但可靠的合伙人口吻写 100-160 字昨日全馆总结；优先总结待办、DDL、日程、专注完成/中止和奖励，猫咪只在确有重要事件时一句带过。",
   "diaries":[{"catId":"必须使用上方对应 catId","content":"该角色第一人称、180-300 字昨日小猫日记"}],
   "news":[{"type":"HOUSE","title":"馆舍热讯标题","summary":"30-80 字中性馆舍热讯","source":"Meeow House Gazette"},{"type":"HOUSE","title":"...","summary":"...","source":"..."},{"type":"HOUSE","title":"...","summary":"...","source":"..."}],
   "moment":{"authorName":"一位当前存档中存在的猫或馆舍账号","authorAvatar":"","content":"40-100 字朋友圈","time":"刚刚","image":""}
@@ -12435,11 +12830,12 @@ ${JSON.stringify(diaryContext)}
                     const validation = validateDailyArchivePackage(payload, snapshot);
                     if (validation !== true) throw new Error(validation);
                     const pendingTasks = (snapshot.todos || []).filter(todo => !todo.done);
+                    const newlyAddedTasks = (user.todos || []).filter(todo => !(snapshot.todos || []).includes(todo));
                     const report = {
                         missionName: '昨日总结报告',
                         date: snapshot.date,
                         duration: 0,
-                        executor: 'Raccoon S',
+                        executor: '奈恩',
                         logs: [],
                         summary: cleanText(payload.summary),
                         status: 'COMPLETED',
@@ -12477,8 +12873,8 @@ ${JSON.stringify(diaryContext)}
                         likes: [], comments: []
                     });
                     if (user.phoneData.moments.length > 20) user.phoneData.moments.splice(0, user.phoneData.moments.length - 20);
-                    user.todos = pendingTasks;
-                    clearDailyCatRecords(todayKey);
+                    user.todos = [...pendingTasks, ...newlyAddedTasks];
+                    clearDailyCatRecords(todayKey, snapshot.capturedAt);
                     user.dailyMailCount = 0;
                     user.lastMailDate = todayStr;
                     user.lastMailAt = 0;
@@ -12487,6 +12883,7 @@ ${JSON.stringify(diaryContext)}
                     localStorage.setItem('last_diary_date', todayStr);
                     localStorage.setItem('last_login_date', todayStr);
                     localStorage.setItem(OPERATIONAL_DAY_KEY, todayKey);
+                    clearDailyArchivePending();
                 };
                 const generateDailyArchivePackage = async (snapshot, requestOptions = {}) => {
                     const prompt = buildDailyArchivePrompt(snapshot);
@@ -12509,7 +12906,24 @@ ${JSON.stringify(diaryContext)}
                     if (isAppLoading.value) window.setTimeout(() => { isAppLoading.value = false; }, delay);
                 };
 
-                const checkDailyInitialization = () => {
+                const offerPendingDailyArchive = (pending) => {
+                    dailyArchiveResumeModal.archiveDateKey = pending.archiveDateKey;
+                    dailyArchiveResumeModal.errorMessage = pending.lastError || '上一轮昨日归档没有完成；聊天与监控记录仍完整保留。';
+                    dailyArchiveResumeModal.show = true;
+                };
+                const dismissPendingDailyArchive = () => {
+                    dailyArchiveResumeModal.show = false;
+                    dailyInitializationPausedDate = getOperationalDayKey();
+                    showToast('昨日归档暂缓；记录会保留到你下次决定重试。', 'info');
+                };
+                const resumePendingDailyArchive = async () => {
+                    dailyArchiveResumeModal.show = false;
+                    dailyInitializationPausedDate = '';
+                    isAppLoading.value = true;
+                    await checkDailyInitialization({ resumePending: true });
+                };
+
+                const checkDailyInitialization = (options = {}) => {
                     if (dailyInitializationPromise) {
                         addLog('INITIALIZATION JOINED: Reusing the active startup sync.', 'info');
                         return dailyInitializationPromise;
@@ -12524,21 +12938,37 @@ ${JSON.stringify(diaryContext)}
                         loadingOperation.stepText = '初始化';
                         loadingOperation.indeterminate = false;
 
-                        // Always check calendar presentation, but only archive when
-                        // the dedicated operational-day key actually changes.
                         checkSpecialEvent();
                         updateDailySchedule();
                         let lastOperationalKey = localStorage.getItem(OPERATIONAL_DAY_KEY) || '';
-                        if (!lastOperationalKey) {
-                            // Migration is deliberately non-destructive: an old save
-                            // starts from the current 03:00 operating day rather than
-                            // retroactively running an unexpected archive.
-                            lastOperationalKey = operationalKey;
-                            localStorage.setItem(OPERATIONAL_DAY_KEY, operationalKey);
-                            addLog('OPERATIONAL DAY MIGRATION: initialized 03:00 boundary without backfilling an archive.', 'info');
+                        let pendingArchive = getDailyArchivePending();
+
+                        // A stopped/failed archive must be explicitly offered again
+                        // on the next page open. It never silently marks a day done.
+                        if (pendingArchive?.operationalKey === operationalKey && pendingArchive.awaitingUser && !options.resumePending) {
+                            dailyInitializationPausedDate = operationalKey;
+                            loadingOperation.phase = '昨日归档等待你的决定';
+                            loadingOperation.stepText = '聊天、监控和互动记录已保留';
+                            finishInitialLoading('昨日归档待完成；请选择是否重新开始。', 0);
+                            window.setTimeout(() => offerPendingDailyArchive(pendingArchive), 40);
+                            return;
                         }
 
-                        if (lastOperationalKey !== operationalKey) {
+                        if (!lastOperationalKey) {
+                            const legacyArchiveDate = pendingArchive?.archiveDateKey || findLegacyArchiveDateKey(operationalKey);
+                            if (legacyArchiveDate) {
+                                lastOperationalKey = legacyArchiveDate;
+                                addLog(`OPERATIONAL DAY MIGRATION: found unarchived ${legacyArchiveDate} records; archive remains required.`, 'warn');
+                            } else {
+                                // A genuinely empty/new save has no yesterday data to archive.
+                                localStorage.setItem(OPERATIONAL_DAY_KEY, operationalKey);
+                                lastOperationalKey = operationalKey;
+                                addLog('OPERATIONAL DAY MIGRATION: new empty save initialized at the current 03:00 boundary.', 'info');
+                            }
+                        }
+
+                        const needsArchive = (pendingArchive?.operationalKey === operationalKey) || (lastOperationalKey !== operationalKey);
+                        if (needsArchive) {
                             if (dailyInitializationPausedDate === operationalKey) {
                                 finishInitialLoading('昨日归档尚未完成；昨日记录已保留。');
                                 return;
@@ -12546,21 +12976,25 @@ ${JSON.stringify(diaryContext)}
                             addLog(`检测到 03:00 运营日切换：${lastOperationalKey} → ${operationalKey}`);
                             loadingProgress.value = 15;
                             const initializationBatchId = `daily-init-${operationalKey}-${Date.now()}`;
-                            if (!settings.apiKey) {
-                                dailyInitializationPausedDate = operationalKey;
-                                addLog('运营日归档未执行：未配置 API，昨日记录保持原样。', 'error');
-                                finishInitialLoading('未配置 API；昨日记录已保留。', 0);
-                                return;
-                            }
+                            const archiveDateKey = pendingArchive?.archiveDateKey || getPreviousOperationalDayKey(now);
+                            pendingArchive = saveDailyArchivePending({
+                                version: 1,
+                                archiveDateKey,
+                                operationalKey,
+                                fromOperationalKey: lastOperationalKey || archiveDateKey,
+                                createdAt: pendingArchive?.createdAt || new Date().toISOString(),
+                                awaitingUser: false,
+                                lastError: ''
+                            });
                             try {
                                 loadingMessage.value = '正在冻结上一运营日记录，准备生成完整归档包…';
                                 loadingOperation.phase = '冻结昨日记录';
                                 loadingOperation.stepText = '步骤 1/3 · 读取互动、监控与档案';
-                                const dailySnapshot = captureDailySnapshot();
+                                const dailySnapshot = captureDailySnapshot(archiveDateKey);
                                 const payload = await generateDailyArchivePackage(dailySnapshot, {
                                     batchId: initializationBatchId,
                                     cancelBatchOnAbort: true,
-                                    priority: 'background',
+                                    priority: 'foreground',
                                     onProgress: (event) => applyAPILoadingEvent(event, 'app')
                                 });
                                 loadingOperation.phase = '正在写入已校验的归档包';
@@ -12574,13 +13008,19 @@ ${JSON.stringify(diaryContext)}
                             } catch (e) {
                                 console.error('Operational-day archive error:', e);
                                 dailyInitializationPausedDate = operationalKey;
+                                saveDailyArchivePending({
+                                    ...pendingArchive,
+                                    awaitingUser: true,
+                                    lastError: getReadableAPIError(e),
+                                    failedAt: new Date().toISOString()
+                                });
                                 loadingOperation.phase = '归档未完成，已保留昨天所有临时记录';
                                 loadingOperation.stepText = '未写入半份内容，也不会继续后台调用';
                                 loadingOperation.indeterminate = false;
                                 loadingProgress.value = 100;
                                 addLog(`运营日结算未完成：${getReadableAPIError(e)}。没有清空昨日聊天或监控，也不会继续后台调用。`, 'error');
                                 showToast('昨日归档未完成，记录已保留并解除遮罩。', 'error');
-                                finishInitialLoading('昨日归档未完成；可稍后重新打开页面重试。', 0);
+                                finishInitialLoading('昨日归档未完成；下次打开会询问是否重试。', 0);
                                 return;
                             }
                         } else {
@@ -12604,7 +13044,7 @@ ${JSON.stringify(diaryContext)}
                     const pendingStr = pendingTasks.map(t => t.text).join(', ');
 
                     // Legacy function name stays for compatibility; the actual
-                    // daily partner is Raccoon S, co-owner of Meeow House.
+                    // daily partner is 奈恩, co-owner of Meeow House.
                     const ddlContext = nearestDDL.value ? `近期DDL: ${nearestDDL.value.title} (${ddlCountdownStr.value})` : "无紧急DDL";
                     const recentMails = user.mailbox.filter(m => !m.isClaimed).slice(0, 3).map(m => `来自 ${m.sender}: ${m.title}`).join('; ');
                     const mailContext = recentMails ? `未读信件: ${recentMails}` : "无新信件";
@@ -12612,7 +13052,7 @@ ${JSON.stringify(diaryContext)}
 
                     const scheduleContext = (user.schedule || []).filter(item => !item.done).slice(0, 8).map(item => `${item.time || ''} ${item.event || item.title || ''}`.trim()).filter(Boolean).join('；') || '无待办日程';
                     const focusContext = (user.missionReports || []).filter(report => report.duration > 0).slice(-8).map(report => `${report.missionName || '专注'} ${Math.floor((report.duration || 0) / 60)} 分钟 ${report.status === 'FAILED' ? '中止' : '完成'}`).join('；') || '无专注记录';
-                    const prompt = `Role: Raccoon S, the user's co-owner and everyday partner at Meeow House. Task: Write a daily summary briefing for the house owner ${user.nickname}. 
+                    const prompt = `Role: 奈恩 (Nain), the user's co-owner and everyday partner at Meeow House. Task: Write a daily summary briefing for the house owner ${user.nickname}.
                     Context: 
                     - Date/Background: ${backgroundContext}
                     - Yesterday's Completed Tasks: ${doneStr || 'None'}. 
@@ -12621,16 +13061,16 @@ ${JSON.stringify(diaryContext)}
                     - 日程：${scheduleContext}.
                     - 专注：${focusContext}.
                     - ${mailContext}.
-                    Requirement: ~100 words. Prioritize tasks, DDLs, schedule, focus completion/abort and rewards. Only mention cat activity briefly when a genuinely important event occurred. Raccoon S is lively, witty, warm and a little teasing, like a reliable partner who knows the house well. Never make Gotham the default or imitate a hall guardian / British butler.
+                    Requirement: ~100 words. Prioritize tasks, DDLs, schedule, focus completion/abort and rewards. Only mention cat activity briefly when a genuinely important event occurred. 奈恩 is lively, witty, warm and a little teasing, like a reliable partner who knows the house well. Never make Gotham the default or imitate a hall guardian / British butler.
                     Language: Simplified Chinese (简体中文).`;
 
                     try {
-                        const summary = await callAI(prompt, 'You are Raccoon S, co-owner of Meeow House: quick, funny, observant, never mean. Keep the summary grounded in the supplied house information and do not invent DC-default framing.', 1000, ThinkingLevel.LOW, { ...requestOptions, label: 'RACCOON S · DAILY HOUSE BRIEFING' });
+                        const summary = await callAI(prompt, 'You are 奈恩 (Nain), co-owner of Meeow House: quick, funny, observant, never mean. Keep the summary grounded in the supplied house information and do not invent DC-default framing.', 1000, ThinkingLevel.LOW, { ...requestOptions, label: 'NAIN · DAILY HOUSE BRIEFING' });
                         user.missionReports.push({
                             missionName: '昨日总结报告',
                             date: new Date(Date.now() - 86400000).toLocaleDateString(),
                             duration: 0,
-                            executor: 'Raccoon S',
+                            executor: '奈恩',
                             logs: [],
                             summary: cleanText(summary),
                             status: 'COMPLETED'
@@ -12678,7 +13118,7 @@ Yesterday's homepage conversation: ${chat.join(' | ') || 'None'}
 Yesterday's monitoring timeline: ${monitor.join(' | ') || 'None'}
 Related focus records: ${focusReports.join(' | ') || 'None'}
 Recent travelogues (permanent context): ${relatedTravel.join(' | ') || 'None'}
-Latest Raccoon S briefing: ${latestBriefing ? cleanText(latestBriefing.summary || '') : 'None'}
+Latest Nain briefing: ${latestBriefing ? cleanText(latestBriefing.summary || '') : 'None'}
 
 Task: Write one 200-300 Chinese-character first-person diary entry about only the actual events above. The character's source canon, worldview, moral boundaries, fixed breed/eye color and individual voice are binding. No OOC, no generic cute-cat tone, no invented rescue/patrol/superhero premise. Cat form never changes their personality. Do not claim an event that is absent from the supplied record.`;
                         const res = await callAI(prompt, STRICT_CANON_PROMPT, 4000, ThinkingLevel.LOW, { ...requestOptions, label: `DAILY DIARY · ${cat.name}` });
@@ -13505,6 +13945,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             mergeBuiltInCats();
                             normalizeCustomHallPresentation();
                             if (data.settings) Object.assign(settings, data.settings);
+                            if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
+                            settings.focusMusicVolume = Math.max(0, Math.min(1, Number(settings.focusMusicVolume ?? 0.7)));
+                            settings.focusMusicLoop = settings.focusMusicLoop !== false;
+                            settings.musicSearchEndpoint = typeof settings.musicSearchEndpoint === 'string' ? settings.musicSearchEndpoint : '';
                             customFontInput.value = settings.customFontUrl || '';
                             applyUISettings();
                             if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
@@ -13653,7 +14097,155 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     gachaResult.value = null;
                 };
 
-                const playNoise = () => { if (!audioPlayer.value) return; audioPlayer.value.pause(); if (currentNoise.value === 'rain') audioPlayer.value.src = 'https://files.catbox.moe/9xiysz.mp3'; else if (currentNoise.value === 'cafe') audioPlayer.value.src = 'https://files.catbox.moe/mqmb8n.mp3'; else if (currentNoise.value === 'custom' && customNoiseUrl.value) audioPlayer.value.src = customNoiseUrl.value; else return; audioPlayer.value.play().catch(e => { }); };
+                const playNoise = () => { if (!audioPlayer.value) return; audioPlayer.value.pause(); if (currentNoise.value === 'rain') audioPlayer.value.src = 'https://files.catbox.moe/9xiysz.mp3'; else if (currentNoise.value === 'cafe') audioPlayer.value.src = 'https://files.catbox.moe/mqmb8n.mp3'; else if (currentNoise.value === 'custom' && customNoiseUrl.value) audioPlayer.value.src = customNoiseUrl.value; else return; audioPlayer.value.play().catch(() => showToast('白噪音无法播放，请检查链接。', 'error')); };
+
+                const currentFocusMusicTrack = computed(() => settings.focusMusicPlaylist?.[focusMusic.currentIndex] || null);
+                const isFocusMusicPlaying = computed(() => focusMusicPlaying.value);
+                const formatFocusMusicTime = (seconds) => {
+                    const value = Math.max(0, Number(seconds) || 0);
+                    return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`;
+                };
+                const syncFocusMusicVolume = () => {
+                    settings.focusMusicVolume = Math.max(0, Math.min(1, Number(settings.focusMusicVolume) || 0));
+                    if (focusMusicAudioPlayer.value) focusMusicAudioPlayer.value.volume = settings.focusMusicVolume;
+                };
+                const updateFocusMusicProgress = () => {
+                    const player = focusMusicAudioPlayer.value;
+                    if (!player) return;
+                    focusMusic.position = Number(player.currentTime) || 0;
+                    focusMusic.duration = Number(player.duration) || 0;
+                };
+                const playFocusMusic = async (index = focusMusic.currentIndex) => {
+                    const playlist = settings.focusMusicPlaylist || [];
+                    const track = playlist[index];
+                    if (!track || !focusMusicAudioPlayer.value) return;
+                    const player = focusMusicAudioPlayer.value;
+                    focusMusic.currentIndex = index;
+                    if (player.src !== track.url) {
+                        player.pause();
+                        player.src = track.url;
+                        player.currentTime = 0;
+                    }
+                    player.volume = Math.max(0, Math.min(1, Number(settings.focusMusicVolume) || 0.7));
+                    player.loop = settings.focusMusicLoop !== false;
+                    try {
+                        await player.play();
+                    } catch (error) {
+                        showToast('该曲目无法播放，请检查文件或 HTTPS 链接。', 'error');
+                    }
+                };
+                const toggleFocusMusic = () => {
+                    const player = focusMusicAudioPlayer.value;
+                    if (!player) return;
+                    if (focusMusic.currentIndex < 0 && settings.focusMusicPlaylist?.length) {
+                        playFocusMusic(0);
+                    } else if (player.paused) {
+                        playFocusMusic(focusMusic.currentIndex);
+                    } else {
+                        player.pause();
+                    }
+                };
+                const seekFocusMusic = (event) => {
+                    const player = focusMusicAudioPlayer.value;
+                    if (!player) return;
+                    player.currentTime = Number(event.target.value) || 0;
+                    updateFocusMusicProgress();
+                };
+                const addFocusMusicTrack = (track) => {
+                    const url = String(track?.url || '').trim();
+                    if (!/^https:\/\//i.test(url) && !/^data:audio\//i.test(url)) {
+                        showToast('仅支持 HTTPS 音频链接或本地上传文件。', 'error');
+                        return;
+                    }
+                    if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
+                    const existing = settings.focusMusicPlaylist.findIndex(item => item.url === url);
+                    if (existing >= 0) {
+                        focusMusic.currentIndex = existing;
+                        showToast('这首歌已经在播放列表中。', 'info');
+                        return;
+                    }
+                    settings.focusMusicPlaylist.push({ id: `music_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, title: String(track.title || '未命名曲目').slice(0, 80), artist: String(track.artist || '').slice(0, 80), url, source: track.source || 'url' });
+                    focusMusic.currentIndex = settings.focusMusicPlaylist.length - 1;
+                    showToast('已加入专注播放列表。', 'success');
+                };
+                const addFocusMusicUrl = () => {
+                    const url = focusMusic.draftUrl.trim();
+                    if (!url) return;
+                    addFocusMusicTrack({ url, title: focusMusic.draftTitle.trim() || url.split('/').pop().split('?')[0] || '自定义曲目', source: 'url' });
+                    focusMusic.draftUrl = '';
+                    focusMusic.draftTitle = '';
+                };
+                const handleFocusMusicUpload = (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    if (!file.type.startsWith('audio/')) {
+                        showToast('请选择音频文件。', 'error');
+                        event.target.value = '';
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => addFocusMusicTrack({ url: String(reader.result), title: file.name.replace(/\.[^.]+$/, ''), source: 'local' });
+                    reader.onerror = () => showToast('本地音频读取失败。', 'error');
+                    reader.readAsDataURL(file);
+                    event.target.value = '';
+                };
+                const removeFocusMusic = (index) => {
+                    const playlist = settings.focusMusicPlaylist || [];
+                    if (index < 0 || index >= playlist.length) return;
+                    const wasCurrent = index === focusMusic.currentIndex;
+                    playlist.splice(index, 1);
+                    if (!playlist.length) {
+                        focusMusic.currentIndex = -1;
+                        focusMusic.position = 0;
+                        focusMusic.duration = 0;
+                        if (focusMusicAudioPlayer.value) {
+                            focusMusicAudioPlayer.value.pause();
+                            focusMusicAudioPlayer.value.removeAttribute('src');
+                        }
+                    } else if (wasCurrent) {
+                        focusMusic.currentIndex = Math.min(index, playlist.length - 1);
+                        playFocusMusic(focusMusic.currentIndex);
+                    } else if (index < focusMusic.currentIndex) {
+                        focusMusic.currentIndex -= 1;
+                    }
+                };
+                const handleFocusMusicEnded = () => {
+                    if (settings.focusMusicLoop || !settings.focusMusicPlaylist?.length) return;
+                    const next = (focusMusic.currentIndex + 1) % settings.focusMusicPlaylist.length;
+                    playFocusMusic(next);
+                };
+                const handleFocusMusicError = () => showToast('音频加载失败，请检查曲目来源。', 'error');
+                const searchFocusMusic = async () => {
+                    const endpoint = settings.musicSearchEndpoint.trim();
+                    const query = focusMusic.searchQuery.trim();
+                    if (!endpoint || !query) {
+                        showToast('请先填写搜索服务地址和关键词。', 'info');
+                        return;
+                    }
+                    if (!/^https:\/\//i.test(endpoint)) {
+                        showToast('音乐搜索服务必须使用 HTTPS 地址。', 'error');
+                        return;
+                    }
+                    try {
+                        const url = new URL(endpoint);
+                        url.searchParams.set('q', query);
+                        focusMusic.isSearching = true;
+                        const response = await fetch(url.toString());
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const payload = await response.json();
+                        const candidates = Array.isArray(payload) ? payload : (Array.isArray(payload.results) ? payload.results : []);
+                        focusMusic.searchResults = candidates.map(item => ({
+                            title: item.title || item.name || '未命名曲目',
+                            artist: item.artist || item.author || '',
+                            url: item.url || item.audioUrl || item.streamUrl || ''
+                        })).filter(item => /^https:\/\//i.test(item.url)).slice(0, 8);
+                        if (!focusMusic.searchResults.length) showToast('搜索服务没有返回可播放的 HTTPS 音频。', 'info');
+                    } catch (error) {
+                        showToast(`音乐搜索失败：${error.message || '服务不可用'}`, 'error');
+                    } finally {
+                        focusMusic.isSearching = false;
+                    }
+                };
                 const toggleHumanMode = () => { if (selectedCat.value) selectedCat.value.isHuman = !selectedCat.value.isHuman; };
 
                 const buyItem = (item) => {
@@ -13822,6 +14414,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     notification, showNotification, hideNotification,
                     formatTime: (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`,
                     stopFocus, focusMessage, currentNoise, customNoiseUrl, playNoise, audioPlayer, harassCat, currentFocusLog, isFinishingFocus, focusSettlementLoading,
+                    focusMusicAudioPlayer, focusMusicPlaying, focusMusic, currentFocusMusicTrack, isFocusMusicPlaying, formatFocusMusicTime, syncFocusMusicVolume, updateFocusMusicProgress, playFocusMusic, toggleFocusMusic, seekFocusMusic, addFocusMusicUrl, handleFocusMusicUpload, removeFocusMusic, handleFocusMusicEnded, handleFocusMusicError, searchFocusMusic, addFocusMusicTrack,
                     toggleHumanMode, handleSpecificImageUpload, releaseCat, shareMemory,
                     getCatAvatarSource, getCatActionSpriteSource, getSpriteAssetSource, getSpriteAssetLabel, spriteActionDefinitions, handleSpriteAssetUpload, removeSpriteAsset, saveSpriteActionMetadata, useSpriteAvatar,
                     isUsingPixelAvatar, makePixelCatAvatar, openPixelAvatarWorkshop, closePixelAvatarWorkshop, savePixelAvatar, useOriginalAvatar, resetPixelAvatarDraft, randomizePixelAvatarDraft,
@@ -13842,7 +14435,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef,
-                    openPhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, reRollLastPhoneMessage,
+                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime,
                     openMomentsSettings, saveMomentsSettings, likeMoment, addComment, postMoment,
                     generatePhoneNews, generatePhoneMoments,
                     addWalletTransaction,
@@ -13858,7 +14451,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     hallEntryLoading,
                     tempUserStatus, showPhoneImageDescModal, phoneImageDesc, sendPhoneDescImage,
                     uiTheme, uiBlur, uiScanlines, uiTermSize, uiShowStatusbar, saveStatusbarPreference, setUITheme, applyUISettings, customFontInput, applyCustomFont, resetCustomFont,
-                    apiRetryModal, resolveApiRetryDecision
+                    apiRetryModal, resolveApiRetryDecision,
+                    dailyArchiveResumeModal, dismissPendingDailyArchive, resumePendingDailyArchive
                 };
             }
         }).mount('#app');
