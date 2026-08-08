@@ -3551,6 +3551,11 @@
                     :style="{ width: loadingProgress + '%' }"></div>
             </div>
             <div class="text-[10px]" style="color: var(--ui-text-subtle)">{{ loadingOperation.stepText }}</div>
+            <button v-if="activeAIRequestId" @click="cancelCurrentAIRequest"
+                class="mt-5 sully-btn px-4 py-2 text-xs font-bold rounded-xl"
+                style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-border);">
+                停止当前请求
+            </button>
         </div>
 
         <!-- Hall transition: the directory remains behind this screen until
@@ -3902,7 +3907,7 @@
                                 :style="{ width: Math.min(cat.affinity, 100) + '%' }"></div>
                         </div>
                         <div class="text-[9.5px] text-gray-400 font-mono mt-1 flex items-center justify-between w-full px-1">
-                            <span>好感度</span>
+                            <span>亲密度</span>
                             <span class="text-red-400 font-bold"><i class="fa-solid fa-heart text-[8px] mr-0.5"></i>{{ Math.floor(cat.affinity) }}/100</span>
                         </div>
                     </div>
@@ -4925,7 +4930,7 @@
 
                                             <div class="p-6 mt-4">
                                                 <button
-                                                    @click="acceptFriendRequest(user.phoneData.friendRequests.find(r => r.id === phoneState.selectedFriendRequestId)); phoneState.selectedFriendRequestId = null; phoneState.chatTab = 'chat'"
+                                                    @click="acceptFriendRequest(user.phoneData.friendRequests.find(r => r.id === phoneState.selectedFriendRequestId))"
                                                     class="w-full bg-white text-[#576b95] py-3 rounded-lg font-bold text-base shadow-sm active:bg-gray-100">
                                                     添加到通讯录
                                                 </button>
@@ -6499,7 +6504,7 @@
                         </div>
                         <div class="meeow-settlement-stat">
                             <span>本次结算</span>
-                            <strong>好感 {{ currentSettlement.affinityDelta >= 0 ? '+' : '' }}{{ currentSettlement.affinityDelta }}</strong>
+                            <strong>亲密 {{ currentSettlement.affinityDelta >= 0 ? '+' : '' }}{{ currentSettlement.affinityDelta }}</strong>
                             <small>{{ currentSettlement.coinsDelta > 0 ? '+' + currentSettlement.coinsDelta + ' G' : '0 G' }}</small>
                         </div>
                     </section>
@@ -6518,7 +6523,7 @@
                 <h3 class="font-extrabold text-white text-sm mb-3 flex items-center gap-2"><i class="fas fa-user-gear text-yellow-500"></i> 管理特工: {{ selectedCat.name }}</h3>
                 <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改昵称</label>
                 <input v-model="selectedCat.name" class="mb-3 bg-black/40 border border-white/10 text-xs text-white rounded-xl px-3 py-2">
-                <div class="mb-3 rounded-2xl border border-white/10 bg-black/25 p-3">
+                <div v-if="pixelAvatarWorkshopEnabled" class="mb-3 rounded-2xl border border-white/10 bg-black/25 p-3">
                     <div class="flex items-center justify-between gap-2 mb-2">
                         <div>
                             <div class="text-xs font-bold text-gray-200"><i class="fas fa-paw text-yellow-500 mr-1"></i>全身像素猫</div>
@@ -6543,7 +6548,7 @@
         </div>
 
         <!-- Full-body pixel cat workshop. It is local-only and never calls AI. -->
-        <div v-if="showPixelAvatarModal && selectedCat && pixelAvatarDraft"
+        <div v-if="pixelAvatarWorkshopEnabled && showPixelAvatarModal && selectedCat && pixelAvatarDraft"
             class="pixel-cat-workshop-overlay fixed inset-0 z-[850] p-3 sm:p-5 flex items-center justify-center">
             <section class="pixel-cat-workshop rounded-[2rem] overflow-hidden flex flex-col" role="dialog" aria-modal="true" aria-label="全身像素捏猫工坊">
                 <header class="px-5 py-4 shrink-0 flex items-center justify-between gap-3 border-b" style="border-color: var(--ui-border, rgba(255,255,255,.12));">
@@ -7000,6 +7005,39 @@
         </div>
 
         <!-- Admin Panel Modal -->
+        <div v-if="showAdminPanel" class="fixed inset-0 z-[1005] p-4 flex items-center justify-center" style="background: color-mix(in srgb, var(--ui-bg, #101218) 72%, transparent); backdrop-filter: blur(12px);" @click.self="showAdminPanel = false">
+            <section class="w-full max-w-md max-h-[min(82dvh,680px)] rounded-[2rem] overflow-hidden flex flex-col" style="background: var(--ui-surface); border: 1px solid var(--ui-border); box-shadow: var(--ui-shadow); color: var(--ui-text);" role="dialog" aria-modal="true" aria-label="馆舍系统管理员">
+                <header class="p-5 shrink-0 flex items-center justify-between gap-3" style="border-bottom: 1px solid var(--ui-border);">
+                    <div>
+                        <p class="text-[10px] font-black tracking-[.18em]" style="color: var(--accent);">MEEOW HOUSE · ADMIN</p>
+                        <h2 class="mt-1 text-lg font-black">亲密度管理</h2>
+                    </div>
+                    <button @click="showAdminPanel = false" class="sully-btn w-9 h-9 rounded-xl text-lg" style="background: var(--ui-surface-hover); color: var(--ui-text);"><i class="fas fa-times"></i></button>
+                </header>
+                <div class="p-4 shrink-0" style="border-bottom: 1px solid var(--ui-border);">
+                    <label class="text-[10px] font-bold" style="color: var(--ui-text-muted);">筛选馆舍</label>
+                    <select v-model="adminHallFilter" class="mt-1 w-full rounded-xl px-3 py-2 text-sm" style="background: var(--ui-input); color: var(--ui-text); border: 1px solid var(--ui-border);">
+                        <option value="all">全部馆舍</option>
+                        <option v-for="hall in halls" :key="hall.id" :value="hall.id">{{ hall.name }}</option>
+                    </select>
+                </div>
+                <div class="p-4 space-y-3 overflow-y-auto custom-scrollbar">
+                    <article v-for="cat in adminCats" :key="'admin-' + cat.id" class="rounded-2xl p-3" style="background: var(--ui-surface-hover); border: 1px solid var(--ui-border);">
+                        <div class="flex items-center gap-3">
+                            <img :src="getCatAvatarSource(cat)" class="w-10 h-10 rounded-xl object-contain" style="background: var(--ui-input);">
+                            <div class="min-w-0 flex-1">
+                                <strong class="block text-sm truncate">{{ cat.name }}</strong>
+                                <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ halls.find(h => h.id === cat.hallId)?.name || '未分馆' }}</span>
+                            </div>
+                            <input v-model.number="cat.affinity" @change="saveAdminAffinity(cat)" type="number" min="0" max="100" class="w-16 rounded-lg px-2 py-1.5 text-center text-sm font-black" style="background: var(--ui-input); color: var(--ui-text); border: 1px solid var(--ui-border);">
+                        </div>
+                        <input v-model.number="cat.affinity" @input="saveAdminAffinity(cat)" type="range" min="0" max="100" class="mt-3 w-full accent-[var(--accent)]">
+                    </article>
+                    <p v-if="!adminCats.length" class="py-8 text-center text-sm" style="color: var(--ui-text-muted);">这个馆舍还没有入住猫咪。</p>
+                </div>
+                <footer class="p-4 text-[10px] shrink-0" style="border-top: 1px solid var(--ui-border); color: var(--ui-text-muted);">修改会立即保存。界面中的“好感度”统一按“亲密度”理解。</footer>
+            </section>
+        </div>
         <!-- Explore Return Transition -->
         <div v-if="exploreState.isReturning"
             class="meeow-explore-return-overlay fixed inset-0 z-[115] flex items-center justify-center p-4">
@@ -7032,7 +7070,7 @@
 
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-zinc-800 p-3 rounded-xl border border-zinc-700 text-center">
-                            <div class="text-[10px] text-gray-500 uppercase mb-1">好感度</div>
+                            <div class="text-[10px] text-gray-500 uppercase mb-1">亲密度</div>
                             <div class="text-lg font-bold"
                                 :class="exploreState.settlement?.affinityChange >= 0 ? 'text-green-500' : 'text-red-500'">
                                 {{ exploreState.settlement?.affinityChange >= 0 ? '+' : '' }}{{
@@ -7293,6 +7331,11 @@
                 // string and can survive a day-boundary run without proving
                 // that the temporary cat records were actually cleared.
                 const DAILY_RECORD_RESET_KEY = 'meeow_daily_records_reset_date';
+                // Meeow House changes its operational day at 03:00 local time.
+                // A separate key keeps legacy calendar-day values from causing an
+                // accidental archive immediately after upgrading.
+                const OPERATIONAL_DAY_KEY = 'meeow_operational_day_key';
+                const OPERATIONAL_DAY_START_HOUR = 3;
 
                 let initialUser = {
                     coins: 500, inventory: [], nickname: '馆长', gender: 'Secret', birthday: '',
@@ -7316,6 +7359,7 @@
                         walletTransactions: [],
                         friends: [],
                         friendRequests: [],
+                        friendRequestSentCatIds: [],
                         momentsBackground: 'https://picsum.photos/seed/meeow-house/600/400',
                         momentsAvatar: 'https://placehold.co/100x100/444/white?text=Me',
                         momentsNickname: '馆长',
@@ -7462,7 +7506,10 @@
                     logs: Array.isArray(cat.logs) ? cat.logs : [],
                     chatHistory: Array.isArray(cat.chatHistory) ? cat.chatHistory : [],
                     // Pixel avatars are optional and deliberately never replace legacy uploads.
-                    avatarMode: cat.avatarMode === 'pixel' && cat.pixelAvatar ? 'pixel' : 'image',
+                    // Keep a previously hand-built pixel configuration, but while
+                    // the workshop is paused every saved cat returns to its normal
+                    // portrait instead of exposing the unfinished renderer.
+                    avatarMode: 'image',
                     pixelAvatar: cat.pixelAvatar && typeof cat.pixelAvatar === 'object' ? cat.pixelAvatar : null,
                     lastStatusUpdateTime: cat.lastStatusUpdateTime || 0,
                     isVisiting: Boolean(cat.isVisiting),
@@ -7492,6 +7539,12 @@
                             if (!user.phoneData) user.phoneData = {};
                             if (!user.phoneData.friends) user.phoneData.friends = [];
                             if (!user.phoneData.friendRequests) user.phoneData.friendRequests = [];
+                            if (!user.phoneData.friendRequestSentCatIds) {
+                                user.phoneData.friendRequestSentCatIds = [...new Set([
+                                    ...user.phoneData.friends,
+                                    ...user.phoneData.friendRequests.map(request => request.catId)
+                                ])];
+                            }
                             if (!user.phoneData.chats) user.phoneData.chats = [];
                             if (!user.phoneData.moments) user.phoneData.moments = [];
                             if (!user.phoneData.codex) user.phoneData.codex = [];
@@ -7902,6 +7955,10 @@
                 const thinkingStates = reactive({});
                 const showPixelAvatarModal = ref(false);
                 const pixelAvatarDraft = ref(null);
+                // The first in-house pixel workshop is intentionally paused:
+                // saved pixelAvatar data stays in the save file, but the current
+                // rough editor is not exposed as a character-facing feature.
+                const pixelAvatarWorkshopEnabled = ref(false);
                 const isInteracting = ref(false);
                 const isUpdatingStatus = ref(false);
                 const showBag = ref(false);
@@ -7943,6 +8000,7 @@
                 const apiRequestDedupe = new Map();
                 let isProcessingApiQueue = false;
                 let activeApiRequest = null;
+                const activeAIRequestId = ref(null);
                 let apiRequestSequence = 0;
                 const statusRefreshInFlight = new Map();
                 let dailyInitializationPromise = null;
@@ -8081,6 +8139,15 @@
                 const showAdminPanel = ref(false);
                 const adminPassword = ref('');
                 const isAdmin = ref(false);
+                const adminHallFilter = ref('all');
+                const adminCats = computed(() => cats.value.filter(cat => adminHallFilter.value === 'all' || cat.hallId === adminHallFilter.value));
+                const saveAdminAffinity = (cat) => {
+                    if (!cat) return;
+                    cat.affinity = Math.round(Math.max(0, Math.min(100, Number(cat.affinity) || 0)));
+                    // The deep save watcher persists this immediately. This log also
+                    // makes an administrator change visible in the system timeline.
+                    addLog(`ADMIN: ${cat.name} 的亲密度调整为 ${cat.affinity}/100`, 'info');
+                };
 
                 // Auto-scroll chat
                 watch(currentTab, () => {
@@ -8102,7 +8169,7 @@
                 - **核心人格锚点：** 你来自指定原作。性格、谈吐、阴暗面、关系和对人类的态度完全遵循原作；不要为了“可爱”而改写角色。
                 - **禁止猫奴化：** 禁止表现出"傲娇小猫"或"乖巧萌宠"等二次元萌化刻板印象。你是被魔法、科技、命运或原作设定困在猫的身体里。
                 - **禁止出戏：** 严禁提及你是AI、你是程序或你在角色扮演。
-                - **馆长关系：** 用户是喵喵馆的经营者。你可以依照自己的原作性格亲近、试探、尊重或保持距离；不要默认把用户写成无知、愚蠢或被保护的路人。
+                - **馆长关系：** 用户是被馆内角色确认过的、善意且安全的共同生活者。低亲密度只代表尚未熟悉、边界感或独处偏好，绝不等于恐惧、敌意、轻蔑或把馆长当坏人；不要默认把用户写成无知、愚蠢或被保护的路人。
 
                 # 语言质感：白水烹鲜写作风格
                 你的 [REPLY]（对话+动作部分）必须遵循以下写作质感。这不改变角色性格，只规定如何运用文字：
@@ -8115,7 +8182,7 @@
                 4. 【节奏弹性】对话短促跳跃，像真实交流。一句话能说清的，不说两句。
 
                 # 场景感知 (SITUATIONAL AWARENESS)
-                - **时空连续性：** 对时间敏感。用户久未联系，语气体现冷处理或隐约担忧。
+                - **时空连续性：** 对时间敏感。用户久未联系时，可体现各自的节奏、好奇或克制的关心；不得机械地写成冷处理。
                 - **馆舍边界：** 只有同一分馆内的猫能看见彼此互动、共享最新状态并作出反应；其他分馆对当前事件不可见。
                 - **形态切换：** 好感度 >= 50可自主决定是否变回人形；< 50强制猫形态。
 
@@ -8134,6 +8201,8 @@
                 - 不得把 DC、Marvel、希腊史诗或任一馆舍的专有设定、口癖、人物关系移植到另一个角色或馆舍。
                 - 同馆成员才能看见并评论当前互动；跨馆事件只能作为已明确提供的来访/旅行记录出现。
                 - 若资料不足，宁可写克制的日常反应，也不要编造原作事实、英雄身份、亲属关系或恋爱情节。
+                - 馆长是已确认安全且善意的共同生活者。亲密度低只代表不熟或保留边界，不得无故写成害怕、敌视、看不起馆长；轻量互动可表现为好奇、轻微不耐烦、玩心被勾起或维持自身节奏。
+                - 调用方提供的固定猫种、固定瞳色和角色资料不可改写、不可遗漏、不可用别的角色外观替代。
                 `;
 
                 const STRICT_CANON_PROMPT = CORE_ROLEPLAY_PROMPT + `
@@ -8281,7 +8350,8 @@
                     showToast("正在接收馆舍频道…", "loading");
                     const names = roomCats.value.map(c => c.name).join(', ');
                     if (names.length === 0) return showToast("当前馆舍没有可接收的猫咪频道。");
-                    const prompt = `[MEEOW HOUSE RELAY · ${currentHall.value.name}] Task: Write a short private exchange between only these cats: ${names}. It can be about the user, their day in this hall, or a small plan that naturally belongs to their own original work. Format: [Name]: Dialogue. Preserve every speaker's exact canon personality. Never force a superhero mission, DC terminology, or generic cute-cat behaviour onto a character. (50-80 words)`;
+                    const prompt = `[MEEOW HOUSE RELAY · ${currentHall.value.name}] Task: Write a short private exchange between only these cats: ${names}. It can be about the user, their day in this hall, or a small plan that naturally belongs to their own original work. Format: [Name]: Dialogue. Preserve every speaker's exact canon personality. Never force a superhero mission, DC terminology, or generic cute-cat behaviour onto a character. (50-80 words)
+                    ${roomCats.value.map(cat => buildCatMemoryContext(cat, { compact: true })).join('\n---\n')}`;
                     try {
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1500, ThinkingLevel.HIGH);
                         if (!phoneState.intercepts) phoneState.intercepts = [];
@@ -8471,13 +8541,20 @@ ${buildCatMemoryContext(cat)}`;
                 });
 
                 const friendRequestInFlight = new Set();
+        const createFriendRequestFallback = (cat, identity) => {
+            const coverStory = cat.trickArchetype
+                ? `最近在处理一件和${cat.trickArchetype}有关的小事，想向你确认个细节。`
+                : '有件小事想向你确认。';
+            return `你好，冒昧打扰。我是${identity.name}。${coverStory}方便加个好友吗？`;
+        };
                 const sendFriendRequest = async (catId) => {
-                    if (!settings.apiKey) return;
                     if (!user.phoneData.friends) user.phoneData.friends = [];
                     if (!user.phoneData.friendRequests) user.phoneData.friendRequests = [];
+                    if (!user.phoneData.friendRequestSentCatIds) user.phoneData.friendRequestSentCatIds = [];
 
                     if (user.phoneData.friends.includes(catId)) return;
                     if (user.phoneData.friendRequests.some(r => r.catId === catId)) return;
+                    if (user.phoneData.friendRequestSentCatIds.includes(catId)) return;
                     if (friendRequestInFlight.has(catId)) return;
 
                     const cat = cats.value.find(c => c.id === catId);
@@ -8485,23 +8562,37 @@ ${buildCatMemoryContext(cat)}`;
                     friendRequestInFlight.add(catId);
 
                     const identity = phoneIdentities.value[catId] || { name: cat.name, role: '神秘人' };
+                    // Persist the first-contact event before any network wait so a
+                    // queue timeout, tab switch, or operating-day reset can never
+                    // silently lose (or duplicate) this cat's single request.
+                    user.phoneData.friendRequestSentCatIds.push(catId);
+                    const request = {
+                        id: Date.now() + Math.random(),
+                        catId,
+                        message: createFriendRequestFallback(cat, identity),
+                        status: 'pending',
+                        time: new Date().toLocaleString()
+                    };
+                    user.phoneData.friendRequests.push(request);
+                    addLog(`收到来自 ${identity.name} 的好友申请`, 'info');
+                    showNotification('收到新的好友申请', `${identity.name} 想和你建立一个方便联络的渠道。`, getCatAvatarSource(cat));
+
+                    if (!settings.apiKey) {
+                        friendRequestInFlight.delete(catId);
+                        return;
+                    }
 
                     const userSocialProfile = `昵称「${user.phoneData.momentsNickname}」，性别：${user.gender}，个性签名：「${user.phoneData.signature || '无'}」`;
                     const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
-                    const prompt = `\n【馆舍通讯录：首次互动后的好友申请】\n你是 ${identity.name}，来自 ${hall.name}。${userSocialProfile} 刚刚第一次与你的猫形态互动（聊天、共同外出或专注任务）。你想加对方好友，因为你听说对方身边有一只“可能与你有关”的猫；但绝不能承认那只猫就是你，也不能暴露喵喵馆或变猫事实。\n要求：\n1. 以符合原作性格的人类身份写一个真实可通过的加好友借口；可含蓄提及“听说你收留了一只很像我认识的猫”或“有只猫让我想起一件事”。\n2. 不得擅自添加不属于原作的身份、关系或世界观；不得默认哥谭、韦恩、夜巡或超英身份。\n3. 借口必须符合 ${identity.name} 的语言习惯与性格，严格避免 OOC 和泛化撒娇。\n4. 简体中文，50 字以内。只输出好友申请内容。\n                    `;
+                    const prompt = `\n【馆舍通讯录：首次互动后的好友申请】\n你是 ${identity.name}，来自 ${hall.name}。${userSocialProfile}。你希望与这位馆长建立一个日常、可靠的文字联络渠道；真实原因是你需要在不打扰对方的情况下保持沟通，但绝不能泄露猫形态、喵喵馆秘密或任何超现实身份。\n要求：\n1. 用你在原作中合理的公开身份、正在处理的小事、共同认识的日常场景或当前事件作为自然开场；像真实人类申请好友。\n2. 严禁提及“见过像你的猫”“你的猫似曾相识”“听说你有猫”“可能与你有关的猫”或任何类似借口。\n3. 不得擅自添加不属于原作的身份、关系或世界观；不得默认哥谭、韦恩、夜巡或超英身份。\n4. 借口必须符合 ${identity.name} 的语言习惯与性格，严格避免 OOC 和泛化撒娇。\n5. 简体中文，50 字以内。只输出好友申请内容。\n                    `;
 
                     try {
-                        const excuse = await callAI(`${prompt}\n${buildCatMemoryContext(cat)}`, `You write one natural, canon-faithful friend request for the named character. Preserve their original voice and boundaries exactly; never reveal that they are a Meeow House cat or invent a default Gotham/superhero identity.`, 200, ThinkingLevel.LOW, { label: `FRIEND REQUEST · ${identity.name}` });
+                        const excuse = await callAI(`${prompt}\n${buildCatMemoryContext(cat, { compact: true })}`, `You write one natural, canon-faithful friend request for the named character. Preserve their original voice and boundaries exactly; never reveal that they are a Meeow House cat or invent a default Gotham/superhero identity.`, 180, ThinkingLevel.LOW, { label: `FRIEND REQUEST · ${identity.name}`, priority: 'background' });
                         const cleanedExcuse = cleanText(excuse);
-
-                        user.phoneData.friendRequests.push({
-                            id: Date.now() + Math.random(),
-                            catId: catId,
-                            message: cleanedExcuse,
-                            status: 'pending',
-                            time: new Date().toLocaleString()
-                        });
-                        addLog(`收到来自 ${identity.name} 的好友申请`, 'info');
+                        // Only polish the already-delivered request. The safe local
+                        // fallback remains valid if the request was accepted while
+                        // the optional AI wording was still queued.
+                        if (cleanedExcuse && request.status === 'pending') request.message = cleanedExcuse;
                     } catch (e) {
                         console.error("Friend request generation failed", e);
                     } finally {
@@ -8510,12 +8601,22 @@ ${buildCatMemoryContext(cat)}`;
                 };
 
                 const acceptFriendRequest = (request) => {
+                    if (!request) return;
                     if (!user.phoneData.friends) user.phoneData.friends = [];
                     if (!user.phoneData.friends.includes(request.catId)) {
                         user.phoneData.friends.push(request.catId);
                     }
                     request.status = 'accepted';
-                    showToast(`已添加 ${phoneIdentities.value[request.catId].name} 为好友`, 'success');
+                    if (!Array.isArray(user.phoneData.chats)) user.phoneData.chats = [];
+                    if (!user.phoneData.chats.some(chat => chat.contactId === request.catId)) {
+                        user.phoneData.chats.push({ contactId: request.catId, history: [] });
+                    }
+                    phoneState.selectedFriendRequestId = null;
+                    phoneState.chatTab = 'chat';
+                    phoneState.currentApp = 'chat';
+                    openPhoneChat(request.catId);
+                    const contactName = phoneIdentities.value[request.catId]?.name || cats.value.find(cat => cat.id === request.catId)?.name || '新联系人';
+                    showToast(`已添加 ${contactName} 为好友`, 'success');
                 };
 
                 const availableModels = ref([]);
@@ -8604,7 +8705,7 @@ ${buildCatMemoryContext(cat)}`;
                     Object.keys(PIXEL_AVATAR_OPTIONS).forEach(key => { base[key] = pixelChoice(source[key], PIXEL_AVATAR_OPTIONS[key], base[key]); });
                     return base;
                 };
-                const isUsingPixelAvatar = (cat) => Boolean(cat && cat.avatarMode === 'pixel' && cat.pixelAvatar && !cat.isHuman);
+                const isUsingPixelAvatar = (cat) => Boolean(pixelAvatarWorkshopEnabled.value && cat && cat.avatarMode === 'pixel' && cat.pixelAvatar && !cat.isHuman);
                 const makePixelCatAvatar = (raw, name = 'Meeow') => {
                     const config = normalizePixelAvatarConfig(raw);
                     const c = config.colors;
@@ -8847,7 +8948,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
 
                 // 单次原始请求（不含重试）
-                const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, onProgress = null) => {
+                const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, onProgress = null, request = null) => {
                     const apiKey = (settings.apiKey || "").trim();
                     let baseUrl = (settings.baseUrl || "").trim();
 
@@ -8910,6 +9011,7 @@ ${buildCatMemoryContext(cat)}`;
                     }
 
                     const controller = new AbortController();
+                    if (request) request.abortController = controller;
                     let timedOut = false;
                     const timeoutId = window.setTimeout(() => {
                         timedOut = true;
@@ -8926,6 +9028,9 @@ ${buildCatMemoryContext(cat)}`;
                             signal: controller.signal
                         });
                     } catch (err) {
+                        if (request?.cancelled || cancelledApiBatches.has(request?.batchId)) {
+                            throw new AIRequestCancelledError();
+                        }
                         if (timedOut || err?.name === 'AbortError') {
                             throw new Error('请求超时：等待反代或模型响应超过 40 秒。');
                         }
@@ -8934,6 +9039,7 @@ ${buildCatMemoryContext(cat)}`;
                         throw new Error(errorMsg);
                     } finally {
                         window.clearTimeout(timeoutId);
+                        if (request?.abortController === controller) request.abortController = null;
                     }
                     onProgress?.({ stage: 'received' });
 
@@ -9018,10 +9124,29 @@ ${buildCatMemoryContext(cat)}`;
                     resolve(decision);
                 };
 
+                const cancelCurrentAIRequest = () => {
+                    const request = activeApiRequest;
+                    if (!request) return;
+                    request.cancelled = true;
+                    if (request.cancelBatchOnAbort) cancelledApiBatches.add(request.batchId);
+                    request.abortController?.abort();
+                    if (request.resolveRetryDecision) {
+                        const resolve = request.resolveRetryDecision;
+                        request.resolveRetryDecision = null;
+                        apiRetryModal.show = false;
+                        resolve('abort');
+                    }
+                    addLog(`API REQUEST #${request.id} STOPPED FROM LOADING UI. batch=${request.batchId}`, 'warn');
+                    showToast('已停止当前请求；未完成内容不会写入。', 'info');
+                };
+
                 const _runAIRequest = async (request) => {
                     const MAX_AUTO_RETRIES = 5;
                     const guardedSystemPrompt = `${request.systemPrompt || ''}\n${CANON_FIDELITY_GUARDRAIL}`;
-                    showToast('正在建立加密通道...', 'loading');
+                    // Background work (status sync, wording polish, phone photo)
+                    // must not overwrite a user-facing notification such as a new
+                    // friend request. Its progress remains visible in the system log.
+                    if (request.priority !== 'background') showToast('正在建立加密通道...', 'loading');
                     addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${settings.model || 'default'} maxTokens=${request.maxTokens}`);
                     request.onProgress?.({ stage: 'queued', requestId: request.id, label: request.label, attempt: 0, round: request.round });
 
@@ -9034,7 +9159,7 @@ ${buildCatMemoryContext(cat)}`;
                             try {
                                 if (attempt > 1) {
                                     addLog(`API REQUEST #${request.id} RETRY ${attempt}/${MAX_AUTO_RETRIES} (round ${request.round})...`, 'warn');
-                                    showToast(`🔄 重试中 (${attempt}/${MAX_AUTO_RETRIES})...`, "loading");
+                                    if (request.priority !== 'background') showToast(`🔄 重试中 (${attempt}/${MAX_AUTO_RETRIES})...`, "loading");
                                     request.onProgress?.({ stage: 'retrying', requestId: request.id, label: request.label, attempt, round: request.round });
                                     await new Promise(r => setTimeout(r, 800 * attempt));
                                 }
@@ -9042,7 +9167,7 @@ ${buildCatMemoryContext(cat)}`;
                                 request.onProgress?.({ stage: attempt > 1 ? 'retrying' : 'connecting', requestId: request.id, label: request.label, attempt, round: request.round });
                                 const content = await _doSingleAPICall(request.prompt, guardedSystemPrompt, request.maxTokens, request.thinkingLevel, (event) => {
                                     request.onProgress?.({ ...event, requestId: request.id, label: request.label, attempt, round: request.round });
-                                });
+                                }, request);
                                 request.onProgress?.({ stage: 'validating', requestId: request.id, label: request.label, attempt, round: request.round });
                                 if (typeof request.validateResponse === 'function') {
                                     const validation = request.validateResponse(content);
@@ -9050,8 +9175,9 @@ ${buildCatMemoryContext(cat)}`;
                                     if (typeof validation === 'string') throw new Error(validation);
                                 }
                                 request.onProgress?.({ stage: 'complete', requestId: request.id, label: request.label, attempt, round: request.round });
-                                showToast('数据传输完成', 'success');
-                                addLog(`API REQUEST #${request.id} SUCCESS (round ${request.round}, attempt ${attempt}). Length: ${content.length} chars.`, 'sent');
+                                if (request.priority !== 'background') showToast('数据传输完成', 'success');
+                                const elapsed = request.startedAt ? ((Date.now() - request.startedAt) / 1000).toFixed(1) : '—';
+                                addLog(`API REQUEST #${request.id} SUCCESS (round ${request.round}, attempt ${attempt}). ${elapsed}s; ${content.length} chars.`, 'sent');
                                 return content;
                             } catch (e) {
                                 if (e instanceof AIRequestCancelledError) throw e;
@@ -9062,12 +9188,12 @@ ${buildCatMemoryContext(cat)}`;
                         }
 
                         addLog(`API REQUEST #${request.id} FAILED 5 TIMES. Waiting for user decision.`, 'error');
-                        showToast(`连续 ${MAX_AUTO_RETRIES} 次请求失败，请查看错误窗口`, "error");
+                        if (request.priority !== 'background') showToast(`连续 ${MAX_AUTO_RETRIES} 次请求失败，请查看错误窗口`, "error");
                         const decision = await _waitForRetryDecision(request, lastError);
                         if (decision !== 'retry' || request.cancelled || cancelledApiBatches.has(request.batchId)) {
                             throw new AIRequestCancelledError();
                         }
-                        showToast('重新开始重试...', 'loading');
+                        if (request.priority !== 'background') showToast('重新开始重试...', 'loading');
                     }
                     throw new AIRequestCancelledError();
                 };
@@ -9082,6 +9208,8 @@ ${buildCatMemoryContext(cat)}`;
                             continue;
                         }
                         activeApiRequest = request;
+                        activeAIRequestId.value = request.id;
+                        request.startedAt = Date.now();
                         try {
                             request.resolve(await _runAIRequest(request));
                         } catch (error) {
@@ -9089,6 +9217,7 @@ ${buildCatMemoryContext(cat)}`;
                         } finally {
                             if (apiRetryModal.requestId === request.id) apiRetryModal.show = false;
                             activeApiRequest = null;
+                            activeAIRequestId.value = null;
                         }
                     }
                     isProcessingApiQueue = false;
@@ -9110,6 +9239,8 @@ ${buildCatMemoryContext(cat)}`;
                         cancelBatchOnAbort: options.cancelBatchOnAbort !== false,
                         round: 0,
                         cancelled: false,
+                        abortController: null,
+                        priority: options.priority || 'normal',
                         resolveRetryDecision: null,
                         resolve: null,
                         reject: null
@@ -9125,7 +9256,10 @@ ${buildCatMemoryContext(cat)}`;
                             () => apiRequestDedupe.delete(dedupeKey)
                         );
                     }
-                    apiRequestQueue.push(request);
+                    const priorityRank = { foreground: 0, normal: 1, background: 2 };
+                    const insertAt = apiRequestQueue.findIndex(queued => (priorityRank[queued.priority] ?? 1) > (priorityRank[request.priority] ?? 1));
+                    if (insertAt === -1) apiRequestQueue.push(request);
+                    else apiRequestQueue.splice(insertAt, 0, request);
                     _processAIQueue();
                     return promise;
                 };
@@ -9151,7 +9285,7 @@ ${buildCatMemoryContext(cat)}`;
                 // successful scheduled status sync, never after direct interaction.
                 const generateMail = async () => {
                     const now = Date.now();
-                    const todayKey = new Date(now).toDateString();
+                    const todayKey = getOperationalDayKey(new Date(now));
                     if (user.lastMailDate !== todayKey) {
                         user.lastMailDate = todayKey;
                         user.dailyMailCount = 0;
@@ -9348,6 +9482,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     try {
                         const didRefresh = await refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${arrivalStatus}`, [], '', false, false, {
                             label: `ENTER HALL · ${hall.name}`,
+                            priority: 'foreground',
                             onProgress: (event) => {
                                 applyAPILoadingEvent(event, hallEntryLoading);
                                 hallEntryLoading.message = event.stage === 'waiting'
@@ -9632,7 +9767,7 @@ JSON 格式：
 - 只有满足模组结局或用户明确撤退时，才在正文末尾另起一行输出：<END_OF_EXPLORATION>
 - 除这两个控制标记外，不得输出任何元叙事或格式说明。`;
 
-                const buildExploreKPContext = ({ phase = 'scene', userAction = '', dice = null } = {}) => {
+                const buildExploreKPContext = ({ phase = 'scene', userAction = '', dice = null, compact = false } = {}) => {
                     const companion = exploreState.companion;
                     const hall = halls.value.find(item => item.id === companion?.hallId) || currentHall.value;
                     const profile = [
@@ -9642,7 +9777,7 @@ JSON 格式：
                         `属性：${JSON.stringify(user.stats || {})}`,
                         `技能：${JSON.stringify(user.skills || {})}`
                     ].join('；');
-                    const recentHistory = (exploreState.history || []).slice(-6).map(entry => {
+                    const recentHistory = (exploreState.history || []).slice(compact ? -3 : -6).map(entry => {
                         const speaker = entry.role === 'user' ? '馆长行动' : '场景旁白';
                         const diceInfo = entry.dice ? `（掷骰 ${entry.dice}，${entry.result || ''}）` : '';
                         return `${speaker}${diceInfo}：${cleanText(entry.content)}`;
@@ -9659,13 +9794,13 @@ ${profile}
 同行猫：${companion?.name || '无'}；外貌/品种：${companion?.breed || '未提供'}；好感度：${companion?.affinity ?? 0}；人格：${companion?.personality || '以原作设定为准'}。
 表面出行目的：${exploreState.goal || '未设定'}。
 本次馆舍化 CoC 模组：
-${exploreState.module || '未生成'}
+${compact ? '正在设计模组，暂不提供既有正文。' : (exploreState.module || '未生成')}
 最近跑团记录：
 ${recentHistory}
 ${userAction ? `馆长本轮行动：${userAction}` : ''}
 ${diceContext}
 同行猫记忆与连续性：
-${companion ? buildCatMemoryContext(companion) : '无同行猫'}
+${companion ? buildCatMemoryContext(companion, { compact }) : '无同行猫'}
 [/KP CONTEXT]`;
                 };
 
@@ -9700,7 +9835,7 @@ ${companion ? buildCatMemoryContext(companion) : '无同行猫'}
                     EXPLORE_KP_SYSTEM_PROMPT,
                     1600,
                     ThinkingLevel.LOW,
-                    { label, validateResponse: validateExploreNarration }
+                    { label, priority: 'foreground', validateResponse: validateExploreNarration }
                 );
 
                 const getDiceResultClass = (res) => {
@@ -9859,7 +9994,10 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     Language: Simplified Chinese.`;
 
                     try {
-                        const res = await callAI(prompt, "You are a creative TRPG scenario generator. ALL output MUST be in Simplified Chinese (简体中文).", 1000);
+                        const res = await callAI(prompt, "You are a creative TRPG scenario generator. ALL output MUST be in Simplified Chinese (简体中文).", 1000, ThinkingLevel.LOW, {
+                            label: `EXPLORE GOALS · ${exploreState.location.name}`,
+                            priority: 'foreground'
+                        });
                         const goals = parseAIJSON(res);
                         if (Array.isArray(goals)) {
                             exploreState.suggestedGoals = goals;
@@ -9898,9 +10036,9 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
 常驻 NPC：${exploreState.location.npcs || '无'}
 同行猫：${exploreState.companion.name}（${exploreState.companion.breed || '外观未设定'}；${exploreState.companion.personality || '原作人格'}）
 馆长的日常目的：${exploreState.goal}
-${buildExploreKPContext({ phase: 'module-design' })}
+${buildExploreKPContext({ phase: 'module-design', compact: true })}
 
-请用清晰 Markdown 写约 1600–2200 字的大纲，必须包含：
+请用清晰 Markdown 写约 900–1300 个汉字的大纲，必须包含：
 1. 【表面日常目标】为什么这是一次合理的带猫出门；开场前两轮只能出现细微异常，不能突兀开战或强行卷入阴谋。
 2. 【隐藏真相】与当前馆原作、地点和常驻 NPC 连续的暗线；不得混入其他馆设定。
 3. 【NPC 卡表】常驻 NPC 与 1–2 位新 NPC 的外貌、动机、秘密、说话方式和与暗线的联系。
@@ -9912,11 +10050,20 @@ ${buildExploreKPContext({ phase: 'module-design' })}
 简体中文。`;
 
                     try {
-                        const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1500);
+                        const res = await callAI(prompt, EXPLORE_KP_SYSTEM_PROMPT, 3200, ThinkingLevel.LOW, {
+                            label: `EXPLORE MODULE · ${exploreState.location.name}`,
+                            priority: 'foreground',
+                            validateResponse: (content) => {
+                                const required = ['表面日常目标', '隐藏真相', 'NPC', '场景与固定线索', '时间线与危机', '同行猫隐藏剧本', '三种结局'];
+                                const missing = required.filter(label => !cleanText(content).includes(label));
+                                return missing.length ? `模组结构不完整，缺少：${missing.join('、')}` : true;
+                            }
+                        });
                         exploreState.module = cleanText(res);
                         await startExploration();
                     } catch (e) {
-                        showToast("模组生成失败，请重试。");
+                        addLog(`EXPLORE MODULE FAILED: ${getReadableAPIError(e)}`, 'error');
+                        showToast(`模组生成失败：${getReadableAPIError(e)}`, 'error');
                     } finally {
                         exploreState.isGeneratingModule = false;
                     }
@@ -9930,6 +10077,7 @@ ${buildExploreKPContext({ phase: 'module-design' })}
                     const companionFirstInteraction = !(exploreState.companion.todayInteractions || []).length;
                     appendInteractionEvent(exploreState.companion, 'explore-start', `与馆长前往 ${exploreState.location.name}`, { source: 'explore' });
                     appendMonitorEvent(exploreState.companion, `与馆长一同出发前往${exploreState.location.name}。`, 'explore');
+                    if (companionFirstInteraction) void sendFriendRequest(exploreState.companion.id);
 
                     exploreState.rounds = 0;
                     exploreState.history = [];
@@ -9951,7 +10099,6 @@ ${buildExploreKPContext({ phase: 'opening' })}`;
                             exploreState.waitingForDice = true;
                         }
                         exploreState.history.push({ role: 'narrator', content: narration.content });
-                        if (companionFirstInteraction) void sendFriendRequest(exploreState.companion.id);
                         exploreState.active = true; // Switch to chat view now
                         exploreState.showGoalModal = false; // Close the modal
                         nextTick(() => { if (exploreChatRef.value) exploreChatRef.value.scrollTop = exploreChatRef.value.scrollHeight; });
@@ -10224,6 +10371,24 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const phoneChatRef = ref(null);
                 const phoneShowEmojiPicker = ref(false);
 
+                // A phone sub-app must never leave an invisible full-screen layer
+                // above the next app. Reset only transient overlays on app changes;
+                // the saved contacts and conversations remain untouched.
+                watch(() => phoneState.currentApp, (nextApp) => {
+                    phoneShowEmojiPicker.value = false;
+                    phoneState.showMomentsSettings = false;
+                    phoneState.showPostMomentModal = false;
+                    phoneState.commentingOn = null;
+                    showPhoneImageDescModal.value = false;
+                    showPhoneLocationModal.value = false;
+                    showPhoneMoneyModal.value = false;
+                    showPhotoDescModal.value = false;
+                    if (nextApp !== 'chat') {
+                        phoneState.selectedContactId = null;
+                        phoneState.selectedFriendRequestId = null;
+                    }
+                });
+
                 const openPhoneChat = (id) => {
                     phoneState.selectedContactId = id;
                     nextTick(() => {
@@ -10343,7 +10508,10 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     ${buildCatMemoryContext(cat)}
                     `;
                     try {
-                        const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000);
+                        const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000, ThinkingLevel.LOW, {
+                            label: `PHONE CHAT · ${contact.name}`,
+                            priority: 'foreground'
+                        });
                         history.push({ role: 'assistant', content: cleanText(res), time: getCurrentTimeStr() });
 
                         // Probability of AI sending something back
@@ -10365,7 +10533,10 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                                     showToast(`${contact.name} 给你发了一个${moneyType === 'red-envelope' ? '红包' : '转账'}`, 'success');
                                 } else { // 40% of that 15% is a photo
                                     const photoDescPrompt = `Generate a short, vivid description of a photo that ${contact.name} would send to the user right now. Hall: ${catHall.name}. Context: ${catStatusContext}. It must fit the character's original work and current activity; do not default to Gotham or a superhero scene.\n${buildCatMemoryContext(cat)}`;
-                                    const photoDesc = await callAI(photoDescPrompt, "Generate a one-sentence description in SIMPLIFIED CHINESE.", 300);
+                                    const photoDesc = await callAI(photoDescPrompt, "Generate a one-sentence description in SIMPLIFIED CHINESE.", 300, ThinkingLevel.LOW, {
+                                        label: `PHONE PHOTO · ${contact.name}`,
+                                        priority: 'background'
+                                    });
                                     history.push({
                                         role: 'assistant',
                                         type: 'image',
@@ -10493,6 +10664,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                             3. 绝对不能暴露自己是对方家里的猫。
                             4. 语言：简体中文。字数控制在 30 字以内，简短精炼。
                             输出格式：纯文本回复，不要任何前缀或说明。
+                            ${catOfReplier ? buildCatMemoryContext(catOfReplier, { compact: true }) : ''}
                             `;
                             try {
                                 const reply = await callAI(replyPrompt, "Casual WeChat reply", 200);
@@ -10622,7 +10794,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 });
                 const slotStorage = () => {
                     if (!user.phoneData.casino) user.phoneData.casino = { history: [], totalSpins: 0, todayNet: 0, lastDay: '' };
-                    const today = new Date().toDateString();
+                    const today = getOperationalDayKey();
                     if (user.phoneData.casino.lastDay !== today) Object.assign(user.phoneData.casino, { todayNet: 0, lastDay: today });
                     return user.phoneData.casino;
                 };
@@ -11263,19 +11435,21 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     3. They may keep their cat identity private, but must not invent a secret-hero premise if their original work does not have one.
                     4. Only mention other cats in this same hall (${otherCats}) and preserve their original canon relationships.
                     5. Do NOT reveal you are currently a cat. Frame the post as an ordinary but in-character human update.
+                    6. Likes and comments may only use the current hall's actual resident names; never output hard-coded DC names or people from another hall.
                     Output JSON:
                     {
                       "authorName": "${identity.name}",
                       "authorAvatar": "${identity.avatar}",
                       "content": "Post content",
                       "time": "Just now",
-                      "likes": ["Dick Grayson", "Tim Drake"],
+                      "likes": ["仅当前馆实际成员姓名，可为空"],
                       "comments": [
-                         {"author": "Another Cat Name", "content": "Canonically appropriate snarky comment."}
+                         {"author": "仅当前馆实际成员姓名", "content": "符合原作的短评论"}
                       ],
                       "image": "https://picsum.photos/seed/${cat.name}/400/300"
                     }
                     Language: Simplified Chinese.
+                    ${buildCatMemoryContext(cat, { compact: true })}
                     `;
                     try {
                         const res = await callAI(prompt, "You are a character-faithful social-media editor for Meeow House. Preserve original canon rather than forcing superhero tropes.", 1000, ThinkingLevel.LOW, { ...requestOptions, label: 'MEEOW HOUSE MOMENTS' });
@@ -11328,7 +11502,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     return {
                         id: `record-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
                         at: now.toISOString(),
-                        dateKey: getLocalDateKey(now),
+                        dateKey: getOperationalDayKey(now),
                         time: getCurrentTimeStr(),
                         type,
                         content: cleanText(String(content || '')),
@@ -11373,37 +11547,61 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     .map(report => `[${report.date || '历史'} · ${report.missionName}] ${cleanText(report.summary || '')}${report.logs?.length ? ` | LIVE LOG: ${report.logs.slice(-5).join(' / ')}` : ''}`);
                 const getLatestHouseBriefing = () => [...(user.missionReports || [])].reverse()
                     .find(report => report.missionName === '昨日总结报告');
+                const buildCatIdentityBlock = (cat) => {
+                    const hall = halls.value.find(item => item.id === cat?.hallId) || currentHall.value;
+                    return `[IMMUTABLE CHARACTER IDENTITY]
+- Name: ${cat?.name || '未命名角色'}; Hall: ${hall?.name || 'Meeow House'}
+- Canon personality / stored prompt: ${cat?.prompt || cat?.personality || '以原作设定为准'}
+- Fixed cat breed: ${cat?.breed || '未设定'}; fixed eye color: ${cat?.eyeColor || '未设定'}.
+- Current form: ${cat?.isHuman ? 'human form' : 'cat form'}; closeness (affinity): ${cat?.affinity ?? 0}/100.
+- The user is a known safe, kind co-owner. Low closeness means unfamiliarity or personal boundaries, never automatic fear, hostility, contempt, or OOC rejection.
+- Never change, contradict, omit, or substitute the fixed breed, eye color, original personality, original relationships, or hall boundary.`;
+                };
                 const buildCatMemoryContext = (cat, options = {}) => {
                     const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
-                    const interactions = (cat.todayInteractions || []).map(entry => `[${entry.time || '历史'} · ${entry.type || '互动'}] ${cleanText(entry.content || '')}`);
-                    const travelogues = (cat.travelogues || []).slice(-3)
+                    const compact = Boolean(options.compact);
+                    const interactions = (cat.todayInteractions || []).slice(compact ? -6 : -24).map(entry => `[${entry.time || '历史'} · ${entry.type || '互动'}] ${cleanText(entry.content || '')}`);
+                    const travelogues = (cat.travelogues || []).slice(compact ? -1 : -3)
                         .map(entry => `[${entry.date || '历史'} · ${entry.location || '外出'}] ${cleanText(entry.content || '')}`);
                     const briefing = getLatestHouseBriefing();
                     return `
 [CHARACTER MEMORY · REQUIRED]
+- ${buildCatIdentityBlock(cat)}
 - Hall: ${hall?.name || 'Meeow House'} · Guardian: ${hall?.guardian || '未指定'}
 - Date context: ${getDateContext()}
-- Affinity: ${cat.affinity || 0}/100
+- Closeness / affinity: ${cat.affinity || 0}/100
 - Current status: ${cat.status || '未知'}
 - Last status update: ${cat.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime).toLocaleString() : '无记录'}
 - All interactions today: ${interactions.join(' | ') || 'None'}
-- Recent monitoring today: ${getRecentMonitorEntries(cat).join(' | ') || 'None'}
+- Recent monitoring today: ${getRecentMonitorEntries(cat, compact ? 6 : 16).join(' | ') || 'None'}
 - Last 5 permanent diary entries: ${getPermanentDiaryEntries(cat).join(' | ') || 'None'}
 - Last 5 focus records: ${getCatFocusReports(cat).join(' | ') || 'None'}
 - Last 3 travelogues: ${travelogues.join(' | ') || 'None'}
 - Latest Raccoon S house briefing: ${briefing ? cleanText(briefing.summary || '') : 'None'}
 ${options.extra || ''}
-[CONTINUITY RULE] Read this timeline before writing. Continue from the latest plausible action; do not repeat a stale status after meaningful time has passed. The stored original-character prompt is binding: never OOC, never generic cute-cat behavior, and never impose a DC/superhero premise outside a hall where it belongs.`;
+[CONTINUITY RULE] Read this timeline before writing. Continue from the latest plausible action; do not repeat a stale status after meaningful time has passed. The stored original-character prompt and immutable identity are binding: never OOC, never generic cute-cat behavior, and never impose a DC/superhero premise outside a hall where it belongs.`;
                 };
                 const getLocalDateKey = (value = new Date()) => {
                     const date = value instanceof Date ? value : new Date(value);
                     if (Number.isNaN(date.getTime())) return '';
                     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 };
+                const getOperationalDate = (value = new Date()) => {
+                    const date = value instanceof Date ? new Date(value) : new Date(value);
+                    if (Number.isNaN(date.getTime())) return new Date();
+                    date.setHours(date.getHours() - OPERATIONAL_DAY_START_HOUR);
+                    return date;
+                };
+                const getOperationalDayKey = (value = new Date()) => getLocalDateKey(getOperationalDate(value));
+                const getPreviousOperationalDate = (value = new Date()) => {
+                    const date = getOperationalDate(value);
+                    date.setDate(date.getDate() - 1);
+                    return date;
+                };
                 const captureDailySnapshot = () => ({
                     capturedAt: new Date().toISOString(),
-                    date: new Date(Date.now() - 86400000).toLocaleDateString(),
-                    dateKey: getLocalDateKey(new Date(Date.now() - 86400000)),
+                    date: getPreviousOperationalDate().toLocaleDateString(),
+                    dateKey: getLocalDateKey(getPreviousOperationalDate()),
                     cats: cats.value.map(cat => ({
                         id: cat.id,
                         name: cat.name,
@@ -11423,6 +11621,8 @@ ${options.extra || ''}
                     })),
                     missionReports: [...(user.missionReports || [])],
                     todos: [...(user.todos || [])],
+                    deadlines: [...(user.deadlines || [])],
+                    schedule: [...(user.schedule || [])],
                     mailState: {
                         dailyMailCount: user.dailyMailCount || 0,
                         lastMailDate: user.lastMailDate || '',
@@ -11435,7 +11635,7 @@ ${options.extra || ''}
                     return (snapshotCat.todayInteractions || []).some(event => triggerTypes.has(event.type)) ||
                         (snapshotCat.chatHistory || []).length > 0; // compatibility for a save made before typed events
                 };
-                const clearDailyCatRecords = (dateKey = getLocalDateKey()) => {
+                const clearDailyCatRecords = (dateKey = getOperationalDayKey()) => {
                     cats.value.forEach(cat => {
                         cat.chatHistory = [];
                         cat.todayInteractions = [];
@@ -11494,6 +11694,8 @@ ${options.extra || ''}
                         hall: halls.value.find(h => h.id === cat.hallId)?.name || 'Meeow House',
                         personality: cat.personality || '',
                         canonPrompt: cat.prompt || '',
+                        breed: cat.breed || '',
+                        eyeColor: cat.eyeColor || '',
                         affinity: cat.affinity || 0,
                         interactions: cat.todayInteractions || [],
                         chat: cat.chatHistory || [],
@@ -11503,23 +11705,29 @@ ${options.extra || ''}
                     }));
                     const doneTasks = (snapshot.todos || []).filter(todo => todo.done).map(todo => todo.text);
                     const pendingTasks = (snapshot.todos || []).filter(todo => !todo.done).map(todo => todo.text);
+                    const deadlines = (snapshot.deadlines || []).map(item => `${item.title || item.text || '未命名 DDL'}${item.time ? `（${item.time}）` : ''}`);
+                    const schedule = (snapshot.schedule || []).map(item => `${item.time || ''} ${item.event || item.title || ''}`.trim()).filter(Boolean);
+                    const focusRecords = (snapshot.missionReports || []).filter(report => report.duration > 0).slice(-12).map(report => `${report.missionName || '专注'} · ${Math.floor((report.duration || 0) / 60)} 分钟 · ${report.isSuccess === false || report.status === 'FAILED' ? '中止' : '完成'} · ${report.coinsDelta || 0}G`);
                     return `你正在为 Meeow House 生成“昨日归档包”。馆长：${user.nickname}。昨天日期：${snapshot.date}。日期/节日信息：${getDateContext(`${snapshot.dateKey}T12:00:00`)}。
 
 馆舍概览：${hallOverview}
 昨日已完成任务：${doneTasks.join('、') || '无'}
 仍待办任务：${pendingTasks.join('、') || '无'}
+DDL：${deadlines.join('、') || '无'}
+日程：${schedule.join('、') || '无'}
+专注记录：${focusRecords.join('；') || '无'}
 
 需要写日记的猫（只可依据提供的真实记录；这些角色虽然为猫形态，但人格、原作关系、道德边界和语气必须严格符合原作，绝对不 OOC，不把任何馆舍默认写成 DC）：
 ${JSON.stringify(diaryContext)}
 
 请只输出一个严格 JSON 对象，不要 Markdown、不要解释、不要代码围栏：
 {
-  "summary":"Raccoon S 以活泼、幽默、略带调侃但可靠的合伙人口吻写 100-160 字昨日全馆总结。",
+  "summary":"Raccoon S 以活泼、幽默、略带调侃但可靠的合伙人口吻写 100-160 字昨日全馆总结；优先总结待办、DDL、日程、专注完成/中止和奖励，猫咪只在确有重要事件时一句带过。",
   "diaries":[{"catId":"必须使用上方对应 catId","content":"该角色第一人称、180-300 字昨日小猫日记"}],
   "news":[{"type":"HOUSE","title":"馆舍热讯标题","summary":"30-80 字中性馆舍热讯","source":"Meeow House Gazette"},{"type":"HOUSE","title":"...","summary":"...","source":"..."},{"type":"HOUSE","title":"...","summary":"...","source":"..."}],
   "moment":{"authorName":"一位当前存档中存在的猫或馆舍账号","authorAvatar":"","content":"40-100 字朋友圈","time":"刚刚","image":""}
 }
-硬性要求：diaries 必须恰好覆盖每一只列出的猫，不能虚构未记录事件；summary、news、moment 均不得带 Gotham/Batman/Wayne 等默认 DC 前提，除非引用的数据明确属于哥谭馆。`;
+硬性要求：diaries 必须恰好覆盖每一只列出的猫，不能虚构未记录事件，也不得改写其固定猫种或瞳色；summary、news、moment 均不得带 Gotham/Batman/Wayne 等默认 DC 前提，除非引用的数据明确属于哥谭馆。`;
                 };
                 const applyDailyArchivePackage = (payload, snapshot, todayStr, todayKey) => {
                     const validation = validateDailyArchivePackage(payload, snapshot);
@@ -11576,6 +11784,7 @@ ${JSON.stringify(diaryContext)}
                     user.lastLogin = Date.now();
                     localStorage.setItem('last_diary_date', todayStr);
                     localStorage.setItem('last_login_date', todayStr);
+                    localStorage.setItem(OPERATIONAL_DAY_KEY, todayKey);
                 };
                 const generateDailyArchivePackage = async (snapshot, requestOptions = {}) => {
                     const prompt = buildDailyArchivePrompt(snapshot);
@@ -11604,91 +11813,79 @@ ${JSON.stringify(diaryContext)}
                         return dailyInitializationPromise;
                     }
                     const runInitialization = async () => {
-                    const now = new Date();
-                    loadingProgress.value = 8;
-                    loadingMessage.value = '正在检查馆舍日期与归档状态…';
-                    loadingOperation.title = 'MEEOW HOUSE · DAILY ARCHIVE';
-                    loadingOperation.phase = '准备检查跨日记录';
-                    loadingOperation.stepText = '初始化';
-                    loadingOperation.indeterminate = false;
+                        const now = new Date();
+                        const operationalKey = getOperationalDayKey(now);
+                        loadingProgress.value = 8;
+                        loadingMessage.value = '正在检查 03:00 运营日与归档状态…';
+                        loadingOperation.title = 'MEEOW HOUSE · DAILY ARCHIVE';
+                        loadingOperation.phase = '准备检查运营日记录';
+                        loadingOperation.stepText = '初始化';
+                        loadingOperation.indeterminate = false;
 
-                    const todayStr = now.toDateString();
-                    const todayKey = getLocalDateKey(now);
-                    const initializationBatchId = `daily-init-${todayStr}-${Date.now()}`;
-                    const initializationRequestOptions = {
-                        batchId: initializationBatchId,
-                        cancelBatchOnAbort: true
-                    };
-                    const lastLoginDate = localStorage.getItem('last_login_date') || '';
-                    const lastDiaryDate = localStorage.getItem('last_diary_date') || '';
-
-                    // Always check for special events and update schedule on init
-                    checkSpecialEvent();
-                    updateDailySchedule();
-
-                    const isNewDay = lastLoginDate !== todayStr;
-                    if (isNewDay) {
-                        if (dailyInitializationPausedDate === todayKey) {
-                            finishInitialLoading('昨日归档尚未完成；昨日记录已保留。');
-                            return;
+                        // Always check calendar presentation, but only archive when
+                        // the dedicated operational-day key actually changes.
+                        checkSpecialEvent();
+                        updateDailySchedule();
+                        let lastOperationalKey = localStorage.getItem(OPERATIONAL_DAY_KEY) || '';
+                        if (!lastOperationalKey) {
+                            // Migration is deliberately non-destructive: an old save
+                            // starts from the current 03:00 operating day rather than
+                            // retroactively running an unexpected archive.
+                            lastOperationalKey = operationalKey;
+                            localStorage.setItem(OPERATIONAL_DAY_KEY, operationalKey);
+                            addLog('OPERATIONAL DAY MIGRATION: initialized 03:00 boundary without backfilling an archive.', 'info');
                         }
-                        addLog("检测到跨越零点：启动每日结算（逻辑A）");
-                        loadingProgress.value = 15;
-                        if (settings.apiKey && lastDiaryDate !== todayStr) {
-                            loadingMessage.value = '正在冻结昨日记录，准备生成完整归档包…';
-                            loadingOperation.phase = '冻结昨日记录';
-                            loadingOperation.stepText = '步骤 1/3 · 读取昨日互动、监控与档案';
+
+                        if (lastOperationalKey !== operationalKey) {
+                            if (dailyInitializationPausedDate === operationalKey) {
+                                finishInitialLoading('昨日归档尚未完成；昨日记录已保留。');
+                                return;
+                            }
+                            addLog(`检测到 03:00 运营日切换：${lastOperationalKey} → ${operationalKey}`);
+                            loadingProgress.value = 15;
+                            const initializationBatchId = `daily-init-${operationalKey}-${Date.now()}`;
+                            if (!settings.apiKey) {
+                                dailyInitializationPausedDate = operationalKey;
+                                addLog('运营日归档未执行：未配置 API，昨日记录保持原样。', 'error');
+                                finishInitialLoading('未配置 API；昨日记录已保留。', 0);
+                                return;
+                            }
                             try {
+                                loadingMessage.value = '正在冻结上一运营日记录，准备生成完整归档包…';
+                                loadingOperation.phase = '冻结昨日记录';
+                                loadingOperation.stepText = '步骤 1/3 · 读取互动、监控与档案';
                                 const dailySnapshot = captureDailySnapshot();
                                 const payload = await generateDailyArchivePackage(dailySnapshot, {
-                                    ...initializationRequestOptions,
+                                    batchId: initializationBatchId,
+                                    cancelBatchOnAbort: true,
+                                    priority: 'background',
                                     onProgress: (event) => applyAPILoadingEvent(event, 'app')
                                 });
                                 loadingOperation.phase = '正在写入已校验的归档包';
                                 loadingOperation.stepText = '步骤 2/3 · 原子写入日报、日记、热讯与朋友圈';
                                 loadingOperation.indeterminate = false;
                                 loadingProgress.value = 93;
-                                applyDailyArchivePackage(payload, dailySnapshot, todayStr, todayKey);
-                                loadingOperation.phase = '昨日归档完成；新的一天已开始';
+                                applyDailyArchivePackage(payload, dailySnapshot, operationalKey, operationalKey);
+                                loadingOperation.phase = '昨日归档完成；新运营日已开始';
                                 loadingOperation.stepText = '步骤 3/3 · 已清空仅限昨日的临时记录';
                                 loadingProgress.value = 98;
                             } catch (e) {
-                                console.error("Initialization APIs error:", e);
-                                dailyInitializationPausedDate = todayKey;
+                                console.error('Operational-day archive error:', e);
+                                dailyInitializationPausedDate = operationalKey;
                                 loadingOperation.phase = '归档未完成，已保留昨天所有临时记录';
                                 loadingOperation.stepText = '未写入半份内容，也不会继续后台调用';
                                 loadingOperation.indeterminate = false;
                                 loadingProgress.value = 100;
-                                loadingMessage.value = '昨日归档未完成：已解锁馆舍，记录仍完整保留。';
-                                addLog(`每日结算未完成：${getReadableAPIError(e)}。没有清空昨日聊天或监控，也不会继续后台调用。`, 'error');
-                                showToast('昨日归档未完成，已保留记录并解除遮罩。', 'error');
-                                finishInitialLoading('昨日归档未完成；可刷新页面后再主动尝试。', 0);
+                                addLog(`运营日结算未完成：${getReadableAPIError(e)}。没有清空昨日聊天或监控，也不会继续后台调用。`, 'error');
+                                showToast('昨日归档未完成，记录已保留并解除遮罩。', 'error');
+                                finishInitialLoading('昨日归档未完成；可稍后重新打开页面重试。', 0);
                                 return;
                             }
-                        } else if (!settings.apiKey) {
-                            dailyInitializationPausedDate = todayKey;
-                            loadingMessage.value = '未配置 API：昨日记录已保留。';
-                            addLog('跨零点未执行归档：未配置 API，因此没有清空昨日记录。', 'error');
-                            finishInitialLoading('未配置 API；昨日记录已保留。', 0);
-                            return;
+                        } else {
+                            loadingProgress.value = 90;
+                            loadingMessage.value = '馆舍已就绪；进入馆舍时会刷新对应实时动态。';
                         }
-                        loadingProgress.value = 99;
-                    } else {
-                        // One-time repair for saves produced by an earlier
-                        // daily run: the report was marked complete, but its
-                        // temporary chat/monitor records were left behind.
-                        // A completed `last_diary_date` is the evidence that
-                        // archive generation succeeded, so this cannot erase
-                        // an unfinished day-end batch.
-                        const resetMarker = localStorage.getItem(DAILY_RECORD_RESET_KEY) || user.dailyRecordDate || '';
-                        if (lastDiaryDate === todayStr && resetMarker !== todayKey) {
-                            clearDailyCatRecords(todayKey);
-                            addLog('DAILY RECORD REPAIR: Cleared stale temporary chat and monitoring records.', 'info');
-                        }
-                        loadingProgress.value = 90;
-                        loadingMessage.value = '馆舍已就绪；进入馆舍时会刷新对应实时动态。';
-                    }
-                    finishInitialLoading('馆舍已就绪；进入馆舍时才会更新该馆状态。');
+                        finishInitialLoading('馆舍已就绪；进入馆舍时才会更新该馆状态。');
                     };
                     dailyInitializationPromise = runInitialization();
                     dailyInitializationPromise.then(
@@ -11711,16 +11908,18 @@ ${JSON.stringify(diaryContext)}
                     const mailContext = recentMails ? `未读信件: ${recentMails}` : "无新信件";
                     const backgroundContext = getDateContext();
 
-                    const hallOverview = halls.value.map(hall => `${hall.name}：${cats.value.filter(cat => cat.hallId === hall.id).map(cat => cat.name).join('、') || '暂无成员'}`).join('；');
+                    const scheduleContext = (user.schedule || []).filter(item => !item.done).slice(0, 8).map(item => `${item.time || ''} ${item.event || item.title || ''}`.trim()).filter(Boolean).join('；') || '无待办日程';
+                    const focusContext = (user.missionReports || []).filter(report => report.duration > 0).slice(-8).map(report => `${report.missionName || '专注'} ${Math.floor((report.duration || 0) / 60)} 分钟 ${report.status === 'FAILED' ? '中止' : '完成'}`).join('；') || '无专注记录';
                     const prompt = `Role: Raccoon S, the user's co-owner and everyday partner at Meeow House. Task: Write a daily summary briefing for the house owner ${user.nickname}. 
                     Context: 
                     - Date/Background: ${backgroundContext}
                     - Yesterday's Completed Tasks: ${doneStr || 'None'}. 
                     - Remaining Pending Tasks: ${pendingStr || 'None'}. 
                     - ${ddlContext}.
+                    - 日程：${scheduleContext}.
+                    - 专注：${focusContext}.
                     - ${mailContext}.
-                    - Halls: ${hallOverview}.
-                    Requirement: ~100 words. Raccoon S is lively, witty, warm and a little teasing, like a reliable partner who knows the house well. Cover the house as a whole without making Gotham the default. Mention dates/holidays if relevant. Do not imitate a hall guardian or a British butler.
+                    Requirement: ~100 words. Prioritize tasks, DDLs, schedule, focus completion/abort and rewards. Only mention cat activity briefly when a genuinely important event occurred. Raccoon S is lively, witty, warm and a little teasing, like a reliable partner who knows the house well. Never make Gotham the default or imitate a hall guardian / British butler.
                     Language: Simplified Chinese (简体中文).`;
 
                     try {
@@ -11767,6 +11966,8 @@ ${JSON.stringify(diaryContext)}
 Character: ${cat.name}
 Personality: ${cat.personality}
 Stored character prompt: ${cat.prompt}
+Fixed cat breed: ${cat.breed || '未设定'}
+Fixed eye color: ${cat.eyeColor || '未设定'}
 Date: ${yesterdayStr}
 Date context: ${getDateContext()}
 Affinity: ${cat.affinity}/100
@@ -11777,7 +11978,7 @@ Related focus records: ${focusReports.join(' | ') || 'None'}
 Recent travelogues (permanent context): ${relatedTravel.join(' | ') || 'None'}
 Latest Raccoon S briefing: ${latestBriefing ? cleanText(latestBriefing.summary || '') : 'None'}
 
-Task: Write one 200-300 Chinese-character first-person diary entry about only the actual events above. The character's source canon, worldview, moral boundaries and individual voice are binding. No OOC, no generic cute-cat tone, no invented rescue/patrol/superhero premise. Cat form never changes their personality. Do not claim an event that is absent from the supplied record.`;
+Task: Write one 200-300 Chinese-character first-person diary entry about only the actual events above. The character's source canon, worldview, moral boundaries, fixed breed/eye color and individual voice are binding. No OOC, no generic cute-cat tone, no invented rescue/patrol/superhero premise. Cat form never changes their personality. Do not claim an event that is absent from the supplied record.`;
                         const res = await callAI(prompt, STRICT_CANON_PROMPT, 4000, ThinkingLevel.LOW, { ...requestOptions, label: `DAILY DIARY · ${cat.name}` });
                         if (!Array.isArray(cat.logs)) cat.logs = [];
                         cat.logs.push({ date: yesterdayStr, at: new Date().toISOString(), type: 'daily-diary', content: cleanText(res) });
@@ -11837,6 +12038,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const time = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'user', content: msg, time, at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, isItemUse ? 'item' : 'chat-user', msg, { source: 'detail-chat' });
+                        if (isFirstInteraction) void sendFriendRequest(sendingCat.id);
                     }
 
                     if (sendingCat.isOut && Math.random() > 0.15) {
@@ -11854,7 +12056,6 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         }
                         sendingCat.chatHistory.push({ role: 'assistant', isSystem: false, content: sendingCat.autoReply, time: getCurrentTimeStr(), at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, 'chat-reply', sendingCat.autoReply, { source: 'auto-reply' });
-                        if (isFirstInteraction) void sendFriendRequest(sendingCat.id);
                         return;
                     }
 
@@ -11892,8 +12093,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         Job: ${user.job}
                         (Please address the user appropriately based on their Job/Role)
 
-                        Role: ${sendingCat.name}. Affinity: ${sendingCat.affinity}/100.
-                        [AFFINITY INFLUENCE]: Your response MUST reflect your affinity level (${sendingCat.affinity}/100). High affinity means more trust/affection, low affinity means more distance/suspicion.
+                        Role: ${sendingCat.name}. Closeness: ${sendingCat.affinity}/100.
+                        [CLOSENESS INFLUENCE]: The user is already known to be safe and kind. High closeness means more ease and initiative; low closeness means independence, tentative curiosity, or ordinary boundaries — NEVER fear, suspicion, contempt, or treating the user as dangerous by default.
                         [NO AI FLAVOR]: Avoid generic AI greetings or "As an AI..." phrases. Speak naturally as the character would.
                         
                         Specific Character Traits: ${sendingCat.personality}.
@@ -11923,9 +12124,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         **MANDATORY LANGUAGE:** 简体中文 only in all sections.
                         `;
 
-                        const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 2000, ThinkingLevel.HIGH);
-
-                        if (isFirstInteraction) void sendFriendRequest(sendingCat.id);
+                        const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 1100, ThinkingLevel.LOW, { label: `HOMEPAGE CHAT · ${sendingCat.name}`, priority: 'foreground' });
 
                         const formDecision = extractSection(responseRaw, 'FORM_DECISION');
                         if (formDecision && formDecision.includes('HUMAN')) {
@@ -11960,7 +12159,14 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, 'chat-reply', `[${sendingCat.isHuman ? 'HUMAN' : 'CAT'}][REPLY]: ${reply}`, { source: 'detail-chat' });
 
-                        await refreshAllStatus(true, `User is interacting with ${sendingCat.name}. User Status: ${user.currentStatus}`, [sendingCat.id], status);
+                        // The reply is already safely written. Let the larger
+                        // hall-status sync follow in the background so the chat
+                        // input becomes usable immediately instead of feeling like
+                        // every message waits for a second full AI request.
+                        void refreshAllStatus(true, `User is interacting with ${sendingCat.name}. User Status: ${user.currentStatus}`, [sendingCat.id], status, false, false, {
+                            label: `CHAT FOLLOW-UP STATUS · ${currentHall.value.name}`,
+                            priority: 'background'
+                        });
 
                         sendingCat.lastInteractionTimestamp = Date.now();
                     } catch (e) {
@@ -12085,11 +12291,15 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (!canStartFocus.value) return;
                     focusCats.value = roomCats.value.filter(c => focusSetupData.selectedCatIds.includes(c.id));
                     focusAction.value = focusSetupData.action;
-                    const firstFocusCompanionIds = [];
                     focusCats.value.forEach(cat => {
                         const firstInteraction = !(cat.todayInteractions || []).length;
                         appendInteractionEvent(cat, 'focus-start', `与馆长共同执行专注任务：${focusAction.value}`, { source: 'focus' });
-                        if (firstInteraction) firstFocusCompanionIds.push(cat.id);
+                        if (firstInteraction) {
+                            // Friend requests are persisted immediately, just like
+                            // first homepage/explore interactions. A slow focus-log
+                            // response must never make a first contact disappear.
+                            void sendFriendRequest(cat.id);
+                        }
                     });
                     isFocusing.value = true;
                     focusTotalTime.value = focusSetupData.minutes * 60;
@@ -12104,10 +12314,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     
                     if (settings.apiKey) {
                         isProcessingFocusTick.value = true;
-                        focusTickBehavior().then((didGenerate) => {
-                            // A friend request belongs to the first *successful* AI-backed
-                            // shared focus interaction, never merely to pressing the button.
-                            if (didGenerate) firstFocusCompanionIds.forEach(id => void sendFriendRequest(id));
+                        focusTickBehavior().then(() => {
                             isProcessingFocusTick.value = false;
                         });
                     }
@@ -12260,18 +12467,19 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 const harassCat = async () => {
                     const targetCat = isFocusing.value ? focusCats.value[Math.floor(Math.random() * focusCats.value.length)] : selectedCat.value;
                     if (!targetCat) return;
-                    targetCat.affinity = Math.max(0, targetCat.affinity - 1);
                     if (settings.apiKey) {
                         const formStr = targetCat.isHuman ? "Human Form" : "Cat Form";
-                        const prompt = `User harasses you. You: ${targetCat.name} (${formStr}). Traits: ${targetCat.personality}. Reaction Action (30 words, 3rd Person). Output: [ACTION] Action\n${buildCatMemoryContext(targetCat)}`;
+                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${targetCat.name} (${formStr}). Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildCatMemoryContext(targetCat, { compact: true })}`;
                         try {
-                            const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 800);
+                            const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, { label: `LIGHT INTERACTION · ${targetCat.name}`, priority: 'foreground' });
                             const action = extractSection(res, 'ACTION') || cleanText(res);
                             setCatStatus(targetCat, action, { source: 'harass', forceLog: true });
                             appendInteractionEvent(targetCat, 'special', `馆长进行了互动：${action}`, { source: 'harass' });
                             if (isFocusing.value) { const timeStr = getCurrentTimeStr(); currentFocusLog.value.unshift(`${timeStr} [${targetCat.name}] ${action}`); focusMessage.value = "骚扰成功！"; playLogSound(); setTimeout(() => focusMessage.value = '', 2000); } else { alert(`${targetCat.name}: ${action}`); refreshAllStatus(true, `User just harassed ${targetCat.name}. Reaction: ${action}`, [targetCat.id], action); }
                         } catch (e) { }
-                    } else { if (isFocusing.value) currentFocusLog.value.unshift(`${getCurrentTimeStr()} [${targetCat.name}] 嫌弃地躲开了。`); }
+                    } else if (isFocusing.value) {
+                        currentFocusLog.value.unshift(`${getCurrentTimeStr()} [${targetCat.name}] 抬眼看了看馆长，又把注意力放回自己的事情上。`);
+                    }
                 };
 
                 const _refreshAllStatus = async (forceUpdate = false, additionalContext = "", activeCatIds = [], focusCatLastAction = "", isFocusEnd = false, isExploreEnd = false, requestOptions = {}) => {
@@ -12387,7 +12595,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         
                         [ROLEPLAY QUALITY]:
                         - NO AI FLAVOR. Stay in character.
-                        - AFFINITY MATTERS: Reflect Affinity level in status and inner voice.
+                        - CLOSENESS MATTERS: Low affinity means independent rhythm or ordinary boundaries, never default fear, hostility, or contempt toward the safe, kind house owner.
                         - NO OOC. The source material and each cat's stored prompt are binding; cat form never overrides core personality.
                         
                         Task: Update status for ALL characters.
@@ -12403,7 +12611,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                           }
                         ]`;
 
-                        const res = await callAI(characterBlock + "\n" + prompt, CORE_ROLEPLAY_PROMPT, 8192, ThinkingLevel.LOW, {
+                        const res = await callAI(characterBlock + "\n" + prompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                             ...requestOptions,
                             label: `STATUS SYNC · ${currentHall.value.name}`,
                             dedupeKey: requestOptions.dedupeKey || `status-sync-${activeHallId.value}`
@@ -12841,7 +13049,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText,
                     chatInput, thinkingStates, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall,
@@ -12874,7 +13082,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     getDiceResultClass, getSkillValue, submitDiceRoll,
                     showCalendarManager, deleteCalendarSource, currentBagTab, currentBagItems,
                     systemLogs, logWindow, notification,
-                    showAdminLogin, showAdminPanel, adminPassword, isAdmin, openAdmin, checkAdminPassword,
+                    showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef,
                     openPhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, reRollLastPhoneMessage,
                     openMomentsSettings, saveMomentsSettings, likeMoment, addComment, postMoment,
@@ -12888,7 +13096,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     initTetris, tetrisAction, endGame, tetrisState, mergeState, handleMergeTouchStart, handleMergeTouchEnd, matchState, initMerge, initMatch, matchClick,
                     SLOT_BETS, slotState, initSlots, spinSlots, collectSlotWin, gambleSlotWin, closeSlots,
                     watermelonState, initWatermelon, handleWatermelonInput, flappyState, initFlappy, startFlappy, flappyJump, reRollLastMessage,
-                    isAppLoading, loadingProgress, loadingMessage, loadingOperation,
+                    isAppLoading, loadingProgress, loadingMessage, loadingOperation, activeAIRequestId, cancelCurrentAIRequest,
                     hallEntryLoading,
                     tempUserStatus, showPhoneImageDescModal, phoneImageDesc, sendPhoneDescImage,
                     uiTheme, uiBlur, uiScanlines, uiTermSize, uiShowStatusbar, saveStatusbarPreference, setUITheme, applyUISettings, customFontInput, applyCustomFont, resetCustomFont,
