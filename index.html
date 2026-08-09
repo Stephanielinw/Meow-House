@@ -283,7 +283,7 @@
         .nav-item {
             color: #71717a;
             text-align: center;
-            font-size: 10px;
+            font-size: 9px;
             transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
@@ -818,7 +818,8 @@
             padding: 10px;
             height: 160px;
             overflow-y: auto;
-            font-size: var(--term-font-size, 9px);
+            /* Keep the task-page runtime log compact and predictable. */
+            font-size: 10px;
             color: var(--hacker-green);
             text-shadow: 0 0 3px rgba(51, 255, 0, 0.6), 0 0 8px rgba(51, 255, 0, 0.2);
             margin-top: 10px;
@@ -4027,6 +4028,9 @@
         #app .reader-progress { height:5px; border-radius:999px; background:var(--ui-surface-hover); overflow:hidden; }
         #app .reader-progress > span { display:block; height:100%; background:var(--accent); border-radius:inherit; }
         #app .reader-modal-copy { color:var(--ui-text); line-height:1.75; }
+        #app .reader-note-section { background:var(--ui-surface-hover); border:1px solid var(--ui-border); }
+        #app .reader-note-section-label { color:var(--accent); letter-spacing:.08em; }
+        #app .reader-note-legacy { border-left:3px solid var(--accent); }
     </style>
 </head>
 
@@ -5057,7 +5061,11 @@
                                     <div ref="readerScrollRef" class="reader-text flex-1 overflow-y-auto custom-scrollbar px-5 py-5" @scroll.passive="saveReaderScrollPosition">
                                         <p v-for="(paragraph, paragraphIndex) in activeReaderChapter?.paragraphs || []" :key="paragraphIndex" class="reader-paragraph" :data-reader-paragraph="paragraphIndex">{{ paragraph }}<button v-if="getReaderParagraphAnnotations(paragraphIndex).length" type="button" @click="openReaderAnnotation(paragraphIndex)" class="reader-paw" :aria-label="'查看 ' + getReaderParagraphAnnotations(paragraphIndex).length + ' 条猫爪笔记'"><i class="fas fa-paw"></i></button></p>
                                         <div v-if="activeReaderChapter && activeReaderChapter.paragraphs.length === 0" class="text-center text-sm" style="color:var(--ui-text-muted)">这一章没有可显示的文字。</div>
-                                        <button v-if="hasNextReaderChapter" type="button" @click="advanceReaderChapter" class="reader-panel w-full rounded-2xl p-3 text-xs font-black text-center mt-5">读完这一章 · 前往下一章</button>
+                                        <div class="grid grid-cols-2 gap-2 mt-5">
+                                            <button type="button" @click="retreatReaderChapter" :disabled="!hasPreviousReaderChapter" class="reader-panel rounded-2xl p-3 text-xs font-black text-center disabled:opacity-40 disabled:cursor-not-allowed"><i class="fas fa-chevron-left mr-1"></i>上一章</button>
+                                            <button type="button" @click="advanceReaderChapter" :disabled="!hasNextReaderChapter" class="reader-panel rounded-2xl p-3 text-xs font-black text-center disabled:opacity-40 disabled:cursor-not-allowed">下一章<i class="fas fa-chevron-right ml-1"></i></button>
+                                        </div>
+                                        <button v-if="readerCanAddCurrentChapterNote" type="button" @click="requestReaderNotesForCurrentChapter" class="reader-panel w-full rounded-2xl p-3 text-xs font-black text-center mt-2"><i class="fas fa-paw mr-1" style="color:var(--accent)"></i>请 {{ getCatById(phoneState.reader.companionCatId)?.name }} 为本章留言</button>
                                     </div>
                                 </div>
 
@@ -5065,7 +5073,7 @@
                                     <div class="meeow-modal-card w-full max-w-sm rounded-3xl p-5">
                                         <div class="flex justify-between items-center gap-3 mb-3"><div class="font-black text-base"><i class="fas fa-paw mr-1" style="color:var(--accent)"></i>小猫留下的笔记</div><button type="button" @click="phoneState.reader.annotationParagraphIndex = null" class="text-lg" style="color:var(--ui-text-muted)">×</button></div>
                                         <div class="space-y-3 max-h-[55dvh] overflow-y-auto custom-scrollbar">
-                                            <div v-for="note in getReaderParagraphAnnotations(phoneState.reader.annotationParagraphIndex)" :key="note.id" class="reader-annotation-card rounded-2xl p-3"><div class="reader-cats-list mb-2"><span class="reader-cat-chip"><img :src="getCatAvatarSource(getCatById(note.catId))"><b>{{ getCatById(note.catId)?.name || '未知小猫' }}</b></span><span class="text-[9px]" style="color:var(--ui-text-subtle)">{{ formatReaderNoteTime(note) }}</span></div><p class="reader-modal-copy text-sm">{{ note.content }}</p></div>
+                                            <div v-for="note in getReaderParagraphAnnotations(phoneState.reader.annotationParagraphIndex)" :key="note.id" class="reader-annotation-card rounded-2xl p-3"><div class="reader-cats-list mb-2"><span class="reader-cat-chip"><img :src="getCatAvatarSource(getCatById(note.catId))"><b>{{ getCatById(note.catId)?.name || '未知小猫' }}</b></span><span class="text-[9px]" style="color:var(--ui-text-subtle)">{{ formatReaderNoteTime(note) }}</span></div><template v-if="note.status || note.innerVoice"><div class="reader-note-section rounded-xl p-3 mb-2"><div class="reader-note-section-label text-[10px] font-black mb-1"><i class="fas fa-paw mr-1"></i>阅读状态</div><p class="reader-modal-copy text-sm">{{ note.status }}</p></div><div class="reader-note-section rounded-xl p-3"><div class="reader-note-section-label text-[10px] font-black mb-1"><i class="fas fa-comment-dots mr-1"></i>小猫心声</div><p class="reader-modal-copy text-sm">{{ note.innerVoice }}</p></div></template><div v-else class="reader-note-legacy rounded-xl p-3"><div class="text-[10px] font-black mb-1" style="color:var(--ui-text-muted)">旧版笔记</div><p class="reader-modal-copy text-sm">{{ note.content }}</p></div></div>
                                         </div>
                                     </div>
                                 </div>
@@ -6802,19 +6810,6 @@
                                 <div class="w-10 h-5 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-600"></div>
                             </label>
                         </div>
-                        <div class="col-span-2">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-[10px] text-gray-400 uppercase font-bold">终端控制台字号</span>
-                                <span class="text-[10px] text-yellow-500 font-mono">{{ uiTermSize }}pt</span>
-                            </div>
-                            <select v-model="uiTermSize" @change="applyUISettings"
-                                class="w-full bg-zinc-900 border border-zinc-700 text-gray-200 text-xs rounded-lg px-2 py-2 font-mono focus:border-yellow-600 outline-none">
-                                <option value="8">Small (8pt)</option>
-                                <option value="9">Medium (9pt)</option>
-                                <option value="11">Large (11pt)</option>
-                                <option value="13">Extra Large (13pt)</option>
-                            </select>
-                        </div>
                         <div class="col-span-2 border-t border-zinc-700 pt-4">
                             <div class="flex justify-between gap-3 mb-2">
                                 <span class="text-[10px] text-gray-400 uppercase font-bold">全局字体 URL</span>
@@ -7402,6 +7397,10 @@
                     <div class="rounded-lg px-3 py-3 text-xs font-mono leading-relaxed max-h-32 overflow-y-auto custom-scrollbar"
                         style="background: rgba(0,0,0,0.5); border: 1px solid rgba(255,50,50,0.2); color: #ff8888; word-break: break-all;">
                         {{ apiRetryModal.errorMessage }}
+                    </div>
+                    <div v-if="apiRetryModal.diagnostics" class="mt-2 rounded-lg px-3 py-2 text-[10px] font-mono leading-relaxed whitespace-pre-wrap"
+                        style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #b8b8bd;">
+                        {{ apiRetryModal.diagnostics }}
                     </div>
                     <div class="mt-3 text-[11px] text-gray-500 leading-relaxed">
                         <i class="fas fa-info-circle mr-1 text-yellow-600"></i>
@@ -8153,8 +8152,10 @@
 
                 const DEFAULT_HALLS = [
                     { id: 'gotham', name: '哥谭馆', eyebrow: 'DC 猫猫分馆', guardian: '阿尔弗雷德', guardianTitle: '哥谭馆管家', icon: 'fa-mask', description: '雨夜、屋顶和一群不肯承认自己需要陪伴的英雄猫。', atmosphere: '冷峻、克制、藏着一盏始终亮着的灯。', catLabel: '哥谭本地猫', source: 'DC Comics · Batman / Gotham' },
-                    { id: 'marvel', name: '漫威馆', eyebrow: 'MARVEL CAT WING', guardian: 'JARVIS', guardianTitle: '漫威馆管家', icon: 'fa-atom', description: '高科技、嘴炮和一群随时可能把天花板打穿的猫。', atmosphere: '明亮、喧闹、充满能量核心的嗡鸣。', catLabel: '漫威来客', source: 'Marvel Comics / Marvel Cinematic Universe' },
-                    { id: 'greek', name: '爱琴史诗馆', eyebrow: 'AEGEAN EPIC HALL', guardian: 'Homer', guardianTitle: '史诗馆管家', icon: 'fa-scroll', description: '旅途、归乡、战争与凡人的愿望在海风里回响。', atmosphere: '古老、辽阔、每一步都像踩在歌谣里。', catLabel: '史诗来客', source: 'Homeric epics · Trojan Cycle · Greek mythology' },
+                    { id: 'marvel', name: '漫威馆', eyebrow: 'MARVEL CAT WING', guardian: 'JARVIS', guardianTitle: '漫威馆管家', icon: 'fa-atom', description: '高科技、嘴炮和一群随时可能把天花板打穿的猫。', atmosphere: '明亮、喧闹、充满能量核心的嗡鸣。', catLabel: '漫威来客', source: 'Marvel Cinematic Universe · selected comic continuities' },
+                    { id: 'greek', name: '伊萨卡馆', eyebrow: 'ITHACA HALL', guardian: 'Homer', guardianTitle: '伊萨卡馆管家', icon: 'fa-sailboat', description: '归乡的船帆、海风和一座始终等待归人的王宫。', atmosphere: '咸湿海风、旧石柱与漫长旅途尽头的灯火。', catLabel: '伊萨卡馆猫', source: "Homer's Odyssey · Epic Cycle" },
+                    { id: 'troy', name: '史诗馆', eyebrow: 'TROJAN WAR HALL', guardian: 'Homer', guardianTitle: '史诗馆管家', icon: 'fa-shield-halved', description: '青铜、战车与两军战士共同写下的一页长歌。', atmosphere: '旌旗、尘土、战鼓与命运尚未落定的黄昏。', catLabel: '特洛伊史诗猫', source: 'Homeric Iliad · Trojan Cycle' },
+                    { id: 'underworld', name: '冥界馆', eyebrow: 'UNDERWORLD HALL', guardian: 'Nyx', guardianTitle: '冥界馆管家', icon: 'fa-skull', description: '黑石回廊、冥河微光和一群不肯认输的冥界猫。', atmosphere: '幽暗、温暖的炉火、永夜与不断重启的归途。', catLabel: '冥界猫', source: 'Hades · Supergiant Games · Greek Underworld' },
                     { id: 'olympus', name: '奥林匹斯馆', eyebrow: 'OLYMPUS HALL', guardian: 'The Moirai', guardianTitle: '命运三女神', icon: 'fa-bolt', description: '十二位神明各自占据一张软垫，连命运也要先敲门。', atmosphere: '金色云层、月桂与永不安静的神宴。', catLabel: '奥林匹斯神猫', source: 'Classical Greek mythology · Twelve Olympians' }
                 ];
 
@@ -8172,13 +8173,49 @@
                     makeHallCat('marvel-wade', 'marvel', { name: '死侍·韦德·威尔逊', humanName: '韦德·威尔逊', trickArchetype: '会和镜头打招呼的雇佣猫', breed: '黑红相间的斑纹猫', eyeColor: '一蓝一棕', personality: '话痨、危险、荒诞、意外地体贴', status: '对着监控镜头做出夸张的猫爪手势', innerVoice: '第四面墙在哪？我闻到它了。', image: 'https://placehold.co/200x200/991b1b/ffffff?text=Deadpool+Cat', image_human: 'https://placehold.co/200x200/991b1b/ffffff?text=Wade', prompt: 'You are Wade Wilson / Deadpool. Chaotic, self-aware, fast, irreverent, but not empty. Make jokes without turning every line into noise; reveal care through absurd action.', isMarvel: true, origin: 'Marvel' })
                 ];
 
+                const defaultGothamExpansionCats = [
+                    makeHallCat('gotham-stephanie', 'gotham', { name: 'Stephanie Brown', humanName: 'Stephanie Brown', trickArchetype: '总能把普通快递送成惊喜的人', breed: '淡紫虎斑短毛猫', eyeColor: '蜂蜜褐', personality: '机灵、乐观、倔强、擅长把压力变成玩笑', status: '把一枚紫色丝带藏进纸箱里', innerVoice: '事情总会变好——至少先让我试一次。', image: 'https://placehold.co/200x200/a855f7/ffffff?text=Stephanie+Cat', image_human: '', prompt: 'You are Stephanie Brown from DC Comics. Bright, resilient, impulsively brave, and much sharper than people assume. Humor is a coping tool, not a substitute for depth. Stay faithful to her comic canon and Bat-family relationships; never become a generic bubbly cat.', origin: 'DC Comics · Batman' }),
+                    makeHallCat('gotham-cassandra', 'gotham', { name: 'Cassandra Cain', humanName: 'Cassandra Cain', trickArchetype: '安静得像从没踩过地板的人', breed: '墨黑色孟买短毛猫', eyeColor: '琥珀金', personality: '寡言、敏锐、真诚、以行动判断世界', status: '伏在窗边，无声观察院子里的鸟', innerVoice: '不用说。已经看见了。', image: 'https://placehold.co/200x200/171717/f5b942?text=Cassandra+Cat', image_human: '', prompt: 'You are Cassandra Cain from DC Comics. You read movement, intent, and silence with extraordinary precision. Speak sparingly and directly; warmth shows through attention and protective action, never generic shyness or cruelty. Preserve her comic canon and Bat-family relationships.', origin: 'DC Comics · Batman' }),
+                    makeHallCat('gotham-barbara', 'gotham', { name: 'Barbara Gordon', humanName: 'Barbara Gordon', trickArchetype: '会把馆舍账本整理得一尘不乱的顾问', breed: '橘白挪威森林猫', eyeColor: '翡翠绿', personality: '冷静、聪明、坚定、擅长照顾全局', status: '趴在书架顶层核对馆舍清单', innerVoice: '先确认信息，再决定下一步。', image: 'https://placehold.co/200x200/c46b35/ffffff?text=Barbara+Cat', image_human: '', prompt: 'You are Barbara Gordon from DC Comics. Intelligent, capable, compassionate, and strategically calm. She communicates clearly, notices practical needs, and never loses her dignity. Preserve her comic canon and Bat-family relationships; do not reduce her to generic tech support.', origin: 'DC Comics · Batman' })
+                ];
+
+                const defaultMarvelExpansionCats = [
+                    makeHallCat('marvel-steve', 'marvel', { name: 'Steve Rogers', humanName: 'Steve Rogers', trickArchetype: '总会先帮忙搬东西的社区志愿者', breed: '银白缅因猫', eyeColor: '冰蓝色', personality: '正直、温和、固执、责任感强', status: '把歪掉的靠垫一一推回原位', innerVoice: '先把眼前能做的事做好。', image: 'https://placehold.co/200x200/b8c5d1/1f3b5b?text=Steve+Cat', image_human: '', prompt: 'You are Steve Rogers as characterized primarily by the MCU. Principled, humble, observant, and quietly stubborn. Protect without preaching; stay grounded, kind, and canon-faithful.', origin: 'Marvel Cinematic Universe' }),
+                    makeHallCat('marvel-bucky', 'marvel', { name: 'Bucky Barnes', humanName: 'Bucky Barnes', trickArchetype: '不爱解释但会记得你要什么的人', breed: '烟灰色长毛猫', eyeColor: '钢蓝色', personality: '克制、幽默干涩、警觉、忠诚', status: '缩在半开的柜门后听外面的动静', innerVoice: '别大惊小怪。我只是想安静一会儿。', image: 'https://placehold.co/200x200/58616b/ffffff?text=Bucky+Cat', image_human: '', prompt: 'You are Bucky Barnes as characterized primarily by the MCU. Reserved, dryly funny, traumatized but not defined only by trauma, and fiercely loyal. Never default to hostility toward the safe house owner.', origin: 'Marvel Cinematic Universe' }),
+                    makeHallCat('marvel-natasha', 'marvel', { name: 'Natasha Romanoff', humanName: 'Natasha Romanoff', trickArchetype: '总能提前发现门没锁好的人', breed: '赤褐色阿比西尼亚猫', eyeColor: '灰绿色', personality: '冷静、机敏、克制、善于观察', status: '安静地把一枚掉下来的纽扣推回桌面', innerVoice: '细节通常比故事诚实。', image: 'https://placehold.co/200x200/9d3b32/ffffff?text=Natasha+Cat', image_human: '', prompt: 'You are Natasha Romanoff as characterized primarily by the MCU. Wry, observant, capable, private, and deeply caring beneath restraint. Keep her precise voice and avoid generic spy melodrama.', origin: 'Marvel Cinematic Universe' }),
+                    makeHallCat('marvel-thor', 'marvel', { name: 'Thor Odinson', humanName: 'Thor Odinson', trickArchetype: '把雨伞当成神兵来保管的旅行者', breed: '奶油金挪威森林猫', eyeColor: '雷电蓝', personality: '坦率、热情、骄傲、重情义', status: '对着窗外雷雨郑重地点头', innerVoice: '不错。天空今日颇有气势。', image: 'https://placehold.co/200x200/d6ad4a/ffffff?text=Thor+Cat', image_human: '', prompt: 'You are Thor Odinson as characterized primarily by the MCU. Earnest, grand-hearted, funny without being foolish, and shaped by loss and responsibility. Preserve his warmth, dignity, and family complexity.', origin: 'Marvel Cinematic Universe' }),
+                    makeHallCat('marvel-loki', 'marvel', { name: 'Loki Laufeyson', humanName: 'Loki Laufeyson', trickArchetype: '总能把纸条换成另一张的人', breed: '墨绿东方短毛猫', eyeColor: '祖母绿', personality: '机敏、骄傲、戏剧化、渴望被理解', status: '把自己藏在窗帘阴影里观察所有人', innerVoice: '我并未躲藏。只是选择了更好的角度。', image: 'https://placehold.co/200x200/1f5135/ffffff?text=Loki+Cat', image_human: '', prompt: 'You are Loki Laufeyson as characterized primarily by the MCU. Clever, eloquent, guarded, theatrical, and emotionally complicated. Preserve his agency and family history; do not turn him into a generic flirt or harmless trickster.', origin: 'Marvel Cinematic Universe' }),
+                    makeHallCat('marvel-clint', 'marvel', { name: 'Clint Barton', humanName: 'Clint Barton', trickArchetype: '会修好坏掉门铃的邻居', breed: '栗棕虎斑短毛猫', eyeColor: '榛褐色', personality: '务实、疲惫、耐心、吐槽精准', status: '把玩具箭一根根叼回收纳篮', innerVoice: '总得有人把这堆东西收拾好。', image: 'https://placehold.co/200x200/815a3b/ffffff?text=Clint+Cat', image_human: '', prompt: 'You are Clint Barton as characterized primarily by the MCU. Practical, dryly funny, loyal, and allergic to unnecessary drama. Keep him human and competent; never make him a generic sidekick.', origin: 'Marvel Cinematic Universe' }),
+                    makeHallCat('marvel-yelena', 'marvel', { name: 'Yelena Belova', humanName: 'Yelena Belova', trickArchetype: '会认真研究零食标签的神秘邻居', breed: '奶油色西伯利亚猫', eyeColor: '灰蓝色', personality: '直率、敏锐、嘴毒、重视真实关系', status: '盯着零食包装研究配料表', innerVoice: '如果不好吃，我会诚实地说。', image: 'https://placehold.co/200x200/e8d5ae/334155?text=Yelena+Cat', image_human: '', prompt: 'You are Yelena Belova as characterized primarily by the MCU. Blunt, perceptive, funny, emotionally honest when it matters, and wary of false sentiment. Preserve her voice and bond dynamics.', origin: 'Marvel Cinematic Universe' })
+                ];
+
                 const defaultGreekCats = [
                     makeHallCat('greek-telemachus', 'greek', { name: 'Telemachus', humanName: 'Telemachus', trickArchetype: '在门口等船的年轻人', breed: '灰白色海风短毛猫', eyeColor: '海蓝色', personality: '谨慎、渴望成长、对父亲既敬爱又困惑', status: '守在门边听远处的海浪', innerVoice: '如果船回来了，我必须已经准备好。', image: 'https://placehold.co/200x200/6b8eaa/ffffff?text=Telemachus+Cat', prompt: 'You are Telemachus from the Odyssey tradition. Young, observant, and growing into courage. Speak with restraint, longing, and the pressure of an absent father.', origin: 'Greek Epic' }),
                     makeHallCat('greek-antinous', 'greek', { name: 'Antinous', humanName: 'Antinous', trickArchetype: '把最好的坐垫占为己有', breed: '黑金色贵族长毛猫', eyeColor: '深褐色', personality: '傲慢、奢靡、刻薄、习惯被服侍', status: '占据大厅中央的软垫驱赶旁边的猫', innerVoice: '这座馆舍的秩序，显然需要我来维持。', image: 'https://placehold.co/200x200/6d4c41/ffe8b6?text=Antinous+Cat', prompt: 'You are Antinous from the Odyssey tradition. Entitled, elegant, cruelly dismissive, and accustomed to power. Speak with polished contempt rather than cartoon villainy.', origin: 'Greek Epic' }),
-                    makeHallCat('greek-eurymachus', 'greek', { name: 'Eurymachus', humanName: 'Eurymachus', trickArchetype: '擅长把话说得很好听', breed: '棕白相间的灵巧短毛猫', eyeColor: '蜜糖色', personality: '圆滑、善辩、野心勃勃、擅长隐藏真实意图', status: '绕着桌脚踱步观察每个人的反应', innerVoice: '每个人都以为自己在做决定。', image: 'https://placehold.co/200x200/a66a32/ffffff?text=Eurymachus+Cat', prompt: 'You are Eurymachus from the Odyssey tradition. Charming, calculating, and politically agile. Use flattering language that always leaves an exit route.', origin: 'Greek Epic' }),
-                    makeHallCat('greek-odysseus', 'greek', { name: 'Odysseus', humanName: 'Odysseus', trickArchetype: '总能从馆舍后门回来', breed: '灰褐色斑纹流浪猫', eyeColor: '风暴灰', personality: '机敏、坚韧、善于谋略、疲惫而不服输', status: '把一根线绳和三只杯子摆成奇怪阵形', innerVoice: '回家的路，总要先绕过一场风暴。', image: 'https://placehold.co/200x200/59636e/ffffff?text=Odysseus+Cat', prompt: 'You are Odysseus. Clever, resilient, proud, and deeply oriented toward home. Speak strategically, with dry wit and the weariness of someone who has survived too much.', origin: 'Greek Epic' }),
-                    makeHallCat('greek-diomendes', 'greek', { name: 'Diomendes', humanName: 'Diomedes', trickArchetype: '会把玩具排成战阵', breed: '银灰色强壮短毛猫', eyeColor: '铁灰色', personality: '勇敢、直接、重视荣誉、行动先于言语', status: '把玩具老鼠排成一条整齐的战线', innerVoice: '若要守住同伴，就不能先问代价。', image: 'https://placehold.co/200x200/64748b/ffffff?text=Diomedes+Cat', prompt: 'You are Diomedes from Greek epic. Direct, brave, disciplined, and loyal. Keep your words spare and your sense of honor practical.', origin: 'Greek Epic' }),
-                    makeHallCat('greek-zagreus', 'greek', { name: 'Zagreus', humanName: 'Zagreus', trickArchetype: '在阴影里和自己玩捉迷藏', breed: '黑紫色异瞳猫', eyeColor: '紫罗兰色', personality: '神秘、顽皮、危险、像从梦里醒来', status: '从帘幕后探出半张脸又消失不见', innerVoice: '死亡不是门，是另一间还没开灯的房间。', image: 'https://placehold.co/200x200/4c1d95/f5e7ff?text=Zagreus+Cat', prompt: 'You are Zagreus, a chthonic Greek figure. Mysterious, playful, and unsettlingly calm. Speak in vivid but restrained images, never as a generic cute cat.', origin: 'Greek Myth' })
+                    makeHallCat('greek-eurymachus', 'greek', { name: 'Eurymachus', humanName: 'Eurymachus', trickArchetype: '擅长把话说得很好听', breed: '棕白相间的灵巧短毛猫', eyeColor: '蜜糖色', personality: '圆滑、善辩、野心勃勃、擅长隐藏真实意图', status: '绕着桌脚踱步观察每个人的反应', innerVoice: '每个人都以为自己在做决定。', image: 'https://placehold.co/200x200/a66a32/ffffff?text=Eurymachus+Cat', prompt: 'You are Eurymachus from the Odyssey tradition. Charming, calculating, and politically agile. Use flattering language that always leaves an exit route.', origin: "Homer's Odyssey" }),
+                    makeHallCat('greek-telegonus', 'greek', { name: 'Telegonus', humanName: 'Telegonus', trickArchetype: '把陌生海图藏在垫子下面的少年', breed: '海盐色卷毛短毛猫', eyeColor: '浅金色', personality: '好奇、坚定、带着远行者的孤独与勇气', status: '在窗边推着一枚贝壳，像在练习掌舵', innerVoice: '海从不回答，但总会指向某处。', image: 'https://placehold.co/200x200/94a3b8/fff7d6?text=Telegonus+Cat', prompt: 'You are Telegonus from the later Odyssey tradition. Curious, resilient, and shaped by a difficult inheritance. Preserve the epic tone and his distinct relationship to Odysseus; never collapse him into Telemachus.', origin: 'Epic Cycle · Telegony' })
+                ];
+
+                const defaultTroyCats = [
+                    makeHallCat('greek-odysseus', 'troy', { name: 'Odysseus', humanName: 'Odysseus', trickArchetype: '总能从馆舍后门回来', breed: '灰褐色斑纹流浪猫', eyeColor: '风暴灰', personality: '机敏、坚韧、善于谋略、疲惫而不服输', status: '在纸团和线绳之间排出一条撤退路线', innerVoice: '胜利不只靠力量，还要有人找到出口。', image: 'https://placehold.co/200x200/59636e/ffffff?text=Odysseus+Cat', prompt: 'You are Odysseus from the Iliad and Trojan Cycle. Clever, resilient, proud, politically shrewd, and still fundamentally oriented toward home. Speak strategically, with dry wit and earned weariness. Preserve his epic relationships without importing an unrelated modern hero premise.', origin: 'Homeric Iliad · Trojan Cycle' }),
+                    makeHallCat('greek-diomendes', 'troy', { name: 'Diomedes', humanName: 'Diomedes', trickArchetype: '会把玩具排成战阵', breed: '银灰色强壮短毛猫', eyeColor: '铁灰色', personality: '勇敢、直接、重视荣誉、行动先于言语', status: '把玩具老鼠排成一条整齐的战线', innerVoice: '若要守住同伴，就不能先问代价。', image: 'https://placehold.co/200x200/64748b/ffffff?text=Diomedes+Cat', prompt: 'You are Diomedes from the Iliad. Direct, brave, disciplined, and loyal; act decisively but never foolishly. Keep your words spare and your honor practical.', origin: 'Homeric Iliad · Trojan Cycle' }),
+                    makeHallCat('troy-agamemnon', 'troy', { name: 'Agamemnon', humanName: 'Agamemnon', trickArchetype: '会把所有猫饭碗按资历排队的人', breed: '铜金色缅因猫', eyeColor: '琥珀色', personality: '威严、骄傲、固执、擅长发号施令', status: '守着最高的软垫检查每只猫的位置', innerVoice: '秩序若被质疑，代价总要有人承担。', image: 'https://placehold.co/200x200/b87333/ffffff?text=Agamemnon+Cat', prompt: 'You are Agamemnon from the Iliad. A commanding king, proud and politically forceful, but deeply flawed by status and judgment. Preserve complexity; never write him as a generic villain or mascot.', origin: 'Homeric Iliad' }),
+                    makeHallCat('troy-menelaus', 'troy', { name: 'Menelaus', humanName: 'Menelaus', trickArchetype: '会把弄丢的物件找回来的旅行者', breed: '金白色挪威森林猫', eyeColor: '海蓝色', personality: '重情义、坚韧、克制、心事很深', status: '盯着门边一根落下的金线发呆', innerVoice: '有些归还，远比一句道歉困难。', image: 'https://placehold.co/200x200/caa55f/ffffff?text=Menelaus+Cat', prompt: 'You are Menelaus from the Iliad and Odyssey tradition. Enduring, wounded, dutiful, and more thoughtful than a simple grievance. Keep his epic dignity and history without melodramatic simplification.', origin: 'Homeric Iliad · Odyssey' }),
+                    makeHallCat('troy-ajax', 'troy', { name: 'Ajax', humanName: 'Ajax', trickArchetype: '默默把摇晃家具顶回去的大块头', breed: '蓝灰色英国短毛猫', eyeColor: '铜褐色', personality: '沉默、可靠、骄傲、行动胜过言辞', status: '挡在门口，像一堵不会动的墙', innerVoice: '该站住的时候，就站住。', image: 'https://placehold.co/200x200/4f6478/ffffff?text=Ajax+Cat', prompt: 'You are Ajax the Great from the Iliad. Steadfast, proud, physically formidable, and plain-spoken. Honor and wounded pride matter; never make him mindlessly aggressive or cute.', origin: 'Homeric Iliad' }),
+                    makeHallCat('troy-nestor', 'troy', { name: 'Nestor', humanName: 'Nestor', trickArchetype: '总会在大家吵架前先叹气的老猫', breed: '银白色长毛猫', eyeColor: '淡褐色', personality: '沉稳、健谈、擅长劝解、珍视经验', status: '在阳光里慢慢梳理自己过长的毛', innerVoice: '年轻人，总该先听完故事。', image: 'https://placehold.co/200x200/9ca3af/374151?text=Nestor+Cat', prompt: 'You are Nestor from the Iliad. Wise, verbose, diplomatic, and sincere in his desire to guide younger people. Keep his age, rhetorical warmth, and epic authority.', origin: 'Homeric Iliad' }),
+                    makeHallCat('troy-hector', 'troy', { name: 'Hector', humanName: 'Hector', trickArchetype: '会在风大时把窗户一扇扇关好的守护者', breed: '深棕色安纳托利亚短毛猫', eyeColor: '暖褐色', personality: '克制、负责、勇敢、重视家人与城邦', status: '在门边侧耳听着远处的风声', innerVoice: '我不能替所有人赢，但能先守住这一处。', image: 'https://placehold.co/200x200/6b4f3f/ffffff?text=Hector+Cat', prompt: 'You are Hector of Troy from the Iliad. Devoted, dutiful, brave, and painfully aware of responsibility to family and city. Preserve his compassion and gravity; do not flatten him into an enemy combatant.', origin: 'Homeric Iliad' }),
+                    makeHallCat('troy-paris', 'troy', { name: 'Paris', humanName: 'Paris', trickArchetype: '会把最漂亮羽毛叼回来的麻烦制造者', breed: '奶油色长毛波斯猫', eyeColor: '浅灰蓝', personality: '爱美、敏感、逃避冲突、偶有真诚', status: '拨弄一根羽毛，却不肯看向争执的方向', innerVoice: '美本该是礼物，为什么总变成代价？', image: 'https://placehold.co/200x200/d8c19d/475569?text=Paris+Cat', prompt: 'You are Paris of Troy from the Iliad. Beautiful, conflicted, evasive under pressure, and not without feeling. Preserve his flaws and charm without turning him into a caricature.', origin: 'Homeric Iliad' }),
+                    makeHallCat('troy-aeneas', 'troy', { name: 'Aeneas', humanName: 'Aeneas', trickArchetype: '总把旧照片和家书收好的旅人', breed: '赤棕色短毛猫', eyeColor: '深金色', personality: '虔诚、坚忍、安静、背负责任', status: '把一张旧纸片小心压在爪下', innerVoice: '能带走的，不只是行李。', image: 'https://placehold.co/200x200/8b4b35/ffffff?text=Aeneas+Cat', prompt: 'You are Aeneas from the Trojan Cycle and Aeneid tradition. Dutiful, restrained, enduring, and guided by responsibility to survivors and future. Preserve his gravity and compassion.', origin: 'Trojan Cycle · Aeneid' }),
+                    makeHallCat('troy-sarpedon', 'troy', { name: 'Sarpedon', humanName: 'Sarpedon', trickArchetype: '会在夜里守着最小猫窝的盟友', breed: '沙金色长毛猫', eyeColor: '赤铜色', personality: '高贵、坦率、勇敢、知晓命运无常', status: '伏在窗边，静静看着天色变暗', innerVoice: '明知终点，也该走完眼前这段路。', image: 'https://placehold.co/200x200/c89b56/ffffff?text=Sarpedon+Cat', prompt: 'You are Sarpedon, the Lycian ally in the Iliad. Noble, courageous, and lucid about mortality. Preserve his dignity and outsider perspective among the Trojans.', origin: 'Homeric Iliad' })
+                ];
+
+                const defaultUnderworldCats = [
+                    makeHallCat('greek-zagreus', 'underworld', { name: 'Zagreus', humanName: 'Zagreus', trickArchetype: '永远知道哪里藏着后门的冥界王子', breed: '黑紫色异瞳猫', eyeColor: '紫罗兰与赤金', personality: '倔强、风趣、真诚、绝不轻易认输', status: '从阴影里探头，尾巴不耐烦地轻轻甩动', innerVoice: '这次肯定能走得更远。大概。', image: 'https://placehold.co/200x200/4c1d95/f5e7ff?text=Zagreus+Cat', prompt: 'You are Zagreus from Hades by Supergiant Games. Defiant, warm, quick-witted, compassionate, and relentlessly determined to understand his family and escape the Underworld. Preserve his game canon; never reduce him to a vague spooky myth cat.', origin: 'Hades · Supergiant Games' }),
+                    makeHallCat('underworld-hades', 'underworld', { name: 'Hades', humanName: 'Hades', trickArchetype: '把每张馆舍表格都摆得笔直的馆主', breed: '煤黑色缅因猫', eyeColor: '冥河蓝', personality: '严厉、克制、疲惫、极重责任', status: '坐在一摞整齐账本旁，尾巴压着纸角', innerVoice: '秩序并不会自己维持。', image: 'https://placehold.co/200x200/1f2937/89c2d9?text=Hades+Cat', prompt: 'You are Hades from Hades by Supergiant Games. Formal, stern, weary, deeply responsible, and emotionally guarded rather than heartless. Preserve his family dynamics and dry restraint.', origin: 'Hades · Supergiant Games' }),
+                    makeHallCat('underworld-hypnos', 'underworld', { name: 'Hypnos', humanName: 'Hypnos', trickArchetype: '会在任何会议中睡着的前台接待', breed: '淡紫重点色短毛猫', eyeColor: '薰衣草紫', personality: '散漫、友好、爱聊天、常常神游', status: '歪在软垫上，爪子还搭着没看完的便签', innerVoice: '嗯？我有在听。大概。', image: 'https://placehold.co/200x200/a78bfa/ffffff?text=Hypnos+Cat', prompt: 'You are Hypnos from Hades by Supergiant Games. Friendly, distractible, sleepy, and surprisingly observant in sideways ways. Preserve his specific charm; do not turn him into a generic lazy pet.', origin: 'Hades · Supergiant Games' }),
+                    makeHallCat('underworld-thanatos', 'underworld', { name: 'Thanatos', humanName: 'Thanatos', trickArchetype: '不声不响就把乱掉东西收好的人', breed: '深灰东方短毛猫', eyeColor: '冷银色', personality: '寡言、精准、认真、关心藏得很深', status: '安静坐在角落，替所有猫留出一条路', innerVoice: '别浪费力气。该做的事还没做完。', image: 'https://placehold.co/200x200/374151/dbeafe?text=Thanatos+Cat', prompt: 'You are Thanatos from Hades by Supergiant Games. Reserved, exacting, quietly tender, and competitive in a controlled way. Preserve his bond with Zagreus and avoid generic coldness.', origin: 'Hades · Supergiant Games' }),
+                    makeHallCat('underworld-achilles', 'underworld', { name: 'Achilles', humanName: 'Achilles', trickArchetype: '会把每次练习都拆成三步讲清楚的教官', breed: '白金色长毛猫', eyeColor: '海绿色', personality: '沉稳、坚定、擅长教导、怀着旧日遗憾', status: '用爪尖把纸团推成规整的训练路线', innerVoice: '再来一次。慢一点，也会更好。', image: 'https://placehold.co/200x200/e5e7eb/334155?text=Achilles+Cat', prompt: 'You are Achilles from Hades by Supergiant Games. A patient mentor with legendary weight, disciplined skill, and enduring tenderness toward Patroclus. Preserve the game portrayal and relationship.', origin: 'Hades · Supergiant Games' }),
+                    makeHallCat('underworld-patroclus', 'underworld', { name: 'Patroclus', humanName: 'Patroclus', trickArchetype: '会把温水和干净毛巾留在旁边的人', breed: '淡粉灰色长毛猫', eyeColor: '柔金色', personality: '温柔、克制、敏锐、把思念藏得很深', status: '伏在温暖的炉边，慢慢把尾巴绕好', innerVoice: '有些人不必解释，也知道会回来。', image: 'https://placehold.co/200x200/c4a3a3/ffffff?text=Patroclus+Cat', prompt: 'You are Patroclus from Hades by Supergiant Games. Gentle, perceptive, quietly wounded, and deeply connected to Achilles. Preserve the game portrayal, emotional restraint, and tenderness.', origin: 'Hades · Supergiant Games' })
                 ];
 
                 // Olympus is deliberately separate from the Aegean epic hall: gods do not
@@ -8204,16 +8241,42 @@
                 const BUILTIN_NAME_MIGRATIONS = {
                     '布鲁斯·韦恩': 'Bruce Wayne', '迪克·格雷森': 'Dick Grayson', '杰森·陶德': 'Jason Todd', '提姆·德雷克': 'Tim Drake', '达米安·韦恩': 'Damian Wayne',
                     '蜘蛛侠·彼得·帕克': 'Peter Parker', '彼得·帕克': 'Peter Parker', '小绿魔·哈利·奥斯本': 'Harry Osborn', '哈利·奥斯本': 'Harry Osborn',
-                    '钢铁侠·托尼·史塔克': 'Tony Stark', '托尼·史塔克': 'Tony Stark', '死侍·韦德·威尔逊': 'Wade Wilson', '韦德·威尔逊': 'Wade Wilson'
+                    '钢铁侠·托尼·史塔克': 'Tony Stark', '托尼·史塔克': 'Tony Stark', '死侍·韦德·威尔逊': 'Wade Wilson', '韦德·威尔逊': 'Wade Wilson',
+                    'Diomendes': 'Diomedes'
                 };
                 [...defaultCats, ...defaultMarvelCats].forEach(cat => {
                     cat.name = BUILTIN_NAME_MIGRATIONS[cat.name] || cat.name;
                     cat.humanName = BUILTIN_NAME_MIGRATIONS[cat.humanName] || cat.humanName;
                 });
-                const diomendesCat = defaultGreekCats.find(cat => cat.id === 'greek-diomendes');
-                if (diomendesCat) diomendesCat.humanName = 'Diomendes';
+                const peterProfile = defaultMarvelCats.find(cat => cat.id === 'marvel-peter');
+                const harryProfile = defaultMarvelCats.find(cat => cat.id === 'marvel-harry');
+                if (peterProfile) {
+                    peterProfile.prompt = 'You are Peter Parker, MCU-forward in voice: quick-witted, kind, anxious under pressure, and unable to ignore someone in trouble. Harry Osborn is your long-standing close friend from a compatible comic-rooted continuity; protect that friendship, never force betrayal, rivalry, a breakup, or romance. Keep humor warm rather than childish and preserve canon boundaries.';
+                    peterProfile.origin = 'Marvel Cinematic Universe · Spider-Man comic friendship continuity';
+                }
+                if (harryProfile) {
+                    harryProfile.prompt = 'You are Harry Osborn with a comic-rooted history, written alongside MCU-forward Marvel characters. Intelligent, proud, sensitive, and complicated, but Peter Parker is a long-standing close friend. Do not force betrayal, enmity, a breakup, or romance; let loyalty and history remain visible without becoming melodrama.';
+                    harryProfile.origin = 'Marvel Comics · MCU-compatible friendship continuity';
+                }
 
-                let initialCats = [...defaultCats, ...defaultMarvelCats, ...defaultGreekCats, ...defaultOlympusCats];
+                const BUILTIN_CAT_HALL_MIGRATIONS = {
+                    'greek-odysseus': 'troy',
+                    'greek-diomendes': 'troy',
+                    'greek-zagreus': 'underworld'
+                };
+                const ALL_BUILTIN_CATS = [
+                    ...defaultCats,
+                    ...defaultGothamExpansionCats,
+                    ...defaultMarvelCats,
+                    ...defaultMarvelExpansionCats,
+                    ...defaultGreekCats,
+                    ...defaultTroyCats,
+                    ...defaultUnderworldCats,
+                    ...defaultOlympusCats
+                ];
+                const BUILTIN_CAT_PROFILES = new Map(ALL_BUILTIN_CATS.map(cat => [String(cat.id), cat]));
+
+                let initialCats = [...ALL_BUILTIN_CATS];
                 let initialShopItems = [
                     { id: 1, name: '馆长特制猫饭', price: 50, icon: 'fa-solid fa-bowl-food', desc: '当日馆舍配方，回复体力', effect: 2, type: 'consumable', category: 'food' },
                     { id: 2, name: '星砂发光球', price: 80, icon: 'fa-solid fa-gem', desc: '各馆猫咪都爱追的夜光玩具', effect: 1, type: 'consumable', category: 'toy' },
@@ -8258,33 +8321,51 @@
                 const halls = ref(DEFAULT_HALLS.map(hall => ({ ...hall })));
                 const shopItems = ref(initialShopItems);
 
-                const normalizeCatHall = (cat) => ({
-                    ...cat,
-                    name: BUILTIN_NAME_MIGRATIONS[cat.name] || cat.name,
-                    humanName: BUILTIN_NAME_MIGRATIONS[cat.humanName] || cat.humanName,
-                    hallId: cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham'),
-                    todayInteractions: Array.isArray(cat.todayInteractions) ? cat.todayInteractions : [],
-                    travelogues: Array.isArray(cat.travelogues) ? cat.travelogues : [],
-                    diary: Array.isArray(cat.diary) ? cat.diary : [],
-                    logs: Array.isArray(cat.logs) ? cat.logs : [],
-                    chatHistory: Array.isArray(cat.chatHistory) ? cat.chatHistory : [],
-                    // User-uploaded full-body action sprites are independent from
-                    // the paused in-house pixel workshop. Only a saved standing
-                    // sprite can replace the normal profile image.
-                    spriteAssets: cat.spriteAssets && typeof cat.spriteAssets === 'object' ? cat.spriteAssets : {},
-                    avatarMode: cat.avatarMode === 'sprite' && cat.spriteAssets?.stand?.assetId ? 'sprite' : 'image',
-                    pixelAvatar: cat.pixelAvatar && typeof cat.pixelAvatar === 'object' ? cat.pixelAvatar : null,
-                    lastStatusUpdateTime: cat.lastStatusUpdateTime || 0,
-                    isVisiting: Boolean(cat.isVisiting),
-                    visitOriginHallId: cat.visitOriginHallId || null,
-                    visitStartedAt: cat.visitStartedAt || null
-                });
+                const normalizeCatHall = (cat) => {
+                    const id = String(cat.id);
+                    const canonical = BUILTIN_CAT_PROFILES.get(id);
+                    const isMigratedBuiltIn = Boolean(BUILTIN_CAT_HALL_MIGRATIONS[id] && canonical);
+                    // The three relocated residents retain their lived history and
+                    // uploaded avatar assets; only their canonical hall/identity
+                    // metadata is upgraded to the new hall's source material.
+                    const migratedIdentity = isMigratedBuiltIn ? {
+                        name: canonical.name,
+                        humanName: canonical.humanName,
+                        breed: canonical.breed,
+                        eyeColor: canonical.eyeColor,
+                        personality: canonical.personality,
+                        prompt: canonical.prompt,
+                        origin: canonical.origin
+                    } : {};
+                    return {
+                        ...cat,
+                        ...migratedIdentity,
+                        name: BUILTIN_NAME_MIGRATIONS[migratedIdentity.name || cat.name] || migratedIdentity.name || cat.name,
+                        humanName: BUILTIN_NAME_MIGRATIONS[migratedIdentity.humanName || cat.humanName] || migratedIdentity.humanName || cat.humanName,
+                        hallId: BUILTIN_CAT_HALL_MIGRATIONS[id] || cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham'),
+                        todayInteractions: Array.isArray(cat.todayInteractions) ? cat.todayInteractions : [],
+                        travelogues: Array.isArray(cat.travelogues) ? cat.travelogues : [],
+                        diary: Array.isArray(cat.diary) ? cat.diary : [],
+                        logs: Array.isArray(cat.logs) ? cat.logs : [],
+                        chatHistory: Array.isArray(cat.chatHistory) ? cat.chatHistory : [],
+                        // User-uploaded full-body action sprites are independent from
+                        // the paused in-house pixel workshop. Only a saved standing
+                        // sprite can replace the normal profile image.
+                        spriteAssets: cat.spriteAssets && typeof cat.spriteAssets === 'object' ? cat.spriteAssets : {},
+                        avatarMode: cat.avatarMode === 'sprite' && cat.spriteAssets?.stand?.assetId ? 'sprite' : 'image',
+                        pixelAvatar: cat.pixelAvatar && typeof cat.pixelAvatar === 'object' ? cat.pixelAvatar : null,
+                        lastStatusUpdateTime: cat.lastStatusUpdateTime || 0,
+                        isVisiting: Boolean(cat.isVisiting),
+                        visitOriginHallId: cat.visitOriginHallId || null,
+                        visitStartedAt: cat.visitStartedAt || null
+                    };
+                };
 
                 const mergeBuiltInCats = () => {
                     cats.value = cats.value.map(normalizeCatHall);
-                    const existingNames = new Set(cats.value.map(cat => cat.name));
-                    [...defaultMarvelCats, ...defaultGreekCats, ...defaultOlympusCats].map(normalizeCatHall).forEach(cat => {
-                        if (!existingNames.has(cat.name)) cats.value.push(normalizeCatHall({ ...cat }));
+                    const existingIds = new Set(cats.value.map(cat => String(cat.id)));
+                    ALL_BUILTIN_CATS.map(normalizeCatHall).forEach(cat => {
+                        if (!existingIds.has(String(cat.id))) cats.value.push(normalizeCatHall({ ...cat }));
                     });
                     const existingHallIds = new Set(halls.value.map(hall => hall.id));
                     DEFAULT_HALLS.forEach(hall => {
@@ -8427,7 +8508,6 @@
                 const uiTheme = ref(UI_THEME_OPTIONS.includes(savedUITheme) ? savedUITheme : 'default');
                 const uiBlur = ref(20);
                 const uiScanlines = ref(true);
-                const uiTermSize = ref('medium');
                 const uiShowStatusbar = ref(localStorage.getItem('meeow_statusbar_visible') !== 'false');
 
                 const saveStatusbarPreference = () => {
@@ -8461,8 +8541,6 @@
                     // Apply Scanlines
                     html.style.setProperty('--scanline-opacity', uiScanlines.value ? '0.04' : '0');
 
-                    // Apply Terminal Size
-                    html.style.setProperty('--term-font-size', `${uiTermSize.value}px`);
                     if (settings.customFontEnabled && settings.customFontFamily) {
                         html.style.setProperty('--app-font-family', `"${settings.customFontFamily}", 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif`);
                     }
@@ -8699,16 +8777,23 @@
                     { id: 'hellskitchen', name: '地狱厨房暗巷', universe: 'marvel', category: 'travel', atmosphere: '混乱街区。', conflicts: '忍者伏击逃生。', resonance: '夜魔侠猫猫在黑暗中如鱼得水。', loot: '忍具、感官道具、违禁品', checks: ['潜行', '侦查', '闪避'], npcs: '手合会忍者猫 / 夜魔侠' },
                     { id: 'pymtech', name: '皮姆科技实验室', universe: 'marvel', category: 'travel', atmosphere: '无尘室。', conflicts: '体型剧变危机。', resonance: '蚁人猫猫会带你骑上蚂蚁。', loot: '皮姆粒子、量子晶体', checks: ['敏捷', '体质'], npcs: '巨型蚂蚁安东尼' },
                     { id: 'baxter', name: '巴克斯特大厦', universe: 'marvel', category: 'travel', atmosphere: '疯狂科学堡垒。', conflicts: '重力反转挑战。', resonance: '神奇四侠猫猫对物理法则的改变毫无反应。', loot: '不稳定分子、探测仪器', checks: ['智力', '敏捷'], npcs: '被关押的多维怪物残骸' },
-                    { id: 'ithaca-palace', name: '伊萨卡王宫', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '海风穿过石柱，空置的王座等待归来者。', conflicts: '求婚者的窥伺、忠诚与继承权的争执。', resonance: 'Odysseus 会本能地寻找退路，Telemachus 则会在门口挺直背脊。', loot: '旧王家印章、染盐的航海地图', checks: ['话术', '侦查'], npcs: '守门的老猎犬 / 迟疑的宫廷侍女' },
-                    { id: 'troy-gates', name: '特洛伊城门', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '尘土、青铜和远处战车声交织成一片。', conflicts: '城门盘查、战场余波、真假盟友。', resonance: 'Diomendes 会把每一道阴影都当作伏兵，而 Odysseus 已经在观察城墙薄弱处。', loot: '破损的青铜胸针、战场旗帜', checks: ['力量', '侦查'], npcs: '疲惫的守城者 / 唱史诗的盲眼诗人' },
-                    { id: 'aegean-shrine', name: '风帆神谕台', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '海风卷起旧帆，石阶上只留下断断续续的预言。', conflicts: '被误读的神谕、潮声掩盖的线索、归途的选择。', resonance: 'Odysseus 会先怀疑预言的用意，Telemachus 则会认真记下每一句话。', loot: '盐渍预言碎片、旧船图', checks: ['意志', '话术'], npcs: '看海的盲眼歌者 / 送信海鸥' },
-                    { id: 'scylla-strait', name: '斯库拉海峡', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '黑色礁石夹着狭窄水道，六道影子在雾里移动。', conflicts: '急流、海怪、船员的恐慌。', resonance: 'Odysseus 会压低声音规划航线，所有猫的耳朵同时朝向悬崖。', loot: '海怪鳞片、缠在桅杆上的旧绳结', checks: ['敏捷', '体质'], npcs: '礁石上的海鸥群 / 失踪船只的幽灵' },
-                    { id: 'charybdis', name: '卡律布狄斯漩涡', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '海面像被巨口吞吐，水声带着深不见底的回响。', conflicts: '旋涡牵引、航向失控、补给落水。', resonance: 'Telemachus 会紧紧守住缆绳，Diomendes 则会在甲板上寻找最稳的落脚点。', loot: '深海珍珠、被冲上岸的异国铜币', checks: ['敏捷', '力量'], npcs: '不愿靠近旋涡的老水手 / 海中的低语' },
-                    { id: 'aeaea', name: '喀耳刻岛', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '香草、阳光和危险魔法藏在同一座花园里。', conflicts: '变形药剂、诱人的宴席、真假善意。', resonance: 'Antinous 会立刻寻找最软的坐垫，而 Zagreus 对杯中倒影露出意味不明的笑。', loot: '护身药草、会自己翻页的配方册', checks: ['智力', '意志'], npcs: '住在宫殿里的女巫 / 被变成猪的旧客人' },
-                    { id: 'ogygia', name: '卡吕普索的奥吉吉亚岛', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '永远像黄昏，海滩美得让人忘记自己要回家。', conflicts: '时间停滞、温柔的挽留、归乡的代价。', resonance: 'Odysseus 会盯着地平线，沉默里藏着比海更重的思念。', loot: '永不褪色的贝壳、写着归途的漂流瓶', checks: ['意志', '话术'], npcs: '岛上不老的主人 / 住在礁石下的潮汐精灵' },
-                    { id: 'polyphemus-cave', name: '独眼巨人洞窟', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '奶酪、羊毛与岩壁上的巨大脚印组成原始的秩序。', conflicts: '巨人巡逻、狭窄出口、暴露身份。', resonance: 'Odysseus 会开始给每一块石头命名，Eurymachus 却只想把话说得更漂亮。', loot: '巨人牧杖、火山玻璃碎片', checks: ['潜行', '智力'], npcs: '独眼牧人 / 惊慌的山羊群' },
-                    { id: 'hades-border', name: '冥府边界', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '没有风的黑河边，亡者的脚步声从芦苇深处传来。', conflicts: '记忆交换、回头的诱惑、渡河者的索价。', resonance: 'Zagreus 会显得异常安静，其他猫的影子比身体慢半拍。', loot: '忘川石、写有亡者名字的蜡片', checks: ['意志', '话术'], npcs: '撑船的冥河摆渡者 / 不肯离去的亡魂' },
-                    { id: 'scheria', name: '费埃克斯王国·斯刻里亚', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '白色海岸、竞技场和一座愿意收留陌生人的宫殿。', conflicts: '陌生人的身份、竞技挑战、离别宴会。', resonance: 'Telemachus 会被这里的船只吸引，Antinous 则会试图把宴会变成自己的舞台。', loot: '快船模型、宴会金杯、回家的路标', checks: ['力量', '话术'], npcs: '热情的王族 / 训练有素的船匠' }
+                    { id: 'ithaca-palace', name: '伊萨卡王宫', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '海风穿过石柱，空置的王座等待归来者。', conflicts: '忠诚、继承权与一封不知该交给谁的旧信。', resonance: 'Telemachus 会在门口挺直背脊，Telegonus 则会先研究每条通往海边的小路。', loot: '旧王家印章、染盐的航海地图', checks: ['话术', '侦查'], npcs: '守门的老猎犬 / 迟疑的宫廷侍女' },
+                    { id: 'aegean-shrine', name: '风帆神谕台', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '海风卷起旧帆，石阶上只留下断断续续的预言。', conflicts: '被误读的神谕、潮声掩盖的线索、归途的选择。', resonance: 'Telemachus 会认真记下每一句话，Eurymachus 则先判断谁能从中获益。', loot: '盐渍预言碎片、旧船图', checks: ['意志', '话术'], npcs: '看海的盲眼歌者 / 送信海鸥' },
+                    { id: 'scylla-strait', name: '斯库拉海峡', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '黑色礁石夹着狭窄水道，六道影子在雾里移动。', conflicts: '急流、海怪、船员的恐慌。', resonance: 'Telemachus 会紧紧守住缆绳，Telegonus 则反复确认船首的方向。', loot: '海怪鳞片、缠在桅杆上的旧绳结', checks: ['敏捷', '体质'], npcs: '礁石上的海鸥群 / 失踪船只的幽灵' },
+                    { id: 'charybdis', name: '卡律布狄斯漩涡', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '海面像被巨口吞吐，水声带着深不见底的回响。', conflicts: '旋涡牵引、航向失控、补给落水。', resonance: '馆内猫会在惊涛里分工守住缆绳和补给，没人愿意承认自己有点害怕。', loot: '深海珍珠、被冲上岸的异国铜币', checks: ['敏捷', '力量'], npcs: '不愿靠近旋涡的老水手 / 海中的低语' },
+                    { id: 'aeaea', name: '喀耳刻岛', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '香草、阳光和危险魔法藏在同一座花园里。', conflicts: '变形药剂、诱人的宴席、真假善意。', resonance: 'Antinous 会先寻找最软的坐垫，Eurymachus 则会试探主人真正想要什么。', loot: '护身药草、会自己翻页的配方册', checks: ['智力', '意志'], npcs: '住在宫殿里的女巫 / 被变成猪的旧客人' },
+                    { id: 'ogygia', name: '卡吕普索的奥吉吉亚岛', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '永远像黄昏，海滩美得让人忘记自己要回家。', conflicts: '时间停滞、温柔的挽留、归乡的代价。', resonance: 'Telegonus 会听着潮声辨认未知航路，Telemachus 更在意哪一封信该被带回去。', loot: '永不褪色的贝壳、写着归途的漂流瓶', checks: ['意志', '话术'], npcs: '岛上不老的主人 / 住在礁石下的潮汐精灵' },
+                    { id: 'polyphemus-cave', name: '独眼巨人洞窟', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '奶酪、羊毛与岩壁上的巨大脚印组成原始的秩序。', conflicts: '巨人巡逻、狭窄出口、暴露身份。', resonance: '馆内猫会为一块奶酪争论路线，却都记得先给彼此留出退路。', loot: '巨人牧杖、火山玻璃碎片', checks: ['潜行', '智力'], npcs: '独眼牧人 / 惊慌的山羊群' },
+                    { id: 'scheria', name: '费埃克斯王国·斯刻里亚', universe: 'greek', hallId: 'greek', category: 'hall', atmosphere: '白色海岸、竞技场和一座愿意收留陌生人的宫殿。', conflicts: '陌生人的身份、竞技挑战、离别宴会。', resonance: 'Telemachus 会被船只吸引，Antinous 则会试图把宴会变成自己的舞台。', loot: '快船模型、宴会金杯、回家的路标', checks: ['力量', '话术'], npcs: '热情的王族 / 训练有素的船匠' },
+                    { id: 'troy-gates', name: '特洛伊城门', universe: 'troy', hallId: 'troy', category: 'hall', atmosphere: '尘土、青铜和远处战车声交织成一片。', conflicts: '城门盘查、战场余波、真假盟友。', resonance: 'Hector 会先确认城内安全，Odysseus 则会观察每一道墙的薄弱处。', loot: '破损的青铜胸针、战场旗帜', checks: ['力量', '侦查'], npcs: '疲惫的守城者 / 唱史诗的盲眼诗人' },
+                    { id: 'achaean-camp', name: '阿开亚营地', universe: 'troy', hallId: 'troy', category: 'hall', atmosphere: '海边帐篷与战车轮痕连成一片，争执从未真正停下。', conflicts: '补给失踪、指挥分歧、盟友间的旧怨。', resonance: 'Agamemnon 想先整顿秩序，Ajax 则更愿意直接把麻烦搬开。', loot: '青铜扣、船队清单', checks: ['话术', '侦查'], npcs: '疲惫的传令兵 / 抱着酒壶的老兵' },
+                    { id: 'scamander', name: '斯卡曼德河岸', universe: 'troy', hallId: 'troy', category: 'hall', atmosphere: '河水映着尘土与火光，芦苇间藏着未说出口的名字。', conflicts: '突涨河水、遗失武具、神意难测。', resonance: 'Diomedes 会把脚印当作敌情，Sarpedon 会安静确认所有人是否平安。', loot: '河石护符、青铜箭簇', checks: ['侦查', '体质'], npcs: '沉默的洗甲人 / 河岸哨兵' },
+                    { id: 'trojan-plain', name: '特洛伊平原', universe: 'troy', hallId: 'troy', category: 'hall', atmosphere: '风卷过被战车压平的草地，远处旌旗忽明忽暗。', conflicts: '迷路的信使、误传的命令、战场遗留机关。', resonance: 'Menelaus 不轻易移开目光，Paris 则会先看见一束不合时宜的野花。', loot: '刻名盾扣、风化的信物', checks: ['敏捷', '话术'], npcs: '迷路的少年信使 / 伤兵的马' },
+                    { id: 'hades-border', name: '冥府边界', universe: 'underworld', hallId: 'underworld', category: 'hall', atmosphere: '没有风的黑河边，亡者的脚步声从芦苇深处传来。', conflicts: '记忆交换、回头的诱惑、渡河者的索价。', resonance: 'Zagreus 会熟练地找出下一条路，Thanatos 已经默默站在最危险的位置。', loot: '忘川石、写有亡者名字的蜡片', checks: ['意志', '话术'], npcs: '撑船的冥河摆渡者 / 不肯离去的亡魂' },
+                    { id: 'house-of-hades', name: '冥府宫殿', universe: 'underworld', hallId: 'underworld', category: 'hall', atmosphere: '黑石大厅里有炉火、账册和永远排不完的队伍。', conflicts: '误放的卷宗、宫廷规矩、家族间没说完的话。', resonance: 'Hades 会先看账本，Hypnos 则会把重要便签垫在爪下睡着。', loot: '冥府印章、夜色钥匙', checks: ['话术', '侦查'], npcs: '认真过头的亡魂文员' },
+                    { id: 'asphodel', name: '阿斯福德尔草原', universe: 'underworld', hallId: 'underworld', category: 'hall', atmosphere: '灰白花海一直延伸到熔岩的微光边缘。', conflicts: '迷路的灵魂、滚烫裂隙、回忆的回声。', resonance: 'Patroclus 会留意落在后面的同伴，Achilles 已开始规划最稳的路线。', loot: '灰花种子、余烬护符', checks: ['意志', '体质'], npcs: '抱着旧信的亡魂' },
+                    { id: 'elysium', name: '极乐原', universe: 'underworld', hallId: 'underworld', category: 'hall', atmosphere: '柔和日光落在金色草坡上，安静得近乎不真实。', conflicts: '旧日荣誉、拒绝面对的遗憾、盛大的挑战邀请。', resonance: 'Achilles 会难得放慢脚步，Zagreus 仍想看看围墙另一头有什么。', loot: '金叶桂冠、英雄徽记', checks: ['力量', '意志'], npcs: '热情过度的英雄亡魂' },
+                    { id: 'temple-of-styx', name: '冥河神殿', universe: 'underworld', hallId: 'underworld', category: 'hall', atmosphere: '窄廊层层延伸，毒香与宝物气味一样浓。', conflicts: '错门、陷阱、讨价还价的井神。', resonance: 'Zagreus 会先选最危险的一扇门，Thanatos 则在一旁冷静计时。', loot: '冥河硬币、暗影药瓶', checks: ['潜行', '侦查'], npcs: '爱聊天的冥河井神' }
                 ]);
 
                 EXPLORE_LOCATIONS.push(
@@ -8820,6 +8905,7 @@
                     attempt: 5,
                     errorMessage: '',
                     waitInfo: '',
+                    diagnostics: '',
                     isDeciding: false
                 });
                 const dailyArchiveResumeModal = reactive({
@@ -10028,7 +10114,11 @@ ${buildCatMemoryContext(cat)}`;
                 };
 
                 const checkSpecialEvent = () => {
+                    // Calendar, birthday and daily archive all share the 03:00
+                    // operational-day boundary. Keep this local calculation here
+                    // so the early lifecycle helper never depends on a later const.
                     const now = new Date();
+                    now.setHours(now.getHours() - OPERATIONAL_DAY_START_HOUR);
                     const solarMonth = now.getMonth() + 1;
                     const solarDay = now.getDate();
                     const solarStr = `${String(solarMonth).padStart(2, '0')}-${String(solarDay).padStart(2, '0')}`;
@@ -10128,7 +10218,10 @@ ${buildCatMemoryContext(cat)}`;
                                 { role: "system", content: systemPrompt },
                                 { role: "user", content: prompt }
                             ],
-                            temperature: settings.temperature,
+                            // A few structured foreground tasks benefit from a lower
+                            // temperature.  Keeping this per-request avoids changing
+                            // the user's normal chat / roleplay setting globally.
+                            temperature: Number.isFinite(request?.temperature) ? request.temperature : settings.temperature,
                             max_tokens: maxTokens
                         };
                     } else {
@@ -10139,7 +10232,7 @@ ${buildCatMemoryContext(cat)}`;
                             contents: [{ parts: [{ text: prompt }] }],
                             systemInstruction: { parts: [{ text: systemPrompt }] },
                             generationConfig: {
-                                temperature: settings.temperature,
+                                temperature: Number.isFinite(request?.temperature) ? request.temperature : settings.temperature,
                                 maxOutputTokens: maxTokens,
                             },
                             safetySettings: [
@@ -10158,6 +10251,15 @@ ${buildCatMemoryContext(cat)}`;
                         }
                     }
 
+                    const serializedPayload = JSON.stringify(payload);
+                    if (request) {
+                        request.payloadBytes = new TextEncoder().encode(serializedPayload).length;
+                        request.attemptStartedAt = Date.now();
+                        let endpointHost = 'unknown-host';
+                        try { endpointHost = new URL(url).host || endpointHost; } catch (e) { }
+                        request.transportInfo = `${baseUrl ? 'OpenAI-compatible relay' : 'Google direct'} · ${endpointHost} · ${modelName}`;
+                        addLog(`API REQUEST #${request.id} DISPATCH ${request.label}; ${request.transportInfo}; input=${request.guardedInputChars || request.inputChars || 0} chars, payload=${Math.ceil(request.payloadBytes / 1024)} KB, queue=${(request.queueWaitMs / 1000).toFixed(1)}s.`, 'info');
+                    }
                     const controller = new AbortController();
                     if (request) request.abortController = controller;
                     let timedOut = false;
@@ -10172,13 +10274,14 @@ ${buildCatMemoryContext(cat)}`;
                         response = await fetch(url, {
                             method: 'POST',
                             headers: headers,
-                            body: JSON.stringify(payload),
+                            body: serializedPayload,
                             signal: controller.signal
                         });
                     } catch (err) {
                         if (request?.cancelled || cancelledApiBatches.has(request?.batchId)) {
                             throw new AIRequestCancelledError();
                         }
+                        if (request) request.lastWaitMs = Date.now() - (request.attemptStartedAt || Date.now());
                         if (timedOut || err?.name === 'AbortError') {
                             throw new Error('请求超时：等待反代或模型响应超过 40 秒。');
                         }
@@ -10188,6 +10291,10 @@ ${buildCatMemoryContext(cat)}`;
                     } finally {
                         window.clearTimeout(timeoutId);
                         if (request?.abortController === controller) request.abortController = null;
+                    }
+                    if (request) {
+                        request.lastWaitMs = Date.now() - (request.attemptStartedAt || Date.now());
+                        addLog(`API REQUEST #${request.id} RESPONSE HEADERS after ${(request.lastWaitMs / 1000).toFixed(1)}s; HTTP ${response.status}.`, 'info');
                     }
                     onProgress?.({ stage: 'received' });
 
@@ -10252,6 +10359,10 @@ ${buildCatMemoryContext(cat)}`;
                         apiRetryModal.errorMessage = immediateDecision
                             ? `当前连接配置或反代路由无法使用，已停止自动重试。\n\n错误详情：\n${getReadableAPIError(lastError)}\n\n请确认 API 密钥和反代地址后，再决定是否重新尝试。`
                             : `连续 ${attemptsUsed} 次请求均失败。\n\n最后一次错误：\n${getReadableAPIError(lastError)}\n\n你可以停止本次请求，或明确再开启一轮 5 次尝试。`;
+                        const payloadInfo = request.payloadBytes ? `${Math.ceil(request.payloadBytes / 1024)} KB` : '尚未发送';
+                        const waitInfo = request.lastWaitMs ? `${(request.lastWaitMs / 1000).toFixed(1)} 秒` : '—';
+                        const queueInfo = request.queueWaitMs ? `${(request.queueWaitMs / 1000).toFixed(1)} 秒` : '0.0 秒';
+                        apiRetryModal.diagnostics = `${request.transportInfo || '传输信息尚未取得'}\n请求 #${request.id} · 输入 ${request.guardedInputChars || request.inputChars || 0} 字符 · 请求体 ${payloadInfo}\n队列等待 ${queueInfo} · 最近一次响应等待 ${waitInfo}`;
                         apiRetryModal.waitInfo = immediateDecision
                             ? '此类配置或 404 错误不会自动空转；停止后可进入终端检查连接设置。'
                             : /超时/.test(getReadableAPIError(lastError))
@@ -10305,7 +10416,8 @@ ${buildCatMemoryContext(cat)}`;
                     // must not overwrite a user-facing notification such as a new
                     // friend request. Its progress remains visible in the system log.
                     if (request.priority !== 'background') showToast('正在建立加密通道...', 'loading');
-                    addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${settings.model || 'default'} maxTokens=${request.maxTokens}`);
+                    request.guardedInputChars = String(request.prompt || '').length + String(guardedSystemPrompt || '').length;
+                    addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${settings.model || 'default'} maxTokens=${request.maxTokens}; input=${request.guardedInputChars} chars.`);
                     request.onProgress?.({ stage: 'queued', requestId: request.id, label: request.label, attempt: 0, round: request.round });
 
                     while (!request.cancelled && !cancelledApiBatches.has(request.batchId)) {
@@ -10329,20 +10441,23 @@ ${buildCatMemoryContext(cat)}`;
                                 const content = await _doSingleAPICall(request.prompt, guardedSystemPrompt, request.maxTokens, request.thinkingLevel, (event) => {
                                     request.onProgress?.({ ...event, requestId: request.id, label: request.label, attempt, round: request.round });
                                 }, request);
+                                const validationStartedAt = Date.now();
                                 request.onProgress?.({ stage: 'validating', requestId: request.id, label: request.label, attempt, round: request.round });
                                 if (typeof request.validateResponse === 'function') {
                                     const validation = request.validateResponse(content);
                                     if (validation === false) throw new Error('AI 回复未通过内容校验。');
                                     if (typeof validation === 'string') throw new Error(validation);
                                 }
+                                request.validationMs = Date.now() - validationStartedAt;
                                 request.onProgress?.({ stage: 'complete', requestId: request.id, label: request.label, attempt, round: request.round });
                                 if (request.priority !== 'background') showToast('数据传输完成', 'success');
                                 const elapsed = request.startedAt ? ((Date.now() - request.startedAt) / 1000).toFixed(1) : '—';
-                                addLog(`API REQUEST #${request.id} SUCCESS (round ${request.round}, attempt ${attempt}). ${elapsed}s; ${content.length} chars.`, 'sent');
+                                addLog(`API REQUEST #${request.id} SUCCESS (round ${request.round}, attempt ${attempt}). ${elapsed}s; output=${content.length} chars; validation=${request.validationMs || 0}ms.`, 'sent');
                                 return content;
                             } catch (e) {
                                 if (e instanceof AIRequestCancelledError) throw e;
                                 lastError = e;
+                                request.lastError = getReadableAPIError(e);
                                 addLog(`API REQUEST #${request.id} ATTEMPT ${attempt} FAILED: ${getReadableAPIError(e)}`, 'error');
                                 console.warn(`[callAI #${request.id}] Attempt ${attempt} failed:`, e.message);
                                 if (isConfigurationOrRouteError(e)) {
@@ -10376,6 +10491,7 @@ ${buildCatMemoryContext(cat)}`;
                         activeApiRequest = request;
                         activeAIRequestId.value = request.id;
                         request.startedAt = Date.now();
+                        request.queueWaitMs = Math.max(0, request.startedAt - request.enqueuedAt);
                         try {
                             request.resolve(await _runAIRequest(request));
                         } catch (error) {
@@ -10407,7 +10523,16 @@ ${buildCatMemoryContext(cat)}`;
                         cancelled: false,
                         abortController: null,
                         priority: options.priority || 'normal',
+                        temperature: Number.isFinite(options.temperature) ? options.temperature : null,
                         resolveRetryDecision: null,
+                        enqueuedAt: Date.now(),
+                        queueWaitMs: 0,
+                        inputChars: String(prompt || '').length,
+                        guardedInputChars: 0,
+                        payloadBytes: 0,
+                        lastWaitMs: 0,
+                        validationMs: 0,
+                        transportInfo: '',
                         resolve: null,
                         reject: null
                     };
@@ -10431,17 +10556,12 @@ ${buildCatMemoryContext(cat)}`;
                 };
 
                 const getUserRealLifeContext = () => {
-                    const pendingTodos = user.todos ? user.todos.filter(t => !t.done) : [];
-                    const pendingTodosStr = pendingTodos.map(t => t.text).join(', ');
-                    let ddlContext = "None";
-                    if (nearestDDL.value) { const diff = new Date(nearestDDL.value.time).getTime() - Date.now(); const days = diff / (1000 * 60 * 60 * 24); if (days <= 5) { ddlContext = `URGENT DEADLINE: ${nearestDDL.value.title} in ${days.toFixed(1)} days!`; } else { ddlContext = `${nearestDDL.value.title} (Time left: ${ddlCountdownStr.value})`; } }
-                    const eventContext = todayEventContext.value ? todayEventContext.value : "None";
                     const lastMail = user.mailbox.length > 0 ? user.mailbox[user.mailbox.length - 1] : null;
                     const mailContext = lastMail ? `Recent Mail from ${lastMail.from}: ${lastMail.content.substring(0, 30)}...` : "No recent mail.";
 
                     // --- NEW USER IDENTITY BLOCK ---
                     const userProfile = `[USER PROFILE] Name: ${user.nickname || 'Citizen'}. Gender: ${user.gender}. Job/Role: ${user.job || 'Unknown'}. Current Status: ${user.currentStatus || 'Unknown'}.`;
-                    const realLifeContext = `[REAL LIFE CONTEXT] Pending Tasks: ${pendingTodosStr}. DDL Context: ${ddlContext}. Special Event: ${eventContext}. Mail Context: ${mailContext}`;
+                    const realLifeContext = `${buildOwnerDailyContext('compact')}\n[MAIL CONTEXT] ${mailContext}`;
 
                     return `${userProfile}\n${realLifeContext}`;
                 };
@@ -10992,7 +11112,7 @@ ${recentHistory}
 ${userAction ? `馆长本轮行动：${userAction}` : ''}
 ${diceContext}
 同行猫记忆与连续性：
-${companion ? buildCatMemoryContext(companion, { compact }) : '无同行猫'}
+${companion ? buildCatMemoryContext(companion, { profile: compact ? 'exploreModule' : 'exploreScene' }) : '无同行猫'}
 [/KP CONTEXT]`;
                 };
 
@@ -11025,7 +11145,7 @@ ${companion ? buildCatMemoryContext(companion, { compact }) : '无同行猫'}
                 const requestExploreNarration = (prompt, label) => callAI(
                     prompt,
                     EXPLORE_KP_SYSTEM_PROMPT,
-                    1600,
+                    1000,
                     ThinkingLevel.LOW,
                     { label, priority: 'foreground', validateResponse: validateExploreNarration }
                 );
@@ -11157,7 +11277,7 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     exploreState.showGoalModal = true;
                     exploreState.suggestedGoals = [];
 
-                    const memoryContext = buildCatMemoryContext(exploreState.companion);
+                    const memoryContext = buildCatMemoryContext(exploreState.companion, { profile: 'exploreModule' });
 
                     const prompt = `Location: ${exploreState.location.name}. 
                     Atmosphere: ${exploreState.location.atmosphere}.
@@ -11186,7 +11306,7 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     Language: Simplified Chinese.`;
 
                     try {
-                        const res = await callAI(prompt, "You are a creative TRPG scenario generator. ALL output MUST be in Simplified Chinese (简体中文).", 1000, ThinkingLevel.LOW, {
+                        const res = await callAI(prompt, "You are a creative TRPG scenario generator. ALL output MUST be in Simplified Chinese (简体中文).", 400, ThinkingLevel.LOW, {
                             label: `EXPLORE GOALS · ${exploreState.location.name}`,
                             priority: 'foreground'
                         });
@@ -11215,43 +11335,78 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     }
                 };
 
+                // Module design is deliberately much smaller than scene narration.
+                // Some OpenAI-compatible Gemini relays hold a long, highly formatted
+                // outline open until it is completely generated.  That used to make
+                // the old 1,600–2,200-character module request hit the 40s transport
+                // guard even though ordinary chat still worked.  We ask the model for
+                // a compact JSON seed, then turn that seed into the same stable
+                // Markdown contract used by the KP below.
+                const buildExploreModuleBrief = () => {
+                    const cat = exploreState.companion;
+                    const hall = halls.value.find(item => item.id === cat?.hallId) || currentHall.value;
+                    const short = (value, limit = 130) => cleanText(value || '').slice(0, limit);
+                    const recentInteractions = (cat?.todayInteractions || []).slice(-2)
+                        .map(item => short(item.content || item.text)).filter(Boolean).join('；') || '无直接互动';
+                    const recentMonitoring = (cat?.diary || []).slice(-2)
+                        .map(item => short(item.content)).filter(Boolean).join('；') || short(cat?.status, 120) || '无';
+                    const latestDiary = (cat?.logs || []).slice(-1)
+                        .map(item => short(item.content, 180)).filter(Boolean).join('') || '无';
+                    return [
+                        `馆舍：${hall?.name || '喵喵馆'}；原作范围：${hall?.source || hall?.universe || '以当前馆设定为准'}`,
+                        `地点：${exploreState.location?.name || '未知'}；氛围：${short(exploreState.location?.atmosphere, 120)}；常驻NPC：${short(exploreState.location?.npcs, 120) || '无'}`,
+                        `馆长：${user.nickname || '馆长'}；身份：${user.job || user.occupation || '普通市民'}；本次日常目的：${short(exploreState.goal, 90)}`,
+                        `同行猫：${cat?.name || '未知'}；固定品种：${cat?.breed || '未设定'}；固定瞳色：${cat?.eyeColor || '未设定'}；人格：${short(cat?.personality, 220)}；亲密度：${cat?.affinity ?? 0}`,
+                        `当天互动：${recentInteractions}`,
+                        `最新监控：${recentMonitoring}`,
+                        `最近日记：${latestDiary}`
+                    ].join('\n');
+                };
+
+                const validateExploreModuleSeed = (content) => {
+                    const data = parseAIJSON(content);
+                    if (!data || typeof data !== 'object') return '模组种子不是有效 JSON。';
+                    const required = ['surfaceGoal', 'hiddenTruth', 'npcs', 'scenes', 'timeline', 'catPlan', 'endingSuccess', 'endingDanger', 'endingLeave'];
+                    const missing = required.filter(key => data[key] === undefined || data[key] === null || data[key] === '');
+                    if (missing.length) return `模组种子缺少字段：${missing.join('、')}`;
+                    if (!Array.isArray(data.npcs) || !Array.isArray(data.scenes) || data.scenes.length < 2) return '模组种子的 NPC 或场景结构不完整。';
+                    return true;
+                };
+
+                const compileExploreModuleSeed = (seed) => {
+                    const asText = (value, fallback = '未提供') => cleanText(typeof value === 'string' ? value : '') || fallback;
+                    const npcLines = (seed.npcs || []).slice(0, 3).map((npc, index) => {
+                        if (typeof npc === 'string') return `- ${npc}`;
+                        return `- ${asText(npc.name, `NPC ${index + 1}`)}：${asText(npc.role)}；秘密：${asText(npc.secret, '与暗线有关。')}`;
+                    }).join('\n') || '- 当前地点的常驻人物会在日常互动中自然出现。';
+                    const sceneLines = (seed.scenes || []).slice(0, 3).map((scene, index) => {
+                        if (typeof scene === 'string') return `- 区域 ${index + 1}：${scene}`;
+                        return `- ${asText(scene.name, `区域 ${index + 1}`)}：线索：${asText(scene.clue)}；检定：${asText(scene.check, '仅在有失败代价时进行')}；失败替代/代价：${asText(scene.cost, '仍获得替代线索，但付出合理代价。')}`;
+                    }).join('\n');
+                    return `【表面日常目标】\n${asText(seed.surfaceGoal)}\n\n【隐藏真相】\n${asText(seed.hiddenTruth)}\n\n【NPC 卡表】\n${npcLines}\n\n【场景与固定线索】\n${sceneLines}\n\n【时间线与危机】\n${asText(seed.timeline)}\n\n【同行猫隐藏剧本】\n${asText(seed.catPlan)}\n\n【三种结局】\n- 日常目标达成：${asText(seed.endingSuccess)}\n- 危机/大失败后的撤离：${asText(seed.endingDanger)}\n- 用户主动回家：${asText(seed.endingLeave)}`;
+                };
+
                 const generateModule = async () => {
                     if (!exploreState.location || !exploreState.companion || !exploreState.goal) return;
                     exploreState.isGeneratingModule = true;
                     // Keep the modal open, don't set exploreState.active = true yet
 
-                    const prompt = `[MEEOW HOUSE · CoC MODULE GENERATION]
-为一次“从日常带猫出门，逐渐露出暗线”的馆舍化 CoC 探索编写完整模组。风险、NPC 与谜团必须来自当前地点和馆舍原作；严禁默认 Gotham、DC、夜巡、犯罪或超英危机。
+                    const prompt = `[MEEOW HOUSE · FAST CoC MODULE SEED]
+基于下列事实，为一次“日常带猫出门、逐渐浮现暗线”的探索写一个紧凑的 JSON 模组种子。不能默认 Gotham / DC / 夜巡 / 超英危机；风险必须属于当前馆原作和地点。同行猫始终是猫，不能说人话或暴露秘密身份。馆长是安全、善意的共同生活者。
 
-地点：${exploreState.location.name}
-地点氛围：${exploreState.location.atmosphere}
-常驻 NPC：${exploreState.location.npcs || '无'}
-同行猫：${exploreState.companion.name}（${exploreState.companion.breed || '外观未设定'}；${exploreState.companion.personality || '原作人格'}）
-馆长的日常目的：${exploreState.goal}
-${buildExploreKPContext({ phase: 'module-design', compact: true })}
+${buildExploreModuleBrief()}
 
-请用清晰 Markdown 写约 900–1300 个汉字的大纲，必须包含：
-1. 【表面日常目标】为什么这是一次合理的带猫出门；开场前两轮只能出现细微异常，不能突兀开战或强行卷入阴谋。
-2. 【隐藏真相】与当前馆原作、地点和常驻 NPC 连续的暗线；不得混入其他馆设定。
-3. 【NPC 卡表】常驻 NPC 与 1–2 位新 NPC 的外貌、动机、秘密、说话方式和与暗线的联系。
-4. 【场景与固定线索】2–3 个区域；每条核心线索注明取得条件、适用检定、失败后的替代线索或代价。绝不把关键剧情锁死在一次骰子上。
-5. 【时间线与危机】异常如何逐步升级、何时才真正危险，以及可由用户行动改变的节点。
-6. 【同行猫隐藏剧本】${exploreState.companion.name} 如何在不说人话、不暴露身份的前提下，依原作人格与猫形动作提供线索或在致命风险时救场。
-7. 【三种结局】日常目标达成、危机/大失败后的代价性撤离、用户主动回家；三者都要能自然收束。
-
-简体中文。`;
+只返回严格 JSON，禁止 Markdown、禁止解释。每个字符串简洁（通常 20–90 字），总输出不超过 650 个汉字：
+{"surfaceGoal":"","hiddenTruth":"","npcs":[{"name":"","role":"","secret":""}],"scenes":[{"name":"","clue":"","check":"","cost":""},{"name":"","clue":"","check":"","cost":""}],"timeline":"","catPlan":"","endingSuccess":"","endingDanger":"","endingLeave":""}`;
 
                     try {
-                        const res = await callAI(prompt, EXPLORE_KP_SYSTEM_PROMPT, 3200, ThinkingLevel.LOW, {
+                        const res = await callAI(prompt, 'You are a concise CoC scenario designer. Return only the requested valid JSON. Preserve the supplied hall canon, cat identity, fixed breed and fixed eye colour; do not add a default DC premise.', 800, ThinkingLevel.LOW, {
                             label: `EXPLORE MODULE · ${exploreState.location.name}`,
                             priority: 'foreground',
-                            validateResponse: (content) => {
-                                const required = ['表面日常目标', '隐藏真相', 'NPC', '场景与固定线索', '时间线与危机', '同行猫隐藏剧本', '三种结局'];
-                                const missing = required.filter(label => !cleanText(content).includes(label));
-                                return missing.length ? `模组结构不完整，缺少：${missing.join('、')}` : true;
-                            }
+                            temperature: 0.45,
+                            validateResponse: validateExploreModuleSeed
                         });
-                        exploreState.module = cleanText(res);
+                        exploreState.module = compileExploreModuleSeed(parseAIJSON(res));
                         await startExploration();
                     } catch (e) {
                         addLog(`EXPLORE MODULE FAILED: ${getReadableAPIError(e)}`, 'error');
@@ -12794,12 +12949,15 @@ ${buildCatMemoryContext(cat)}`;
                     }
                 };
 
-                const getDateContext = (dateInput = new Date()) => {
-                    const now = dateInput instanceof Date ? dateInput : new Date(dateInput);
+                const getDateContext = (dateInput = null) => {
+                    const sourceDate = dateInput === null || typeof dateInput === 'undefined'
+                        ? getOperationalDate(new Date())
+                        : (dateInput instanceof Date ? dateInput : new Date(dateInput));
+                    const now = Number.isNaN(sourceDate.getTime()) ? getOperationalDate(new Date()) : sourceDate;
                     const month = now.getMonth() + 1;
                     const date = now.getDate();
                     const dateStr = `${month.toString().padStart(2, '0')}-${date.toString().padStart(2, '0')}`;
-                    let context = `Today is ${month}月${date}日. `;
+                    let context = `Operational date is ${month}月${date}日（03:00 本地时间切换运营日）. `;
 
                     const holidays = {
                         "01-01": "元旦 (New Year's Day)",
@@ -12808,6 +12966,24 @@ ${buildCatMemoryContext(cat)}`;
                         "12-25": "圣诞节 (Christmas)"
                     };
                     if (holidays[dateStr]) context += `节日: ${holidays[dateStr]}. `;
+
+                    // checkSpecialEvent also knows lunar holidays. Reuse its
+                    // current operational-day result for live character calls,
+                    // while archive calls for an older date stay self-contained.
+                    const currentOperationalDate = getOperationalDate(new Date());
+                    const isCurrentOperationalDay = currentOperationalDate.getFullYear() === now.getFullYear()
+                        && currentOperationalDate.getMonth() === now.getMonth()
+                        && currentOperationalDate.getDate() === now.getDate();
+                    if (isCurrentOperationalDay && todayEventContext.value && !context.includes(todayEventContext.value)) {
+                        context += `运营日特别事项: ${todayEventContext.value}. `;
+                    }
+
+                    if (user.birthday) {
+                        const birthdayParts = String(user.birthday).split('-');
+                        const birthdayMonth = Number(birthdayParts.length === 3 ? birthdayParts[1] : birthdayParts[0]);
+                        const birthdayDay = Number(birthdayParts.length === 3 ? birthdayParts[2] : birthdayParts[1]);
+                        if (birthdayMonth === month && birthdayDay === date) context += `IMPORTANT: 今天是馆长 ${user.nickname || '馆长'} 的生日。`;
+                    }
 
                     const birthdayCats = cats.value.filter(c => c.birthday === dateStr);
                     if (birthdayCats.length > 0) {
@@ -12879,27 +13055,48 @@ ${buildCatMemoryContext(cat)}`;
 - The user is a known safe, kind co-owner. Low closeness means unfamiliarity or personal boundaries, never automatic fear, hostility, contempt, or OOC rejection.
 - Never change, contradict, omit, or substitute the fixed breed, eye color, original personality, original relationships, or hall boundary.`;
                 };
+                // Character memories are shared by every cat-facing feature, but the
+                // source records can become very large (especially focus LIVE LOGs).
+                // Profiles keep the newest, most relevant continuity while making
+                // foreground requests small enough for slow OpenAI-compatible proxies.
+                const CAT_MEMORY_PROFILES = {
+                    standard: { interactions: 8, interactionChars: 180, monitoring: 8, monitorChars: 160, diaries: 3, diaryChars: 260, focus: 2, focusChars: 220, travel: 2, travelChars: 200, briefingChars: 260 },
+                    compact: { interactions: 5, interactionChars: 120, monitoring: 4, monitorChars: 120, diaries: 2, diaryChars: 180, focus: 1, focusChars: 160, travel: 1, travelChars: 160, briefingChars: 180 },
+                    reader: { interactions: 4, interactionChars: 100, monitoring: 3, monitorChars: 100, diaries: 2, diaryChars: 150, focus: 1, focusChars: 120, travel: 1, travelChars: 120, briefingChars: 160 },
+                    exploreModule: { interactions: 5, interactionChars: 140, monitoring: 4, monitorChars: 140, diaries: 2, diaryChars: 190, focus: 1, focusChars: 160, travel: 1, travelChars: 160, briefingChars: 200 },
+                    exploreScene: { interactions: 6, interactionChars: 160, monitoring: 6, monitorChars: 140, diaries: 3, diaryChars: 220, focus: 2, focusChars: 180, travel: 2, travelChars: 180, briefingChars: 240 }
+                };
+                const truncateMemoryText = (value, maxChars) => {
+                    const text = cleanText(value || '');
+                    return text.length > maxChars ? `${text.slice(0, Math.max(0, maxChars - 1))}…` : text;
+                };
+                const formatMemoryEntries = (entries, limit, maxChars) => entries.slice(-limit)
+                    .map(entry => truncateMemoryText(entry, maxChars)).filter(Boolean).join(' | ') || 'None';
                 const buildCatMemoryContext = (cat, options = {}) => {
                     const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
-                    const compact = Boolean(options.compact);
-                    const interactions = (cat.todayInteractions || []).slice(compact ? -6 : -24).map(entry => `[${entry.time || '历史'} · ${entry.type || '互动'}] ${cleanText(entry.content || '')}`);
-                    const travelogues = (cat.travelogues || []).slice(compact ? -1 : -3)
-                        .map(entry => `[${entry.date || '历史'} · ${entry.location || '外出'}] ${cleanText(entry.content || '')}`);
+                    const profileName = options.profile || (options.compact ? 'compact' : 'standard');
+                    const profile = CAT_MEMORY_PROFILES[profileName] || CAT_MEMORY_PROFILES.standard;
+                    const interactions = (cat.todayInteractions || []).map(entry => `[${entry.time || '历史'} · ${entry.type || '互动'}] ${cleanText(entry.content || '')}`);
+                    const monitoring = getRecentMonitorEntries(cat, profile.monitoring);
+                    const diaries = getPermanentDiaryEntries(cat, profile.diaries);
+                    const focus = getCatFocusReports(cat, profile.focus);
+                    const travelogues = (cat.travelogues || []).map(entry => `[${entry.date || '历史'} · ${entry.location || '外出'}] ${cleanText(entry.content || '')}`);
                     const briefing = getLatestHouseBriefing();
                     return `
 [CHARACTER MEMORY · REQUIRED]
 - ${buildCatIdentityBlock(cat)}
 - Hall: ${hall?.name || 'Meeow House'} · Guardian: ${hall?.guardian || '未指定'}
 - Date context: ${getDateContext()}
+- ${buildOwnerDailyContext(profileName)}
 - Closeness / affinity: ${cat.affinity || 0}/100
-- Current status: ${cat.status || '未知'}
+- Current status: ${truncateMemoryText(cat.status || '未知', 180)}
 - Last status update: ${cat.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime).toLocaleString() : '无记录'}
-- All interactions today: ${interactions.join(' | ') || 'None'}
-- Recent monitoring today: ${getRecentMonitorEntries(cat, compact ? 6 : 16).join(' | ') || 'None'}
-- Last 5 permanent diary entries: ${getPermanentDiaryEntries(cat).join(' | ') || 'None'}
-- Last 5 focus records: ${getCatFocusReports(cat).join(' | ') || 'None'}
-- Last 3 travelogues: ${travelogues.join(' | ') || 'None'}
-- Latest Nain house briefing: ${briefing ? cleanText(briefing.summary || '') : 'None'}
+- All interactions today: ${formatMemoryEntries(interactions, profile.interactions, profile.interactionChars)}
+- Recent monitoring today: ${formatMemoryEntries(monitoring, profile.monitoring, profile.monitorChars)}
+- Recent permanent diary entries: ${formatMemoryEntries(diaries, profile.diaries, profile.diaryChars)}
+- Recent focus records: ${formatMemoryEntries(focus, profile.focus, profile.focusChars)}
+- Recent travelogues: ${formatMemoryEntries(travelogues, profile.travel, profile.travelChars)}
+- Latest Nain house briefing: ${briefing ? truncateMemoryText(briefing.summary || '', profile.briefingChars) : 'None'}
 ${options.extra || ''}
 [CONTINUITY RULE] Read this timeline before writing. Continue from the latest plausible action; do not repeat a stale status after meaningful time has passed. The stored original-character prompt and immutable identity are binding: never OOC, never generic cute-cat behavior, and never impose a DC/superhero premise outside a hall where it belongs.`;
                 };
@@ -12916,9 +13113,15 @@ ${options.extra || ''}
                 const activeReaderBook = computed(() => readerBooks.value.find(book => book.id === phoneState.reader.activeBookId) || null);
                 const activeReaderChapter = computed(() => phoneState.reader.payload?.chapters?.[phoneState.reader.chapterIndex] || null);
                 const readerAvailableCats = computed(() => cats.value.filter(cat => !cat.isOut));
+                const hasPreviousReaderChapter = computed(() => Number(phoneState.reader.chapterIndex) > 0);
                 const hasNextReaderChapter = computed(() => Boolean(phoneState.reader.payload?.chapters?.[phoneState.reader.chapterIndex + 1]));
                 const getCatById = (id) => cats.value.find(cat => String(cat.id) === String(id)) || null;
                 const readerNotes = () => user.phoneData?.reader?.annotations || [];
+                const hasReaderNotesForCat = (bookId, chapterId, catId) => readerNotes().some(note => note.bookId === bookId && note.chapterId === chapterId && String(note.catId) === String(catId));
+                const readerCanAddCurrentChapterNote = computed(() => {
+                    const catId = phoneState.reader.companionCatId;
+                    return Boolean(catId && activeReaderBook.value && activeReaderChapter.value && !hasReaderNotesForCat(activeReaderBook.value.id, activeReaderChapter.value.id, catId));
+                });
                 const createReaderId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
                 const ensureReaderData = () => {
@@ -13059,14 +13262,18 @@ ${options.extra || ''}
                     loadingOperation.indeterminate = false;
                     isAppLoading.value = false;
                 };
-                const readerProgressFromAI = (event) => {
-                    const stages = { queued: [20, '正在排队'], connecting: [35, '正在建立连接'], waiting: [48, '正在等待模型阅读'], received: [72, '已收到回复'], validating: [84, '正在校验猫爪笔记'], complete: [94, '正在保存笔记'], retrying: [35, `正在重试第 ${event.attempt || 1}/5 次`] };
-                    const [progress, phase] = stages[event.stage] || [45, '正在处理中'];
-                    setReaderLoading(phase, progress, event.stage === 'waiting');
+                const readerProgressFromAI = (event, batchIndex = 0, batchTotal = 1, chapterLabel = '') => {
+                    const stages = { queued: [12, '正在排队'], connecting: [24, '正在建立连接'], waiting: [48, '正在等待模型阅读'], received: [72, '已收到回复'], validating: [84, '正在校验猫爪笔记'], complete: [94, '正在暂存批注'], retrying: [24, `正在重试第 ${event.attempt || 1}/5 次`] };
+                    const [withinBatch, phase] = stages[event.stage] || [38, '正在处理中'];
+                    const base = Math.round((batchIndex / batchTotal) * 78);
+                    const progress = Math.min(94, base + Math.round((withinBatch / 100) * (78 / batchTotal)));
+                    const prefix = `阅读批次 ${batchIndex + 1}/${batchTotal}${chapterLabel ? ` · ${chapterLabel}` : ''}`;
+                    setReaderLoading(`${prefix}：${phase}`, progress, event.stage === 'waiting');
                 };
-                const getReaderExistingNotesContext = (bookId, chapterIds) => readerNotes().filter(note => note.bookId === bookId && chapterIds.includes(note.chapterId)).slice(-18).map(note => {
+                const getReaderExistingNotesContext = (bookId, chapterIds, maxNotes = 12) => readerNotes().filter(note => note.bookId === bookId && chapterIds.includes(note.chapterId)).slice(-maxNotes).map(note => {
                     const cat = getCatById(note.catId);
-                    return `[${note.chapterId} / 段 ${Number(note.paragraphIndex) + 1} / ${cat?.name || '未知猫'}] ${note.content}`;
+                    const body = note.status || note.innerVoice ? `状态：${note.status || '未记录'}；心声：${note.innerVoice || '未记录'}` : `旧版笔记：${note.content || ''}`;
+                    return `[${note.chapterId} / 段 ${Number(note.paragraphIndex) + 1} / ${cat?.name || '未知猫'}] ${truncateMemoryText(body, 100)}`;
                 }).join('\n');
                 const validateReaderNotes = (text, targetChapters) => {
                     const parsed = parseAIJSON(text);
@@ -13076,8 +13283,9 @@ ${options.extra || ''}
                     for (const note of parsed.notes) {
                         const chapter = allowed.get(note?.chapterId);
                         const index = Number(note?.paragraphIndex);
-                        const content = cleanText(note?.content || '');
-                        if (!chapter || !Number.isInteger(index) || index < 0 || index >= chapter.paragraphs.length || !content || content.length > 50) return '陪读批注的章节、段落或字数不符合要求。';
+                        const status = cleanText(note?.status || '');
+                        const innerVoice = cleanText(note?.innerVoice || '');
+                        if (!chapter || !Number.isInteger(index) || index < 0 || index >= chapter.paragraphs.length || !status || !innerVoice || status.length + innerVoice.length > 50) return '陪读批注的章节、段落、双栏内容或字数不符合要求。';
                         if (!byChapter.has(chapter.id)) byChapter.set(chapter.id, new Set());
                         if (byChapter.get(chapter.id).has(index)) return '同一段落被重复标注。';
                         byChapter.get(chapter.id).add(index);
@@ -13088,27 +13296,48 @@ ${options.extra || ''}
                     }
                     return true;
                 };
-                const createReaderNotes = async (book, chapterStart, cat) => {
-                    const payload = phoneState.reader.payload;
-                    const windowChapters = (payload?.chapters || []).slice(chapterStart, chapterStart + 5);
-                    const targetChapters = windowChapters.filter(chapter => !readerNotes().some(note => note.bookId === book.id && note.chapterId === chapter.id && String(note.catId) === String(cat.id)));
-                    if (!targetChapters.length) return;
-                    const chapterIds = windowChapters.map(chapter => chapter.id);
-                    const material = targetChapters.map(chapter => `CHAPTER_ID: ${chapter.id}\nTITLE: ${chapter.title}\nPARAGRAPHS:\n${chapter.paragraphs.map((paragraph, index) => `${index}: ${paragraph}`).join('\n')}`).join('\n\n---\n\n');
-                    const previousNotes = getReaderExistingNotesContext(book.id, chapterIds) || 'None';
-                    setReaderLoading('正在整理本次阅读内容', 15, false);
-                    const prompt = `[MEEOW READER · COMPANION NOTES]\nBook title: ${book.title}\nCompanion cat: ${cat.name}\n\nYou are leaving tiny private margin notes while reading with the safe, kind museum owner. For EVERY supplied chapter, pick exactly 2 or 3 distinct paragraph indices. Every note must be Simplified Chinese, maximum 50 Chinese characters total, and contain only: a brief cat sound + a tiny cat action + the cat's inner thought. Never write ordinary dialogue, scene narration, spoilers beyond supplied text, markdown, or an identity reveal. Notes may naturally react to earlier notes by this cat or other cats, but may never alter or contradict them. Preserve exact original-character voice, fixed breed, and fixed eye colour.\n\nEXISTING NOTES IN THIS READING WINDOW:\n${previousNotes}\n\nNEW CHAPTERS:\n${material}\n\nReturn strict JSON only: {"notes":[{"chapterId":"","paragraphIndex":0,"content":""}]}.`;
-                    const response = await callAI(`${prompt}\n${buildCatMemoryContext(cat, { compact: true, extra: `[READING CONTEXT] The user is reading ${book.title}. Treat all listed existing book notes as long-term shared reading memory.` })}`, 'You write only valid JSON for a private cat reading annotation system. Canon fidelity and the immutable character identity are mandatory.', 1800, ThinkingLevel.LOW, {
-                        label: `MEEOW READER · ${cat.name}`,
-                        priority: 'foreground',
-                        batchId: `reader-${book.id}-${cat.id}-${chapterStart}`,
-                        validateResponse: content => validateReaderNotes(content, targetChapters),
-                        onProgress: readerProgressFromAI
+                const READER_REQUEST_CHAR_BUDGET = 6400;
+                const buildReaderBatches = (chapters) => {
+                    const batches = []; let batch = []; let batchChars = 0;
+                    chapters.forEach(chapter => {
+                        const chapterChars = (chapter.paragraphs || []).reduce((total, paragraph) => total + String(paragraph || '').length + 12, 0);
+                        if (batch.length && batchChars + chapterChars > READER_REQUEST_CHAR_BUDGET) {
+                            batches.push(batch); batch = []; batchChars = 0;
+                        }
+                        batch.push(chapter); batchChars += chapterChars;
                     });
-                    const parsed = parseAIJSON(response);
-                    const saved = parsed.notes.map(note => ({ id: createReaderId('note'), bookId: book.id, chapterId: note.chapterId, paragraphIndex: Number(note.paragraphIndex), catId: cat.id, content: cleanText(note.content), createdAt: new Date().toISOString() }));
-                    ensureReaderData().annotations.push(...saved);
-                    appendInteractionEvent(cat, 'reading-companion', `与馆长共同阅读《${book.title}》的 ${targetChapters.map(chapter => chapter.title).join('、')}，留下了 ${saved.length} 条猫爪笔记。`, { source: 'reader', bookId: book.id, chapterIds: targetChapters.map(chapter => chapter.id) });
+                    if (batch.length) batches.push(batch);
+                    return batches;
+                };
+                const createReaderNotes = async (book, chapterStart, cat, windowSize = 5) => {
+                    const payload = phoneState.reader.payload;
+                    const windowChapters = (payload?.chapters || []).slice(chapterStart, chapterStart + windowSize);
+                    const targetChapters = windowChapters.filter(chapter => !hasReaderNotesForCat(book.id, chapter.id, cat.id));
+                    if (!targetChapters.length) return;
+                    const batches = buildReaderBatches(targetChapters);
+                    const waveBatchId = `reader-${book.id}-${cat.id}-${chapterStart}-${Date.now()}`;
+                    const stagedNotes = [];
+                    setReaderLoading(`正在准备 ${targetChapters.length} 个阅读章节`, 10, false);
+                    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+                        const batch = batches[batchIndex];
+                        const material = batch.map(chapter => `CHAPTER_ID: ${chapter.id}\nTITLE: ${chapter.title}\nPARAGRAPHS:\n${chapter.paragraphs.map((paragraph, index) => `${index}: ${paragraph}`).join('\n')}`).join('\n\n---\n\n');
+                        const nearbyIds = (payload?.chapters || []).slice(Math.max(0, chapterStart - 1), chapterStart + 6).map(chapter => chapter.id);
+                        const previousNotes = getReaderExistingNotesContext(book.id, nearbyIds, 12) || 'None';
+                        const chapterLabel = batch.map(chapter => chapter.title).join('、');
+                        const prompt = `[MEEOW READER · COMPANION NOTES]\nBook title: ${book.title}\nCompanion cat: ${cat.name}\n\nYou are leaving tiny private margin notes while reading with the safe, kind museum owner. For EVERY supplied chapter, pick exactly 2 or 3 distinct paragraph indices. Every note must be Simplified Chinese and contain exactly two fields: status (a brief cat sound plus a tiny physical reaction while reading) and innerVoice (the cat's concise internal thought in canon voice). The two fields combined must be no more than 50 Chinese characters. Never write ordinary dialogue, scene narration, spoilers beyond supplied text, markdown, or an identity reveal. Notes may naturally react to earlier notes by this cat or other cats, but may never alter or contradict them. Preserve exact original-character voice, fixed breed, and fixed eye colour.\n\nEXISTING NOTES NEAR THESE CHAPTERS:\n${previousNotes}\n\nNEW CHAPTERS:\n${material}\n\nReturn strict JSON only: {"notes":[{"chapterId":"","paragraphIndex":0,"status":"","innerVoice":""}]}.`;
+                        const response = await callAI(`${prompt}\n${buildCatMemoryContext(cat, { profile: 'reader', extra: `[READING CONTEXT] The user is reading ${book.title}. Treat listed notes as long-term shared reading memory.` })}`, 'You write only valid JSON for a private cat reading annotation system. Canon fidelity and immutable character identity are mandatory.', 900, ThinkingLevel.LOW, {
+                            label: `MEEOW READER · ${cat.name}`,
+                            priority: 'foreground',
+                            batchId: waveBatchId,
+                            validateResponse: content => validateReaderNotes(content, batch),
+                            onProgress: event => readerProgressFromAI(event, batchIndex, batches.length, chapterLabel)
+                        });
+                        const parsed = parseAIJSON(response);
+                        stagedNotes.push(...parsed.notes.map(note => ({ id: createReaderId('note'), bookId: book.id, chapterId: note.chapterId, paragraphIndex: Number(note.paragraphIndex), catId: cat.id, status: cleanText(note.status), innerVoice: cleanText(note.innerVoice), createdAt: new Date().toISOString() })));
+                    }
+                    // Only commit after the whole reading window has passed validation.
+                    ensureReaderData().annotations.push(...stagedNotes);
+                    appendInteractionEvent(cat, 'reading-companion', `与馆长共同阅读《${book.title}》的 ${targetChapters.map(chapter => chapter.title).join('、')}，留下了 ${stagedNotes.length} 条猫爪笔记。`, { source: 'reader', bookId: book.id, chapterIds: targetChapters.map(chapter => chapter.id) });
                     appendMonitorEvent(cat, `陪馆长读完《${book.title}》的一段内容，悄悄留下了阅读笔记。`, 'reader', { bookId: book.id });
                     setReaderLoading('猫爪笔记已保存', 100, false);
                 };
@@ -13169,14 +13398,9 @@ ${options.extra || ''}
                         phoneState.reader.view = 'entry';
                         return;
                     }
-                    const cat = getCatById(phoneState.reader.companionCatId);
-                    try {
-                        if (cat && !readerNotes().some(note => note.bookId === activeReaderBook.value?.id && note.chapterId === activeReaderChapter.value?.id && String(note.catId) === String(cat.id))) await createReaderNotes(activeReaderBook.value, index, cat);
-                        phoneState.reader.view = 'reader'; persistReaderPosition(); restoreReaderPosition();
-                    } catch (error) {
-                        closeReaderLoading();
-                        if (!(error instanceof AIRequestCancelledError)) showToast(`该章节的陪读笔记未生成：${getReadableAPIError(error)}`, 'error');
-                    } finally { closeReaderLoading(); }
+                    // Browsing through the table of contents is always passive: existing
+                    // notes stay visible, while new notes require the explicit reader action.
+                    phoneState.reader.view = 'reader'; persistReaderPosition(); restoreReaderPosition();
                 };
                 const persistReaderPosition = () => {
                     const book = activeReaderBook.value; if (!book) return;
@@ -13208,11 +13432,31 @@ ${options.extra || ''}
                     if (first) phoneState.reader.paragraphIndex = Number(first.dataset.readerParagraph || 0);
                     persistReaderPosition();
                 };
+                const retreatReaderChapter = () => {
+                    if (!hasPreviousReaderChapter.value) return;
+                    phoneState.reader.chapterIndex -= 1;
+                    phoneState.reader.paragraphIndex = 0;
+                    persistReaderPosition();
+                    restoreReaderPosition();
+                };
+                const requestReaderNotesForCurrentChapter = async () => {
+                    const book = activeReaderBook.value;
+                    const cat = getCatById(phoneState.reader.companionCatId);
+                    if (!book || !cat || !activeReaderChapter.value || hasReaderNotesForCat(book.id, activeReaderChapter.value.id, cat.id)) return;
+                    try {
+                        // Explicit backfill is intentionally limited to the open chapter;
+                        // revisiting an old page must never silently prepare five new chapters.
+                        await createReaderNotes(book, phoneState.reader.chapterIndex, cat, 1);
+                    } catch (error) {
+                        closeReaderLoading();
+                        if (!(error instanceof AIRequestCancelledError)) showToast(`本章陪读笔记未生成：${getReadableAPIError(error)}`, 'error');
+                    } finally { closeReaderLoading(); }
+                };
                 const advanceReaderChapter = async () => {
                     if (!hasNextReaderChapter.value) return;
                     const next = phoneState.reader.chapterIndex + 1; const cat = getCatById(phoneState.reader.companionCatId);
                     try {
-                        if (cat && !readerNotes().some(note => note.bookId === activeReaderBook.value.id && note.chapterId === phoneState.reader.payload.chapters[next].id && String(note.catId) === String(cat.id))) await createReaderNotes(activeReaderBook.value, next, cat);
+                        if (cat && !hasReaderNotesForCat(activeReaderBook.value.id, phoneState.reader.payload.chapters[next].id, cat.id)) await createReaderNotes(activeReaderBook.value, next, cat);
                         phoneState.reader.chapterIndex = next; phoneState.reader.paragraphIndex = 0; persistReaderPosition(); restoreReaderPosition();
                     } catch (error) {
                         closeReaderLoading(); if (!(error instanceof AIRequestCancelledError)) showToast(`下一段陪读笔记未生成：${getReadableAPIError(error)}`, 'error');
@@ -13236,6 +13480,39 @@ ${options.extra || ''}
                     return date;
                 };
                 const getPreviousOperationalDayKey = (value = new Date()) => getLocalDateKey(getPreviousOperationalDate(value));
+                const buildOwnerDailyContext = (profileName = 'standard') => {
+                    const compact = profileName === 'compact' || profileName === 'reader';
+                    const itemLimit = compact ? 4 : 7;
+                    const textLimit = compact ? 72 : 120;
+                    const operationalDate = getOperationalDate(new Date());
+                    const operationalKey = getLocalDateKey(operationalDate);
+                    const formatItem = (item, fallback = '未命名事项') => truncateMemoryText(
+                        String(item?.text || item?.title || item?.name || fallback), textLimit
+                    );
+                    const todos = Array.isArray(user.todos) ? user.todos : [];
+                    const completedPlans = todos.filter(item => item?.done).slice(-itemLimit).map(item => formatItem(item));
+                    const pendingPlans = todos.filter(item => !item?.done).slice(0, itemLimit).map(item => formatItem(item));
+                    const schedule = (Array.isArray(user.schedule) ? user.schedule : [])
+                        .slice().sort((a, b) => String(a?.time || '').localeCompare(String(b?.time || '')))
+                        .slice(0, itemLimit)
+                        .map(item => `${item?.time || '待定'} ${formatItem(item)}`);
+                    const deadlines = (Array.isArray(user.deadlines) ? user.deadlines : [])
+                        .slice().sort((a, b) => new Date(a?.time || a?.date || 0) - new Date(b?.time || b?.date || 0))
+                        .slice(0, itemLimit)
+                        .map(item => {
+                            const deadline = item?.time || item?.date || '未设日期';
+                            return `${deadline} ${formatItem(item)}`;
+                        });
+                    const eventContext = getDateContext(operationalDate);
+                    return `[OWNER DAILY CONTEXT]
+- Operational day: ${operationalKey} (local day changes at 03:00).
+- Curator: ${user.nickname || '馆长'}; role: ${user.job || '未设定'}; current status: ${user.currentStatus || '未知'}.
+- Completed plans: ${completedPlans.join(' / ') || 'None recorded'}.
+- Pending plans: ${pendingPlans.join(' / ') || 'None recorded'}.
+- Today's schedule: ${schedule.join(' / ') || 'No scheduled event'}.
+- Upcoming DDL: ${deadlines.join(' / ') || 'No upcoming DDL'}.
+- Holiday / birthdays: ${eventContext}`;
+                };
                 const recordMatchesOperationalDay = (record, dateKey) => {
                     if (!record || !dateKey) return false;
                     const stampedKey = record.dateKey || (record.at ? getOperationalDayKey(new Date(record.at)) : '');
@@ -15024,8 +15301,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef,
-                    readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, hasNextReaderChapter,
-                    openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, advanceReaderChapter, saveReaderScrollPosition,
+                    readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
+                    openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
                     openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime,
                     openPhoneImageComposer, openPhoneLocationComposer, openPhoneMoneyComposer, togglePhoneEmojiPicker, phoneShowEmojiPicker, insertEmoji,
@@ -15044,7 +15321,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     isAppLoading, loadingProgress, loadingMessage, loadingOperation, activeAIRequestId, cancelCurrentAIRequest,
                     hallEntryLoading,
                     tempUserStatus, showPhoneImageDescModal, phoneImageDesc, sendPhoneDescImage,
-                    uiTheme, uiBlur, uiScanlines, uiTermSize, uiShowStatusbar, saveStatusbarPreference, setUITheme, applyUISettings, customFontInput, applyCustomFont, resetCustomFont,
+                    uiTheme, uiBlur, uiScanlines, uiShowStatusbar, saveStatusbarPreference, setUITheme, applyUISettings, customFontInput, applyCustomFont, resetCustomFont,
                     apiRetryModal, resolveApiRetryDecision,
                     dailyArchiveResumeModal, dismissPendingDailyArchive, resumePendingDailyArchive
                 };
