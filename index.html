@@ -3164,15 +3164,12 @@
         }
 
         #app .meeow-hall-card::after {
-            position: absolute;
-            right: -18px;
-            bottom: -26px;
-            color: var(--accent);
-            content: '\f6be';
-            font-family: 'Font Awesome 6 Free';
-            font-size: 96px;
-            opacity: .07;
-            pointer-events: none;
+            display: none;
+        }
+
+        #app .meeow-hall-card > div:not(.hall-logo-watermark) {
+            position: relative;
+            z-index: 1;
         }
 
         #app .meeow-hall-card .hall-icon {
@@ -3186,6 +3183,44 @@
             background: var(--accent-dim);
             color: var(--accent);
             font-size: 17px;
+        }
+
+        #app .meeow-hall-card .hall-icon.hall-custom-logo {
+            overflow: hidden;
+            padding: 4px;
+            background: var(--ui-surface-soft);
+        }
+
+        #app .meeow-hall-card .hall-custom-logo-image {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        #app .meeow-hall-card .hall-logo-watermark {
+            position: absolute;
+            z-index: 0;
+            right: -18px;
+            bottom: -25px;
+            width: 118px;
+            height: 118px;
+            opacity: .14;
+            pointer-events: none;
+            user-select: none;
+        }
+
+        #app .meeow-hall-card .hall-icon-watermark {
+            position: absolute;
+            z-index: 0;
+            right: -14px;
+            bottom: -20px;
+            color: var(--accent);
+            font-size: 112px;
+            line-height: 1;
+            opacity: .11;
+            pointer-events: none;
+            user-select: none;
         }
 
         #app .meeow-hall-card h3 {
@@ -4341,11 +4376,16 @@
                 <div class="meeow-hall-grid">
                     <button v-for="hall in halls" :key="hall.id" @click="enterHall(hall)" class="meeow-hall-card" type="button">
                         <div>
-                            <span class="hall-icon"><i :class="['fas', hall.icon || 'fa-cat']"></i></span>
+                            <span v-if="hall.custom" class="hall-icon hall-custom-logo">
+                                <img class="hall-custom-logo-image" :src="getHallLogoDataUri(hall)" :alt="hall.name + ' 徽章'">
+                            </span>
+                            <span v-else class="hall-icon"><i :class="['fas', hall.icon || 'fa-cat']"></i></span>
                             <h3>{{ hall.name }}</h3>
                             <p>{{ hall.description }}</p>
                         </div>
                         <div class="hall-guardian"><i class="fas fa-key mr-1"></i>{{ hall.guardian }} · {{ hall.guardianTitle }}</div>
+                        <img v-if="hall.custom" class="hall-logo-watermark" :src="getHallLogoDataUri(hall)" alt="" aria-hidden="true">
+                        <i v-else class="hall-icon-watermark fas" :class="hall.icon || 'fa-cat'" aria-hidden="true"></i>
                     </button>
                 </div>
 
@@ -8153,8 +8193,8 @@
                 const DEFAULT_HALLS = [
                     { id: 'gotham', name: '哥谭馆', eyebrow: 'DC 猫猫分馆', guardian: '阿尔弗雷德', guardianTitle: '哥谭馆管家', icon: 'fa-mask', description: '雨夜、屋顶和一群不肯承认自己需要陪伴的英雄猫。', atmosphere: '冷峻、克制、藏着一盏始终亮着的灯。', catLabel: '哥谭本地猫', source: 'DC Comics · Batman / Gotham' },
                     { id: 'marvel', name: '漫威馆', eyebrow: 'MARVEL CAT WING', guardian: 'JARVIS', guardianTitle: '漫威馆管家', icon: 'fa-atom', description: '高科技、嘴炮和一群随时可能把天花板打穿的猫。', atmosphere: '明亮、喧闹、充满能量核心的嗡鸣。', catLabel: '漫威来客', source: 'Marvel Cinematic Universe · selected comic continuities' },
-                    { id: 'greek', name: '伊萨卡馆', eyebrow: 'ITHACA HALL', guardian: 'Homer', guardianTitle: '伊萨卡馆管家', icon: 'fa-sailboat', description: '归乡的船帆、海风和一座始终等待归人的王宫。', atmosphere: '咸湿海风、旧石柱与漫长旅途尽头的灯火。', catLabel: '伊萨卡馆猫', source: "Homer's Odyssey · Epic Cycle" },
-                    { id: 'troy', name: '史诗馆', eyebrow: 'TROJAN WAR HALL', guardian: 'Homer', guardianTitle: '史诗馆管家', icon: 'fa-shield-halved', description: '青铜、战车与两军战士共同写下的一页长歌。', atmosphere: '旌旗、尘土、战鼓与命运尚未落定的黄昏。', catLabel: '特洛伊史诗猫', source: 'Homeric Iliad · Trojan Cycle' },
+                    { id: 'greek', name: '伊萨卡馆', eyebrow: 'ITHACA HALL', guardian: 'Homer', guardianTitle: '伊萨卡馆管家', icon: 'fa-ship', description: '归乡的船帆、海风和一座始终等待归人的王宫。', atmosphere: '咸湿海风、旧石柱与漫长旅途尽头的灯火。', catLabel: '伊萨卡馆猫', source: "Homer's Odyssey · Epic Cycle" },
+                    { id: 'troy', name: '史诗馆', eyebrow: 'TROJAN WAR HALL', guardian: 'Homer', guardianTitle: '史诗馆管家', icon: 'fa-scroll', description: '青铜、战车与两军战士共同写下的一页长歌。', atmosphere: '旌旗、尘土、战鼓与命运尚未落定的黄昏。', catLabel: '特洛伊史诗猫', source: 'Homeric Iliad · Trojan Cycle' },
                     { id: 'underworld', name: '冥界馆', eyebrow: 'UNDERWORLD HALL', guardian: 'Nyx', guardianTitle: '冥界馆管家', icon: 'fa-skull', description: '黑石回廊、冥河微光和一群不肯认输的冥界猫。', atmosphere: '幽暗、温暖的炉火、永夜与不断重启的归途。', catLabel: '冥界猫', source: 'Hades · Supergiant Games · Greek Underworld' },
                     { id: 'olympus', name: '奥林匹斯馆', eyebrow: 'OLYMPUS HALL', guardian: 'The Moirai', guardianTitle: '命运三女神', icon: 'fa-bolt', description: '十二位神明各自占据一张软垫，连命运也要先敲门。', atmosphere: '金色云层、月桂与永不安静的神宴。', catLabel: '奥林匹斯神猫', source: 'Classical Greek mythology · Twelve Olympians' }
                 ];
@@ -10042,6 +10082,37 @@ ${buildCatMemoryContext(cat)}`;
                     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Cat archive badge"><rect width="200" height="200" rx="100" fill="' + fill + '"/><path d="M49 78 63 43l25 18c8-3 16-4 24-4s16 1 24 4l25-18 14 35c8 12 12 26 12 42 0 40-33 65-87 65s-87-25-87-65c0-16 4-30 12-42Z" fill="rgba(255,255,255,.94)"/><circle cx="75" cy="111" r="7" fill="' + fill + '"/><circle cx="125" cy="111" r="7" fill="' + fill + '"/><path d="M91 133q9 8 18 0" fill="none" stroke="' + fill + '" stroke-width="5" stroke-linecap="round"/><text x="100" y="178" text-anchor="middle" font-family="Arial,sans-serif" font-size="24" font-weight="800" fill="' + fill + '">' + escapeSvgText(initial) + '</text></svg>';
                     return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
                 };
+                // Never render AI-provided SVG/HTML. Custom hall emblems are composed only from
+                // these local paths and sanitized palette values, so their data is safe to persist.
+                const HALL_LOGO_SYMBOLS = ['archive', 'scroll', 'star', 'crown', 'moon', 'flame', 'leaf', 'gear', 'wings', 'gem', 'key'];
+                const HALL_LOGO_PATHS = {
+                    archive: '<path d="M37 42h54v46H37zM33 31h62v10H33zM48 57h32v7H48z"/>',
+                    scroll: '<path d="M38 31h45a12 12 0 1 1 0 24H54a8 8 0 1 0 0 16h29v10H54a18 18 0 1 1 0-36h29a2 2 0 1 0 0-4H38z"/><path d="M38 31h10v40H38z"/>',
+                    star: '<path d="m64 27 9 23 25 1-20 15 7 25-21-14-22 14 8-25-20-15 25-1z"/>',
+                    crown: '<path d="m31 42 14 12 19-22 19 22 14-12-7 43H38zM38 90h52v8H38z"/>',
+                    moon: '<path d="M79 29a32 32 0 1 0 17 57 34 34 0 1 1-17-57Z"/>',
+                    flame: '<path d="M65 26c8 16 24 24 18 44-4 15-17 24-32 24-17 0-31-13-31-31 0-13 8-25 22-34-2 13 3 18 9 21 1-10 5-17 14-24Zm-9 35c-7 7-10 13-7 21 2 5 7 8 13 8 8 0 14-6 14-14 0-6-4-12-11-17 1 9-4 12-9 2Z"/>',
+                    leaf: '<path d="M91 29C50 28 25 43 25 72c0 14 10 23 24 23 28 0 41-29 42-66ZM33 82c14-21 29-34 50-45" fill="none" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>',
+                    gear: '<path d="m58 24 7 10 12-2 3 12 11 5-5 11 7 10-10 7 1 12-13 1-8 10-10-7-12 4-4-12-11-5 5-11-7-10 10-7-1-12 13-1Zm6 24a16 16 0 1 0 0 32 16 16 0 0 0 0-32Z" fill-rule="evenodd"/>',
+                    wings: '<path d="M62 63C48 42 31 38 20 42c7 18 19 31 39 33L45 89c18 0 32-9 39-25 7 16 21 25 39 25L109 75c20-2 32-15 39-33-11-4-28 0-42 21-1-16-10-25-22-31-12 6-22 15-22 31Z" transform="translate(-20 0) scale(.86)"/>',
+                    gem: '<path d="M35 39h58l13 20-42 39-42-39Zm0 0 29 59 29-59M35 39l14 20h30l14-20" fill="none" stroke-width="8" stroke-linejoin="round"/>',
+                    key: '<path d="M43 57a20 20 0 1 1 14 14L38 90H25V77l10-10 8 8 8-8-8-8Zm20-8a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" fill-rule="evenodd"/>'
+                };
+                const normalizeHallLogo = (logo) => {
+                    const source = logo && typeof logo === 'object' ? logo : {};
+                    const symbol = HALL_LOGO_SYMBOLS.includes(source.symbol) ? source.symbol : 'archive';
+                    return {
+                        symbol,
+                        primary: normalizeHexColor(source.primary || source.primaryColor, '#5d748e'),
+                        secondary: normalizeHexColor(source.secondary || source.secondaryColor, '#edf3f7')
+                    };
+                };
+                const getHallLogoDataUri = (hall) => {
+                    const logo = normalizeHallLogo(hall?.logo);
+                    const path = HALL_LOGO_PATHS[logo.symbol] || HALL_LOGO_PATHS.archive;
+                    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Hall emblem"><rect x="5" y="5" width="118" height="118" rx="36" fill="' + logo.secondary + '"/><circle cx="64" cy="64" r="47" fill="' + logo.primary + '" opacity=".15"/><g fill="' + logo.primary + '" stroke="' + logo.primary + '">' + path + '</g></svg>';
+                    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+                };
                 const compactHallDescription = (value) => {
                     const normalized = cleanText(String(value || '')).replace(/\s+/g, ' ');
                     const firstSentence = (normalized.match(/^(.+?[。！？!?])(?:\s|$)/)?.[1] || normalized);
@@ -10055,6 +10126,7 @@ ${buildCatMemoryContext(cat)}`;
                         if (!hall.guardianTitle || hall.guardianTitle === '自定义馆舍管家') {
                             hall.guardianTitle = cleanText(hall.name || '这间馆') + '管家';
                         }
+                        hall.logo = normalizeHallLogo(hall.logo);
                     });
                 };
                 const requireTextFields = (data, fields) => fields.every(field => cleanText(data?.[field] || '').length > 0);
@@ -10924,10 +10996,11 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 5. 每只猫的 name 和 humanName 必须使用英文或拉丁字母（保留原作通行的英文/罗马化姓名，不加“蜘蛛侠·”“钢铁侠·”这类前缀）；状态、内心独白、品种、眼睛颜色和角色系统提示词使用中文。
 6. 管家只负责馆舍播报，不作为猫咪成员。
 7. 额外生成至少 5 个适合用户与猫咪探索的馆舍目的地，所有目的地必须属于该作品世界。
+8. hall.logo 只能输出抽象世界观徽章配置：symbol 仅可为 archive、scroll、star、crown、moon、flame、leaf、gear、wings、gem、key 之一；primary 与 secondary 必须是 #RRGGBB。徽章只概括世界观氛围，禁止复制原作商标、角色肖像、官方徽记或任何文字。
 
 JSON 格式：
 {
-  "hall": {"name":"", "eyebrow":"", "description":"一句16至32字中文简介。", "atmosphere":"", "icon":"fa-book-open", "guardian":{"name":"原作英文或罗马化名", "title":"中文馆舍职称"}},
+  "hall": {"name":"", "eyebrow":"", "description":"一句16至32字中文简介。", "atmosphere":"", "icon":"fa-book-open", "logo":{"symbol":"archive", "primary":"#64748b", "secondary":"#edf3f7"}, "guardian":{"name":"原作英文或罗马化名", "title":"中文馆舍职称"}},
   "cats": [
     {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "innerVoice":"", "prompt":""},
     {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "innerVoice":"", "prompt":""},
@@ -10955,6 +11028,7 @@ JSON 格式：
                             guardian: cleanText(data.hall.guardian?.name || hallCreator.guardian.trim()),
                             guardianTitle: cleanText(data.hall.guardian?.title) || (cleanText(data.hall.name) + '管家'),
                             icon: data.hall.icon || 'fa-book-open',
+                            logo: normalizeHallLogo(data.hall.logo),
                             description: compactHallDescription(data.hall.description || `来自${hallCreator.source}的猫咪分馆。`),
                             atmosphere: cleanText(data.hall.atmosphere || '新的故事正在馆舍深处醒来。'),
                             catLabel: '原作来客',
@@ -15267,7 +15341,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
-                    handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall,
+                    handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
                     showCatVisitModal, visitCat, visitTargetHallId, visitMessage, visitIsProcessing, openCatVisit, sendCatVisiting, returnVisitingCat,
                     handleImageUpload, adoptCat, wishAdoptCat, isWishLoading,
                     friendsList, sendFriendRequest, acceptFriendRequest,
