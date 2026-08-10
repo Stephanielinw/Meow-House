@@ -3695,9 +3695,39 @@
             box-shadow: var(--ui-shadow-soft);
         }
 
+        #app .meeow-map-room-tabs {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 5px;
+            padding: 5px;
+            overflow-x: auto;
+            border: 1px solid var(--ui-border);
+            border-radius: 17px;
+            background: var(--ui-surface-soft);
+        }
+
+        #app .meeow-map-room-tab {
+            min-width: 64px;
+            min-height: 42px;
+            padding: 5px 4px;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            color: var(--ui-text-muted);
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        #app .meeow-map-room-tab.is-active {
+            color: var(--ui-text);
+            background: var(--ui-surface-hover);
+            border-color: var(--ui-active-border, var(--ui-border));
+            box-shadow: var(--ui-shadow-soft);
+        }
+
         #app .meeow-map-stage {
             position: relative;
-            min-height: clamp(440px, 62dvh, 650px);
+            min-height: clamp(500px, 66dvh, 680px);
             overflow: hidden;
             border: 1px solid var(--ui-border-strong);
             border-radius: var(--ui-radius-xl);
@@ -3734,11 +3764,6 @@
             pointer-events: none;
         }
 
-        #app .meeow-map-zone.window { left: 6%; top: 7%; width: 28%; height: 17%; }
-        #app .meeow-map-zone.cushion { left: 36%; top: 35%; width: 29%; height: 20%; border-radius: 999px; }
-        #app .meeow-map-zone.dining { right: 6%; top: 12%; width: 25%; height: 22%; }
-        #app .meeow-map-zone.door { right: 7%; bottom: 8%; width: 23%; height: 19%; }
-
         #app .meeow-map-cat {
             position: absolute;
             width: 82px;
@@ -3773,6 +3798,15 @@
             image-rendering: pixelated;
         }
 
+        #app .meeow-map-sprite-frame {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-repeat: no-repeat;
+            background-position: center;
+            image-rendering: pixelated;
+        }
+
         #app .meeow-map-cat-name {
             max-width: 92px;
             overflow: hidden;
@@ -3803,11 +3837,6 @@
         }
 
         #app .meeow-map-status-card {
-            position: absolute;
-            left: 12px;
-            right: 12px;
-            bottom: 12px;
-            z-index: 5;
             padding: 12px;
             border: 1px solid var(--ui-border-strong);
             border-radius: 17px;
@@ -3816,6 +3845,14 @@
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             color: var(--ui-text);
+        }
+
+        #app .meeow-map-away-card {
+            padding: 10px 12px;
+            border: 1px dashed var(--ui-border-strong);
+            border-radius: 16px;
+            background: var(--ui-surface-soft);
+            color: var(--ui-text-muted);
         }
 
         #app .meeow-map-status-card p {
@@ -3828,7 +3865,7 @@
         }
 
         @media (max-height: 740px) {
-            #app .meeow-map-stage { min-height: 400px; }
+            #app .meeow-map-stage { min-height: 430px; }
         }
 
         @media (max-height: 740px) {
@@ -4529,24 +4566,37 @@
                     </div>
                 </div>
                 <section v-else class="space-y-3" aria-label="馆内地图">
-                    <div class="meeow-map-stage">
-                        <div class="meeow-map-zone window"><i class="fas fa-sun mr-1"></i>窗边</div>
-                        <div class="meeow-map-zone cushion"><i class="fas fa-bed mr-1"></i>软垫</div>
-                        <div class="meeow-map-zone dining"><i class="fas fa-bowl-food mr-1"></i>餐区</div>
-                        <div class="meeow-map-zone door"><i class="fas fa-door-open mr-1"></i>门口</div>
-                        <button v-for="marker in mapCatMarkers" :key="'map-' + marker.cat.id" type="button" class="meeow-map-cat" :style="marker.position" :title="cleanText(marker.cat.status)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
-                            <span class="meeow-map-cat-state">{{ marker.isOut ? '外出' : '在馆' }}</span>
-                            <span class="meeow-map-cat-avatar"><img :src="getCatActionSpriteSource(marker.cat, marker.action)" :alt="marker.cat.name + ' 的馆内标记'"></span>
+                    <div class="meeow-map-room-tabs" role="tablist" aria-label="馆内房间">
+                        <button v-for="room in MAP_ROOM_DEFINITIONS" :key="room.id" type="button" class="meeow-map-room-tab"
+                            :class="{'is-active': activeMapRoom === room.id}" @click="setActiveMapRoom(room.id)" role="tab"
+                            :aria-selected="activeMapRoom === room.id">
+                            <i :class="room.icon" class="block mb-1"></i>{{ room.name }}
+                        </button>
+                    </div>
+                    <div class="meeow-map-stage" :class="'meeow-map-room-' + activeMapRoom">
+                        <div v-for="zone in activeMapRoomDefinition.zones" :key="zone.id" class="meeow-map-zone" :style="getMapZoneStyle(zone)">
+                            <i :class="zone.icon" class="mr-1"></i>{{ zone.name }}
+                        </div>
+                        <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" class="meeow-map-cat" :style="marker.position" :title="cleanText(marker.cat.status)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
+                            <span class="meeow-map-cat-state">在馆</span>
+                            <span class="meeow-map-cat-avatar">
+                                <span v-if="isSpriteSheetAction(marker.cat, marker.action)" class="meeow-map-sprite-frame" :style="getMapSpriteStyle(marker.cat, marker.action)" :aria-label="marker.cat.name + ' 的馆内标记'"></span>
+                                <img v-else :src="getCatActionSpriteSource(marker.cat, marker.action)" :alt="marker.cat.name + ' 的馆内标记'">
+                            </span>
                             <span class="meeow-map-cat-name">{{ marker.cat.name }}</span>
                         </button>
-                        <div v-if="!mapCatMarkers.length" class="absolute inset-0 grid place-items-center text-center px-8" style="color: var(--ui-text-muted);">
-                            <div><i class="fas fa-cat text-3xl mb-3" style="color: var(--accent);"></i><p class="text-sm font-bold" style="color: var(--ui-text);">这里暂时没有猫咪标记</p><p class="mt-1 text-[10px]">登记成员后，它们会出现在馆内地图。</p></div>
+                        <div v-if="!activeMapCatMarkers.length" class="absolute inset-0 grid place-items-center text-center px-8" style="color: var(--ui-text-muted);">
+                            <div><i class="fas fa-cat text-3xl mb-3" style="color: var(--accent);"></i><p class="text-sm font-bold" style="color: var(--ui-text);">这间房暂时没有猫咪</p><p class="mt-1 text-[10px]">它们可能在别的房间，或暂时外出。</p></div>
                         </div>
-                        <aside v-if="mapPreviewCat" class="meeow-map-status-card" @click.stop>
-                            <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ mapPreviewCat.name }}</strong><span class="text-[9px]" style="color: var(--accent);">单击查看 · 双击进入</span></div>
-                            <p>{{ cleanText(mapPreviewCat.status) || '正在馆内安静活动。' }}</p>
-                            <button type="button" @click="openMapCatDetail(mapPreviewCat)" class="mt-2 text-[10px] font-black" style="color: var(--accent);"><i class="fas fa-arrow-right mr-1"></i>进入小猫主页</button>
-                        </aside>
+                    </div>
+                    <aside v-if="mapPreviewCat" class="meeow-map-status-card" @click.stop>
+                        <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ mapPreviewCat.name }}</strong><span class="text-[9px]" style="color: var(--accent);">单击查看 · 双击进入</span></div>
+                        <p>{{ cleanText(mapPreviewCat.status) || '正在馆内安静活动。' }}</p>
+                        <button type="button" @click="openMapCatDetail(mapPreviewCat)" class="mt-2 text-[10px] font-black" style="color: var(--accent);"><i class="fas fa-arrow-right mr-1"></i>进入小猫主页</button>
+                    </aside>
+                    <div v-if="mapOutCats.length" class="meeow-map-away-card">
+                        <div class="text-[10px] font-black" style="color: var(--accent);"><i class="fas fa-door-open mr-1"></i>暂离馆舍</div>
+                        <p class="mt-1 text-[11px]">{{ mapOutCats.map(cat => cat.name).join('、') }} 正在外出，因此没有放进室内地图。</p>
                     </div>
                     <p class="text-center text-[10px]" style="color: var(--ui-text-subtle);"><i class="fas fa-hand-pointer mr-1"></i>单击查看状态；双击进入小猫主页。地图只用于浏览，不会刷新动态。</p>
                 </section>
@@ -5648,6 +5698,7 @@
                                                     更多 <i class="fas fa-ellipsis-v ml-0.5"></i>
                                                 </button>
                                                 <div v-if="phoneState.chatOptionsOpen" class="phone-chat-menu absolute right-0 top-10 z-40 p-1.5 rounded-xl w-32 text-left">
+                                                    <button @click="openPhoneChatArchive" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left"><i class="fas fa-clock-rotate-left mr-1.5"></i>聊天记录</button>
                                                     <button @click="reRollLastPhoneMessage(); phoneState.chatOptionsOpen = false" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left"><i class="fas fa-rotate mr-1.5"></i>重抽回复</button>
                                                     <button @click="closePhoneChat" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left mt-1"><i class="fas fa-comments mr-1.5"></i>返回列表</button>
                                                 </div>
@@ -5656,7 +5707,7 @@
 
                                         <!-- MESSAGES AREA -->
                                         <div class="phone-chat-message-area flex-1 overflow-y-auto p-3 pb-2 space-y-1 custom-scrollbar"
-                                            ref="phoneChatRef">
+                                            ref="phoneChatRef" @scroll.passive="rememberPhoneChatScrollPosition()">
                                             <template
                                                 v-for="(msg, idx) in getPhoneChatHistory(phoneState.selectedContactId)"
                                                 :key="idx">
@@ -5877,6 +5928,30 @@
                                         <!-- Nudge float toast -->
                                         <div v-if="phoneState.nudgeVisible" class="nudge-float">
                                             你戳了戳 {{ phoneIdentities[phoneState.selectedContactId].name }} 👈
+                                        </div>
+
+                                        <div v-if="phoneState.showChatArchive" class="fixed inset-0 z-[1600] flex items-center justify-center p-4 phone-compose-overlay" @click.self="phoneState.showChatArchive = false">
+                                            <section class="phone-compose-card w-full max-w-md max-h-[min(74dvh,620px)] rounded-3xl overflow-hidden flex flex-col" aria-label="聊天记录">
+                                                <header class="shrink-0 flex items-center justify-between px-4 py-3 border-b" style="border-color: var(--ui-border);">
+                                                    <div><p class="text-[10px] font-black tracking-[.12em]" style="color: var(--accent);">MEEOW CHAT ARCHIVE</p><h3 class="text-base font-black">聊天记录</h3></div>
+                                                    <button type="button" @click="phoneState.showChatArchive = false" class="phone-chat-more-button h-8 w-8 rounded-lg" aria-label="关闭聊天记录"><i class="fas fa-xmark"></i></button>
+                                                </header>
+                                                <div v-if="getPhoneArchiveDays(phoneState.selectedContactId).length" class="shrink-0 flex gap-2 overflow-x-auto px-4 py-3 border-b custom-scrollbar" style="border-color: var(--ui-border);">
+                                                    <button v-for="day in getPhoneArchiveDays(phoneState.selectedContactId)" :key="day" type="button" @click="phoneState.archiveDateKey = day" class="px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap" :style="phoneState.archiveDateKey === day ? { background: 'var(--accent)', color: 'var(--ui-button-text, #182116)' } : { background: 'var(--ui-surface-hover)', color: 'var(--ui-text-muted)', border: '1px solid var(--ui-border)' }">{{ day }}</button>
+                                                </div>
+                                                <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3 custom-scrollbar">
+                                                    <p v-if="!getPhoneArchiveDays(phoneState.selectedContactId).length" class="py-12 text-center text-sm" style="color: var(--ui-text-muted);">还没有已归档的聊天记录。</p>
+                                                    <template v-else>
+                                                        <p class="text-center text-[10px]" style="color: var(--ui-text-subtle);">{{ phoneState.archiveDateKey }} · 03:00 归档</p>
+                                                        <div v-for="msg in getPhoneArchiveMessages(phoneState.selectedContactId, phoneState.archiveDateKey)" :key="msg.id || (msg.at + msg.content)" class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
+                                                            <div class="max-w-[78%]">
+                                                                <div :class="msg.role === 'user' ? 'phone-chat-user-bubble' : 'phone-chat-cat-bubble'" class="text-sm leading-relaxed break-words">{{ msg.type === 'system' ? msg.content : cleanText(msg.content) }}</div>
+                                                                <p class="phone-chat-time mt-1 text-[9px]" :class="msg.role === 'user' ? 'text-right' : 'text-left'">{{ formatPhoneMessageTime(msg) }}</p>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </section>
                                         </div>
                                     </div>
 
@@ -7206,7 +7281,7 @@
                     <div class="flex items-start justify-between gap-3 mb-2.5">
                         <div class="min-w-0">
                             <p class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-cat mr-1" style="color: var(--accent);"></i>用户上传的全身动作素材</p>
-                            <p class="text-[9px] leading-relaxed mt-1" style="color: var(--ui-text-muted);">在 Pony Town 亲手捏好后上传透明 PNG / WebP。站立图会替代头像；其余动作会保留给馆内地图与状态展示。</p>
+                            <p class="text-[9px] leading-relaxed mt-1" style="color: var(--ui-text-muted);">在 Pony Town 亲手捏好后上传透明 PNG / WebP / GIF。站立图会替代头像；其余动作会保留给馆内地图与状态展示。</p>
                         </div>
                         <div class="shrink-0 flex flex-col items-end gap-1.5">
                             <a href="https://pony.town/" target="_blank" rel="noopener noreferrer" class="text-[9px] font-black" style="color: var(--accent);"><i class="fas fa-arrow-up-right-from-square mr-1"></i>前往 Pony Town 捏猫</a>
@@ -7224,21 +7299,28 @@
                                     <p class="text-[10px] font-bold truncate" style="color: var(--ui-text);">{{ action.label }}</p>
                                     <p class="text-[8px] truncate" style="color: var(--ui-text-muted);">{{ getSpriteAssetLabel(selectedCat, action.key) }}</p>
                                     <label :for="'sprite-upload-' + action.key" class="inline-flex mt-1.5 cursor-pointer text-[9px] font-bold" style="color: var(--accent);"><i class="fas fa-upload mr-1"></i>上传</label>
-                                    <input :id="'sprite-upload-' + action.key" class="hidden" type="file" accept="image/png,image/webp,.png,.webp" @change="(event) => handleSpriteAssetUpload(event, action.key)">
+                                    <input :id="'sprite-upload-' + action.key" class="hidden" type="file" accept="image/png,image/webp,image/gif,.png,.webp,.gif" @change="(event) => handleSpriteAssetUpload(event, action.key)">
                                 </div>
                             </div>
-                            <div v-if="action.key === 'walk' && selectedCat.spriteAssets?.walk?.assetId" class="mt-2 flex items-center justify-between gap-1">
-                                <span class="text-[8px] text-gray-500">横向帧数</span>
-                                <select v-model.number="selectedCat.spriteAssets.walk.frames" @change="saveSpriteActionMetadata(selectedCat, 'walk')" class="bg-black/30 border border-white/10 rounded px-1 py-0.5 text-[9px] text-gray-200"><option :value="1">1</option><option :value="2">2</option><option :value="4">4</option><option :value="6">6</option><option :value="8">8</option></select>
+                            <div v-if="selectedCat.spriteAssets?.[action.key]?.assetId" class="mt-2 flex items-center justify-between gap-1">
+                                <span class="text-[8px]" style="color: var(--ui-text-muted);">展示</span>
+                                <select v-model="selectedCat.spriteAssets[action.key].mode" @change="saveSpriteActionMetadata(selectedCat, action.key)" class="rounded px-1 py-0.5 text-[9px]" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border); color: var(--ui-text);"><option value="static">静态</option><option value="sheet">精灵图</option><option value="animated">动图</option></select>
+                            </div>
+                            <div v-if="selectedCat.spriteAssets?.[action.key]?.assetId && selectedCat.spriteAssets[action.key].mode === 'sheet'" class="mt-1 flex items-center justify-between gap-1">
+                                <span class="text-[8px]" style="color: var(--ui-text-muted);">横向帧数</span>
+                                <select v-model.number="selectedCat.spriteAssets[action.key].frames" @change="saveSpriteActionMetadata(selectedCat, action.key)" class="rounded px-1 py-0.5 text-[9px]" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border); color: var(--ui-text);"><option :value="1">1</option><option :value="2">2</option><option :value="3">3</option><option :value="4">4</option><option :value="6">6</option><option :value="8">8</option><option :value="12">12</option><option :value="16">16</option></select>
                             </div>
                             <button v-if="selectedCat.spriteAssets?.[action.key]?.assetId" @click="removeSpriteAsset(selectedCat, action.key)" class="mt-1.5 text-[8px] text-red-300 hover:text-red-200"><i class="fas fa-trash-can mr-1"></i>移除此动作</button>
                         </article>
                     </div>
+                    <label for="sprite-pack-upload" class="mt-3 flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2 cursor-pointer text-[9px] font-bold" style="border-color: var(--ui-border-strong); color: var(--accent);"><i class="fas fa-file-zipper"></i>导入动作包（ZIP）</label>
+                    <input id="sprite-pack-upload" class="hidden" type="file" accept=".zip,application/zip,application/x-zip-compressed" @change="handleSpritePackUpload">
+                    <p class="mt-1.5 text-[8px] leading-relaxed" style="color: var(--ui-text-muted);">动作包可含透明 PNG 精灵图、GIF / 动态 WebP 与 <code>meeow-pet.json</code> 清单；仅导入图片与动作元数据，不执行包内任何代码。</p>
                     <div class="mt-2.5 flex gap-2">
                         <button v-if="selectedCat.spriteAssets?.stand?.assetId" @click="useSpriteAvatar(selectedCat)" class="sully-btn flex-1 bg-emerald-500/80 hover:bg-emerald-400 text-emerald-950 py-2 rounded-xl text-[10px] font-black"><i class="fas fa-image mr-1"></i>使用站立图</button>
                         <button v-if="selectedCat.avatarMode === 'sprite'" @click="useOriginalAvatar" class="sully-btn flex-1 bg-white/10 hover:bg-white/20 text-gray-200 py-2 rounded-xl text-[10px] font-bold">切回原头像</button>
                     </div>
-                    <p class="mt-2 text-[8px] leading-relaxed" style="color: var(--ui-text-muted);">建议使用 256×256 或 512×512 的透明画布，并让四脚落在同一底线；行走图可上传 1 / 2 / 4 / 6 / 8 帧横向精灵图。</p>
+                    <p class="mt-2 text-[8px] leading-relaxed" style="color: var(--ui-text-muted);">建议使用 256×256 或 512×512 的透明画布，并让四脚落在同一底线；精灵图支持 1 / 2 / 3 / 4 / 6 / 8 / 12 / 16 帧。JPG 可作为静态图；若要播放动作，请导出 GIF、动态 WebP 或 PNG 精灵图。</p>
                 </section>
                 <div v-if="pixelAvatarWorkshopEnabled" class="mb-3 rounded-2xl border border-white/10 bg-black/25 p-3">
                     <div class="flex items-center justify-between gap-2 mb-2">
@@ -7634,12 +7716,14 @@
                         :class="{'harass-log': log.includes('骚扰')}">{{ cleanText(log) }}</div>
                 </div>
                 <div v-if="currentFocusVoice" class="w-full px-4 mb-2">
-                    <div class="meeow-focus-voice inner-voice-bubble text-center"><span
-                            class="text-xs text-yellow-600 font-bold block mb-1">{{ currentFocusVoiceCat }}</span>"{{
-                        cleanText(currentFocusVoice) }}"</div>
+                    <button type="button" @click="cycleFocusVoice" class="meeow-focus-voice inner-voice-bubble text-center w-full" title="点按切换参与猫咪的心声">
+                        <span class="text-xs font-bold block mb-1" style="color: var(--accent);">{{ currentFocusVoiceCat }} <small v-if="focusVoiceEntries.length > 1">· {{ focusVoiceIndex + 1 }}/{{ focusVoiceEntries.length }} · 点按切换</small></span>
+                        <span>“{{ cleanText(currentFocusVoice) }}”</span>
+                    </button>
                 </div>
             </div>
             <div class="meeow-focus-controls relative z-10 w-full space-y-3">
+                <p v-if="focusWakeLockMessage" class="text-center text-[10px] px-4" style="color: var(--ui-text-muted);"><i class="fas fa-mobile-screen-button mr-1"></i>{{ focusWakeLockMessage }}</p>
                 <div class="meeow-focus-noise p-2 rounded-lg flex flex-col gap-2">
                     <div class="flex justify-between items-center"><span class="text-xs text-gray-400"><i
                                 class="fas fa-music mr-1"></i> 白噪音</span><select v-model="currentNoise"
@@ -8148,6 +8232,7 @@
                     lastLogin: Date.now(),
                     phoneData: {
                         chats: [],
+                        chatArchives: {},
                         moments: [],
                         news: [],
                         delivery: [],
@@ -8430,6 +8515,7 @@
                                 ])];
                             }
                             if (!user.phoneData.chats) user.phoneData.chats = [];
+                            if (!user.phoneData.chatArchives || typeof user.phoneData.chatArchives !== 'object' || Array.isArray(user.phoneData.chatArchives)) user.phoneData.chatArchives = {};
                             if (!user.phoneData.moments) user.phoneData.moments = [];
                             if (!user.phoneData.codex) user.phoneData.codex = [];
                             if (!user.phoneData.delivery) user.phoneData.delivery = [];
@@ -8735,17 +8821,57 @@
                 const storedHallDisplayMode = localStorage.getItem('meeow_hall_display_mode');
                 const hallDisplayMode = ref((storedHallDisplayMode || settings.hallDisplayMode) === 'map' ? 'map' : 'text');
                 const mapPreviewCat = ref(null);
+                const MAP_ROOM_DEFINITIONS = [
+                    { id: 'dorm', name: '小猫宿舍', icon: 'fas fa-bed', zones: [
+                        { id: 'nest', name: '猫窝', icon: 'fas fa-circle', bounds: { x: 7, y: 9, width: 28, height: 22 } },
+                        { id: 'cushion', name: '软垫', icon: 'fas fa-bed', bounds: { x: 38, y: 43, width: 28, height: 21, borderRadius: '999px' } },
+                        { id: 'tree', name: '猫爬架', icon: 'fas fa-tree', bounds: { x: 70, y: 11, width: 23, height: 31 } },
+                        { id: 'window', name: '窗边', icon: 'fas fa-sun', bounds: { x: 61, y: 71, width: 31, height: 19 } },
+                        { id: 'wardrobe', name: '衣柜', icon: 'fas fa-door-closed', bounds: { x: 8, y: 68, width: 22, height: 23 } }
+                    ] },
+                    { id: 'living', name: '客厅', icon: 'fas fa-couch', zones: [
+                        { id: 'sofa', name: '沙发', icon: 'fas fa-couch', bounds: { x: 7, y: 9, width: 34, height: 24 } },
+                        { id: 'toy', name: '玩具区', icon: 'fas fa-baseball', bounds: { x: 65, y: 11, width: 28, height: 25 } },
+                        { id: 'scratch', name: '抓板', icon: 'fas fa-paw', bounds: { x: 11, y: 68, width: 22, height: 22 } },
+                        { id: 'rug', name: '地毯', icon: 'fas fa-square', bounds: { x: 40, y: 63, width: 28, height: 24, borderRadius: '999px' } },
+                        { id: 'bookshelf', name: '书架', icon: 'fas fa-book', bounds: { x: 71, y: 63, width: 22, height: 28 } }
+                    ] },
+                    { id: 'dining', name: '餐厅', icon: 'fas fa-bowl-food', zones: [
+                        { id: 'food-cabinet', name: '猫粮柜', icon: 'fas fa-box', bounds: { x: 7, y: 9, width: 25, height: 27 } },
+                        { id: 'food-bowl', name: '食盆', icon: 'fas fa-bowl-food', bounds: { x: 38, y: 40, width: 24, height: 19, borderRadius: '999px' } },
+                        { id: 'water-bowl', name: '水碗', icon: 'fas fa-droplet', bounds: { x: 71, y: 16, width: 21, height: 19, borderRadius: '999px' } },
+                        { id: 'snack-shelf', name: '零食架', icon: 'fas fa-cookie-bite', bounds: { x: 68, y: 64, width: 25, height: 26 } },
+                        { id: 'table', name: '餐桌边', icon: 'fas fa-table', bounds: { x: 8, y: 68, width: 28, height: 22 } }
+                    ] },
+                    { id: 'litter', name: '猫砂间', icon: 'fas fa-toilet', zones: [
+                        { id: 'litter-a', name: '猫砂盆 A', icon: 'fas fa-box', bounds: { x: 8, y: 10, width: 27, height: 23 } },
+                        { id: 'litter-b', name: '猫砂盆 B', icon: 'fas fa-box', bounds: { x: 65, y: 10, width: 27, height: 23 } },
+                        { id: 'cleaning', name: '清洁柜', icon: 'fas fa-spray-can-sparkles', bounds: { x: 8, y: 62, width: 24, height: 28 } },
+                        { id: 'deodorizer', name: '除味区', icon: 'fas fa-wind', bounds: { x: 39, y: 41, width: 23, height: 20 } },
+                        { id: 'waiting-mat', name: '等候垫', icon: 'fas fa-bed', bounds: { x: 65, y: 67, width: 27, height: 23, borderRadius: '999px' } }
+                    ] },
+                    { id: 'bath', name: '浴室', icon: 'fas fa-bath', zones: [
+                        { id: 'sink', name: '洗手台', icon: 'fas fa-faucet', bounds: { x: 7, y: 10, width: 27, height: 24 } },
+                        { id: 'tub', name: '浴盆', icon: 'fas fa-bath', bounds: { x: 59, y: 10, width: 34, height: 29 } },
+                        { id: 'towel', name: '毛巾架', icon: 'fas fa-shirt', bounds: { x: 8, y: 63, width: 24, height: 27 } },
+                        { id: 'dryer', name: '吹干区', icon: 'fas fa-wind', bounds: { x: 39, y: 38, width: 24, height: 20 } },
+                        { id: 'laundry', name: '洗衣篮', icon: 'fas fa-basket-shopping', bounds: { x: 68, y: 67, width: 24, height: 23 } }
+                    ] }
+                ];
+                const savedMapRoom = localStorage.getItem('meeow_active_map_room');
+                const activeMapRoom = ref(MAP_ROOM_DEFINITIONS.some(room => room.id === savedMapRoom) ? savedMapRoom : 'living');
+                const getMapZoneStyle = (zone) => {
+                    const bounds = zone?.bounds || { x: 10, y: 10, width: 20, height: 20 };
+                    return {
+                        left: `${bounds.x}%`,
+                        top: `${bounds.y}%`,
+                        width: `${bounds.width}%`,
+                        height: `${bounds.height}%`,
+                        borderRadius: bounds.borderRadius || '18px'
+                    };
+                };
                 let mapTapTimer = null;
                 let mapTapCatId = null;
-                const HALL_MAP_SLOTS = [
-                    { left: '20%', top: '36%' }, { left: '48%', top: '22%' }, { left: '77%', top: '44%' },
-                    { left: '30%', top: '63%' }, { left: '56%', top: '61%' }, { left: '18%', top: '81%' },
-                    { left: '78%', top: '77%' }, { left: '49%', top: '82%' }, { left: '40%', top: '43%' },
-                    { left: '67%', top: '29%' }, { left: '12%', top: '52%' }, { left: '63%', top: '72%' }
-                ];
-                const HALL_MAP_DOOR_SLOTS = [
-                    { left: '80%', top: '78%' }, { left: '69%', top: '81%' }, { left: '80%', top: '65%' }, { left: '67%', top: '69%' }
-                ];
                 const stableMapIndex = (value, length) => {
                     let hash = 0;
                     for (const char of String(value || 'meeow')) hash = ((hash << 5) - hash) + char.charCodeAt(0);
@@ -8759,26 +8885,69 @@
                     if (/坐|趴|蹲|伏/.test(status)) return 'sit';
                     return 'stand';
                 };
+                const inferMapRoomFromStatus = (status) => {
+                    status = cleanText(status || '');
+                    if (/洗澡|湿毛|清洁|吹干|洗手|泡/.test(status)) return 'bath';
+                    if (/如厕|猫砂|排泄|便盆/.test(status)) return 'litter';
+                    if (/吃|食|饭|零食|喝水|饮水|喂/.test(status)) return 'dining';
+                    if (/睡|休息|打盹|蜷|补眠|醒来|猫窝/.test(status)) return 'dorm';
+                    return 'living';
+                };
+                const getMapRoomForCat = (cat) => {
+                    return MAP_ROOM_DEFINITIONS.some(room => room.id === cat?.mapRoom)
+                        ? cat.mapRoom
+                        : inferMapRoomFromStatus(cat?.status || '');
+                };
+                const getMapSpotForCat = (cat, room) => {
+                    const validRoom = MAP_ROOM_DEFINITIONS.find(item => item.id === room);
+                    if (!validRoom) return null;
+                    if (validRoom.zones.some(zone => zone.id === cat?.mapSpot)) return cat.mapSpot;
+                    return validRoom.zones[stableMapIndex(`${activeHallId.value}:${cat?.id}:${room}`, validRoom.zones.length)]?.id || null;
+                };
+                const getMapPlacement = (room, spot, index = 0, total = 1) => {
+                    const roomDefinition = MAP_ROOM_DEFINITIONS.find(item => item.id === room);
+                    const zone = roomDefinition?.zones.find(item => item.id === spot) || roomDefinition?.zones[0];
+                    const bounds = zone?.bounds || { x: 40, y: 40, width: 20, height: 20 };
+                    const columns = total <= 2 ? total : Math.min(3, Math.ceil(Math.sqrt(total)));
+                    const rows = Math.max(1, Math.ceil(total / columns));
+                    const column = index % columns;
+                    const row = Math.floor(index / columns);
+                    const safeInset = 0.22;
+                    const ratioX = total === 1 ? 0.5 : safeInset + (1 - safeInset * 2) * ((column + 0.5) / columns);
+                    const ratioY = total === 1 ? 0.52 : safeInset + (1 - safeInset * 2) * ((row + 0.5) / rows);
+                    const left = bounds.x + bounds.width * ratioX;
+                    const top = bounds.y + bounds.height * ratioY;
+                    return {
+                        left: `${Math.min(92, Math.max(8, left))}%`,
+                        top: `${Math.min(91, Math.max(10, top))}%`
+                    };
+                };
                 const mapCatMarkers = computed(() => {
-                    const usedRoomSlots = new Set();
-                    let doorIndex = 0;
-                    return roomCats.value.map((cat) => {
-                        let position;
-                        if (cat.isOut) {
-                            position = HALL_MAP_DOOR_SLOTS[doorIndex % HALL_MAP_DOOR_SLOTS.length];
-                            doorIndex += 1;
-                        } else {
-                            let slotIndex = stableMapIndex(`${activeHallId.value}:${cat.id}`, HALL_MAP_SLOTS.length);
-                            for (let i = 0; i < HALL_MAP_SLOTS.length; i += 1) {
-                                const candidate = (slotIndex + i) % HALL_MAP_SLOTS.length;
-                                if (!usedRoomSlots.has(candidate)) { slotIndex = candidate; break; }
-                            }
-                            usedRoomSlots.add(slotIndex);
-                            position = HALL_MAP_SLOTS[slotIndex];
-                        }
-                        return { cat, position, action: getMapCatAction(cat), isOut: Boolean(cat.isOut) };
+                    const markers = roomCats.value.filter(cat => !cat.isOut).map((cat) => {
+                        const room = getMapRoomForCat(cat);
+                        const spot = getMapSpotForCat(cat, room);
+                        return { cat, room, spot, action: getMapCatAction(cat) };
+                    });
+                    return markers.map((marker) => {
+                        const neighbors = markers
+                            .filter(item => item.room === marker.room && item.spot === marker.spot)
+                            .sort((left, right) => stableMapIndex(`${left.room}:${left.spot}:${left.cat.id}`, 100000) - stableMapIndex(`${right.room}:${right.spot}:${right.cat.id}`, 100000));
+                        const index = neighbors.findIndex(item => item.cat.id === marker.cat.id);
+                        return {
+                            ...marker,
+                            position: getMapPlacement(marker.room, marker.spot, Math.max(0, index), neighbors.length)
+                        };
                     });
                 });
+                const activeMapRoomDefinition = computed(() => MAP_ROOM_DEFINITIONS.find(room => room.id === activeMapRoom.value) || MAP_ROOM_DEFINITIONS[0]);
+                const activeMapCatMarkers = computed(() => mapCatMarkers.value.filter(marker => marker.room === activeMapRoom.value));
+                const mapOutCats = computed(() => roomCats.value.filter(cat => cat.isOut));
+                const setActiveMapRoom = (roomId) => {
+                    if (!MAP_ROOM_DEFINITIONS.some(room => room.id === roomId)) return;
+                    activeMapRoom.value = roomId;
+                    localStorage.setItem('meeow_active_map_room', roomId);
+                    mapPreviewCat.value = null;
+                };
                 const setHallDisplayMode = (mode) => {
                     hallDisplayMode.value = mode === 'map' ? 'map' : 'text';
                     settings.hallDisplayMode = hallDisplayMode.value;
@@ -9049,8 +9218,41 @@
                     indeterminate: false
                 });
                 const affinityChangeValue = ref(0);
-                const currentFocusVoice = ref('');
-                const currentFocusVoiceCat = ref('');
+                const focusVoiceEntries = ref([]);
+                const focusVoiceIndex = ref(0);
+                const currentFocusVoiceEntry = computed(() => focusVoiceEntries.value[focusVoiceIndex.value] || null);
+                const currentFocusVoice = computed(() => currentFocusVoiceEntry.value?.voice || '');
+                const currentFocusVoiceCat = computed(() => currentFocusVoiceEntry.value?.name || '');
+                const cycleFocusVoice = () => {
+                    if (focusVoiceEntries.value.length < 2) return;
+                    focusVoiceIndex.value = (focusVoiceIndex.value + 1) % focusVoiceEntries.value.length;
+                };
+                let focusWakeLock = null;
+                const focusWakeLockMessage = ref('');
+                const releaseFocusWakeLock = async () => {
+                    try { await focusWakeLock?.release?.(); } catch (_) { /* already released */ }
+                    focusWakeLock = null;
+                };
+                const requestFocusWakeLock = async () => {
+                    if (!isFocusing.value) return false;
+                    if (!('wakeLock' in navigator)) {
+                        focusWakeLockMessage.value = '此浏览器不支持防熄屏；请保持屏幕开启。';
+                        return false;
+                    }
+                    try {
+                        await releaseFocusWakeLock();
+                        focusWakeLock = await navigator.wakeLock.request('screen');
+                        focusWakeLockMessage.value = '已尽力保持屏幕唤醒。';
+                        focusWakeLock.addEventListener?.('release', () => { if (isFocusing.value) focusWakeLockMessage.value = '系统已释放防熄屏，请点亮屏幕后继续。'; });
+                        return true;
+                    } catch (_) {
+                        focusWakeLockMessage.value = '系统未允许防熄屏；计时仍会继续。';
+                        return false;
+                    }
+                };
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible' && isFocusing.value) void requestFocusWakeLock();
+                });
 
                 // Focus Setup Modal Refs
                 const showFocusSetupModal = ref(false);
@@ -9138,6 +9340,9 @@
                         }
                         if (currentTab.value === 'mission' && logWindow.value) {
                             logWindow.value.scrollTop = logWindow.value.scrollHeight;
+                        }
+                        if (currentTab.value === 'phone' && phoneState.currentApp === 'chat' && phoneState.selectedContactId) {
+                            restorePhoneChatScrollPosition(phoneState.selectedContactId);
                         }
                     });
                 });
@@ -9234,6 +9439,8 @@
                     chatTab: 'chat', // 'chat', 'contacts', 'discover', 'moments', 'new-friends'
                     selectedContactId: null,
                     selectedFriendRequestId: null,
+                    showChatArchive: false,
+                    archiveDateKey: '',
                     replyToMsg: null,
                     nudgeVisible: false,
                     chatOptionsOpen: false,
@@ -9736,6 +9943,8 @@ ${buildCatMemoryContext(cat)}`;
                 const spriteActionDefinitions = SPRITE_ACTIONS;
                 const spriteObjectUrls = new Map();
                 const spriteLoadPromises = new Map();
+                const spriteAnimationTick = ref(Date.now());
+                window.setInterval(() => { spriteAnimationTick.value = Date.now(); }, 120);
                 // Metadata is saved with the cat, while the image Blob lives in
                 // IndexedDB. Keep an explicit, reactive missing state so an
                 // imported save from another device never looks like it is
@@ -9884,10 +10093,30 @@ ${buildCatMemoryContext(cat)}`;
                     if (!descriptor?.assetId) return '尚未上传';
                     if (spriteMissingAssetIds.value.has(descriptor.assetId)) return '本机未找到素材（请重新导入）';
                     if (!spriteObjectUrls.has(descriptor.assetId)) return '正在读取本地素材…';
-                    return action === 'walk' && Number(descriptor.frames) > 1 ? `${descriptor.frames} 帧横向精灵图` : (descriptor.fileName || '已保存');
+                    if (descriptor.mode === 'animated') return `动态素材 · ${descriptor.fileName || '已保存'}`;
+                    if (descriptor.mode === 'sheet' && Number(descriptor.frames) > 1) return `${descriptor.frames} 帧横向精灵图`;
+                    return descriptor.fileName || '已保存';
                 };
                 const isUsingUploadedSprite = (cat) => Boolean(cat && !cat.isHuman && cat.avatarMode === 'sprite' && cat.spriteAssets?.stand?.assetId && getSpriteAssetSource(cat, 'stand'));
                 const getCatActionSpriteSource = (cat, action = 'stand') => getSpriteAssetSource(cat, action) || getSpriteAssetSource(cat, 'stand') || (cat?.image || makeStableCatAvatar(cat?.name, cat?.color));
+                const getSpriteActionDescriptor = (cat, action = 'stand') => cat?.spriteAssets?.[action] || cat?.spriteAssets?.stand || null;
+                const isSpriteSheetAction = (cat, action = 'stand') => {
+                    const descriptor = getSpriteActionDescriptor(cat, action);
+                    return Boolean(descriptor?.assetId && descriptor.mode === 'sheet' && Number(descriptor.frames) > 1 && (getSpriteAssetSource(cat, action) || getSpriteAssetSource(cat, 'stand')));
+                };
+                const getMapSpriteStyle = (cat, action = 'stand') => {
+                    void spriteAnimationTick.value;
+                    const descriptor = getSpriteActionDescriptor(cat, action);
+                    const source = getSpriteAssetSource(cat, action) || getSpriteAssetSource(cat, 'stand');
+                    const frames = Math.max(1, Number(descriptor?.frames) || 1);
+                    const fps = Math.min(24, Math.max(1, Number(descriptor?.fps) || 8));
+                    const frame = Math.floor(spriteAnimationTick.value / (1000 / fps)) % frames;
+                    return {
+                        backgroundImage: `url("${String(source || '').replace(/"/g, '%22')}")`,
+                        backgroundSize: `${frames * 100}% 100%`,
+                        backgroundPosition: frames === 1 ? 'center' : `${(frame / (frames - 1)) * 100}% center`
+                    };
+                };
                 const getImageDimensions = (file) => new Promise((resolve, reject) => {
                     const previewUrl = URL.createObjectURL(file);
                     const image = new Image();
@@ -9905,9 +10134,9 @@ ${buildCatMemoryContext(cat)}`;
                     const input = event?.target;
                     const file = input?.files?.[0];
                     if (!file || !selectedCat.value) return;
-                    const supportedImage = ['image/png', 'image/webp'].includes(file.type) || /\.(png|webp)$/i.test(file.name || '');
+                    const supportedImage = ['image/png', 'image/webp', 'image/gif'].includes(file.type) || /\.(png|webp|gif)$/i.test(file.name || '');
                     if (!supportedImage) {
-                        showToast('请上传透明 PNG 或 WebP 素材。', 'error');
+                        showToast('请上传透明 PNG、WebP 或 GIF 素材。', 'error');
                         input.value = '';
                         return;
                     }
@@ -9936,7 +10165,11 @@ ${buildCatMemoryContext(cat)}`;
                             mimeType: file.type,
                             width: dimensions.width,
                             height: dimensions.height,
-                            frames: action === 'walk' ? Math.max(1, Math.min(8, Number(assets[action]?.frames) || 1)) : 1,
+                            mode: file.type === 'image/gif' || /\.gif$/i.test(file.name || '') ? 'animated' : 'static',
+                            frames: Math.max(1, Math.min(16, Number(assets[action]?.frames) || 1)),
+                            columns: Math.max(1, Math.min(16, Number(assets[action]?.columns) || 1)),
+                            fps: Math.max(1, Math.min(24, Number(assets[action]?.fps) || 8)),
+                            anchor: { x: 0.5, y: 1 },
                             updatedAt: new Date().toISOString()
                         };
                         if (action === 'stand') cat.avatarMode = 'sprite';
@@ -9952,8 +10185,129 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const saveSpriteActionMetadata = (cat, action) => {
                     if (!cat?.spriteAssets?.[action]) return;
-                    if (action === 'walk') cat.spriteAssets.walk.frames = [1, 2, 4, 6, 8].includes(Number(cat.spriteAssets.walk.frames)) ? Number(cat.spriteAssets.walk.frames) : 1;
+                    const descriptor = cat.spriteAssets[action];
+                    descriptor.mode = ['static', 'sheet', 'animated'].includes(descriptor.mode) ? descriptor.mode : 'static';
+                    descriptor.frames = [1, 2, 3, 4, 6, 8, 12, 16].includes(Number(descriptor.frames)) ? Number(descriptor.frames) : 1;
+                    descriptor.columns = Math.max(1, Math.min(16, Number(descriptor.columns) || descriptor.frames));
+                    descriptor.fps = Math.max(1, Math.min(24, Number(descriptor.fps) || 8));
                     spriteAssetRevision.value += 1;
+                };
+                const getSpriteMimeType = (fileName = '', fallback = '') => {
+                    if (/\.png$/i.test(fileName)) return 'image/png';
+                    if (/\.webp$/i.test(fileName)) return 'image/webp';
+                    if (/\.gif$/i.test(fileName)) return 'image/gif';
+                    return fallback || 'application/octet-stream';
+                };
+                const getSafeSpritePackPath = (path) => {
+                    const normalized = String(path || '').replace(/\\/g, '/').replace(/^\.\//, '');
+                    if (!normalized || normalized.startsWith('/') || normalized.split('/').includes('..')) return '';
+                    return normalized;
+                };
+                const normalizeSpritePackEntry = (raw, action) => {
+                    if (!raw || typeof raw !== 'object') return null;
+                    const file = getSafeSpritePackPath(raw.file || raw.path || '');
+                    if (!file || !/\.(png|webp|gif)$/i.test(file)) return null;
+                    const mode = ['static', 'sheet', 'animated'].includes(raw.mode) ? raw.mode : (/\.gif$/i.test(file) ? 'animated' : 'static');
+                    const frames = Math.max(1, Math.min(16, Number(raw.frames) || 1));
+                    return {
+                        action,
+                        file,
+                        mode,
+                        frames,
+                        columns: Math.max(1, Math.min(16, Number(raw.columns) || frames)),
+                        rows: Math.max(1, Math.min(16, Number(raw.rows) || 1)),
+                        fps: Math.max(1, Math.min(24, Number(raw.fps) || 8)),
+                        anchor: {
+                            x: Math.max(0, Math.min(1, Number(raw.anchor?.x) || 0.5)),
+                            y: Math.max(0, Math.min(1, Number(raw.anchor?.y) || 1))
+                        }
+                    };
+                };
+                const handleSpritePackUpload = async (event) => {
+                    const input = event?.target;
+                    const file = input?.files?.[0];
+                    const cat = selectedCat.value;
+                    if (!file || !cat) return;
+                    if (!/\.zip$/i.test(file.name || '') || file.size > 24 * 1024 * 1024) {
+                        showToast('请选择不超过 24MB 的 ZIP 动作包。', 'error');
+                        input.value = '';
+                        return;
+                    }
+                    if (typeof window.JSZip === 'undefined') {
+                        showToast('动作包工具尚未加载，请刷新后再试。', 'error');
+                        input.value = '';
+                        return;
+                    }
+                    const writtenIds = [];
+                    try {
+                        const zip = await window.JSZip.loadAsync(file);
+                        const manifestEntry = Object.values(zip.files).find(entry => !entry.dir && /(^|\/)meeow-pet\.json$/i.test(entry.name));
+                        if (!manifestEntry) throw new Error('动作包缺少 meeow-pet.json 清单。');
+                        const manifest = JSON.parse(await manifestEntry.async('text'));
+                        const actionSource = manifest?.actions && typeof manifest.actions === 'object' ? manifest.actions : null;
+                        if (!actionSource) throw new Error('meeow-pet.json 中缺少 actions。');
+                        const rawPackEntries = SPRITE_ACTIONS
+                            .map(item => normalizeSpritePackEntry(actionSource[item.key], item.key))
+                            .filter(Boolean);
+                        if (!rawPackEntries.length) throw new Error('动作包没有可用的 PNG、WebP 或 GIF 动作。');
+                        const manifestDirectory = manifestEntry.name.includes('/') ? manifestEntry.name.slice(0, manifestEntry.name.lastIndexOf('/') + 1) : '';
+                        const packEntries = rawPackEntries.map(entry => ({
+                            ...entry,
+                            file: zip.file(entry.file) ? entry.file : `${manifestDirectory}${entry.file}`
+                        }));
+                        if (packEntries.some(entry => !zip.file(entry.file))) throw new Error('动作包中有清单声明但缺失的图片文件。');
+                        const totalBytes = packEntries.reduce((sum, entry) => sum + (zip.file(entry.file)?._data?.uncompressedSize || 0), 0);
+                        if (totalBytes > 32 * 1024 * 1024) throw new Error('动作包解压后超过 32MB。');
+                        const staged = [];
+                        for (const entry of packEntries) {
+                            const zipImage = zip.file(entry.file);
+                            if (!zipImage || zipImage.dir) throw new Error(`找不到动作文件：${entry.file}`);
+                            const blob = new Blob([await zipImage.async('arraybuffer')], { type: getSpriteMimeType(entry.file) });
+                            if (blob.size > 8 * 1024 * 1024) throw new Error(`${entry.file} 超过单个 8MB 限制。`);
+                            const dimensions = await getImageDimensions(blob);
+                            staged.push({ ...entry, blob, dimensions, assetId: `sprite-${cat.id}-${entry.action}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
+                        }
+                        const assets = ensureSpriteAssets(cat);
+                        for (const entry of staged) {
+                            await putSpriteBlob(entry.assetId, entry.blob);
+                            writtenIds.push(entry.assetId);
+                        }
+                        for (const entry of staged) {
+                            const previousId = assets[entry.action]?.assetId;
+                            assets[entry.action] = {
+                                assetId: entry.assetId,
+                                fileName: entry.file.split('/').pop(),
+                                mimeType: entry.blob.type,
+                                width: entry.dimensions.width,
+                                height: entry.dimensions.height,
+                                mode: entry.mode,
+                                frames: entry.frames,
+                                columns: entry.columns,
+                                rows: entry.rows,
+                                fps: entry.fps,
+                                anchor: entry.anchor,
+                                updatedAt: new Date().toISOString()
+                            };
+                            const objectUrl = URL.createObjectURL(entry.blob);
+                            spriteObjectUrls.set(entry.assetId, objectUrl);
+                            setSpriteAssetMissing(entry.assetId, false);
+                            if (previousId && previousId !== entry.assetId) {
+                                releaseSpriteObjectUrl(previousId);
+                                await deleteSpriteBlob(previousId).catch(() => undefined);
+                            }
+                        }
+                        if (assets.stand?.assetId) cat.avatarMode = 'sprite';
+                        spriteAssetRevision.value += 1;
+                        addLog(`SPRITE PACK IMPORTED: ${cat.name} · ${staged.map(item => item.action).join(', ')}`, 'sent');
+                        showToast(`${cat.name} 的动作包已导入（${staged.length} 个动作）`, 'success');
+                    } catch (error) {
+                        await Promise.allSettled(writtenIds.map(id => deleteSpriteBlob(id)));
+                        writtenIds.forEach(id => releaseSpriteObjectUrl(id));
+                        addLog(`SPRITE PACK IMPORT FAILED: ${error.message}`, 'error');
+                        showToast(`动作包导入失败：${error.message}`, 'error');
+                    } finally {
+                        input.value = '';
+                    }
                 };
                 const useSpriteAvatar = (cat = selectedCat.value) => {
                     if (!cat?.spriteAssets?.stand?.assetId) return showToast('请先上传正常立绘。', 'error');
@@ -10785,6 +11139,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 
                 const navigateToTab = (tab) => {
                     rememberHallScrollPosition();
+                    if (currentTab.value === 'phone') rememberPhoneChatScrollPosition?.();
                     if (tab === 'phone') {
                         resetPhoneTransientUI?.();
                         addLog('NAVIGATION: 打开手机页面', 'info');
@@ -11791,6 +12146,33 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const phoneImageDesc = ref('');
                 const phoneChatRef = ref(null);
                 const phoneShowEmojiPicker = ref(false);
+                const phoneChatScrollPositions = reactive({});
+                const isPhoneChatNearBottom = () => {
+                    const element = phoneChatRef.value;
+                    return !element || (element.scrollHeight - element.scrollTop - element.clientHeight) < 56;
+                };
+                const rememberPhoneChatScrollPosition = (contactId = phoneState.selectedContactId) => {
+                    const canonicalId = getCanonicalCatId(contactId);
+                    const element = phoneChatRef.value;
+                    if (!canonicalId || !element) return;
+                    phoneChatScrollPositions[canonicalId] = {
+                        top: element.scrollTop,
+                        nearBottom: isPhoneChatNearBottom()
+                    };
+                };
+                const restorePhoneChatScrollPosition = (contactId = phoneState.selectedContactId) => {
+                    const canonicalId = getCanonicalCatId(contactId);
+                    const savedPosition = canonicalId ? phoneChatScrollPositions[canonicalId] : null;
+                    nextTick(() => requestAnimationFrame(() => {
+                        const element = phoneChatRef.value;
+                        if (!element) return;
+                        if (savedPosition && Number.isFinite(savedPosition.top)) {
+                            element.scrollTop = Math.min(savedPosition.top, Math.max(0, element.scrollHeight - element.clientHeight));
+                        } else {
+                            element.scrollTop = element.scrollHeight;
+                        }
+                    }));
+                };
 
                 // A phone sub-app must never leave an invisible full-screen layer
                 // above the next app. Reset only transient overlays; saved contacts
@@ -11803,6 +12185,8 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     phoneState.replyToMsg = null;
                     phoneState.nudgeVisible = false;
                     phoneState.chatOptionsOpen = false;
+                    phoneState.showChatArchive = false;
+                    phoneState.archiveDateKey = '';
                     phoneState.msgMenu = { show: false, x: 0, y: 0, msg: null, idx: -1 };
                     showPhoneImageDescModal.value = false;
                     showPhoneLocationModal.value = false;
@@ -11847,6 +12231,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 });
 
                 const openPhoneChat = (id) => {
+                    rememberPhoneChatScrollPosition();
                     const catId = getCanonicalCatId(id);
                     const cat = cats.value.find(item => sameCatId(item.id, catId));
                     if (!cat) {
@@ -11863,9 +12248,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     phoneState.selectedFriendRequestId = null;
                     phoneState.selectedContactId = catId;
                     addLog(`PHONE CHAT OPENED: ${cat.name}`, 'info');
-                    nextTick(() => {
-                        if (phoneChatRef.value) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
-                    });
+                    restorePhoneChatScrollPosition(catId);
                 };
                 const collectRedPacket = (msg) => {
                     if (msg.collected) return;
@@ -11933,9 +12316,14 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     const history = getPhoneChatHistory(contactId);
                     return index === 0 || phoneDateKey(history[index]) !== phoneDateKey(history[index - 1]);
                 };
-                const scrollPhoneChatToBottom = () => nextTick(() => {
-                    if (phoneChatRef.value) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
-                });
+                const scrollPhoneChatToBottom = (force = false) => {
+                    const shouldFollow = force || isPhoneChatNearBottom();
+                    nextTick(() => {
+                        if (!phoneChatRef.value) return;
+                        if (shouldFollow) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
+                        rememberPhoneChatScrollPosition();
+                    });
+                };
                 const appendPhoneChatMemory = (cat, message) => {
                     if (!cat || message.type === 'system') return;
                     const speaker = message.role === 'user' ? '馆长' : cat.name;
@@ -11950,18 +12338,66 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     const cat = cats.value.find(item => sameCatId(item.id, catId));
                     const now = new Date();
                     const message = {
+                        id: `phone-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
                         role,
                         type: type || 'text',
                         content: String(content ?? ''),
                         time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
                         ts: now.getTime(),
                         at: now.toISOString(),
+                        dateKey: getOperationalDayKey(now),
                         ...extra
                     };
+                    const shouldFollow = isPhoneChatNearBottom();
                     ensurePhoneChatHistory(catId).push(message);
                     appendPhoneChatMemory(cat, message);
-                    scrollPhoneChatToBottom();
+                    scrollPhoneChatToBottom(shouldFollow);
                     return message;
+                };
+                const getPhoneArchiveForContact = (contactId) => {
+                    if (!contactId) return {};
+                    if (!user.phoneData.chatArchives || typeof user.phoneData.chatArchives !== 'object') user.phoneData.chatArchives = {};
+                    const catId = getCanonicalCatId(contactId);
+                    if (!user.phoneData.chatArchives[catId] || typeof user.phoneData.chatArchives[catId] !== 'object') user.phoneData.chatArchives[catId] = {};
+                    return user.phoneData.chatArchives[catId];
+                };
+                const getPhoneArchiveDays = (contactId) => Object.keys(getPhoneArchiveForContact(contactId)).sort((a, b) => b.localeCompare(a));
+                const getPhoneArchiveMessages = (contactId, dateKey) => {
+                    const archive = getPhoneArchiveForContact(contactId)[dateKey];
+                    return Array.isArray(archive?.messages) ? archive.messages : [];
+                };
+                const openPhoneChatArchive = () => {
+                    const contactId = phoneState.selectedContactId;
+                    if (!contactId) return;
+                    const days = getPhoneArchiveDays(contactId);
+                    phoneState.archiveDateKey = days[0] || '';
+                    phoneState.chatOptionsOpen = false;
+                    phoneState.showChatArchive = true;
+                };
+                const archivePhoneChatsForOperationalDay = (dateKey, archivedBefore) => {
+                    if (!dateKey || !Array.isArray(user.phoneData?.chats)) return;
+                    const cutoff = archivedBefore ? new Date(archivedBefore).getTime() : Number.POSITIVE_INFINITY;
+                    const belongsToArchive = (message) => {
+                        const timestamp = Number(message?.ts) || new Date(message?.at || 0).getTime();
+                        if (Number.isFinite(cutoff) && Number.isFinite(timestamp) && timestamp > cutoff) return false;
+                        return (message?.dateKey || getOperationalDayKey(new Date(message?.at || timestamp))) === dateKey;
+                    };
+                    user.phoneData.chats.forEach(chat => {
+                        const history = Array.isArray(chat.history) ? chat.history : [];
+                        const datedMessages = history.filter(belongsToArchive);
+                        if (!datedMessages.length) return;
+                        const contactId = getCanonicalCatId(chat.contactId);
+                        const archives = getPhoneArchiveForContact(contactId);
+                        const existing = Array.isArray(archives[dateKey]?.messages) ? archives[dateKey].messages : [];
+                        const identity = (message) => message.id || `${message.at || message.ts || ''}|${message.role}|${message.type}|${message.content}`;
+                        const known = new Set(existing.map(identity));
+                        archives[dateKey] = {
+                            dateKey,
+                            archivedAt: new Date().toISOString(),
+                            messages: [...existing, ...datedMessages.filter(message => !known.has(identity(message)))]
+                        };
+                        chat.history = history.filter(message => !belongsToArchive(message));
+                    });
                 };
                 const getPendingPhoneMessages = (contactId) => {
                     const history = getPhoneChatHistory(contactId);
@@ -12022,14 +12458,25 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     message.recalled = true;
                 };
                 const closePhoneChat = () => {
+                    rememberPhoneChatScrollPosition();
                     resetPhoneTransientUI();
                     phoneState.selectedContactId = null;
                     phoneState.selectedFriendRequestId = null;
                     phoneState.chatTab = 'chat';
                 };
+                const parsePhoneChatReply = (reply) => {
+                    const raw = String(reply || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+                    try {
+                        const parsed = JSON.parse(raw);
+                        const messages = Array.isArray(parsed) ? parsed : parsed?.messages;
+                        return Array.isArray(messages) ? messages.map(item => cleanText(typeof item === 'string' ? item : item?.text || '')).filter(Boolean) : [];
+                    } catch (_) { return []; }
+                };
                 const validatePhoneChatReply = (reply) => {
-                    const text = cleanText(reply || '');
-                    if (!text || text.length > 240) return '喵信回复为空或过长。';
+                    const messages = parsePhoneChatReply(reply);
+                    if (!messages.length || messages.length > 3) return '喵信回复必须是 1–3 条 JSON 消息。';
+                    const text = messages.join('');
+                    if (text.length > 180 || messages.some(message => message.length > 100)) return '喵信回复过长。';
                     if (/【[^】]{2,}】|\[[^\]\n]{3,}\]/.test(text)) return '喵信回复包含动作或旁白括号。';
                     if (/(?:^|\n)\s*(?:旁白|动作|场景|环境|镜头)\s*[:：]/.test(text)) return '喵信回复使用了旁白格式。';
                     return true;
@@ -12057,13 +12504,13 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
 ${pendingText}
 
 严格输出规则：
-1. 只写可直接发送到聊天软件里的自然文字消息，使用简体中文；可以一两句简短分段或普通表情。
+1. 只写可直接发送到聊天软件里的自然文字消息，使用简体中文；可自然分成 1–3 条消息，每条都应像真人即时发送。
 2. 禁止动作括号、【动作】、舞台指示、环境描写、第三人称旁白、角色名加冒号、小说式心理或肢体描写。
 3. 不要解释设定，不要提及“猫”“馆舍秘密”“AI”或正在扮演角色；不以默认哥谭/夜巡/英雄任务作为理由。
 4. 语气必须贴合原作人格和 ${hall.name} 的作品边界，亲密度代表熟悉程度而非敌意。保持独立与边界，但默认相信馆长没有恶意。
 5. 必须参考角色此刻在馆内的真实状态与当天时间线，用一个正常人会说的、自然克制的方式让回复与状态相连（例如刚睡醒可说“刚醒”，正在吃东西可说“刚吃完”，外出可说“现在不太方便”）。不要旁白解释，也不要直接说自己是一只猫。
 6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
-7. 总长 20–120 个汉字，直接给出消息正文。
+7. 总长 20–120 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"]}。不要 Markdown、解释或任何 JSON 以外的文字。
 
 ${buildCatMemoryContext(cat)}`;
                     try {
@@ -12072,7 +12519,10 @@ ${buildCatMemoryContext(cat)}`;
                             priority: 'foreground',
                             validateResponse: validatePhoneChatReply
                         });
-                        appendPhoneMessage(catId, 'assistant', 'text', cleanText(reply));
+                        const messages = parsePhoneChatReply(reply);
+                        if (!messages.length) throw new Error('喵信回复格式无效。');
+                        const batchId = `phone-reply-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                        messages.forEach(message => appendPhoneMessage(catId, 'assistant', 'text', message, { batchId }));
                     } catch (error) {
                         if (!(error instanceof AIRequestCancelledError)) showToast('这次没有收到回复，可以稍后再试。', 'error');
                     } finally {
@@ -12088,7 +12538,10 @@ ${buildCatMemoryContext(cat)}`;
                         showToast('先让 TA 回复后才能重抽。', 'info');
                         return;
                     }
-                    history.pop();
+                    const batchId = history.at(-1)?.batchId;
+                    if (batchId) {
+                        while (history.at(-1)?.role === 'assistant' && history.at(-1)?.batchId === batchId) history.pop();
+                    } else history.pop();
                     await requestPhoneReply();
                 };
                 const sendPhoneMessage = (typeArg = 'text', contentArg = null, descArg = null) => {
@@ -13105,6 +13558,11 @@ ${buildCatMemoryContext(cat)}`;
                     const changed = clean !== cleanText(cat.status || '');
                     cat.status = clean;
                     if (options.innerVoice) cat.innerVoice = cleanText(options.innerVoice);
+                    cat.mapRoom = MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
+                        ? options.mapRoom
+                        : inferMapRoomFromStatus(clean);
+                    const roomDefinition = MAP_ROOM_DEFINITIONS.find(room => room.id === cat.mapRoom);
+                    if (roomDefinition?.zones.some(zone => zone.id === options.mapSpot)) cat.mapSpot = options.mapSpot;
                     cat.lastStatusUpdateTime = Date.now();
                     if (changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {});
                     return changed;
@@ -13662,7 +14120,7 @@ ${options.extra || ''}
                     }
                 });
                 const hasDailyDiaryTrigger = (snapshotCat) => {
-                    const triggerTypes = new Set(['chat-user', 'chat-reply', 'item', 'special', 'human-reveal', 'focus-start', 'focus-end', 'explore-start', 'explore-end', 'visit-start', 'visit-end']);
+                    const triggerTypes = new Set(['chat-user', 'chat-reply', 'phone-message-user', 'phone-message-cat', 'item', 'special', 'human-reveal', 'focus-start', 'focus-end', 'explore-start', 'explore-end', 'visit-start', 'visit-end']);
                     return (snapshotCat.todayInteractions || []).some(event => triggerTypes.has(event.type)) ||
                         (snapshotCat.chatHistory || []).length > 0; // compatibility for a save made before typed events
                 };
@@ -13814,6 +14272,10 @@ ${JSON.stringify(diaryContext)}
                     });
                     if (user.phoneData.moments.length > 20) user.phoneData.moments.splice(0, user.phoneData.moments.length - 20);
                     user.todos = [...pendingTasks, ...newlyAddedTasks];
+                    // Phone chats share the same 03:00 operating day as every other
+                    // cat memory. Move the frozen portion first; messages sent while
+                    // the archive request was waiting remain in the live thread.
+                    archivePhoneChatsForOperationalDay(snapshot.dateKey, snapshot.capturedAt);
                     clearDailyCatRecords(todayKey, snapshot.capturedAt);
                     user.dailyMailCount = 0;
                     user.lastMailDate = todayStr;
@@ -14341,7 +14803,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const updates = parseAIJSON(res);
                         const updateById = new Map(Array.isArray(updates) ? updates.map(item => [String(item?.id), item]) : []);
                         const timeStr = getCurrentTimeStr();
-                        let latestVoice = null;
+                        const selectedVoiceCatId = currentFocusVoiceEntry.value?.catId;
+                        const nextVoiceEntries = [];
 
                         participants.forEach(cat => {
                             const update = updateById.get(String(cat.id));
@@ -14349,22 +14812,28 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             const voice = cleanText(update?.innerVoice || update?.voice || '先把这一段时间守住。');
                             currentFocusLog.value.unshift(`${timeStr} [${cat.name}] ${action}`);
                             setCatStatus(cat, action, { innerVoice: voice, source: 'focus', forceLog: true });
-                            if (update?.innerVoice || update?.voice) latestVoice = { cat, voice };
+                            nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat) });
                         });
 
-                        if (latestVoice) {
-                            currentFocusVoice.value = latestVoice.voice;
-                            currentFocusVoiceCat.value = latestVoice.cat.name;
-                        }
+                        focusVoiceEntries.value = nextVoiceEntries;
+                        const retainedIndex = nextVoiceEntries.findIndex(entry => String(entry.catId) === String(selectedVoiceCatId));
+                        focusVoiceIndex.value = retainedIndex >= 0 ? retainedIndex : 0;
                         playLogSound();
                         return Array.isArray(updates) && updates.length > 0;
                     } catch (e) {
                         const timeStr = getCurrentTimeStr();
+                        const selectedVoiceCatId = currentFocusVoiceEntry.value?.catId;
+                        const nextVoiceEntries = [];
                         participants.forEach(cat => {
                             const fallback = '仍留在专注现场，以自己的方式陪伴馆长。';
                             currentFocusLog.value.unshift(`${timeStr} [${cat.name}] ${fallback}`);
-                            setCatStatus(cat, fallback, { source: 'focus-fallback', forceLog: true });
+                            const voice = cleanText(cat.innerVoice || '先守住这一小段时间。');
+                            setCatStatus(cat, fallback, { innerVoice: voice, source: 'focus-fallback', forceLog: true });
+                            nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat) });
                         });
+                        focusVoiceEntries.value = nextVoiceEntries;
+                        const retainedIndex = nextVoiceEntries.findIndex(entry => String(entry.catId) === String(selectedVoiceCatId));
+                        focusVoiceIndex.value = retainedIndex >= 0 ? retainedIndex : 0;
                         return false;
                     }
                 };
@@ -14387,9 +14856,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     focusTotalTime.value = focusSetupData.minutes * 60;
                     focusTime.value = focusSetupData.minutes * 60;
                     currentFocusLog.value = [];
-                    currentFocusVoice.value = '';
-                    currentFocusVoiceCat.value = '';
+                    focusVoiceEntries.value = [];
+                    focusVoiceIndex.value = 0;
+                    focusWakeLockMessage.value = '';
                     showFocusSetupModal.value = false;
+                    void requestFocusWakeLock();
 
                     if (focusTimer.value) clearInterval(focusTimer.value);
                     currentFocusLog.value = [`${getCurrentTimeStr()} [系统] 目标已进入专注状态。监督程序启动。`];
@@ -14469,6 +14940,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     clearInterval(focusTimer.value);
                     if (audioPlayer.value) audioPlayer.value.pause();
                     isFocusing.value = false;
+                    void releaseFocusWakeLock();
 
                     const participants = [...focusCats.value];
                     const affinityDelta = success ? Math.floor(minutes / 10) : -Math.floor(Math.random() * 6);
@@ -14689,7 +15161,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             "status": "Short description of current action (max 20 words)",
                             "innerVoice": "Human language internal monologue (max 30 words). **MANDATORY:** Refer to yourself as '我' (I) or similar, NEVER use your full name to refer to yourself in thoughts.",
                             "isOut": boolean,
-                            "isHuman": boolean
+                            "isHuman": boolean,
+                            "mapRoom": "dorm | living | dining | litter | bath (omit when isOut is true)",
+                            "mapSpot": "a valid matching room zone: dorm[nest,cushion,tree,window,wardrobe]; living[sofa,toy,scratch,rug,bookshelf]; dining[food-cabinet,food-bowl,water-bowl,snack-shelf,table]; litter[litter-a,litter-b,cleaning,deodorizer,waiting-mat]; bath[sink,tub,towel,dryer,laundry]"
                           }
                         ]`;
 
@@ -14704,7 +15178,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             updates.forEach(update => {
                                 const cat = catsToUpdate.find(c => c.id === update.id);
                                 if (cat) {
-                                    if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, source: 'status-sync', forceLog: true });
+                                    if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, source: 'status-sync', forceLog: true });
                                     else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                     if (update.isOut !== undefined) {
                                         if (!cat.isOut && update.isOut) cat.hasHackedThisPatrol = false;
@@ -15336,7 +15810,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText,
-                    hallDisplayMode, setHallDisplayMode, mapCatMarkers, mapPreviewCat, handleMapCatTap, openMapCatDetail,
+                    hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, getMapZoneStyle, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
@@ -15356,10 +15830,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     stopFocus, focusMessage, currentNoise, customNoiseUrl, playNoise, audioPlayer, harassCat, currentFocusLog, isFinishingFocus, focusSettlementLoading,
                     focusMusicAudioPlayer, focusMusicPlaying, focusMusic, currentFocusMusicTrack, isFocusMusicPlaying, formatFocusMusicTime, syncFocusMusicVolume, updateFocusMusicProgress, playFocusMusic, toggleFocusMusic, seekFocusMusic, addFocusMusicUrl, handleFocusMusicUpload, removeFocusMusic, handleFocusMusicEnded, handleFocusMusicError, searchFocusMusic, addFocusMusicTrack,
                     toggleHumanMode, handleSpecificImageUpload, releaseCat, shareMemory,
-                    getCatAvatarSource, getCatActionSpriteSource, getSpriteAssetSource, getSpriteAssetLabel, spriteActionDefinitions, handleSpriteAssetUpload, removeSpriteAsset, saveSpriteActionMetadata, useSpriteAvatar,
+                    getCatAvatarSource, getCatActionSpriteSource, getSpriteAssetSource, getSpriteAssetLabel, getMapSpriteStyle, isSpriteSheetAction, spriteActionDefinitions, handleSpriteAssetUpload, handleSpritePackUpload, removeSpriteAsset, saveSpriteActionMetadata, useSpriteAvatar,
                     isUsingPixelAvatar, makePixelCatAvatar, openPixelAvatarWorkshop, closePixelAvatarWorkshop, savePixelAvatar, useOriginalAvatar, resetPixelAvatarDraft, randomizePixelAvatarDraft,
                     showFocusSetupModal, focusSetupData, availableCatsForFocus, canStartFocus, openFocusSetupModal, toggleFocusCat, startFocus,
-                    currentFocusVoice, currentFocusVoiceCat,
+                    currentFocusVoice, currentFocusVoiceCat, focusVoiceEntries, focusVoiceIndex, cycleFocusVoice, focusWakeLockMessage,
                     currentSettlement, unreadMailCount, openMailbox, claimMailItem, todayEvent,
                     addTodo, newTodo, addDDL, newDDL, ddlCountdownStr, sortedDDLs, nearestDDL, isGeneratingReport,
                     adoptMode, drawGacha, confirmGacha, isGachaLoading, gachaResult,
@@ -15374,11 +15848,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     showCalendarManager, deleteCalendarSource, currentBagTab, currentBagItems,
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
-                    phoneState, phoneIdentities, phoneChatInput, phoneChatRef,
+                    phoneState, phoneIdentities, phoneChatInput, phoneChatRef, rememberPhoneChatScrollPosition,
                     readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
                     openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
-                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime,
+                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
                     openPhoneImageComposer, openPhoneLocationComposer, openPhoneMoneyComposer, togglePhoneEmojiPicker, phoneShowEmojiPicker, insertEmoji,
                     showMsgMenu, startLongPress, cancelLongPress, replyToMsg, reactToMsg, copyMsg, recallMsg,
                     openMomentsSettings, saveMomentsSettings, likeMoment, addComment, postMoment,
