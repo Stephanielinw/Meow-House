@@ -1901,9 +1901,33 @@
                 repeating-linear-gradient(135deg, transparent 0 11px, rgba(255,255,255,.025) 12px 13px);
         }
 
-        #app .meeow-focus-header { flex: 0 0 auto; padding-top: 2px; }
-        #app .meeow-focus-main { width: min(100%, 620px); margin: 0 auto; padding: 8px 0; }
-        #app .meeow-focus-controls { flex: 0 0 auto; width: min(100%, 620px); margin: 0 auto; }
+        #app .meeow-focus-header { flex: 0 0 auto; width: min(100%, 620px); margin: 0 auto; padding: 0; }
+        #app .meeow-focus-summary {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--ui-border);
+            border-radius: 20px;
+            background: color-mix(in srgb, var(--ui-surface-strong) 88%, transparent);
+            box-shadow: var(--ui-shadow-soft);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+        #app .meeow-focus-supervisors {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            overflow-x: auto;
+            max-width: 100%;
+            padding-bottom: 2px;
+        }
+        #app .meeow-focus-supervisor { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; min-width: 44px; }
+        #app .meeow-focus-main { width: min(100%, 620px); margin: 0 auto; padding: 6px 0; }
+        #app .meeow-focus-timer {
+            font-size: clamp(3.2rem, 13vh, 5rem) !important;
+            line-height: .95;
+        }
+        #app .meeow-focus-controls { flex: 0 0 auto; width: min(100%, 620px); margin: 0 auto; padding-bottom: 8px; }
         #app .meeow-focus-cat-avatar { border-color: var(--accent) !important; box-shadow: 0 8px 20px var(--accent-dim) !important; }
         #app .meeow-focus-screen .text-white,
         #app .meeow-focus-screen .text-gray-200,
@@ -1940,6 +1964,11 @@
         #app .meeow-focus-action { background: var(--ui-surface-hover) !important; border: 1px solid var(--ui-border); color: var(--ui-text) !important; }
         #app .meeow-focus-stop { background: color-mix(in srgb, #d85b6a 18%, var(--ui-surface-strong)) !important; border: 1px solid color-mix(in srgb, #d85b6a 55%, var(--ui-border)); color: #b5374b !important; }
         #app .meeow-focus-toast { background: var(--ui-surface-strong) !important; border: 1px solid var(--accent) !important; color: var(--accent) !important; }
+        #app .meeow-focus-cat-picker {
+            max-height: min(44vh, 330px);
+            overflow-y: auto;
+            padding-right: 2px;
+        }
 
         #app #floating-focus-island {
             background: var(--ui-surface-strong) !important;
@@ -3697,7 +3726,7 @@
 
         #app .meeow-map-room-tabs {
             display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 5px;
             padding: 5px;
             overflow-x: auto;
@@ -3725,31 +3754,74 @@
             box-shadow: var(--ui-shadow-soft);
         }
 
+        #app .meeow-map-tools {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: -4px;
+        }
+
+        #app .meeow-map-point-toggle {
+            min-height: 30px;
+            padding: 0 10px;
+            border: 1px solid var(--ui-border);
+            border-radius: 999px;
+            background: var(--ui-surface-strong);
+            color: var(--ui-text-muted);
+            font-size: 10px;
+            font-weight: 900;
+            box-shadow: var(--ui-shadow-soft);
+        }
+
+        #app .meeow-map-point-toggle.is-active {
+            color: var(--ui-button-text, #172016);
+            background: var(--accent);
+            border-color: color-mix(in srgb, var(--accent) 74%, var(--ui-border));
+        }
+
         #app .meeow-map-stage {
             position: relative;
-            width: 100%;
-            aspect-ratio: 1 / 1;
+            aspect-ratio: 1;
             min-height: 0;
-            max-height: min(72dvh, 760px);
             overflow: hidden;
             border: 1px solid var(--ui-border-strong);
             border-radius: var(--ui-radius-xl);
-            background:
-                var(--meeow-map-background, none) center / cover no-repeat,
-                linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
-                linear-gradient(color-mix(in srgb, var(--accent) 8%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
-                linear-gradient(145deg, var(--ui-surface-strong), var(--ui-surface-soft));
+            background: var(--ui-surface-soft);
             box-shadow: var(--ui-shadow-soft);
             isolation: isolate;
         }
 
-        #app .meeow-map-stage::after {
-            content: '';
+        #app .meeow-map-background,
+        #app .meeow-map-layer {
             position: absolute;
             inset: 0;
-            z-index: -1;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
-            background: radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 29%), radial-gradient(circle at 84% 84%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 34%);
+            object-fit: contain;
+            image-rendering: pixelated;
+        }
+
+        #app .meeow-map-background { z-index: 0; }
+        #app .meeow-map-layer.is-ground { z-index: 1; }
+        /* The supplied furniture files are complete layers, not split back/front
+           layers. Keep the cat marker above them so a window or shelf cannot
+           hide the whole cat. The depth class remains available for future
+           split artwork. */
+        #app .meeow-map-cat.is-behind { z-index: 4; }
+        #app .meeow-map-layer.is-foreground { z-index: 3; }
+        #app .meeow-map-cat.is-surface { z-index: 4; }
+
+        #app .meeow-map-cat-occlusion {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            image-rendering: pixelated;
+            z-index: 5;
         }
 
         #app .meeow-map-zone {
@@ -3768,76 +3840,72 @@
             pointer-events: none;
         }
 
-        #app .meeow-map-furniture-layer {
+        #app .meeow-map-point-label {
             position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
+            z-index: 35;
+            padding: 2px 5px;
+            border: 1px solid color-mix(in srgb, var(--accent) 68%, var(--ui-border));
+            border-radius: 8px;
+            background: color-mix(in srgb, var(--ui-surface-strong) 78%, transparent);
+            color: var(--ui-text);
+            box-shadow: 0 4px 12px color-mix(in srgb, #000 20%, transparent);
+            font-size: 8px;
+            font-weight: 900;
+            line-height: 1.15;
             pointer-events: none;
-            image-rendering: pixelated;
+            text-align: center;
         }
 
-        #app .meeow-map-furniture-layer.is-floor { z-index: 1; }
-        #app .meeow-map-furniture-layer.is-back { z-index: 2; }
-        #app .meeow-map-furniture-layer.is-front { z-index: 20; }
+        #app .meeow-map-point-label.is-anchor {
+            transform: translate(-50%, -100%);
+            max-width: 108px;
+        }
 
-        #app .meeow-map-cat {
-            position: absolute;
-            width: 88px;
-            padding: 0;
-            border: 0;
-            background: transparent;
-            transform: translate(-50%, -50%);
+        #app .meeow-map-point-label.is-region {
+            transform: none;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 3px;
-            z-index: 2;
-            color: var(--ui-text);
+            justify-content: flex-start;
+            gap: 1px;
+            min-width: 36px;
+            min-height: 24px;
+            padding: 4px;
+            border-style: dashed;
+            border-radius: 12px;
+            background: color-mix(in srgb, var(--accent-dim) 24%, transparent);
         }
 
-        #app .meeow-map-cat.meeow-map-cat--foot-anchor {
-            height: 72px;
+        #app .meeow-map-point-label span {
             display: block;
+            color: var(--accent);
+            font-family: var(--font-mono);
+            font-size: 7px;
+            opacity: .82;
+        }
+
+        #app .meeow-map-cat {
+            position: absolute;
+            width: 54px;
+            height: 54px;
+            min-width: 44px;
+            min-height: 44px;
+            padding: 0;
+            border: 0;
+            background: transparent;
             transform: translate(-50%, -100%);
-            z-index: 10;
-        }
-
-        #app .meeow-map-cat--foot-anchor .meeow-map-cat-avatar {
-            position: absolute;
-            left: 8px;
-            bottom: 0;
-        }
-
-        #app .meeow-map-cat--foot-anchor .meeow-map-cat-name {
-            position: absolute;
-            top: 74px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        #app .meeow-map-cat--front {
-            z-index: 25 !important;
+            display: grid;
+            place-items: center;
+            color: var(--ui-text);
+            overflow: visible;
+            z-index: 4;
         }
 
         #app .meeow-map-cat-avatar {
-            width: 72px;
-            height: 72px;
+            width: 54px;
+            height: 54px;
             display: grid;
             place-items: center;
-            overflow: visible;
-            border: 0;
-            border-radius: 0;
-            background: transparent;
-            box-shadow: none;
-        }
-
-        #app .meeow-map-cat-avatar.is-painted {
-            overflow: visible;
-        }
-
-        #app .meeow-map-cat-avatar.is-uploaded {
             overflow: hidden;
             border: 2px solid color-mix(in srgb, var(--accent) 62%, var(--ui-border));
             border-radius: 18px;
@@ -3852,92 +3920,9 @@
             image-rendering: pixelated;
         }
 
-        #app .meeow-map-cat-avatar.is-painted img {
-            filter: drop-shadow(0 5px 6px color-mix(in srgb, var(--ui-text) 18%, transparent));
-        }
-
-        .meeow-paint-overlay {
-            z-index: 100050;
-            padding: 14px;
-            background: color-mix(in srgb, var(--ui-bg) 72%, rgba(12, 14, 20, .72));
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-        }
-
-        .meeow-paint-card {
-            width: min(94vw, 540px);
-            max-height: min(88dvh, 780px);
-            background: var(--ui-card);
-            color: var(--ui-text);
-            border: 1px solid var(--ui-border-strong);
-            box-shadow: 0 24px 70px color-mix(in srgb, var(--ui-text) 26%, transparent);
-        }
-
-        .meeow-paint-canvas-wrap {
-            min-height: 250px;
-            display: grid;
-            place-items: center;
-            border: 1px solid var(--ui-border);
-            border-radius: 20px;
-            overflow: hidden;
-            background-color: var(--ui-surface-hover);
-            background-image:
-                linear-gradient(45deg, color-mix(in srgb, var(--ui-text) 8%, transparent) 25%, transparent 25%),
-                linear-gradient(-45deg, color-mix(in srgb, var(--ui-text) 8%, transparent) 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--ui-text) 8%, transparent) 75%),
-                linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--ui-text) 8%, transparent) 75%);
-            background-size: 18px 18px;
-            background-position: 0 0, 0 9px, 9px -9px, -9px 0;
-        }
-
-        .meeow-paint-canvas {
-            display: block;
-            width: min(100%, 360px);
-            height: auto;
-            max-height: min(50dvh, 420px);
-            object-fit: contain;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            touch-action: none;
-            cursor: crosshair;
-        }
-
-        .meeow-paint-tool.is-active {
-            background: var(--accent) !important;
-            color: var(--ui-button-text) !important;
-            border-color: var(--accent) !important;
-        }
-
-        #app .meeow-map-base-cat {
-            filter: drop-shadow(0 5px 6px color-mix(in srgb, var(--ui-text) 18%, transparent));
-        }
-
-        #app .meeow-map-sprite-frame {
-            display: block;
-            width: 100%;
-            height: 100%;
-            background-repeat: no-repeat;
-            background-position: center;
-            image-rendering: pixelated;
-        }
-
-        #app .meeow-map-cat-name {
-            max-width: 104px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            padding: 2px 6px;
-            border-radius: 999px;
-            background: var(--ui-surface-strong);
-            border: 1px solid var(--ui-border);
-            font-size: 9px;
-            font-weight: 800;
-        }
-
-        #app .meeow-map-cat-state {
+        #app .meeow-map-cat-badge {
             position: absolute;
-            top: -6px;
-            right: 3px;
+            z-index: 32;
             min-width: 18px;
             height: 18px;
             padding: 0 4px;
@@ -3947,7 +3932,32 @@
             background: var(--accent);
             color: var(--ui-button-text, #182015);
             font-size: 9px;
+            font-weight: 800;
             box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 38%, transparent);
+            transform: translate(12px, -62px);
+            pointer-events: none;
+        }
+
+        #app .meeow-map-cat-label {
+            position: absolute;
+            z-index: 30;
+            transform: translate(-50%, 2px);
+            pointer-events: none;
+        }
+
+        #app .meeow-map-cat-name {
+            max-width: 92px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 2px 6px;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--ui-surface-strong) 92%, transparent);
+            border: 1px solid color-mix(in srgb, var(--ui-border-strong) 80%, transparent);
+            font-size: 9px;
+            font-weight: 800;
+            box-shadow: 0 2px 7px color-mix(in srgb, #000 20%, transparent);
+            text-shadow: 0 1px 1px color-mix(in srgb, var(--ui-surface-strong) 70%, transparent);
         }
 
         #app .meeow-map-status-card {
@@ -3976,10 +3986,6 @@
             color: var(--ui-text-muted);
             font-size: 11px;
             line-height: 1.45;
-        }
-
-        @media (max-height: 740px) {
-            #app .meeow-map-stage { max-height: 58dvh; }
         }
 
         @media (max-height: 740px) {
@@ -4151,16 +4157,72 @@
             border: 1px solid color-mix(in srgb, var(--accent) 74%, var(--ui-border)) !important;
         }
 
-        #app .focus-music-player {
+        #app .focus-music-player,
+        #app .focus-music-entry,
+        #app .focus-music-modal-card {
             background: var(--ui-surface-strong);
             border: 1px solid var(--ui-border);
             color: var(--ui-text);
         }
+        #app .focus-music-entry {
+            width: 100%;
+            border-radius: 14px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            box-shadow: var(--ui-shadow-soft);
+        }
+        #app .focus-music-modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            background: color-mix(in srgb, var(--ui-bg-deep, var(--ui-bg)) 62%, transparent);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+        #app .focus-music-modal-card {
+            width: min(100%, 430px);
+            max-height: min(680px, calc(var(--app-height) - 36px));
+            border-radius: 24px;
+            box-shadow: var(--ui-shadow);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #app .focus-music-modal-body { overflow-y: auto; min-height: 0; }
         #app .focus-music-player input,
-        #app .focus-music-player select {
+        #app .focus-music-player select,
+        #app .focus-music-modal-card input {
             background: var(--ui-surface-hover);
             border: 1px solid var(--ui-border);
             color: var(--ui-text);
+        }
+        #app .focus-music-add,
+        #app .focus-music-play,
+        #app .focus-music-upload {
+            background: var(--accent);
+            color: var(--ui-button-text, #182116);
+            border: 1px solid color-mix(in srgb, var(--accent) 74%, var(--ui-border));
+        }
+        #app .focus-music-toggle,
+        #app .focus-music-loop,
+        #app .focus-music-search,
+        #app .focus-music-track,
+        #app .focus-music-result {
+            background: var(--ui-surface-hover);
+            color: var(--ui-text);
+            border: 1px solid var(--ui-border);
+        }
+        #app .focus-music-track.is-current,
+        #app .focus-music-loop.is-active {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
         }
 
         /* ===== MEEOW PHONE READER ===== */
@@ -4270,7 +4332,7 @@
         </div>
 
         <!-- Floating Focus Island -->
-        <div id="floating-focus-island" v-show="isFocusing && currentTab !== 'focus'" @click="currentTab = 'focus'">
+        <div id="floating-focus-island" v-if="false" v-show="isFocusing && currentTab !== 'focus'" @click="currentTab = 'focus'">
             <span id="floating-lyric-text" class="truncate max-w-[200px]">🎧 专注: {{ focusAction }} - {{
                 formatTime(focusTime) }}</span>
             <div class="play-btn" @click.stop="toggleFocusAudioIsland">
@@ -4340,7 +4402,7 @@
 
                 <!-- Title -->
                 <div class="gotham-brand">
-                    <span v-if="isUpdatingStatus" class="gotham-brand-title"><i class="fas fa-satellite loading-spin"></i>同步网络...</span>
+                    <span v-if="isUpdatingStatus" class="gotham-brand-title"><i class="fas fa-satellite"></i>同步网络...</span>
                     <span v-else class="gotham-brand-title"><i class="fas fa-cat"></i>MEEOW HOUSE</span>
                     <small class="gotham-brand-subtitle">MEEOW ARCHIVE · HALL SYSTEM</small>
                 </div>
@@ -4687,22 +4749,32 @@
                             <i :class="room.icon" class="block mb-1"></i>{{ room.name }}
                         </button>
                     </div>
-                    <div class="meeow-map-stage" :class="'meeow-map-room-' + activeMapRoom" :style="getMapStageStyle(activeMapRoomDefinition)">
-                        <img v-for="layer in getMapFurnitureLayers(activeMapRoomDefinition, 'floor')" :key="layer.id" class="meeow-map-furniture-layer is-floor" :src="layer.src" :alt="layer.name">
-                        <img v-for="layer in getMapFurnitureLayers(activeMapRoomDefinition, 'back')" :key="layer.id" class="meeow-map-furniture-layer is-back" :src="layer.src" :alt="layer.name">
-                        <template v-if="!activeMapRoomDefinition.isLayered">
-                            <div v-for="zone in activeMapRoomDefinition.zones" :key="zone.id" class="meeow-map-zone" :style="getMapZoneStyle(zone)">
-                                <i :class="zone.icon" class="mr-1"></i>{{ zone.name }}
+                    <div class="meeow-map-tools">
+                        <button type="button" class="meeow-map-point-toggle" :class="{'is-active': showMapPointLabels}" @click="toggleMapPointLabels">
+                            <i class="fas fa-map-marker-alt mr-1"></i>{{ showMapPointLabels ? '隐藏点位' : '显示点位' }}
+                        </button>
+                    </div>
+                    <div class="meeow-map-stage" :class="'meeow-map-room-' + activeMapRoom">
+                        <img class="meeow-map-background" :src="getMapAssetPath(activeMapRoom, 'background')" :alt="activeMapRoomDefinition.name + '地图背景'">
+                        <img v-for="layer in activeMapRoomDefinition.groundLayers" :key="'ground-' + layer" class="meeow-map-layer is-ground" :src="getMapAssetPath(activeMapRoom, layer)" alt="">
+                        <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" :class="['meeow-map-cat', marker.depthClass]" :style="marker.position" :title="cleanText(marker.cat.status)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
+                            <span class="meeow-map-cat-avatar">
+                                <img :src="getMapCatAvatarSource(marker.cat)" :alt="marker.cat.name + ' 的馆内标记'" @error="handleMapAvatarError($event, marker.cat)">
+                            </span>
+                        </button>
+                        <template v-for="marker in activeMapCatMarkers" :key="'map-occlusion-wrap-' + marker.cat.id">
+                            <span v-if="marker.occlusionStyle" :key="'map-occlusion-' + marker.cat.id" class="meeow-map-cat-occlusion" :style="marker.occlusionStyle"></span>
+                        </template>
+                        <img v-for="layer in activeMapRoomDefinition.foregroundLayers" :key="'foreground-' + layer" class="meeow-map-layer is-foreground" :class="{'is-table-foreground': activeMapRoom === 'dining' && layer === 'table'}" :src="getMapAssetPath(activeMapRoom, layer)" alt="">
+                        <div v-for="marker in activeMapCatMarkers" :key="'map-badge-' + marker.cat.id" class="meeow-map-cat-badge" :style="marker.badgePosition">在馆</div>
+                        <div v-for="marker in activeMapCatMarkers" :key="'map-label-' + marker.cat.id" class="meeow-map-cat-label" :style="marker.labelPosition">
+                            <span class="meeow-map-cat-name">{{ marker.cat.name }}</span>
+                        </div>
+                        <template v-if="showMapPointLabels">
+                            <div v-for="point in activeMapPointLabels" :key="'map-point-' + point.id" class="meeow-map-point-label" :class="point.isRegion ? 'is-region' : 'is-anchor'" :style="point.style">
+                                <span>{{ point.id }}</span>{{ point.name }}
                             </div>
                         </template>
-                        <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" class="meeow-map-cat" :class="{'meeow-map-cat--foot-anchor': marker.useFootAnchor, 'meeow-map-cat--front': marker.isFront}" :style="marker.position" :title="cleanText(marker.cat.status)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
-                            <span class="meeow-map-cat-state">在馆</span>
-                            <span class="meeow-map-cat-avatar" :class="{'is-painted': hasPaintedMapAvatar(marker.cat)}">
-                                <img :src="getMapCatAvatarSource(marker.cat)" :alt="marker.cat.name + (hasPaintedMapAvatar(marker.cat) ? ' 的手动上色小猫' : ' 的原头像')">
-                            </span>
-                            <span class="meeow-map-cat-name">{{ marker.cat.name }}</span>
-                        </button>
-                        <img v-for="layer in getMapFurnitureLayers(activeMapRoomDefinition, 'front')" :key="layer.id" class="meeow-map-furniture-layer is-front" :src="layer.src" :alt="layer.name">
                         <div v-if="!activeMapCatMarkers.length" class="absolute inset-0 grid place-items-center text-center px-8" style="color: var(--ui-text-muted);">
                             <div><i class="fas fa-cat text-3xl mb-3" style="color: var(--accent);"></i><p class="text-sm font-bold" style="color: var(--ui-text);">这间房暂时没有猫咪</p><p class="mt-1 text-[10px]">它们可能在别的房间，或暂时外出。</p></div>
                         </div>
@@ -7076,11 +7148,10 @@
                         type="password" placeholder="sk-..." class="mb-3 font-mono text-sm">
                     <label class="text-xs block mb-1 text-gray-400">Model</label>
                     <div class="flex space-x-2 mb-4">
-                        <select v-model="settings.model"
+                        <select v-model="settings.model" @change="persistSelectedModel"
                             class="flex-1 bg-zinc-900 border border-zinc-600 rounded px-2 font-mono text-sm">
+                            <option v-if="settings.model && !availableModels.includes(settings.model)" :value="settings.model">{{ settings.model }} (当前)</option>
                             <option v-for="m in availableModels" :key="m" :value="m">{{ m }}</option>
-                            <option v-if="availableModels.length === 0" :value="settings.model">{{ settings.model }}
-                                (Default)</option>
                         </select>
                         <button @click="fetchModels"
                             class="bg-blue-700 text-white px-4 rounded text-xs whitespace-nowrap hover:bg-blue-600 transition-colors"><i
@@ -7395,131 +7466,27 @@
                 <div class="meeow-modal-body p-5">
                 <label class="text-[10px] font-mono mb-1 block" style="color: var(--ui-text-muted);">修改昵称</label>
                 <input v-model="selectedCat.name" class="mb-3 border text-xs rounded-xl px-3 py-2" style="background: var(--ui-surface-hover); border-color: var(--ui-border); color: var(--ui-text);">
-                <section v-if="false" class="mb-4 rounded-2xl border p-3" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
-                    <div class="flex items-start justify-between gap-3 mb-2.5">
-                        <div class="min-w-0">
-                            <p class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-cat mr-1" style="color: var(--accent);"></i>用户上传的全身动作素材</p>
-                            <p class="text-[9px] leading-relaxed mt-1" style="color: var(--ui-text-muted);">上传你自己制作的透明 PNG / WebP / GIF。上传动作会优先用于馆内地图；未上传时显示下方的内置四足猫。</p>
-                        </div>
-                        <div class="shrink-0 flex flex-col items-end gap-1.5">
-                            <span class="text-[9px] px-2 py-1 rounded-full" :style="selectedCat.avatarMode === 'sprite' ? 'background: color-mix(in srgb, #22c55e 18%, transparent); color: #16803b;' : 'background: var(--ui-surface-hover); color: var(--ui-text-muted);'">{{ selectedCat.avatarMode === 'sprite' ? '已用站立图' : '原头像' }}</span>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <article v-for="action in spriteActionDefinitions" :key="action.key" class="rounded-xl border p-2" style="background: var(--ui-surface-hover); border-color: var(--ui-border);">
-                            <div class="flex gap-2 min-w-0">
-                                <div class="w-12 h-12 shrink-0 rounded-lg border flex items-center justify-center overflow-hidden" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
-                                    <img v-if="getSpriteAssetSource(selectedCat, action.key)" :src="getSpriteAssetSource(selectedCat, action.key)" :alt="action.label" class="w-full h-full object-contain" style="image-rendering: pixelated;">
-                                    <i v-else :class="['fas', action.icon, 'text-sm']" style="color: var(--ui-text-subtle);"></i>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-[10px] font-bold truncate" style="color: var(--ui-text);">{{ action.label }}</p>
-                                    <p class="text-[8px] truncate" style="color: var(--ui-text-muted);">{{ getSpriteAssetLabel(selectedCat, action.key) }}</p>
-                                    <label :for="'sprite-upload-' + action.key" class="inline-flex mt-1.5 cursor-pointer text-[9px] font-bold" style="color: var(--accent);"><i class="fas fa-upload mr-1"></i>上传</label>
-                                    <input :id="'sprite-upload-' + action.key" class="hidden" type="file" accept="image/png,image/webp,image/gif,.png,.webp,.gif" @change="(event) => handleSpriteAssetUpload(event, action.key)">
-                                </div>
-                            </div>
-                            <div v-if="selectedCat.spriteAssets?.[action.key]?.assetId" class="mt-2 flex items-center justify-between gap-1">
-                                <span class="text-[8px]" style="color: var(--ui-text-muted);">展示</span>
-                                <select v-model="selectedCat.spriteAssets[action.key].mode" @change="saveSpriteActionMetadata(selectedCat, action.key)" class="rounded px-1 py-0.5 text-[9px]" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border); color: var(--ui-text);"><option value="static">静态</option><option value="sheet">精灵图</option><option value="animated">动图</option></select>
-                            </div>
-                            <div v-if="selectedCat.spriteAssets?.[action.key]?.assetId && selectedCat.spriteAssets[action.key].mode === 'sheet'" class="mt-1 flex items-center justify-between gap-1">
-                                <span class="text-[8px]" style="color: var(--ui-text-muted);">横向帧数</span>
-                                <select v-model.number="selectedCat.spriteAssets[action.key].frames" @change="saveSpriteActionMetadata(selectedCat, action.key)" class="rounded px-1 py-0.5 text-[9px]" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border); color: var(--ui-text);"><option :value="1">1</option><option :value="2">2</option><option :value="3">3</option><option :value="4">4</option><option :value="6">6</option><option :value="8">8</option><option :value="12">12</option><option :value="16">16</option></select>
-                            </div>
-                            <button v-if="selectedCat.spriteAssets?.[action.key]?.assetId" @click="removeSpriteAsset(selectedCat, action.key)" class="mt-1.5 text-[8px] text-red-300 hover:text-red-200"><i class="fas fa-trash-can mr-1"></i>移除此动作</button>
-                        </article>
-                    </div>
-                    <label for="sprite-pack-upload" class="mt-3 flex items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2 cursor-pointer text-[9px] font-bold" style="border-color: var(--ui-border-strong); color: var(--accent);"><i class="fas fa-file-zipper"></i>导入动作包（ZIP）</label>
-                    <input id="sprite-pack-upload" class="hidden" type="file" accept=".zip,application/zip,application/x-zip-compressed" @change="handleSpritePackUpload">
-                    <p class="mt-1.5 text-[8px] leading-relaxed" style="color: var(--ui-text-muted);">动作包可含透明 PNG 精灵图、GIF / 动态 WebP 与 <code>meeow-pet.json</code> 清单；仅导入图片与动作元数据，不执行包内任何代码。</p>
-                    <div class="mt-2.5 flex gap-2">
-                        <button v-if="selectedCat.spriteAssets?.stand?.assetId" @click="useSpriteAvatar(selectedCat)" class="sully-btn flex-1 bg-emerald-500/80 hover:bg-emerald-400 text-emerald-950 py-2 rounded-xl text-[10px] font-black"><i class="fas fa-image mr-1"></i>使用站立图</button>
-                        <button v-if="selectedCat.avatarMode === 'sprite'" @click="useOriginalAvatar" class="sully-btn flex-1 bg-white/10 hover:bg-white/20 text-gray-200 py-2 rounded-xl text-[10px] font-bold">切回原头像</button>
-                    </div>
-                    <p class="mt-2 text-[8px] leading-relaxed" style="color: var(--ui-text-muted);">建议使用 256×256 或 512×512 的透明画布，并让四脚落在同一底线；精灵图支持 1 / 2 / 3 / 4 / 6 / 8 / 12 / 16 帧。JPG 可作为静态图；若要播放动作，请导出 GIF、动态 WebP 或 PNG 精灵图。</p>
-                </section>
-                <section v-if="false" class="mb-4 rounded-2xl border p-3" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
-                    <div class="flex gap-3 items-center mb-3">
-                        <div class="w-16 h-16 shrink-0 rounded-xl border grid place-items-center" style="background: var(--ui-surface-hover); border-color: var(--ui-border);">
-                            <img class="w-full h-full object-contain" style="image-rendering: pixelated;" :src="getMeeowBaseCatSource(selectedCat)" :style="getMeeowBaseCatStyle(selectedCat)" :alt="selectedCat.name + ' 的内置四足猫预览'">
-                        </div>
+                <section class="rounded-2xl p-3 mb-4" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border);">
+                    <div class="flex items-center justify-between gap-2">
                         <div>
-                            <p class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-paw mr-1" style="color: var(--accent);"></i>内置四足猫外观</p>
-                            <p class="text-[9px] leading-relaxed mt-1" style="color: var(--ui-text-muted);">地图默认使用 Shepardskin 的 CC0 四足猫精灵；主毛色会即时换色。原头像、人形照片和你上传的动作素材都不会被替换。</p>
+                            <h4 class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-palette mr-1" style="color: var(--accent);"></i>共用白猫底图</h4>
+                            <p class="text-[10px] mt-1" style="color: var(--ui-text-muted);">上传一次透明 PNG，所有小猫共用；每只小猫的涂色稿独立保存。</p>
                         </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2 mb-2">
-                        <label class="text-[9px] font-bold" style="color: var(--ui-text-muted);">花纹
-                            <select v-model="selectedCat.meeowBaseAppearance.markingStyle" class="mt-1 w-full rounded-lg px-2 py-1.5 text-[10px]" style="background: var(--ui-surface-hover); border: 1px solid var(--ui-border); color: var(--ui-text);">
-                                <option value="solid">纯色</option><option value="socks">白袜</option><option value="tuxedo">燕尾服</option><option value="tabby">虎斑</option><option value="patches">斑块</option><option value="mask">面罩</option>
-                            </select>
-                        </label>
-                        <label class="text-[9px] font-bold" style="color: var(--ui-text-muted);">尾巴
-                            <select v-model="selectedCat.meeowBaseAppearance.tailStyle" class="mt-1 w-full rounded-lg px-2 py-1.5 text-[10px]" style="background: var(--ui-surface-hover); border: 1px solid var(--ui-border); color: var(--ui-text);">
-                                <option value="straight">直尾</option><option value="fluffy">蓬尾</option><option value="curl">卷尾</option><option value="short">短尾</option>
-                            </select>
+                        <label class="sully-btn shrink-0 px-2.5 py-2 rounded-xl text-[10px] font-black cursor-pointer" style="background: var(--accent); color: var(--ui-button-text);">
+                            <i class="fas fa-upload mr-1"></i>{{ settings.sharedCatTemplate ? '替换底图' : '上传底图' }}
+                            <input type="file" accept="image/png,.png" class="hidden" @change="handleSharedCatTemplateUpload">
                         </label>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <label v-for="colorField in meeowBaseColorFields" :key="colorField.key" class="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5" style="background: var(--ui-surface-hover); color: var(--ui-text-muted);">
-                            <span class="text-[9px] font-bold">{{ colorField.label }}</span>
-                            <input v-model="selectedCat.meeowBaseAppearance.colors[colorField.key]" type="color" class="w-7 h-6 rounded cursor-pointer" :aria-label="colorField.label">
-                        </label>
+                    <div v-if="settings.sharedCatTemplate" class="flex items-center justify-between mt-2 text-[10px]" style="color: var(--ui-text-subtle);">
+                        <span>{{ settings.sharedCatTemplate.width }}×{{ settings.sharedCatTemplate.height }} PNG · v{{ settings.sharedCatTemplate.version }}</span>
+                        <span>{{ selectedCat.catPaint?.assetId ? '本猫已有涂色' : '本猫尚未上色' }}</span>
                     </div>
-                    <button @click="resetMeeowBaseAppearance(selectedCat)" type="button" class="mt-2 text-[9px] font-black" style="color: var(--accent);"><i class="fas fa-rotate-left mr-1"></i>按猫咪原始颜色恢复默认</button>
+                    <p v-else class="text-[10px] mt-2" style="color: var(--ui-text-subtle);">尚未设置底图。请先上传白色猫身、深色轮廓、透明背景的 PNG。</p>
+                    <button v-if="settings.sharedCatTemplate" type="button" @click="openCatPaintWorkshop" class="sully-btn w-full mt-3 py-2.5 rounded-xl text-xs font-black" style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-active-border);"><i class="fas fa-brush mr-1" style="color: var(--accent);"></i>给 {{ selectedCat.name }} 上色</button>
                 </section>
-                <section class="mb-4 rounded-2xl border p-3" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <p class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-palette mr-1" style="color: var(--accent);"></i>共用白猫底图</p>
-                            <p class="text-[9px] leading-relaxed mt-1" style="color: var(--ui-text-muted);">上传一张白色猫身、深色线稿、透明背景的 PNG。它会成为全馆共用底图，不会替换任何原头像。</p>
-                        </div>
-                        <span class="shrink-0 text-[8px] px-2 py-1 rounded-full" :style="paintBaseReady ? 'background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent);' : 'background: var(--ui-surface-hover); color: var(--ui-text-muted);'">{{ paintBaseReady ? '已就绪' : '未上传' }}</span>
-                    </div>
-                    <div class="mt-3 flex items-center gap-3">
-                        <div class="w-16 h-16 rounded-xl border overflow-hidden grid place-items-center" style="background: var(--ui-surface-hover); border-color: var(--ui-border);">
-                            <img v-if="paintBasePreviewUrl" :src="paintBasePreviewUrl" alt="共用白猫底图预览" class="w-full h-full object-contain" style="image-rendering: pixelated;">
-                            <i v-else class="fas fa-cat text-lg" style="color: var(--ui-text-subtle);"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <label class="sully-btn inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black cursor-pointer" style="background: var(--accent); color: var(--ui-button-text);"><i class="fas fa-upload"></i>{{ paintBaseReady ? '替换底图' : '上传底图' }}
-                                <input class="hidden" type="file" accept="image/png,.png" @change="handlePaintBaseUpload">
-                            </label>
-                            <button v-if="paintBaseReady" type="button" @click="removePaintBase" class="ml-2 text-[9px] font-bold" style="color: var(--ui-text-muted);">移除底图</button>
-                            <p v-if="paintBaseMeta.width" class="mt-1.5 text-[8px]" style="color: var(--ui-text-muted);">{{ paintBaseMeta.width }} × {{ paintBaseMeta.height }} · 透明 PNG</p>
-                        </div>
-                    </div>
-                </section>
-                <section class="mb-4 rounded-2xl border p-3" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
-                    <div class="flex items-center gap-3">
-                        <div class="w-14 h-14 rounded-xl border overflow-hidden grid place-items-center" style="background: var(--ui-surface-hover); border-color: var(--ui-border);">
-                            <img v-if="getPaintedMapAvatarSource(selectedCat)" :src="getPaintedMapAvatarSource(selectedCat)" :alt="selectedCat.name + ' 的上色预览'" class="w-full h-full object-contain" style="image-rendering: pixelated;">
-                            <i v-else class="fas fa-paintbrush text-base" style="color: var(--ui-text-subtle);"></i>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <p class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-paw mr-1" style="color: var(--accent);"></i>{{ selectedCat.name }} 的地图小猫</p>
-                            <p class="mt-1 text-[9px] leading-relaxed" style="color: var(--ui-text-muted);">{{ paintBaseReady ? '用填色桶和像素笔亲手给这只小猫上色。保存后仅地图使用成品。' : '请先上传全馆共用白猫底图。' }}</p>
-                            <button type="button" @click="openCatPaintWorkshop(selectedCat)" :disabled="!paintBaseReady" class="sully-btn mt-2 px-3 py-2 rounded-xl text-[10px] font-black disabled:opacity-40" style="background: var(--accent); color: var(--ui-button-text);"><i class="fas fa-brush mr-1"></i>{{ getPaintedMapAvatarSource(selectedCat) ? '继续上色' : '开始上色' }}</button>
-                        </div>
-                    </div>
-                </section>
-                <div v-if="false" class="mb-3 rounded-2xl border border-white/10 bg-black/25 p-3">
-                    <div class="flex items-center justify-between gap-2 mb-2">
-                        <div>
-                            <div class="text-xs font-bold text-gray-200"><i class="fas fa-paw text-yellow-500 mr-1"></i>全身像素猫</div>
-                            <div class="text-[9px] text-gray-400 mt-0.5">完全由你手动捏制，不调用 AI。</div>
-                        </div>
-                        <span class="text-[9px] px-2 py-1 rounded-full" :class="selectedCat.avatarMode === 'pixel' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-gray-400'">{{ selectedCat.avatarMode === 'pixel' ? '已启用' : '原头像' }}</span>
-                    </div>
-                    <div class="flex gap-2">
-                        <button @click="openPixelAvatarWorkshop" class="sully-btn flex-1 bg-yellow-500/90 hover:bg-yellow-400 text-black py-2 rounded-xl text-[10px] font-black"><i class="fas fa-wand-magic-sparkles mr-1"></i>{{ selectedCat.pixelAvatar ? '编辑捏猫' : '开始捏猫' }}</button>
-                        <button v-if="selectedCat.avatarMode === 'pixel'" @click="useOriginalAvatar" class="sully-btn bg-white/10 hover:bg-white/20 text-gray-200 px-3 py-2 rounded-xl text-[10px] font-bold">用原图</button>
-                    </div>
-                </div>
-                <label class="text-[10px] font-mono mb-1 block" style="color: var(--ui-text-muted);">修改照片 (默认形态)</label>
+                <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改照片 (默认形态)</label>
                 <input type="file" @change="(e)=>handleSpecificImageUpload(e, 'default')" class="mb-3 text-xs w-full text-gray-300">
-                <label class="text-[10px] font-mono mb-1 block" style="color: var(--ui-text-muted);">修改照片 (拟人形态)</label>
+                <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改照片 (拟人形态)</label>
                 <input type="file" @change="(e)=>handleSpecificImageUpload(e, 'human')" class="mb-4 text-xs w-full text-gray-300">
                 </div>
                 <footer class="meeow-modal-footer p-4 flex gap-2.5">
@@ -7529,8 +7496,34 @@
             </div>
         </div>
 
+        <!-- Local white-cat painting workbench. No AI or network request is used. -->
+        <div v-if="showCatPaintModal && selectedCat" class="meeow-modal-overlay fixed inset-0 flex items-center justify-center z-[900]">
+            <section class="sully-glass w-full max-w-sm rounded-[2rem] flex flex-col overflow-hidden" style="max-height: var(--app-height, 92vh);" role="dialog" aria-modal="true" aria-label="给小猫上色">
+                <header class="px-5 py-4 shrink-0 flex items-center justify-between" style="border-bottom: 1px solid var(--ui-border);">
+                    <div><p class="text-[10px] font-black tracking-[.16em]" style="color: var(--accent);">MEEOW HOUSE · PAINT</p><h3 class="text-sm font-black mt-1">给 {{ selectedCat.name }} 上色</h3></div>
+                    <button type="button" @click="closeCatPaintWorkshop" class="sully-btn w-9 h-9 rounded-xl" style="background: var(--ui-surface-hover); color: var(--ui-text);" aria-label="关闭涂色工作台"><i class="fas fa-times"></i></button>
+                </header>
+                <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
+                    <div class="rounded-2xl p-3" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border);">
+                        <canvas ref="catPaintCanvas" class="w-full aspect-square rounded-xl mx-auto block" style="image-rendering: pixelated; background: repeating-conic-gradient(var(--ui-surface-hover) 0 25%, var(--ui-surface-soft) 0 50%) 50% / 16px 16px; touch-action: none; max-width: 280px;" @pointerdown="startCatPaintStroke" @pointermove="moveCatPaintStroke" @pointerup="endCatPaintStroke" @pointercancel="endCatPaintStroke" @pointerleave="endCatPaintStroke"></canvas>
+                        <p class="text-[10px] text-center mt-2" style="color: var(--ui-text-subtle);">只能修改猫咪不透明区域，深色轮廓会自动保留。</p>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 mt-3">
+                        <button v-for="tool in catPaintTools" :key="tool.id" type="button" @click="catPaintTool = tool.id" class="sully-btn py-2 rounded-xl text-[10px] font-black" :style="catPaintTool === tool.id ? {background:'var(--accent)', color:'var(--ui-button-text)'} : {background:'var(--ui-surface-hover)', color:'var(--ui-text-muted)'}"><i :class="tool.icon" class="mr-1"></i>{{ tool.label }}</button>
+                    </div>
+                    <div class="flex items-center gap-3 mt-3">
+                        <label class="flex-1 text-[10px] font-bold" style="color: var(--ui-text-muted);">颜色<input v-model="catPaintColor" type="color" class="block w-full h-9 mt-1 rounded-lg cursor-pointer"></label>
+                        <button type="button" @click="undoCatPaint" class="sully-btn px-3 py-2 rounded-xl text-xs" style="background:var(--ui-surface-hover);color:var(--ui-text);" :disabled="!catPaintUndoStack.length"><i class="fas fa-rotate-left"></i></button>
+                        <button type="button" @click="redoCatPaint" class="sully-btn px-3 py-2 rounded-xl text-xs" style="background:var(--ui-surface-hover);color:var(--ui-text);" :disabled="!catPaintRedoStack.length"><i class="fas fa-rotate-right"></i></button>
+                        <button type="button" @click="resetCatPaint" class="sully-btn px-3 py-2 rounded-xl text-[10px] font-bold" style="background:var(--ui-surface-hover);color:var(--ui-text);">恢复白底</button>
+                    </div>
+                </div>
+                <footer class="p-4 shrink-0 flex gap-2" style="border-top: 1px solid var(--ui-border);"><button type="button" @click="closeCatPaintWorkshop" class="sully-btn flex-1 py-2.5 rounded-xl text-xs font-bold" style="background:var(--ui-surface-hover);color:var(--ui-text);">取消</button><button type="button" @click="saveCatPaint" class="sully-btn flex-[1.3] py-2.5 rounded-xl text-xs font-black" style="background:var(--accent);color:var(--ui-button-text);" :disabled="!catPaintCanvas"><i class="fas fa-check mr-1"></i>保存涂色</button></footer>
+            </section>
+        </div>
+
         <!-- Full-body pixel cat workshop. It is local-only and never calls AI. -->
-        <div v-if="false && pixelAvatarWorkshopEnabled && showPixelAvatarModal && selectedCat && pixelAvatarDraft"
+        <div v-if="pixelAvatarWorkshopEnabled && showPixelAvatarModal && selectedCat && pixelAvatarDraft"
             class="pixel-cat-workshop-overlay fixed inset-0 z-[850] p-3 sm:p-5 flex items-center justify-center">
             <section class="pixel-cat-workshop rounded-[2rem] overflow-hidden flex flex-col" role="dialog" aria-modal="true" aria-label="全身像素捏猫工坊">
                 <header class="px-5 py-4 shrink-0 flex items-center justify-between gap-3 border-b" style="border-color: var(--ui-border, rgba(255,255,255,.12));">
@@ -7594,36 +7587,6 @@
                     <button @click="resetPixelAvatarDraft" class="sully-btn flex-1 py-2.5 rounded-xl text-xs font-bold border" style="border-color: var(--ui-border, rgba(255,255,255,.14)); color: var(--ui-text, #fff);">恢复模板</button>
                     <button @click="randomizePixelAvatarDraft" class="sully-btn flex-1 py-2.5 rounded-xl text-xs font-bold border" style="border-color: var(--accent); color: var(--accent);"><i class="fas fa-dice mr-1"></i>随机配色</button>
                     <button @click="savePixelAvatar" class="sully-btn flex-[1.35] py-2.5 rounded-xl text-xs font-black" style="background: var(--accent); color: var(--ui-text-strong, #161616);"><i class="fas fa-floppy-disk mr-1"></i>保存并启用</button>
-                </footer>
-            </section>
-        </div>
-
-        <!-- Shared white-cat line art paint studio. Local canvas only; never calls AI. -->
-        <div v-if="showCatPaintModal && selectedCat" class="meeow-paint-overlay fixed inset-0 flex items-center justify-center" @click.self="closeCatPaintWorkshop">
-            <section class="meeow-paint-card rounded-[2rem] overflow-hidden flex flex-col" role="dialog" aria-modal="true" :aria-label="selectedCat.name + ' 的上色工作台'">
-                <header class="px-5 py-4 shrink-0 flex items-center justify-between gap-3" style="border-bottom: 1px solid var(--ui-border);">
-                    <div class="min-w-0"><p class="text-[9px] font-black tracking-[.16em]" style="color: var(--accent);">MEEOW HOUSE · PAINT STUDIO</p><h2 class="mt-1 text-sm font-black">给 {{ selectedCat.name }} 上色</h2></div>
-                    <button type="button" @click="closeCatPaintWorkshop" class="sully-btn w-9 h-9 rounded-xl" style="background: var(--ui-surface-hover); color: var(--ui-text);" aria-label="关闭上色工作台"><i class="fas fa-times"></i></button>
-                </header>
-                <div class="p-4 min-h-0 overflow-y-auto custom-scrollbar">
-                    <div class="meeow-paint-canvas-wrap">
-                        <canvas ref="catPaintCanvas" class="meeow-paint-canvas" @pointerdown.prevent="handleCatPaintPointerDown" @pointermove.prevent="handleCatPaintPointerMove" @pointerup.prevent="finishCatPaintStroke" @pointercancel.prevent="finishCatPaintStroke" @pointerleave="finishCatPaintStroke"></canvas>
-                    </div>
-                    <p class="mt-2 text-[9px] text-center" style="color: var(--ui-text-muted);">只会涂到小猫本体；深色线稿会自动保留。</p>
-                    <div class="mt-3 grid grid-cols-3 gap-2">
-                        <button type="button" @click="catPaintTool = 'fill'" class="meeow-paint-tool sully-btn rounded-xl px-2 py-2 text-[10px] font-black" :class="{'is-active': catPaintTool === 'fill'}" style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-border);"><i class="fas fa-fill-drip mr-1"></i>填色桶</button>
-                        <button type="button" @click="catPaintTool = 'brush'" class="meeow-paint-tool sully-btn rounded-xl px-2 py-2 text-[10px] font-black" :class="{'is-active': catPaintTool === 'brush'}" style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-border);"><i class="fas fa-pen mr-1"></i>像素笔</button>
-                        <button type="button" @click="catPaintTool = 'eraser'" class="meeow-paint-tool sully-btn rounded-xl px-2 py-2 text-[10px] font-black" :class="{'is-active': catPaintTool === 'eraser'}" style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-border);"><i class="fas fa-eraser mr-1"></i>恢复白底</button>
-                    </div>
-                    <div class="mt-3 flex items-center gap-3 rounded-xl p-3" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border);">
-                        <label class="flex items-center gap-2 text-[10px] font-black" style="color: var(--ui-text);">颜色 <input v-model="catPaintColor" type="color" class="w-9 h-8 rounded cursor-pointer" aria-label="上色颜色"></label>
-                        <label class="flex-1 text-[9px] font-bold" style="color: var(--ui-text-muted);">笔刷 {{ catPaintBrushSize }} px<input v-model.number="catPaintBrushSize" type="range" min="1" max="20" class="mt-1 w-full" :disabled="catPaintTool !== 'brush'"></label>
-                    </div>
-                </div>
-                <footer class="px-4 py-4 shrink-0 grid grid-cols-3 gap-2.5" style="border-top: 1px solid var(--ui-border); background: var(--ui-surface-strong);">
-                    <button type="button" @click="undoCatPaint" :disabled="!catPaintHistory.length" class="sully-btn rounded-xl py-2.5 text-[10px] font-black disabled:opacity-40" style="background: var(--ui-surface-hover); color: var(--ui-text);"><i class="fas fa-rotate-left mr-1"></i>撤销</button>
-                    <button type="button" @click="resetCatPaint" class="sully-btn rounded-xl py-2.5 text-[10px] font-black" style="background: var(--ui-surface-hover); color: var(--ui-text);">恢复底图</button>
-                    <button type="button" @click="saveCatPaint" class="sully-btn rounded-xl py-2.5 text-[10px] font-black" style="background: var(--accent); color: var(--ui-button-text);"><i class="fas fa-floppy-disk mr-1"></i>保存</button>
                 </footer>
             </section>
         </div>
@@ -7828,7 +7791,7 @@
         </div>
 
         <!-- Focus Setup Modal -->
-        <div v-if="showFocusSetupModal" class="meeow-focus-setup fixed inset-0 z-[100] flex items-center justify-center p-4"
+        <div v-if="showFocusSetupModal" class="meeow-focus-setup fixed inset-0 z-[1600] flex items-center justify-center p-4"
             @click.self="showFocusSetupModal = false">
             <div
                 class="meeow-focus-setup-card rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
@@ -7865,7 +7828,7 @@
                             class="text-center text-gray-500 text-sm py-4 bg-zinc-800 rounded-lg border border-zinc-700 border-dashed">
                             所有成员都在外出中，暂时无法监督。
                         </div>
-                        <div v-else class="grid grid-cols-3 gap-3">
+                        <div v-else class="meeow-focus-cat-picker grid grid-cols-3 gap-3 custom-scrollbar">
                             <div v-for="cat in availableCatsForFocus" :key="cat.id" @click="toggleFocusCat(cat)"
                                 class="relative cursor-pointer rounded-xl border-2 transition-all duration-200 overflow-hidden group"
                                 :class="focusSetupData.selectedCatIds.includes(cat.id) ? 'border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'border-zinc-700 hover:border-zinc-500'">
@@ -7897,25 +7860,27 @@
         </div>
 
         <!-- Focus UI -->
-        <div v-if="isFocusing" class="meeow-focus-screen fixed inset-0 z-[60] flex flex-col">
+        <div v-if="isFocusing" class="meeow-focus-screen fixed inset-0 z-[1300] flex flex-col">
             <div class="meeow-focus-screen-texture absolute inset-0 pointer-events-none"></div>
             <div class="meeow-focus-header relative z-10 flex flex-col items-center">
-                <div class="flex justify-center flex-wrap gap-2 mb-4">
-                    <div v-for="cat in focusCats" :key="cat.id" class="flex flex-col items-center">
+                <div class="meeow-focus-summary">
+                    <div class="meeow-focus-supervisors mb-2">
+                    <div v-for="cat in focusCats" :key="cat.id" class="meeow-focus-supervisor">
                         <img :src="getCatAvatarSource(cat)"
-                            class="meeow-focus-cat-avatar w-16 h-16 rounded-full border-2 object-contain mb-1">
+                            class="meeow-focus-cat-avatar w-10 h-10 rounded-full border-2 object-contain mb-0.5">
                         <span class="text-[10px] text-gray-300">{{ cat.name }}</span>
                     </div>
                 </div>
-                <h2 class="text-xl font-bold text-white">联合监督中 <span class="text-xs font-normal text-gray-400">({{
+                <h2 class="text-base font-bold text-white text-center">联合监督中 <span class="text-xs font-normal text-gray-400">({{
                         focusCats.length }}只)</span></h2>
-                <div class="w-full text-center px-4 mt-2 mb-6 max-h-20 overflow-y-auto custom-scrollbar">
-                    <p class="text-yellow-600 text-lg font-bold tracking-wider leading-relaxed break-words uppercase">
+                <div class="w-full text-center px-2 mt-1 max-h-12 overflow-y-auto custom-scrollbar">
+                    <p class="text-yellow-600 text-sm font-bold tracking-wider leading-relaxed break-words uppercase">
                         MISSION: {{ cleanText(focusAction) }}</p>
+                </div>
                 </div>
             </div>
             <div class="meeow-focus-main relative z-10 flex flex-col items-center justify-center flex-1 min-h-0">
-                <div class="text-7xl font-mono font-bold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] mb-2">
+                <div class="meeow-focus-timer text-7xl font-mono font-bold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] mb-2">
                     {{ formatTime(focusTime) }}</div>
                 <div class="text-gray-500 text-xs font-mono mb-6">TARGET: {{ formatTime(focusTotalTime) }}</div>
                 <div class="meeow-focus-log w-full rounded-lg p-3 overflow-y-auto custom-scrollbar mb-4 relative">
@@ -7954,52 +7919,13 @@
                         </button>
                     </div>
                 </div>
-                <div class="focus-music-player rounded-xl p-3">
-                    <div class="flex items-center justify-between gap-2">
-                        <div>
-                            <div class="text-xs font-extrabold"><i class="fas fa-headphones mr-1.5"></i>专注音乐</div>
-                            <div class="text-[9px] mt-0.5" style="color: var(--ui-text-subtle)">{{ currentFocusMusicTrack ? currentFocusMusicTrack.title : '还没有加入曲目' }}</div>
-                        </div>
-                        <button @click="focusMusic.expanded = !focusMusic.expanded" class="focus-music-toggle px-2.5 py-1.5 rounded-lg text-[10px] font-bold">
-                            {{ focusMusic.expanded ? '收起' : '打开播放列表' }}
-                        </button>
-                    </div>
-                    <div v-if="focusMusic.expanded" class="mt-3 space-y-2.5">
-                        <div v-if="currentFocusMusicTrack" class="space-y-1.5">
-                            <div class="flex items-center gap-2">
-                                <button @click="toggleFocusMusic" class="focus-music-play w-9 h-9 rounded-lg shrink-0"><i :class="isFocusMusicPlaying ? 'fas fa-pause' : 'fas fa-play'"></i></button>
-                                <input type="range" min="0" :max="Math.max(1, focusMusic.duration)" :value="focusMusic.position" @input="seekFocusMusic" class="flex-1">
-                                <button @click="settings.focusMusicLoop = !settings.focusMusicLoop" class="focus-music-loop text-[10px] px-2 py-1 rounded-lg" :class="{ 'is-active': settings.focusMusicLoop }"><i class="fas fa-repeat"></i></button>
-                            </div>
-                            <div class="flex items-center gap-2 text-[9px]" style="color: var(--ui-text-subtle)">
-                                <span>{{ formatFocusMusicTime(focusMusic.position) }} / {{ formatFocusMusicTime(focusMusic.duration) }}</span>
-                                <label class="ml-auto flex items-center gap-1">音量 <input type="range" min="0" max="1" step="0.05" v-model.number="settings.focusMusicVolume" @input="syncFocusMusicVolume" class="w-20"></label>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-[1fr_auto] gap-2">
-                            <input v-model.trim="focusMusic.draftUrl" placeholder="https 音频直链" class="focus-music-input rounded-lg px-2 py-2 text-[10px]">
-                            <button @click="addFocusMusicUrl" class="focus-music-add rounded-lg px-2 text-[10px] font-bold">加入</button>
-                        </div>
-                        <input v-model.trim="focusMusic.draftTitle" placeholder="曲目名称（可选）" class="focus-music-input w-full rounded-lg px-2 py-2 text-[10px]">
-                        <label class="focus-music-upload rounded-lg py-2 text-center text-[10px] font-bold block cursor-pointer"><i class="fas fa-file-audio mr-1"></i>上传本地音频<input type="file" accept="audio/*" class="hidden" @change="handleFocusMusicUpload"></label>
-                        <div class="focus-music-search rounded-lg p-2">
-                            <label class="text-[9px] font-bold block mb-1">音乐搜索服务（可选）</label>
-                            <input v-model.trim="settings.musicSearchEndpoint" placeholder="https://你的服务/search" class="focus-music-input w-full rounded-lg px-2 py-2 text-[10px]">
-                            <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
-                                <input v-model.trim="focusMusic.searchQuery" @keyup.enter="searchFocusMusic" placeholder="搜索曲目（需先配置服务）" class="focus-music-input rounded-lg px-2 py-2 text-[10px]">
-                                <button @click="searchFocusMusic" :disabled="focusMusic.isSearching" class="focus-music-add rounded-lg px-2 text-[10px] font-bold">搜索</button>
-                            </div>
-                            <p class="text-[8px] mt-1" style="color: var(--ui-text-subtle)">服务需返回音频 HTTPS URL；未配置时仅支持本地上传和直链。</p>
-                            <button v-for="item in focusMusic.searchResults" :key="item.url" @click="addFocusMusicTrack(item)" class="w-full text-left mt-1.5 px-2 py-1.5 rounded-lg text-[10px] focus-music-result"><b>{{ item.title }}</b><span v-if="item.artist"> · {{ item.artist }}</span></button>
-                        </div>
-                        <div v-if="settings.focusMusicPlaylist.length" class="max-h-24 overflow-y-auto custom-scrollbar space-y-1">
-                            <div v-for="(track, index) in settings.focusMusicPlaylist" :key="track.id || track.url" class="flex items-center gap-2 p-1.5 rounded-lg focus-music-track" :class="{ 'is-current': focusMusic.currentIndex === index }">
-                                <button @click="playFocusMusic(index)" class="flex-1 min-w-0 text-left truncate text-[10px]">{{ track.title || '未命名曲目' }}</button>
-                                <button @click="removeFocusMusic(index)" class="text-[10px] px-1.5" aria-label="移除曲目"><i class="fas fa-xmark"></i></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <button type="button" @click="openFocusMusicModal" class="focus-music-entry">
+                    <span class="min-w-0 text-left">
+                        <b class="block text-xs"><i class="fas fa-headphones mr-1.5"></i>专注音乐</b>
+                        <small class="block truncate text-[9px]" style="color: var(--ui-text-subtle)">{{ currentFocusMusicTrack ? currentFocusMusicTrack.title : '点击打开音乐列表' }}</small>
+                    </span>
+                    <span class="text-[10px] font-black" style="color: var(--accent);">{{ settings.focusMusicPlaylist.length }} 首</span>
+                </button>
                 <div class="grid grid-cols-2 gap-3">
                     <button @click="harassCat"
                         class="meeow-focus-action py-3 rounded-lg text-sm font-bold transition flex items-center justify-center"><i
@@ -8010,6 +7936,71 @@
                 <div v-if="focusMessage"
                     class="meeow-focus-toast absolute bottom-36 left-0 right-0 mx-auto w-max max-w-[90%] px-4 py-2 rounded-full text-xs animate-bounce shadow-lg text-center z-20">
                     {{ cleanText(focusMessage) }}</div>
+            </div>
+        </div>
+
+        <div v-if="focusMusic.modalOpen" class="focus-music-modal-overlay" @click.self="focusMusic.modalOpen = false">
+            <div class="focus-music-modal-card">
+                <header class="px-5 py-4 flex items-center justify-between border-b" style="border-color: var(--ui-border);">
+                    <div>
+                        <h3 class="text-base font-black"><i class="fas fa-headphones mr-2" style="color: var(--accent);"></i>专注音乐</h3>
+                        <p class="text-[10px] mt-1" style="color: var(--ui-text-subtle);">播放列表、上传和搜索都放在这里，不再挤占专注主界面。</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" class="focus-music-add rounded-full w-9 h-9 text-sm font-black" @click="focusMusic.addPanel = !focusMusic.addPanel" aria-label="添加音乐"><i class="fas fa-plus"></i></button>
+                        <button type="button" class="focus-music-toggle rounded-full w-9 h-9 text-sm font-black" @click="focusMusic.modalOpen = false" aria-label="关闭音乐列表"><i class="fas fa-xmark"></i></button>
+                    </div>
+                </header>
+                <div class="focus-music-modal-body p-5 space-y-4 custom-scrollbar">
+                    <section v-if="currentFocusMusicTrack" class="focus-music-player rounded-xl p-3 space-y-2">
+                        <div class="flex items-center justify-between gap-3">
+                            <div class="min-w-0">
+                                <div class="text-xs font-black truncate">{{ currentFocusMusicTrack.title || '未命名曲目' }}</div>
+                                <div class="text-[9px] truncate" style="color: var(--ui-text-subtle);">{{ currentFocusMusicTrack.artist || '正在播放列表中' }}</div>
+                            </div>
+                            <button @click="toggleFocusMusic" class="focus-music-play w-10 h-10 rounded-xl shrink-0"><i :class="isFocusMusicPlaying ? 'fas fa-pause' : 'fas fa-play'"></i></button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="range" min="0" :max="Math.max(1, focusMusic.duration)" :value="focusMusic.position" @input="seekFocusMusic" class="flex-1">
+                            <button @click="settings.focusMusicLoop = !settings.focusMusicLoop" class="focus-music-loop text-[10px] px-2 py-1 rounded-lg" :class="{ 'is-active': settings.focusMusicLoop }"><i class="fas fa-repeat"></i></button>
+                        </div>
+                        <div class="flex items-center gap-2 text-[9px]" style="color: var(--ui-text-subtle)">
+                            <span>{{ formatFocusMusicTime(focusMusic.position) }} / {{ formatFocusMusicTime(focusMusic.duration) }}</span>
+                            <label class="ml-auto flex items-center gap-1">音量 <input type="range" min="0" max="1" step="0.05" v-model.number="settings.focusMusicVolume" @input="syncFocusMusicVolume" class="w-20"></label>
+                        </div>
+                    </section>
+                    <section v-else class="focus-music-player rounded-xl p-4 text-center text-xs" style="color: var(--ui-text-muted);">
+                        还没有播放中的曲目。点右上角 + 添加本地音频、HTTPS 直链或搜索服务结果。
+                    </section>
+                    <section v-if="focusMusic.addPanel" class="focus-music-player rounded-xl p-3 space-y-3">
+                        <div class="grid grid-cols-[1fr_auto] gap-2">
+                            <input v-model.trim="focusMusic.draftUrl" placeholder="https 音频直链" class="focus-music-input rounded-lg px-2 py-2 text-[10px]">
+                            <button @click="addFocusMusicUrl" class="focus-music-add rounded-lg px-3 text-[10px] font-bold">加入</button>
+                        </div>
+                        <input v-model.trim="focusMusic.draftTitle" placeholder="曲目名称（可选）" class="focus-music-input w-full rounded-lg px-2 py-2 text-[10px]">
+                        <label class="focus-music-upload rounded-lg py-2 text-center text-[10px] font-bold block cursor-pointer"><i class="fas fa-file-audio mr-1"></i>上传本地音频<input type="file" accept="audio/*" class="hidden" @change="handleFocusMusicUpload"></label>
+                        <div class="focus-music-search rounded-lg p-2">
+                            <label class="text-[9px] font-bold block mb-1">音乐搜索服务（可选）</label>
+                            <input v-model.trim="settings.musicSearchEndpoint" placeholder="https://你的服务/search" class="focus-music-input w-full rounded-lg px-2 py-2 text-[10px]">
+                            <div class="grid grid-cols-[1fr_auto] gap-2 mt-2">
+                                <input v-model.trim="focusMusic.searchQuery" @keyup.enter="searchFocusMusic" placeholder="搜索曲目（需先配置服务）" class="focus-music-input rounded-lg px-2 py-2 text-[10px]">
+                                <button @click="searchFocusMusic" :disabled="focusMusic.isSearching" class="focus-music-add rounded-lg px-3 text-[10px] font-bold">搜索</button>
+                            </div>
+                            <p class="text-[8px] mt-1" style="color: var(--ui-text-subtle)">搜索服务需要你自己配置一个返回 HTTPS 音频 URL 的合法接口；未配置时不会静默失败。</p>
+                            <button v-for="item in focusMusic.searchResults" :key="item.url" @click="addFocusMusicTrack(item)" class="w-full text-left mt-1.5 px-2 py-1.5 rounded-lg text-[10px] focus-music-result"><b>{{ item.title }}</b><span v-if="item.artist"> · {{ item.artist }}</span></button>
+                        </div>
+                    </section>
+                    <section class="space-y-1.5">
+                        <div class="text-[10px] font-black" style="color: var(--ui-text-muted);">播放列表</div>
+                        <div v-if="!settings.focusMusicPlaylist.length" class="text-center text-xs py-6 rounded-xl" style="background: var(--ui-surface-soft); color: var(--ui-text-subtle);">还没有曲目</div>
+                        <div v-else class="max-h-52 overflow-y-auto custom-scrollbar space-y-1.5">
+                            <div v-for="(track, index) in settings.focusMusicPlaylist" :key="track.id || track.url" class="flex items-center gap-2 p-2 rounded-lg focus-music-track" :class="{ 'is-current': focusMusic.currentIndex === index }">
+                                <button @click="playFocusMusic(index)" class="flex-1 min-w-0 text-left truncate text-[11px]"><i class="fas fa-music mr-1" style="color: var(--accent);"></i>{{ track.title || '未命名曲目' }}</button>
+                                <button @click="removeFocusMusic(index)" class="text-[10px] px-2" aria-label="移除曲目"><i class="fas fa-xmark"></i></button>
+                            </div>
+                        </div>
+                    </section>
+                </div>
             </div>
         </div>
 
@@ -8416,6 +8407,7 @@
                     indeterminate: false
                 });
                 const STORAGE_KEY = 'gotham_save_main';
+                const MODEL_STORAGE_KEY = 'gotham_selected_model';
                 const OLD_KEYS = ['gotham_data_v6_3', 'gotham_data_v6_2', 'gotham_data_v6_1'];
                 // Explicit local-day completion marker.  The older
                 // `last_diary_date` / `last_login_date` values use a locale
@@ -8638,9 +8630,7 @@
                     focusMusicVolume: 0.7,
                     focusMusicLoop: true,
                     musicSearchEndpoint: '',
-                    // Shared transparent white-cat line art for the manual paint studio.
-                    // The file itself lives in IndexedDB; this is only its stable descriptor.
-                    meeowPaintBase: { assetId: '', fileName: '', width: 0, height: 0, version: 0, updatedAt: '' }
+                    sharedCatTemplate: null
                 };
 
                 let savedData = localStorage.getItem(STORAGE_KEY);
@@ -8657,38 +8647,16 @@
 
                 const user = reactive(initialUser);
                 const settings = reactive(initialSettings);
+                // Keep the small, high-value model choice outside the large
+                // archive as well. A quota error in the archive must not force
+                // the next request back to the default model.
+                try {
+                    const standaloneModel = localStorage.getItem(MODEL_STORAGE_KEY);
+                    if (standaloneModel?.trim()) settings.model = standaloneModel.trim();
+                } catch (error) { console.warn('Unable to restore selected model', error); }
                 const cats = ref(initialCats);
                 const halls = ref(DEFAULT_HALLS.map(hall => ({ ...hall })));
                 const shopItems = ref(initialShopItems);
-
-                // Map-only, full-body quadruped appearance. This deliberately does
-                // not touch a cat's existing profile image or user-uploaded sprites.
-                const normalizeMeeowBaseColor = (color, fallback) => /^#[0-9a-f]{6}$/i.test(String(color || '').trim()) ? String(color).trim() : fallback;
-                const MEEOW_BASE_MARKING_STYLES = ['solid', 'socks', 'tuxedo', 'tabby', 'patches', 'mask'];
-                const MEEOW_BASE_TAIL_STYLES = ['straight', 'fluffy', 'curl', 'short'];
-                const createMeeowBaseAppearance = (cat = {}) => ({
-                    version: 1,
-                    markingStyle: 'solid',
-                    tailStyle: 'straight',
-                    colors: {
-                        coat: normalizeMeeowBaseColor(cat.color, '#8b604b'),
-                        undercoat: '#f3e4d2',
-                        innerEar: '#df9f9f',
-                        outline: '#352b2e',
-                        marking: '#5d4037',
-                        eyeLeft: '#7cb7a8',
-                        eyeRight: '#7cb7a8'
-                    }
-                });
-                const normalizeMeeowBaseAppearance = (raw, cat = {}) => {
-                    const base = createMeeowBaseAppearance(cat);
-                    const source = raw && typeof raw === 'object' ? raw : {};
-                    const colors = source.colors && typeof source.colors === 'object' ? source.colors : {};
-                    Object.keys(base.colors).forEach((key) => { base.colors[key] = normalizeMeeowBaseColor(colors[key], base.colors[key]); });
-                    base.markingStyle = MEEOW_BASE_MARKING_STYLES.includes(source.markingStyle) ? source.markingStyle : base.markingStyle;
-                    base.tailStyle = MEEOW_BASE_TAIL_STYLES.includes(source.tailStyle) ? source.tailStyle : base.tailStyle;
-                    return base;
-                };
 
                 const normalizeCatHall = (cat) => {
                     const id = String(cat.id);
@@ -8717,17 +8685,13 @@
                         diary: Array.isArray(cat.diary) ? cat.diary : [],
                         logs: Array.isArray(cat.logs) ? cat.logs : [],
                         chatHistory: Array.isArray(cat.chatHistory) ? cat.chatHistory : [],
-                        // Legacy avatar fields remain readable for old saves, but the
-                        // current map deliberately uses only a hand-painted cat PNG.
+                        // User-uploaded full-body action sprites are independent from
+                        // the paused in-house pixel workshop. Only a saved standing
+                        // sprite can replace the normal profile image.
                         spriteAssets: cat.spriteAssets && typeof cat.spriteAssets === 'object' ? cat.spriteAssets : {},
-                        avatarMode: 'image',
-                        meeowBaseAppearance: normalizeMeeowBaseAppearance(cat.meeowBaseAppearance, { ...cat, ...migratedIdentity }),
+                        avatarMode: cat.avatarMode === 'sprite' && cat.spriteAssets?.stand?.assetId ? 'sprite' : 'image',
                         pixelAvatar: cat.pixelAvatar && typeof cat.pixelAvatar === 'object' ? cat.pixelAvatar : null,
-                        paintedMapAvatar: cat.paintedMapAvatar && typeof cat.paintedMapAvatar === 'object' && cat.paintedMapAvatar.assetId ? {
-                            assetId: String(cat.paintedMapAvatar.assetId),
-                            baseVersion: Number(cat.paintedMapAvatar.baseVersion || 0),
-                            updatedAt: cat.paintedMapAvatar.updatedAt || ''
-                        } : null,
+                        catPaint: cat.catPaint && typeof cat.catPaint === 'object' ? cat.catPaint : null,
                         lastStatusUpdateTime: cat.lastStatusUpdateTime || 0,
                         isVisiting: Boolean(cat.isVisiting),
                         visitOriginHallId: cat.visitOriginHallId || null,
@@ -8795,16 +8759,21 @@
                             }
                         }
                         if (parsed.settings) {
-                            if (parsed.settings.model && parsed.settings.model.includes('gpt')) {
-                                parsed.settings.model = 'gemini-3-flash-preview';
-                                parsed.settings.baseUrl = '';
-                            }
+                            // Keep a saved custom model. Older versions replaced
+                            // any model containing "gpt" during migration, which
+                            // forced users to refresh and reselect after every load.
                             Object.assign(settings, parsed.settings);
+                            if (settings.baseUrl) settings.baseUrl = String(settings.baseUrl).trim().replace(/\/+$/, '');
+                            if (!settings.model) settings.model = initialSettings.model;
                             if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
                             settings.focusMusicVolume = Math.max(0, Math.min(1, Number(settings.focusMusicVolume ?? 0.7)));
                             settings.focusMusicLoop = settings.focusMusicLoop !== false;
                             settings.musicSearchEndpoint = typeof settings.musicSearchEndpoint === 'string' ? settings.musicSearchEndpoint : '';
                         }
+                        try {
+                            const standaloneModel = localStorage.getItem(MODEL_STORAGE_KEY);
+                            if (standaloneModel?.trim()) settings.model = standaloneModel.trim();
+                        } catch (error) { console.warn('Unable to restore standalone model', error); }
                         if (parsed.cats && parsed.cats.length > 0) cats.value = parsed.cats;
                         if (parsed.halls && parsed.halls.length > 0) halls.value = parsed.halls;
                         if (parsed.shopItems && parsed.shopItems.length > 0) shopItems.value = parsed.shopItems;
@@ -9070,68 +9039,69 @@
                 const storedHallDisplayMode = localStorage.getItem('meeow_hall_display_mode');
                 const hallDisplayMode = ref((storedHallDisplayMode || settings.hallDisplayMode) === 'map' ? 'map' : 'text');
                 const mapPreviewCat = ref(null);
-                // Every room uses one 1024 × 1024 source image. Bounds are percentage
-                // values derived from the Photoshop anchor sheet, not CSS right/bottom
-                // offsets, so cats remain stable when the mobile viewport changes.
-                const DORM_FURNITURE_LAYERS = [
-                    { id: 'carpet', name: '地毯', src: 'assets/meeow-map/dorm/carpet.png', layer: 'floor' },
-                    { id: 'cushion-a', name: '花朵软垫', src: 'assets/meeow-map/dorm/cushion-a.png', layer: 'floor' },
-                    { id: 'cushion-b', name: '格纹软垫', src: 'assets/meeow-map/dorm/cushion-b.png', layer: 'floor' },
-                    { id: 'window', name: '窗户', src: 'assets/meeow-map/dorm/window.png', layer: 'back' },
-                    { id: 'cat-climber', name: '猫爬架', src: 'assets/meeow-map/dorm/cat-climber.png', layer: 'front' },
-                    { id: 'shelf', name: '衣柜', src: 'assets/meeow-map/dorm/shelf.png', layer: 'front' },
-                    { id: 'cat-house', name: '猫屋', src: 'assets/meeow-map/dorm/cat-house.png', layer: 'front' }
-                ];
-                // Coordinates are feet anchors on the 1024 × 1024 dorm artwork.
-                // Legacy mapSpot values remain valid and resolve to these safe surfaces.
-                const DORM_CAT_ANCHORS = {
-                    window: { points: [[350, 287], [435, 287]] },
-                    tree: { points: [[300, 355], [305, 510], [180, 690]] },
-                    wardrobe: { points: [[710, 530], [790, 530]], isFront: true },
-                    nest: { points: [[755, 925], [810, 925]], isFront: true },
-                    cushion: { points: [[165, 935], [440, 925]] }
-                };
+                const showMapPointLabels = ref(localStorage.getItem('meeow_show_map_points') === '1');
+                const makeMapPoint = (id, name, furnitureId, description, anchors, options = {}) => ({
+                    id,
+                    name,
+                    furnitureId,
+                    description,
+                    depth: options.depth || 'surface',
+                    labelOffset: options.labelOffset || [0, 8],
+                    aliases: options.aliases || [],
+                    occlusionProfile: options.occlusionProfile || null,
+                    region: options.region || null,
+                    anchors
+                });
                 const MAP_ROOM_DEFINITIONS = [
-                    { id: 'dorm', name: '小猫宿舍', icon: 'fas fa-bed', backgroundAsset: 'assets/meeow-map/dorm/background.png', isLayered: true, furnitureLayers: DORM_FURNITURE_LAYERS, zones: [
-                        { id: 'wardrobe', name: '衣柜', icon: 'fas fa-door-closed', bounds: { x: 8.1, y: 31, width: 15, height: 22 } },
-                        { id: 'window', name: '窗边', icon: 'fas fa-sun', bounds: { x: 70.1, y: 25.2, width: 20, height: 20 } },
-                        { id: 'tree', name: '猫爬架', icon: 'fas fa-tree', bounds: { x: 64.2, y: 44.6, width: 20, height: 25 } },
-                        { id: 'nest', name: '猫窝', icon: 'fas fa-circle', bounds: { x: 11.5, y: 64.2, width: 20, height: 20 } },
-                        { id: 'cushion', name: '软垫', icon: 'fas fa-bed', bounds: { x: 36.8, y: 74.1, width: 24, height: 14, borderRadius: '999px' } }
+                    { id: 'dorm', name: '小猫宿舍', icon: 'fas fa-bed', groundLayers: ['carpet', 'cushion-a', 'cushion-b'], foregroundLayers: ['window', 'cat-climber', 'shelf', 'cat-house'], zones: [
+                        makeMapPoint('window-sill', '窗台', 'window', '窗边/窗台/晒太阳的位置', [{ x: 350, y: 287 }, { x: 435, y: 287 }], { aliases: ['window'] }),
+                        makeMapPoint('cat-tree-top', '猫爬架顶层', 'cat-climber', '猫爬架花朵顶层或最高处', [{ x: 140, y: 352 }, { x: 250, y: 352 }], { aliases: ['tree-top'] }),
+                        makeMapPoint('cat-tree-high', '猫爬架高台', 'cat-climber', '猫爬架中上层高台', [{ x: 305, y: 510 }, { x: 370, y: 510 }], { aliases: ['tree-platform'] }),
+                        makeMapPoint('cat-tree-low', '猫爬架底层', 'cat-climber', '猫爬架底层/斜坡/抓挠活动处', [{ x: 180, y: 690 }, { x: 285, y: 690 }], { aliases: ['tree-base', 'tree', 'cat-tree'] }),
+                        makeMapPoint('wardrobe-top', '柜顶', 'shelf', '衣柜或柜子顶面', [{ x: 720, y: 320 }, { x: 835, y: 320 }], { aliases: ['wardrobe'], region: { x: 610, y: 265, width: 280, height: 70 } }),
+                        makeMapPoint('wardrobe-under', '柜子底', 'shelf', '衣柜底部阴影和柜脚附近', [{ x: 760, y: 600 }], { aliases: ['wardrobe-under'], occlusionProfile: 'wardrobe-front', region: { x: 635, y: 535, width: 250, height: 100 } }),
+                        makeMapPoint('dorm-carpet', '地毯', 'carpet', '宿舍地毯区域', [{ x: 650, y: 735 }, { x: 805, y: 740 }], { aliases: ['carpet'], region: { x: 470, y: 560, width: 405, height: 220 } }),
+                        makeMapPoint('flower-cushion', '花朵软垫', 'cushion-a', '花朵形状软垫，默认软垫点位', [{ x: 165, y: 935 }], { aliases: ['cushion-a', 'cushion'], region: { x: 70, y: 850, width: 230, height: 135 } }),
+                        makeMapPoint('gingham-cushion', '格纹软垫', 'cushion-b', '绿色格纹软垫', [{ x: 440, y: 925 }], { aliases: ['cushion-b'], region: { x: 335, y: 855, width: 225, height: 120 } }),
+                        makeMapPoint('cat-house-door', '猫屋入口', 'cat-house', '猫屋入口和猫窝内侧', [{ x: 770, y: 925 }], { aliases: ['nest'] })
                     ] },
-                    { id: 'living', name: '客厅', icon: 'fas fa-couch', backgroundAsset: 'assets/meeow-map/living.png', zones: [
-                        { id: 'sofa', name: '沙发', icon: 'fas fa-couch', bounds: { x: 8.5, y: 35.4, width: 25, height: 18 } },
-                        { id: 'toy', name: '玩具区', icon: 'fas fa-baseball', bounds: { x: 65.7, y: 33.4, width: 23, height: 22 } },
-                        { id: 'scratch', name: '抓板', icon: 'fas fa-paw', bounds: { x: 9.1, y: 71.5, width: 16, height: 20 } },
-                        { id: 'rug', name: '地毯', icon: 'fas fa-square', bounds: { x: 37.3, y: 61.8, width: 24, height: 20, borderRadius: '999px' } },
-                        { id: 'bookshelf', name: '书架', icon: 'fas fa-book', bounds: { x: 74.5, y: 64.2, width: 17, height: 25 } }
+                    { id: 'living', name: '客厅', icon: 'fas fa-couch', groundLayers: ['carpet'], foregroundLayers: ['sofa', 'shelf', 'cat-toys', 'scratching-board-a', 'scratching-board-b'], zones: [
+                        makeMapPoint('bookshelf-top', '书柜顶', 'shelf', '左侧书柜顶部/最高处', [{ x: 190, y: 120 }, { x: 255, y: 120 }], { region: { x: 145, y: 80, width: 170, height: 70 } }),
+                        makeMapPoint('bookshelf-upper', '书架上层', 'shelf', '左侧书架上层隔板', [{ x: 185, y: 235 }, { x: 255, y: 235 }], { aliases: ['bookshelf'], region: { x: 105, y: 195, width: 215, height: 70 } }),
+                        makeMapPoint('bookshelf-middle', '书架中层', 'shelf', '左侧书架中层隔板', [{ x: 185, y: 330 }, { x: 255, y: 330 }], { region: { x: 105, y: 292, width: 215, height: 70 } }),
+                        makeMapPoint('sofa-seat', '沙发上', 'sofa', '沙发坐垫表面/坐垫右侧或中间', [{ x: 500, y: 410 }, { x: 620, y: 410 }], { aliases: ['sofa'], region: { x: 410, y: 345, width: 335, height: 85 } }),
+                        makeMapPoint('sofa-foot', '沙发脚', 'sofa', '沙发前方脚边地面', [{ x: 500, y: 495 }, { x: 640, y: 495 }], { region: { x: 400, y: 448, width: 360, height: 90 } }),
+                        makeMapPoint('living-rug', '客厅地毯', 'carpet', '客厅地毯中央和两侧', [{ x: 390, y: 690 }, { x: 560, y: 690 }], { aliases: ['rug'], region: { x: 240, y: 585, width: 405, height: 225 } }),
+                        makeMapPoint('toy-area', '玩具区', 'cat-toys', '右侧玩具垫、玩具盒和小玩具附近', [{ x: 760, y: 790 }, { x: 880, y: 790 }], { aliases: ['toy'], region: { x: 690, y: 690, width: 270, height: 255 } }),
+                        makeMapPoint('scratch-board', '抓板前', 'scratching-board-a', '左下竖向猫抓板前方', [{ x: 135, y: 835 }, { x: 160, y: 900 }], { aliases: ['scratch', 'scratch-board-front'], region: { x: 70, y: 735, width: 150, height: 220 } }),
+                        makeMapPoint('scratch-post-top', '右侧抓柱上', 'scratching-board-b', '右侧圆柱猫抓板顶部', [{ x: 845, y: 350 }], { aliases: ['scratch-post', 'scratch-column'], region: { x: 820, y: 310, width: 100, height: 65 } }),
+                        makeMapPoint('owner-feet', '馆长脚边', 'floor', '地图下方可见地面，表示在馆长脚边/身边', [{ x: 510, y: 905 }, { x: 600, y: 905 }], { region: { x: 405, y: 835, width: 280, height: 120 } })
                     ] },
-                    { id: 'dining', name: '餐厅', icon: 'fas fa-bowl-food', backgroundAsset: 'assets/meeow-map/dining.png', zones: [
-                        { id: 'food-cabinet', name: '猫粮柜', icon: 'fas fa-box', bounds: { x: 7.1, y: 29.5, width: 20, height: 25 } },
-                        { id: 'food-bowl', name: '食盆', icon: 'fas fa-bowl-food', bounds: { x: 29.5, y: 62.3, width: 24, height: 16, borderRadius: '999px' } },
-                        { id: 'water-bowl', name: '水碗', icon: 'fas fa-droplet', bounds: { x: 63.8, y: 51.5, width: 18, height: 18, borderRadius: '999px' } },
-                        { id: 'snack-shelf', name: '零食架', icon: 'fas fa-cookie-bite', bounds: { x: 73.5, y: 29.5, width: 18, height: 25 } },
-                        { id: 'table', name: '餐桌边', icon: 'fas fa-table', bounds: { x: 13.4, y: 73.5, width: 22, height: 16 } }
-                    ] },
-                    { id: 'litter', name: '猫砂间', icon: 'fas fa-toilet', backgroundAsset: 'assets/meeow-map/litter.png', zones: [
-                        { id: 'litter-a', name: '猫砂盆 A', icon: 'fas fa-box', bounds: { x: 11.5, y: 41, width: 20, height: 20 } },
-                        { id: 'litter-b', name: '猫砂盆 B', icon: 'fas fa-box', bounds: { x: 62, y: 41, width: 20, height: 20 } },
-                        { id: 'deodorizer', name: '除味区', icon: 'fas fa-wind', bounds: { x: 39.8, y: 33.5, width: 20, height: 18 } },
-                        { id: 'cleaning', name: '清洁柜', icon: 'fas fa-spray-can-sparkles', bounds: { x: 8.1, y: 72, width: 18, height: 20 } },
-                        { id: 'waiting-mat', name: '等候垫', icon: 'fas fa-bed', bounds: { x: 68.6, y: 72, width: 20, height: 18, borderRadius: '999px' } }
-                    ] },
-                    { id: 'bath', name: '浴室', icon: 'fas fa-bath', backgroundAsset: 'assets/meeow-map/bath.png', zones: [
-                        { id: 'sink', name: '洗手台', icon: 'fas fa-faucet', bounds: { x: 7.6, y: 30.5, width: 20, height: 24 } },
-                        { id: 'tub', name: '浴盆', icon: 'fas fa-bath', bounds: { x: 65.2, y: 31.5, width: 20, height: 24 } },
-                        { id: 'dryer', name: '吹干区', icon: 'fas fa-wind', bounds: { x: 38.5, y: 56, width: 22, height: 20 } },
-                        { id: 'towel', name: '毛巾架', icon: 'fas fa-shirt', bounds: { x: 7.6, y: 72, width: 18, height: 20 } },
-                        { id: 'laundry', name: '洗衣篮', icon: 'fas fa-basket-shopping', bounds: { x: 73.2, y: 72.2, width: 18, height: 20 } }
+                    { id: 'dining', name: '餐厅', icon: 'fas fa-utensils', groundLayers: [], foregroundLayers: ['fridge', 'wash-basin', 'hearth', 'kitchen-island', 'foodshelf', 'chair-a', 'chair-b', 'table', 'water-bowl', 'food-bowl'], zones: [
+                        makeMapPoint('fridge-top', '冰箱顶上', 'fridge', '左侧冰箱顶部', [{ x: 150, y: 170 }], { aliases: ['fridge-top'], region: { x: 45, y: 70, width: 220, height: 95 } }),
+                        makeMapPoint('fridge-side', '冰箱旁', 'fridge', '冰箱右侧和柜台旁', [{ x: 285, y: 505 }], { aliases: ['fridge'], region: { x: 250, y: 430, width: 120, height: 130 } }),
+                        makeMapPoint('food-cabinet-top', '猫粮柜顶上', 'foodshelf', '右侧猫粮柜顶部', [{ x: 900, y: 170 }], { aliases: ['food-cabinet-top'], region: { x: 790, y: 70, width: 220, height: 95 } }),
+                        makeMapPoint('food-cabinet', '猫粮柜', 'foodshelf', '右侧猫粮柜和粮袋附近', [{ x: 900, y: 500 }, { x: 900, y: 590 }], { aliases: ['snack-shelf'], region: { x: 800, y: 330, width: 200, height: 230 } }),
+                        makeMapPoint('sink-basin', '水池里', 'wash-basin', '水池/水槽盆里', [{ x: 410, y: 325 }], { aliases: ['sink', 'sink-basin'], occlusionProfile: 'sink-rim', region: { x: 325, y: 285, width: 165, height: 80 } }),
+                        makeMapPoint('cabinet-top', '柜子顶部', 'kitchen-island', '厨房柜台/柜子顶部', [{ x: 620, y: 330 }, { x: 710, y: 330 }], { aliases: ['cabinet-top', 'countertop'], region: { x: 560, y: 285, width: 210, height: 75 } }),
+                        makeMapPoint('cabinet-under', '柜子底', 'kitchen-island', '厨房岛台柜子底部/柜脚阴影', [{ x: 610, y: 585 }, { x: 710, y: 585 }], { aliases: ['cabinet-under'], occlusionProfile: 'cabinet-front', region: { x: 500, y: 515, width: 270, height: 110 } }),
+                        makeMapPoint('kitchen-island-front', '厨房岛台前', 'kitchen-island', '厨房岛台前方地面，不是炉灶', [{ x: 455, y: 505 }, { x: 625, y: 505 }], { aliases: ['kitchen-island'], region: { x: 340, y: 470, width: 390, height: 115 } }),
+                        makeMapPoint('table-under-left', '左侧桌下', 'table', '餐桌左侧桌下地面', [{ x: 145, y: 700 }], { aliases: ['under-table'], occlusionProfile: 'table-front', region: { x: 60, y: 620, width: 205, height: 125 } }),
+                        makeMapPoint('table-under-right', '右侧桌下', 'table', '餐桌右侧桌下地面', [{ x: 390, y: 700 }], { occlusionProfile: 'table-front', region: { x: 300, y: 620, width: 205, height: 125 } }),
+                        makeMapPoint('table-edge', '桌边地面', 'table', '餐桌边缘附近地面', [{ x: 270, y: 800 }, { x: 420, y: 800 }], { aliases: ['table'], region: { x: 100, y: 720, width: 410, height: 120 } }),
+                        makeMapPoint('chair-left', '左椅', 'chair-a', '左侧餐椅椅面', [{ x: 105, y: 675 }], { aliases: ['chair'], occlusionProfile: 'table-front', region: { x: 55, y: 595, width: 115, height: 115 } }),
+                        makeMapPoint('chair-right', '右椅', 'chair-b', '右侧餐椅椅面', [{ x: 390, y: 675 }], { occlusionProfile: 'table-front', region: { x: 345, y: 595, width: 115, height: 115 } }),
+                        makeMapPoint('water-bowl', '水碗', 'water-bowl', '底部一排水碗', [{ x: 560, y: 785 }, { x: 685, y: 785 }, { x: 810, y: 785 }, { x: 935, y: 785 }], { region: { x: 515, y: 725, width: 445, height: 90 } }),
+                        makeMapPoint('food-bowl', '食盆', 'food-bowl', '底部一排食盆', [{ x: 560, y: 900 }, { x: 685, y: 900 }, { x: 810, y: 900 }, { x: 935, y: 900 }], { region: { x: 515, y: 850, width: 445, height: 95 } })
                     ] }
                 ];
+                const getMapAssetPath = (roomId, layer) => `assets/meeow-map/${roomId}/${layer}.png`;
                 const savedMapRoom = localStorage.getItem('meeow_active_map_room');
                 const activeMapRoom = ref(MAP_ROOM_DEFINITIONS.some(room => room.id === savedMapRoom) ? savedMapRoom : 'living');
+                const getZonePrimaryAnchor = (zone) => (Array.isArray(zone?.anchors) && zone.anchors[0]) || { x: 512, y: 720 };
                 const getMapZoneStyle = (zone) => {
-                    const bounds = zone?.bounds || { x: 10, y: 10, width: 20, height: 20 };
+                    const anchor = getZonePrimaryAnchor(zone);
+                    const bounds = zone?.bounds || { x: Math.max(0, (anchor.x / 1024) * 100 - 4), y: Math.max(0, (anchor.y / 1024) * 100 - 4), width: 8, height: 8 };
                     return {
                         left: `${bounds.x}%`,
                         top: `${bounds.y}%`,
@@ -9140,10 +9110,83 @@
                         borderRadius: bounds.borderRadius || '18px'
                     };
                 };
-                const getMapStageStyle = (room) => ({
-                    '--meeow-map-background': room?.backgroundAsset ? `url("${room.backgroundAsset}")` : 'none'
+                const allMapPoints = computed(() => MAP_ROOM_DEFINITIONS.flatMap(room => room.zones.map(point => ({ ...point, roomId: room.id, roomName: room.name }))));
+                const mapPointAliasIndex = computed(() => {
+                    const index = new Map();
+                    allMapPoints.value.forEach(point => {
+                        [point.id, ...(point.aliases || [])].forEach(alias => {
+                            if (alias) index.set(String(alias), point);
+                        });
+                    });
+                    index.set('bookshelf', index.get('bookshelf-upper'));
+                    index.set('sofa', index.get('sofa-seat'));
+                    index.set('rug', index.get('living-rug'));
+                    index.set('toy', index.get('toy-area'));
+                    index.set('scratch', index.get('scratch-board'));
+                    index.set('scratch-post', index.get('scratch-post-top'));
+                    index.set('table', index.get('table-edge'));
+                    index.set('under-table', index.get('table-under-left'));
+                    index.set('chair', index.get('chair-left'));
+                    index.set('fridge-top', index.get('fridge-top'));
+                    index.set('food-cabinet-top', index.get('food-cabinet-top'));
+                    index.set('sink', index.get('sink-basin'));
+                    index.set('cabinet-top', index.get('cabinet-top'));
+                    index.set('cabinet-under', index.get('cabinet-under'));
+                    index.set('window', index.get('window-sill'));
+                    index.set('tree-top', index.get('cat-tree-top'));
+                    index.set('tree-platform', index.get('cat-tree-high'));
+                    index.set('tree-base', index.get('cat-tree-low'));
+                    index.set('wardrobe', index.get('wardrobe-top'));
+                    index.set('wardrobe-under', index.get('wardrobe-under'));
+                    index.set('carpet', index.get('dorm-carpet'));
+                    index.set('cushion-a', index.get('flower-cushion'));
+                    index.set('cushion-b', index.get('gingham-cushion'));
+                    index.set('nest', index.get('cat-house-door'));
+                    return index;
                 });
-                const getMapFurnitureLayers = (room, layer) => (room?.furnitureLayers || []).filter(item => item.layer === layer);
+                const findMapPoint = (id, roomId = '') => {
+                    const direct = mapPointAliasIndex.value.get(String(id || ''));
+                    if (direct && (!roomId || direct.roomId === roomId)) return direct;
+                    return null;
+                };
+                const activeMapPointLabels = computed(() => activeMapRoomDefinition.value.zones.map(point => {
+                    if (point.region) {
+                        return {
+                            id: point.id,
+                            name: point.name,
+                            isRegion: true,
+                            style: {
+                                left: `${(point.region.x / 1024) * 100}%`,
+                                top: `${(point.region.y / 1024) * 100}%`,
+                                width: `${(point.region.width / 1024) * 100}%`,
+                                height: `${(point.region.height / 1024) * 100}%`
+                            }
+                        };
+                    }
+                    const anchor = getZonePrimaryAnchor(point);
+                    return {
+                        id: point.id,
+                        name: point.name,
+                        isRegion: false,
+                        style: {
+                            left: `${Math.min(98, Math.max(2, (anchor.x / 1024) * 100))}%`,
+                            top: `${Math.min(98, Math.max(2, (anchor.y / 1024) * 100))}%`
+                        }
+                    };
+                }));
+                const toggleMapPointLabels = () => {
+                    showMapPointLabels.value = !showMapPointLabels.value;
+                    localStorage.setItem('meeow_show_map_points', showMapPointLabels.value ? '1' : '0');
+                };
+                const getMapPointPromptGuide = () => MAP_ROOM_DEFINITIONS.map(room => {
+                    const points = room.zones.map(point => {
+                        const placement = point.region
+                            ? `区域 ${point.region.x},${point.region.y},${point.region.width}×${point.region.height}`
+                            : `脚底点 ${point.anchors.map(anchor => `${anchor.x},${anchor.y}`).join('|')}`;
+                        return `${point.id}=${point.name}/${point.description}/${placement}`;
+                    }).join('; ');
+                    return `${room.id}(${room.name}): ${points}`;
+                }).join('\n');
                 let mapTapTimer = null;
                 let mapTapCatId = null;
                 const stableMapIndex = (value, length) => {
@@ -9159,15 +9202,60 @@
                     if (/坐|趴|蹲|伏/.test(status)) return 'sit';
                     return 'stand';
                 };
-                const inferMapRoomFromStatus = (status) => {
-                    status = cleanText(status || '');
-                    if (/洗澡|湿毛|清洁|吹干|洗手|泡/.test(status)) return 'bath';
-                    if (/如厕|猫砂|排泄|便盆/.test(status)) return 'litter';
-                    if (/吃|食|饭|零食|喝水|饮水|喂/.test(status)) return 'dining';
-                    if (/睡|休息|打盹|蜷|补眠|醒来|猫窝/.test(status)) return 'dorm';
-                    return 'living';
+                const getSemanticMapTarget = (status) => {
+                    const text = cleanText(status || '');
+                    if (/水池里|水槽里|洗碗池|水池|水槽/.test(text)) return { room: 'dining', spot: 'sink-basin' };
+                    if (/冰箱顶|冰箱上/.test(text)) return { room: 'dining', spot: 'fridge-top' };
+                    if (/猫粮柜顶|粮柜顶|零食架顶|食物柜顶/.test(text)) return { room: 'dining', spot: 'food-cabinet-top' };
+                    if (/橱柜顶|厨房柜顶|厨房.*柜子顶|柜子顶部/.test(text)) return { room: 'dining', spot: 'cabinet-top' };
+                    if (/衣柜底|衣柜下面|衣柜下/.test(text)) return { room: 'dorm', spot: 'wardrobe-under' };
+                    if (/橱柜底|橱柜下|厨房.*柜.*下|柜子底|柜底|柜子下面|柜子下/.test(text)) return { room: 'dining', spot: 'cabinet-under' };
+                    if (/猫爬架.*(顶|高处)|爬架.*顶/.test(text)) return { room: 'dorm', spot: 'cat-tree-top' };
+                    if (/猫爬架.*(高台|高层)|爬架.*高台/.test(text)) return { room: 'dorm', spot: 'cat-tree-high' };
+                    if (/猫爬架.*(平台|中层)|爬架.*平台/.test(text)) return { room: 'dorm', spot: 'cat-tree-high' };
+                    if (/猫爬架|爬架/.test(text)) return { room: 'dorm', spot: 'cat-tree-low' };
+                    if (/书柜顶|书架顶|书架顶部|书架高处|书架的高处|书柜高处|书柜的高处|书架上方|书柜上方|书架的顶|书柜的顶|架顶|柜顶上|书柜顶上/.test(text)) return { room: 'living', spot: 'bookshelf-top' };
+                    if (/书架上层|书架上面|书柜上层|书柜上面/.test(text)) return { room: 'living', spot: 'bookshelf-upper' };
+                    if (/书架中层|书架中间|书柜中层/.test(text)) return { room: 'living', spot: 'bookshelf-middle' };
+                    if (/书架|书柜/.test(text)) return { room: 'living', spot: 'bookshelf-upper' };
+                    if (/沙发脚|沙发前|沙发边|扶手边|沙发下/.test(text)) return { room: 'living', spot: 'sofa-foot' };
+                    if (/沙发|坐垫/.test(text)) return { room: 'living', spot: 'sofa-seat' };
+                    if (/玩具|逗猫|打闹|玩耍|玩球/.test(text)) return { room: 'living', spot: 'toy-area' };
+                    if (/(右侧|右边|圆柱|抓柱).*?(猫抓板|抓板|磨爪板|磨爪)|(猫抓板|抓板|磨爪板|磨爪).*?(右侧|右边|圆柱|抓柱)/.test(text)) return { room: 'living', spot: 'scratch-post-top' };
+                    if (/猫抓板|抓板|磨爪板|磨爪/.test(text)) return { room: 'living', spot: 'scratch-board' };
+                    if (/馆长脚边|我脚边|你的脚边|脚边|脚下|跟在.*身边|靠近馆长|坐在.*旁边/.test(text)) return { room: 'living', spot: 'owner-feet' };
+                    if (/冰箱/.test(text)) return { room: 'dining', spot: 'fridge-side' };
+                    if (/衣柜底|衣柜下面|衣柜下/.test(text)) return { room: 'dorm', spot: 'wardrobe-under' };
+                    if (/衣柜顶|衣柜上|柜顶/.test(text)) return { room: 'dorm', spot: 'wardrobe-top' };
+                    if (/厨房台面|岛台|灶台|柜台/.test(text)) return { room: 'dining', spot: 'kitchen-island-front' };
+                    if (/餐桌下|桌下|桌子下面|桌子底下|桌底/.test(text)) return { room: 'dining', spot: /左/.test(text) ? 'table-under-left' : /右/.test(text) ? 'table-under-right' : 'table-edge' };
+                    if (/左.*椅|左侧.*椅/.test(text)) return { room: 'dining', spot: 'chair-left' };
+                    if (/右.*椅|右侧.*椅/.test(text)) return { room: 'dining', spot: 'chair-right' };
+                    if (/椅子上|餐椅上|椅面/.test(text)) return { room: 'dining', spot: 'chair-left' };
+                    if (/餐椅|椅子/.test(text)) return { room: 'dining', spot: 'table-under-left' };
+                    if (/餐桌边|桌边|桌子边/.test(text)) return { room: 'dining', spot: 'table-edge' };
+                    if (/餐桌/.test(text)) return { room: 'dining', spot: 'table-edge' };
+                    if (/喝水|水碗|饮水/.test(text)) return { room: 'dining', spot: 'water-bowl' };
+                    if (/吃饭|猫粮|食盆|零食|喂/.test(text)) return { room: 'dining', spot: text.includes('零食') ? 'food-cabinet' : 'food-bowl' };
+                    if (/窗台|窗边|晒太阳/.test(text)) return { room: 'dorm', spot: 'window-sill' };
+                    if (/花朵软垫|花形软垫/.test(text)) return { room: 'dorm', spot: 'flower-cushion' };
+                    if (/格纹软垫/.test(text)) return { room: 'dorm', spot: 'gingham-cushion' };
+                    if (/地毯/.test(text)) return { room: 'dorm', spot: 'dorm-carpet' };
+                    if (/软垫|打盹|睡|休息|蜷|补眠|猫窝/.test(text)) return { room: 'dorm', spot: /猫窝/.test(text) ? 'cat-house-door' : 'flower-cushion' };
+                    return null;
                 };
+                const getCatMapSemanticText = (cat) => [cat?.status, cat?.mapFurniture, cat?.mapPositionLabel]
+                    .filter(Boolean)
+                    .join(' ');
+                const inferMapRoomFromStatus = (status) => getSemanticMapTarget(status)?.room || 'living';
                 const getMapRoomForCat = (cat) => {
+                    const explicitPoint = findMapPoint(cat?.mapPoint);
+                    if (explicitPoint?.roomId) return explicitPoint.roomId;
+                    const semantic = getSemanticMapTarget(getCatMapSemanticText(cat));
+                    if (semantic?.room) return semantic.room;
+                    if (cat?.mapRoom === 'litter' || cat?.mapRoom === 'bath') return 'living';
+                    const storedPoint = findMapPoint(cat?.mapSpot);
+                    if (storedPoint?.roomId) return storedPoint.roomId;
                     return MAP_ROOM_DEFINITIONS.some(room => room.id === cat?.mapRoom)
                         ? cat.mapRoom
                         : inferMapRoomFromStatus(cat?.status || '');
@@ -9175,41 +9263,52 @@
                 const getMapSpotForCat = (cat, room) => {
                     const validRoom = MAP_ROOM_DEFINITIONS.find(item => item.id === room);
                     if (!validRoom) return null;
-                    if (validRoom.zones.some(zone => zone.id === cat?.mapSpot)) return cat.mapSpot;
+                    const explicitPoint = findMapPoint(cat?.mapPoint, room);
+                    if (explicitPoint) return explicitPoint.id;
+                    const semantic = getSemanticMapTarget(getCatMapSemanticText(cat));
+                    if (semantic?.room === room && validRoom.zones.some(zone => zone.id === semantic.spot)) return semantic.spot;
+                    const storedPoint = findMapPoint(cat?.mapSpot, room);
+                    if (storedPoint) return storedPoint.id;
                     return validRoom.zones[stableMapIndex(`${activeHallId.value}:${cat?.id}:${room}`, validRoom.zones.length)]?.id || null;
                 };
-                const getMapPlacement = (room, spot, index = 0, total = 1) => {
-                    if (room === 'dorm') {
-                        const anchor = DORM_CAT_ANCHORS[spot] || DORM_CAT_ANCHORS.cushion;
-                        const points = anchor.points || DORM_CAT_ANCHORS.cushion.points;
-                        const base = points[index % points.length];
-                        const overflow = Math.floor(index / points.length);
-                        const offsets = [[0, 0], [-20, 0], [20, 0], [0, -18], [-16, -18], [16, -18]];
-                        const offset = offsets[overflow % offsets.length] || [0, 0];
-                        return {
-                            left: `${((base[0] + offset[0]) / 1024 * 100).toFixed(3)}%`,
-                            top: `${((base[1] + offset[1]) / 1024 * 100).toFixed(3)}%`,
-                            useFootAnchor: true,
-                            isFront: Boolean(anchor.isFront)
-                        };
-                    }
+                const getMapOcclusionStyle = (room, spot, index = 0) => {
+                    const point = MAP_ROOM_DEFINITIONS.find(item => item.id === room)?.zones.find(zone => zone.id === spot);
+                    if (!point?.occlusionProfile) return null;
+                    const clip = (x, y, width, height) => `inset(${(y / 1024) * 100}% ${((1024 - x - width) / 1024) * 100}% ${((1024 - y - height) / 1024) * 100}% ${(x / 1024) * 100}%)`;
+                    const profiles = {
+                        'table-front': { room: 'dining', layer: 'table', clipPath: clip(55, 560, 430, 220) },
+                        'sink-rim': { room: 'dining', layer: 'wash-basin', clipPath: clip(305, 280, 200, 100) },
+                        'cabinet-front': { room: 'dining', layer: 'kitchen-island', clipPath: clip(330, 450, 410, 250) },
+                        'wardrobe-front': { room: 'dorm', layer: 'shelf', clipPath: clip(565, 360, 350, 300) }
+                    };
+                    const profile = profiles[point.occlusionProfile];
+                    if (!profile) return null;
+                    return {
+                        backgroundImage: `url(${getMapAssetPath(profile.room, profile.layer)})`,
+                        clipPath: profile.clipPath,
+                        WebkitClipPath: profile.clipPath
+                    };
+                };
+                const getMapPlacement = (room, spot, index = 0, total = 1, forLabel = false) => {
                     const roomDefinition = MAP_ROOM_DEFINITIONS.find(item => item.id === room);
                     const zone = roomDefinition?.zones.find(item => item.id === spot) || roomDefinition?.zones[0];
-                    const bounds = zone?.bounds || { x: 40, y: 40, width: 20, height: 20 };
-                    const columns = total <= 2 ? total : Math.min(3, Math.ceil(Math.sqrt(total)));
-                    const rows = Math.max(1, Math.ceil(total / columns));
-                    const column = index % columns;
-                    const row = Math.floor(index / columns);
-                    const safeInset = 0.22;
-                    const ratioX = total === 1 ? 0.5 : safeInset + (1 - safeInset * 2) * ((column + 0.5) / columns);
-                    const ratioY = total === 1 ? 0.52 : safeInset + (1 - safeInset * 2) * ((row + 0.5) / rows);
-                    const left = bounds.x + bounds.width * ratioX;
-                    const top = bounds.y + bounds.height * ratioY;
+                    const anchors = Array.isArray(zone?.anchors) && zone.anchors.length ? zone.anchors : [{ x: 512, y: 720 }];
+                    const regionOffsets = [
+                        [0.5, 0.58], [0.32, 0.58], [0.68, 0.58], [0.42, 0.38],
+                        [0.58, 0.78], [0.22, 0.76], [0.78, 0.42], [0.5, 0.84]
+                    ];
+                    const anchor = zone?.region
+                        ? {
+                            x: Math.round(zone.region.x + zone.region.width * regionOffsets[index % regionOffsets.length][0]),
+                            y: Math.round(zone.region.y + zone.region.height * regionOffsets[index % regionOffsets.length][1])
+                        }
+                        : (anchors[index % anchors.length] || anchors[0]);
+                    const labelOffset = forLabel ? (anchor.labelOffset || zone?.labelOffset || [0, 4]) : [0, 0];
+                    const left = Math.round(anchor.x + labelOffset[0]);
+                    const top = Math.round(anchor.y + labelOffset[1]);
                     return {
-                        left: `${Math.min(92, Math.max(8, left))}%`,
-                        top: `${Math.min(91, Math.max(10, top))}%`,
-                        useFootAnchor: false,
-                        isFront: false
+                        left: `${Math.min(98, Math.max(2, (left / 1024) * 100))}%`,
+                        top: `${Math.min(98, Math.max(2, (top / 1024) * 100))}%`
                     };
                 };
                 const mapCatMarkers = computed(() => {
@@ -9223,8 +9322,14 @@
                             .filter(item => item.room === marker.room && item.spot === marker.spot)
                             .sort((left, right) => stableMapIndex(`${left.room}:${left.spot}:${left.cat.id}`, 100000) - stableMapIndex(`${right.room}:${right.spot}:${right.cat.id}`, 100000));
                         const index = neighbors.findIndex(item => item.cat.id === marker.cat.id);
-                        const placement = getMapPlacement(marker.room, marker.spot, Math.max(0, index), neighbors.length);
-                        return { ...marker, position: { left: placement.left, top: placement.top }, useFootAnchor: placement.useFootAnchor, isFront: placement.isFront };
+                        return {
+                            ...marker,
+                            position: getMapPlacement(marker.room, marker.spot, Math.max(0, index), neighbors.length),
+                            labelPosition: getMapPlacement(marker.room, marker.spot, Math.max(0, index), neighbors.length, true),
+                            badgePosition: getMapPlacement(marker.room, marker.spot, Math.max(0, index), neighbors.length),
+                            depthClass: (MAP_ROOM_DEFINITIONS.find(room => room.id === marker.room)?.zones.find(zone => zone.id === marker.spot)?.depth || 'surface') === 'behind' ? 'is-behind' : 'is-surface',
+                            occlusionStyle: getMapOcclusionStyle(marker.room, marker.spot, Math.max(0, index))
+                        };
                     });
                 });
                 const activeMapRoomDefinition = computed(() => MAP_ROOM_DEFINITIONS.find(room => room.id === activeMapRoom.value) || MAP_ROOM_DEFINITIONS[0]);
@@ -9364,19 +9469,6 @@
                 // saved pixelAvatar data stays in the save file, but the current
                 // rough editor is not exposed as a character-facing feature.
                 const pixelAvatarWorkshopEnabled = ref(false);
-                // Shared-base paint studio. These drafts are deliberately ephemeral;
-                // only the finished transparent PNG is persisted for each cat.
-                const showCatPaintModal = ref(false);
-                const catPaintCanvas = ref(null);
-                const catPaintTool = ref('fill');
-                const catPaintColor = ref('#b98560');
-                const catPaintBrushSize = ref(4);
-                const catPaintHistory = ref([]);
-                const paintAssetRevision = ref(0);
-                const paintAssetUrls = new Map();
-                const paintAssetLoads = new Map();
-                let catPaintState = null;
-                let catPaintPointerId = null;
                 // Object URLs are intentionally kept outside the save object: Blob
                 // URLs expire between launches and must never be persisted into
                 // localStorage. This revision ref makes template previews reactive.
@@ -9501,6 +9593,8 @@
                 const focusMusicPlaying = ref(false);
                 const focusMusic = reactive({
                     expanded: false,
+                    modalOpen: false,
+                    addPanel: false,
                     currentIndex: -1,
                     position: 0,
                     duration: 0,
@@ -10144,16 +10238,43 @@ ${buildCatMemoryContext(cat)}`;
                 const nextRandomEventTime = ref(0);
                 const isWishLoading = ref(false);
 
-                watch([user, cats, halls, shopItems, settings], () => {
-                    const dataToSave = {
-                        user: user,
-                        cats: cats.value,
-                        halls: halls.value,
-                        shopItems: shopItems.value,
-                        settings: settings
-                    };
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-                }, { deep: true });
+                let saveTimer = null;
+                const buildSaveData = () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings });
+                const persistSettings = () => {
+                    try {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(buildSaveData()));
+                        if (String(settings.model || '').trim()) localStorage.setItem(MODEL_STORAGE_KEY, String(settings.model).trim());
+                    } catch (error) {
+                        addLog(`SETTINGS SAVE FAILED: ${error.message}`, 'error');
+                        showToast('模型设置保存失败，请检查浏览器存储空间。', 'error');
+                    }
+                };
+                // Model choice is intentionally saved separately from the large archive.
+                // A quota-heavy archive write must never make the next page load fall
+                // back to the default model or force a model-list refresh.
+                const persistSelectedModel = () => {
+                    const model = String(settings.model || '').trim();
+                    if (!model) return;
+                    settings.model = model;
+                    try {
+                        localStorage.setItem(MODEL_STORAGE_KEY, model);
+                        scheduleSave();
+                    } catch (error) {
+                        addLog(`MODEL SAVE FAILED: ${error.message}`, 'error');
+                        showToast('模型选择保存失败，请检查浏览器存储空间。', 'error');
+                    }
+                };
+                const scheduleSave = () => {
+                    if (saveTimer) clearTimeout(saveTimer);
+                    saveTimer = setTimeout(() => {
+                        saveTimer = null;
+                        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(buildSaveData())); }
+                        catch (error) { addLog(`SAVE FAILED: ${error.message}`, 'error'); }
+                    }, 350);
+                };
+                // Coalesce legacy reactive changes into one write instead of
+                // serializing the whole archive for every intermediate field change.
+                watch([user, cats, halls, shopItems, settings], scheduleSave, { deep: true, flush: 'post' });
 
                 // --- System Helpers ---
                 const addLog = (message, type = 'info') => {
@@ -10227,10 +10348,8 @@ ${buildCatMemoryContext(cat)}`;
                     return base;
                 };
 
-                // ===== USER-UPLOADED FULL-BODY SPRITES =====
-                // These files are created by the user outside Meeow House and
-                // uploaded manually. We only store and display them; no AI
-                // generation or third-party artwork download occurs here.
+                // Legacy uploaded-sprite data is retained for old saves only. The
+                // current UI does not load, animate, display, export, or import it.
                 const SPRITE_ASSET_DB_NAME = 'meeow_house_sprite_assets_v1';
                 const SPRITE_ASSET_STORE = 'sprites';
                 const SPRITE_ACTIONS = [
@@ -10243,8 +10362,7 @@ ${buildCatMemoryContext(cat)}`;
                 const spriteActionDefinitions = SPRITE_ACTIONS;
                 const spriteObjectUrls = new Map();
                 const spriteLoadPromises = new Map();
-                const spriteAnimationTick = ref(Date.now());
-                window.setInterval(() => { spriteAnimationTick.value = Date.now(); }, 120);
+                const spriteAnimationTick = ref(0);
                 // Metadata is saved with the cat, while the image Blob lives in
                 // IndexedDB. Keep an explicit, reactive missing state so an
                 // imported save from another device never looks like it is
@@ -10304,6 +10422,218 @@ ${buildCatMemoryContext(cat)}`;
                     const response = await fetch(dataUrl);
                     if (!response.ok) throw new Error('导入素材无法读取。');
                     return response.blob();
+                };
+
+                // Shared white-cat template and per-cat paint products. These
+                // blobs use the existing local asset store, while the save file
+                // keeps only small descriptors and never embeds image data.
+                const showCatPaintModal = ref(false);
+                const catPaintCanvas = ref(null);
+                const catPaintTool = ref('fill');
+                const catPaintColor = ref('#c08457');
+                const catPaintUndoStack = ref([]);
+                const catPaintRedoStack = ref([]);
+                const catPaintTools = [
+                    { id: 'fill', label: '填色桶', icon: 'fas fa-fill-drip' },
+                    { id: 'brush', label: '像素笔', icon: 'fas fa-pencil' },
+                    { id: 'eraser', label: '橡皮擦', icon: 'fas fa-eraser' },
+                    { id: 'eyedropper', label: '取色', icon: 'fas fa-eye-dropper' }
+                ];
+                const catPaintBaseImageData = ref(null);
+                const catPaintDrawing = ref(false);
+                const catPaintLastPoint = ref(null);
+                const catPaintObjectUrls = new Map();
+                const catPaintLoadPromises = new Map();
+                const catPaintRevision = ref(0);
+                const loadPaintAsset = async (assetId) => {
+                    if (!assetId) return '';
+                    if (catPaintObjectUrls.has(assetId)) return catPaintObjectUrls.get(assetId);
+                    if (catPaintLoadPromises.has(assetId)) return catPaintLoadPromises.get(assetId);
+                    const task = getSpriteBlob(assetId).then(blob => {
+                        if (!blob) return '';
+                        const url = URL.createObjectURL(blob);
+                        catPaintObjectUrls.set(assetId, url);
+                        catPaintRevision.value += 1;
+                        return url;
+                    }).catch(error => {
+                        addLog(`CAT PAINT ASSET LOAD FAILED: ${error.message}`, 'warn');
+                        return '';
+                    }).finally(() => catPaintLoadPromises.delete(assetId));
+                    catPaintLoadPromises.set(assetId, task);
+                    return task;
+                };
+                const loadImageSource = (source) => new Promise((resolve, reject) => {
+                    const image = new Image();
+                    image.onload = () => resolve(image);
+                    image.onerror = () => reject(new Error('白猫底图无法读取。'));
+                    image.src = source;
+                });
+                const validateWhiteCatTemplate = async (file) => {
+                    if (!file || file.type !== 'image/png' && !/\.png$/i.test(file.name || '')) throw new Error('只接受透明 PNG 文件。');
+                    if (file.size > 8 * 1024 * 1024) throw new Error('底图不能超过 8MB。');
+                    const url = URL.createObjectURL(file);
+                    try {
+                        const image = await loadImageSource(url);
+                        const width = image.naturalWidth;
+                        const height = image.naturalHeight;
+                        if (width < 64 || height < 64 || width > 1024 || height > 1024) throw new Error('底图尺寸需在 64×64 到 1024×1024 之间。');
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width; canvas.height = height;
+                        const context = canvas.getContext('2d', { willReadFrequently: true });
+                        context.drawImage(image, 0, 0);
+                        const pixels = context.getImageData(0, 0, width, height).data;
+                        let opaque = 0; let transparent = 0;
+                        for (let index = 3; index < pixels.length; index += 4) {
+                            if (pixels[index] > 12) opaque++; else transparent++;
+                        }
+                        if (!opaque || !transparent || opaque < Math.max(20, width * height * 0.01)) throw new Error('请上传带透明背景、能看见猫身区域的 PNG。');
+                        return { width, height, file };
+                    } finally { URL.revokeObjectURL(url); }
+                };
+                const handleSharedCatTemplateUpload = async (event) => {
+                    const input = event?.target;
+                    const file = input?.files?.[0];
+                    if (!file) return;
+                    try {
+                        const meta = await validateWhiteCatTemplate(file);
+                        const assetId = `cat-template-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                        await putSpriteBlob(assetId, file);
+                        const previous = settings.sharedCatTemplate?.assetId;
+                        settings.sharedCatTemplate = { assetId, version: Number(settings.sharedCatTemplate?.version || 0) + 1, width: meta.width, height: meta.height, updatedAt: new Date().toISOString() };
+                        const objectUrl = URL.createObjectURL(file);
+                        catPaintObjectUrls.set(assetId, objectUrl);
+                        if (previous && previous !== assetId) catPaintObjectUrls.delete(previous);
+                        persistSettings();
+                        showToast('共用白猫底图已保存。现在可以给每只小猫独立上色。', 'success');
+                    } catch (error) {
+                        addLog(`CAT TEMPLATE UPLOAD FAILED: ${error.message}`, 'error');
+                        showToast(`白猫底图上传失败：${error.message}`, 'error');
+                    } finally { if (input) input.value = ''; }
+                };
+                const getPaintImageUrl = async (descriptor) => descriptor?.assetId ? loadPaintAsset(descriptor.assetId) : '';
+                const getMapCatAvatarSource = (cat) => {
+                    void catPaintRevision.value;
+                    const paintedId = cat?.catPaint?.assetId;
+                    if (paintedId && catPaintObjectUrls.has(paintedId)) return catPaintObjectUrls.get(paintedId);
+                    if (paintedId) void loadPaintAsset(paintedId);
+                    return getCatAvatarSource(cat);
+                };
+                const paintPixelIndex = (data, width, x, y) => (y * width + x) * 4;
+                const paintPixelEditable = (data, index) => {
+                    const alpha = data[index + 3];
+                    if (alpha < 12) return false;
+                    return Math.max(data[index], data[index + 1], data[index + 2]) > 105;
+                };
+                const pushCatPaintHistory = () => {
+                    const canvas = catPaintCanvas.value;
+                    if (!canvas) return;
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
+                    catPaintUndoStack.value = [...catPaintUndoStack.value.slice(-29), context.getImageData(0, 0, canvas.width, canvas.height)];
+                    catPaintRedoStack.value = [];
+                };
+                const restoreCatPaintSnapshot = (snapshot) => {
+                    const canvas = catPaintCanvas.value;
+                    if (!canvas || !snapshot) return;
+                    canvas.getContext('2d').putImageData(snapshot, 0, 0);
+                };
+                const undoCatPaint = () => {
+                    const canvas = catPaintCanvas.value;
+                    const snapshot = catPaintUndoStack.value.at(-1);
+                    if (!canvas || !snapshot) return;
+                    const current = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+                    catPaintRedoStack.value = [...catPaintRedoStack.value.slice(-29), current];
+                    catPaintUndoStack.value = catPaintUndoStack.value.slice(0, -1);
+                    restoreCatPaintSnapshot(snapshot);
+                };
+                const redoCatPaint = () => {
+                    const canvas = catPaintCanvas.value;
+                    const snapshot = catPaintRedoStack.value.at(-1);
+                    if (!canvas || !snapshot) return;
+                    const current = canvas.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, canvas.width, canvas.height);
+                    catPaintUndoStack.value = [...catPaintUndoStack.value.slice(-29), current];
+                    catPaintRedoStack.value = catPaintRedoStack.value.slice(0, -1);
+                    restoreCatPaintSnapshot(snapshot);
+                };
+                const resetCatPaint = () => {
+                    if (!catPaintBaseImageData.value) return;
+                    pushCatPaintHistory();
+                    restoreCatPaintSnapshot(catPaintBaseImageData.value);
+                };
+                const catPaintPoint = (event) => {
+                    const canvas = catPaintCanvas.value;
+                    if (!canvas) return null;
+                    const rect = canvas.getBoundingClientRect();
+                    return { x: Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * canvas.width / rect.width))), y: Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * canvas.height / rect.height))) };
+                };
+                const applyCatPaintAt = (point) => {
+                    const canvas = catPaintCanvas.value;
+                    if (!canvas || !point) return;
+                    const context = canvas.getContext('2d', { willReadFrequently: true });
+                    const image = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const color = catPaintColor.value.match(/[0-9a-f]{2}/gi)?.map(value => parseInt(value, 16)) || [192, 132, 87];
+                    const setPixel = (x, y) => {
+                        if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return;
+                        const index = paintPixelIndex(image.data, canvas.width, x, y);
+                        if (!paintPixelEditable(image.data, index)) return;
+                        if (catPaintTool.value === 'eraser' && catPaintBaseImageData.value) {
+                            image.data.set(catPaintBaseImageData.value.data.slice(index, index + 4), index);
+                        } else if (catPaintTool.value === 'eyedropper') {
+                            catPaintColor.value = '#' + [0, 1, 2].map(offset => image.data[index + offset].toString(16).padStart(2, '0')).join('');
+                        } else {
+                            image.data[index] = color[0]; image.data[index + 1] = color[1]; image.data[index + 2] = color[2];
+                        }
+                    };
+                    if (catPaintTool.value === 'fill') {
+                        const start = paintPixelIndex(image.data, canvas.width, point.x, point.y);
+                        if (!paintPixelEditable(image.data, start)) return;
+                        const queue = [[point.x, point.y]]; const visited = new Set();
+                        while (queue.length) {
+                            const [x, y] = queue.pop(); const key = `${x},${y}`;
+                            if (visited.has(key) || x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) continue;
+                            visited.add(key);
+                            const index = paintPixelIndex(image.data, canvas.width, x, y);
+                            if (!paintPixelEditable(image.data, index)) continue;
+                            image.data[index] = color[0]; image.data[index + 1] = color[1]; image.data[index + 2] = color[2];
+                            queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+                        }
+                    } else if (catPaintTool.value === 'eyedropper') setPixel(point.x, point.y);
+                    else for (let y = point.y - 1; y <= point.y + 1; y++) for (let x = point.x - 1; x <= point.x + 1; x++) setPixel(x, y);
+                    context.putImageData(image, 0, 0);
+                };
+                const startCatPaintStroke = (event) => { if (event.button !== undefined && event.button !== 0) return; event.currentTarget.setPointerCapture?.(event.pointerId); pushCatPaintHistory(); catPaintDrawing.value = true; catPaintLastPoint.value = catPaintPoint(event); applyCatPaintAt(catPaintLastPoint.value); };
+                const moveCatPaintStroke = (event) => { if (!catPaintDrawing.value || catPaintTool.value === 'fill' || catPaintTool.value === 'eyedropper') return; const point = catPaintPoint(event); applyCatPaintAt(point); catPaintLastPoint.value = point; };
+                const endCatPaintStroke = () => { catPaintDrawing.value = false; catPaintLastPoint.value = null; };
+                const drawCatPaintCanvas = async () => {
+                    const canvas = catPaintCanvas.value; const template = settings.sharedCatTemplate;
+                    if (!canvas || !template?.assetId) return;
+                    const templateUrl = await getPaintImageUrl(template); if (!templateUrl) return;
+                    const baseImage = await loadImageSource(templateUrl);
+                    canvas.width = template.width; canvas.height = template.height;
+                    const baseContext = canvas.getContext('2d', { willReadFrequently: true }); baseContext.clearRect(0, 0, canvas.width, canvas.height); baseContext.drawImage(baseImage, 0, 0, canvas.width, canvas.height);
+                    catPaintBaseImageData.value = baseContext.getImageData(0, 0, canvas.width, canvas.height);
+                    const paintedUrl = await getPaintImageUrl(selectedCat.value?.catPaint);
+                    if (paintedUrl) { const painted = await loadImageSource(paintedUrl); baseContext.clearRect(0, 0, canvas.width, canvas.height); baseContext.drawImage(painted, 0, 0, canvas.width, canvas.height); }
+                    catPaintUndoStack.value = []; catPaintRedoStack.value = [];
+                };
+                const openCatPaintWorkshop = async () => {
+                    if (!selectedCat.value) return;
+                    if (!settings.sharedCatTemplate?.assetId) return showToast('请先上传共用白猫 PNG 底图。', 'error');
+                    showEditCatModal.value = false; showCatPaintModal.value = true;
+                    await nextTick();
+                    try { await drawCatPaintCanvas(); } catch (error) { showCatPaintModal.value = false; showToast(`打开涂色工作台失败：${error.message}`, 'error'); }
+                };
+                const closeCatPaintWorkshop = () => { showCatPaintModal.value = false; catPaintDrawing.value = false; };
+                const saveCatPaint = async () => {
+                    const canvas = catPaintCanvas.value; const cat = selectedCat.value;
+                    if (!canvas || !cat || !settings.sharedCatTemplate) return;
+                    try {
+                        const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('无法生成透明 PNG。')), 'image/png'));
+                        const assetId = `cat-painted-${cat.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                        await putSpriteBlob(assetId, blob);
+                        cat.catPaint = { assetId, templateVersion: settings.sharedCatTemplate.version, width: canvas.width, height: canvas.height, updatedAt: new Date().toISOString() };
+                        catPaintObjectUrls.set(assetId, URL.createObjectURL(blob));
+                        persistSettings(); closeCatPaintWorkshop(); showToast(`${cat.name} 的地图涂色已保存`, 'success');
+                    } catch (error) { addLog(`CAT PAINT SAVE FAILED: ${error.message}`, 'error'); showToast(`保存涂色失败：${error.message}`, 'error'); }
                 };
                 const ensureSpriteAssets = (cat) => {
                     if (!cat) return {};
@@ -10370,6 +10700,32 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     return backups;
                 };
+                const collectCatPaintBackups = async () => {
+                    const ids = new Set();
+                    if (settings.sharedCatTemplate?.assetId) ids.add(settings.sharedCatTemplate.assetId);
+                    cats.value.forEach(cat => { if (cat?.catPaint?.assetId) ids.add(cat.catPaint.assetId); });
+                    const backups = {};
+                    for (const assetId of ids) {
+                        try {
+                            const blob = await getSpriteBlob(assetId);
+                            if (blob) backups[assetId] = { dataUrl: await blobToDataUrl(blob) };
+                        } catch (error) {
+                            addLog(`CAT PAINT EXPORT SKIPPED: ${assetId} · ${error.message}`, 'warn');
+                        }
+                    }
+                    return backups;
+                };
+                const restoreCatPaintBackups = async (backups = {}) => {
+                    for (const [assetId, entry] of Object.entries(backups || {})) {
+                        if (!entry?.dataUrl || typeof entry.dataUrl !== 'string') continue;
+                        const blob = await dataUrlToBlob(entry.dataUrl);
+                        await putSpriteBlob(assetId, blob);
+                        const oldUrl = catPaintObjectUrls.get(assetId);
+                        if (oldUrl) URL.revokeObjectURL(oldUrl);
+                        catPaintObjectUrls.set(assetId, URL.createObjectURL(blob));
+                    }
+                    catPaintRevision.value += 1;
+                };
                 const restoreSpriteAssetBackups = async (backups = {}) => {
                     const entries = Object.entries(backups || {});
                     for (const [assetId, entry] of entries) {
@@ -10381,314 +10737,12 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     await preloadAllSpriteAssets();
                 };
-
-                // ---- Shared white-cat base + per-cat manual paint files ----
-                const normalizeMeeowPaintBase = (raw) => {
-                    const base = raw && typeof raw === 'object' ? raw : {};
-                    return {
-                        assetId: typeof base.assetId === 'string' ? base.assetId : '',
-                        fileName: typeof base.fileName === 'string' ? base.fileName : '',
-                        width: Math.max(0, Number(base.width || 0)),
-                        height: Math.max(0, Number(base.height || 0)),
-                        version: Math.max(0, Number(base.version || 0)),
-                        updatedAt: base.updatedAt || ''
-                    };
-                };
-                const ensureMeeowPaintBase = () => {
-                    const normalized = normalizeMeeowPaintBase(settings.meeowPaintBase);
-                    if (!settings.meeowPaintBase || JSON.stringify(settings.meeowPaintBase) !== JSON.stringify(normalized)) settings.meeowPaintBase = normalized;
-                    return settings.meeowPaintBase;
-                };
-                const paintBaseMeta = computed(() => normalizeMeeowPaintBase(settings.meeowPaintBase));
-                const paintBasePreviewUrl = computed(() => {
-                    void paintAssetRevision.value;
-                    const id = paintBaseMeta.value.assetId;
-                    return id ? (paintAssetUrls.get(id) || '') : '';
-                });
-                const paintBaseReady = computed(() => Boolean(paintBaseMeta.value.assetId && paintBasePreviewUrl.value));
-                const releasePaintAssetUrl = (assetId) => {
-                    const url = paintAssetUrls.get(assetId);
-                    if (url) URL.revokeObjectURL(url);
-                    paintAssetUrls.delete(assetId);
-                    paintAssetLoads.delete(assetId);
-                };
-                const loadPaintAsset = async (assetId) => {
-                    if (!assetId) return '';
-                    if (paintAssetUrls.has(assetId)) return paintAssetUrls.get(assetId);
-                    if (paintAssetLoads.has(assetId)) return paintAssetLoads.get(assetId);
-                    const task = getSpriteBlob(assetId).then(blob => {
-                        if (!blob) return '';
-                        const url = URL.createObjectURL(blob);
-                        paintAssetUrls.set(assetId, url);
-                        paintAssetRevision.value += 1;
-                        return url;
-                    }).catch(error => {
-                        addLog(`CAT PAINT ASSET LOAD FAILED: ${error.message}`, 'warn');
-                        return '';
-                    }).finally(() => paintAssetLoads.delete(assetId));
-                    paintAssetLoads.set(assetId, task);
-                    return task;
-                };
-                const preloadMeeowPaintAssets = async () => {
-                    const ids = [ensureMeeowPaintBase().assetId, ...cats.value.map(cat => cat?.paintedMapAvatar?.assetId)].filter(Boolean);
-                    await Promise.allSettled([...new Set(ids)].map(loadPaintAsset));
-                };
-                const getPaintedMapAvatarSource = (cat) => {
-                    void paintAssetRevision.value;
-                    const id = cat?.paintedMapAvatar?.assetId;
-                    return id ? (paintAssetUrls.get(id) || '') : '';
-                };
-                const hasPaintedMapAvatar = (cat) => Boolean(getPaintedMapAvatarSource(cat));
-                const getMapCatAvatarSource = (cat) => getPaintedMapAvatarSource(cat) || cat?.image || makeStableCatAvatar(cat?.name || 'Cat', cat?.color);
-                const readPaintImage = (url) => new Promise((resolve, reject) => {
-                    const image = new Image();
-                    image.onload = () => resolve(image);
-                    image.onerror = () => reject(new Error('无法读取这张 PNG。'));
-                    image.src = url;
-                });
-                const inspectPaintBaseFile = async (file) => {
-                    if (!file || file.type !== 'image/png') throw new Error('请上传透明背景的 PNG 线稿。');
-                    if (file.size > 8 * 1024 * 1024) throw new Error('底图请控制在 8 MB 以内。');
-                    const url = URL.createObjectURL(file);
-                    try {
-                        const image = await readPaintImage(url);
-                        if (image.width < 32 || image.height < 32 || image.width > 1024 || image.height > 1024) throw new Error('底图尺寸需要在 32–1024 px 之间。');
-                        const canvas = document.createElement('canvas');
-                        canvas.width = image.width; canvas.height = image.height;
-                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                        ctx.drawImage(image, 0, 0);
-                        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-                        let transparent = 0;
-                        for (let i = 3; i < pixels.length; i += 4) if (pixels[i] < 250) transparent += 1;
-                        if (!transparent) throw new Error('这张图没有透明背景；请导出透明 PNG 线稿。');
-                        return { width: image.width, height: image.height };
-                    } finally { URL.revokeObjectURL(url); }
-                };
-                const handlePaintBaseUpload = async (event) => {
-                    const file = event.target?.files?.[0];
-                    if (!file) return;
-                    try {
-                        const info = await inspectPaintBaseFile(file);
-                        const previous = ensureMeeowPaintBase();
-                        const assetId = `meeow-paint-base-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-                        await putSpriteBlob(assetId, file);
-                        await loadPaintAsset(assetId);
-                        if (previous.assetId) { releasePaintAssetUrl(previous.assetId); await deleteSpriteBlob(previous.assetId); }
-                        settings.meeowPaintBase = { assetId, fileName: file.name, width: info.width, height: info.height, version: previous.version + 1, updatedAt: new Date().toISOString() };
-                        paintAssetRevision.value += 1;
-                        showToast('共用白猫底图已保存；已有上色稿会保留。', 'success');
-                    } catch (error) { showToast(error.message || '底图上传失败。', 'error'); }
-                    finally { if (event.target) event.target.value = ''; }
-                };
-                const removePaintBase = async () => {
-                    const previous = ensureMeeowPaintBase();
-                    if (!previous.assetId || !confirm('移除共用底图？每只猫已保存的上色成品不会删除。')) return;
-                    try {
-                        releasePaintAssetUrl(previous.assetId);
-                        await deleteSpriteBlob(previous.assetId);
-                        settings.meeowPaintBase = { assetId: '', fileName: '', width: 0, height: 0, version: previous.version + 1, updatedAt: new Date().toISOString() };
-                        paintAssetRevision.value += 1;
-                    } catch (error) { showToast(`移除失败：${error.message}`, 'error'); }
-                };
-                const collectMeeowPaintBackups = async () => {
-                    const backups = {};
-                    const ids = [ensureMeeowPaintBase().assetId, ...cats.value.map(cat => cat?.paintedMapAvatar?.assetId)].filter(Boolean);
-                    for (const assetId of new Set(ids)) {
-                        try { const blob = await getSpriteBlob(assetId); if (blob) backups[assetId] = { dataUrl: await blobToDataUrl(blob) }; }
-                        catch (error) { addLog(`CAT PAINT EXPORT SKIPPED: ${assetId} · ${error.message}`, 'warn'); }
-                    }
-                    return backups;
-                };
-                const restoreMeeowPaintBackups = async (backups = {}) => {
-                    for (const [assetId, entry] of Object.entries(backups || {})) {
-                        if (!entry?.dataUrl) continue;
-                        await putSpriteBlob(assetId, await dataUrlToBlob(entry.dataUrl));
-                        releasePaintAssetUrl(assetId);
-                    }
-                    await preloadMeeowPaintAssets();
-                };
-                const hexToRgb = (hex) => {
-                    const value = String(hex || '#000000').replace('#', '');
-                    const parsed = parseInt(value.length === 3 ? value.split('').map(char => char + char).join('') : value, 16);
-                    return [parsed >> 16 & 255, parsed >> 8 & 255, parsed & 255];
-                };
-                const openCatPaintWorkshop = async (cat = selectedCat.value) => {
-                    if (!cat || !ensureMeeowPaintBase().assetId) { showToast('请先上传共用白猫底图。', 'info'); return; }
-                    selectedCat.value = cat;
-                    await loadPaintAsset(ensureMeeowPaintBase().assetId);
-                    if (!paintBasePreviewUrl.value) { showToast('底图读取失败，请重新上传。', 'error'); return; }
-                    catPaintColor.value = /^#[0-9a-f]{6}$/i.test(cat.color || '') ? cat.color : '#b98560';
-                    catPaintHistory.value = [];
-                    showCatPaintModal.value = true;
-                    await nextTick();
-                    try {
-                        const base = await readPaintImage(paintBasePreviewUrl.value);
-                        const paintedUrl = cat.paintedMapAvatar?.assetId ? await loadPaintAsset(cat.paintedMapAvatar.assetId) : '';
-                        const painted = paintedUrl ? await readPaintImage(paintedUrl) : null;
-                        const canvas = catPaintCanvas.value;
-                        canvas.width = base.width; canvas.height = base.height;
-                        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-                        ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(painted && painted.width === base.width && painted.height === base.height ? painted : base, 0, 0);
-                        const baseCanvas = document.createElement('canvas'); baseCanvas.width = base.width; baseCanvas.height = base.height;
-                        const baseCtx = baseCanvas.getContext('2d', { willReadFrequently: true }); baseCtx.drawImage(base, 0, 0);
-                        catPaintState = { ctx, baseImage: baseCtx.getImageData(0, 0, base.width, base.height), width: base.width, height: base.height };
-                    } catch (error) { showCatPaintModal.value = false; showToast(`无法打开画布：${error.message}`, 'error'); }
-                };
-                const closeCatPaintWorkshop = () => { showCatPaintModal.value = false; catPaintState = null; catPaintPointerId = null; };
-                const paintPointFromEvent = (event) => {
-                    const canvas = catPaintCanvas.value; const rect = canvas.getBoundingClientRect();
-                    return { x: Math.max(0, Math.min(canvas.width - 1, Math.floor((event.clientX - rect.left) * canvas.width / rect.width))), y: Math.max(0, Math.min(canvas.height - 1, Math.floor((event.clientY - rect.top) * canvas.height / rect.height))) };
-                };
-                const isPaintablePixel = (x, y) => {
-                    if (!catPaintState || x < 0 || y < 0 || x >= catPaintState.width || y >= catPaintState.height) return false;
-                    const i = (y * catPaintState.width + x) * 4, data = catPaintState.baseImage.data;
-                    return data[i + 3] > 20 && ((data[i] + data[i + 1] + data[i + 2]) / 3) > 75;
-                };
-                const pushCatPaintHistory = () => {
-                    if (!catPaintState) return;
-                    const snap = catPaintState.ctx.getImageData(0, 0, catPaintState.width, catPaintState.height);
-                    catPaintHistory.value = [...catPaintHistory.value.slice(-11), snap];
-                };
-                const restoreBasePixel = (target, index) => { const base = catPaintState.baseImage.data; target[index] = base[index]; target[index + 1] = base[index + 1]; target[index + 2] = base[index + 2]; target[index + 3] = base[index + 3]; };
-                const paintBrushAt = (point) => {
-                    if (!catPaintState) return;
-                    const { ctx, width, height } = catPaintState, image = ctx.getImageData(0, 0, width, height), [r, g, b] = hexToRgb(catPaintColor.value);
-                    const radius = Math.max(1, Number(catPaintBrushSize.value || 1));
-                    for (let y = Math.max(0, point.y - radius); y <= Math.min(height - 1, point.y + radius); y++) for (let x = Math.max(0, point.x - radius); x <= Math.min(width - 1, point.x + radius); x++) {
-                        if ((x - point.x) ** 2 + (y - point.y) ** 2 > radius ** 2 || !isPaintablePixel(x, y)) continue;
-                        const i = (y * width + x) * 4;
-                        if (catPaintTool.value === 'eraser') restoreBasePixel(image.data, i); else { image.data[i] = r; image.data[i + 1] = g; image.data[i + 2] = b; image.data[i + 3] = 255; }
-                    }
-                    ctx.putImageData(image, 0, 0);
-                };
-                const samePixel = (data, index, r, g, b, a) => Math.abs(data[index] - r) < 24 && Math.abs(data[index + 1] - g) < 24 && Math.abs(data[index + 2] - b) < 24 && Math.abs(data[index + 3] - a) < 24;
-                const fillAt = (point) => {
-                    if (!catPaintState || !isPaintablePixel(point.x, point.y)) return;
-                    const { ctx, width, height } = catPaintState, image = ctx.getImageData(0, 0, width, height), seed = (point.y * width + point.x) * 4;
-                    const [sr, sg, sb, sa] = [image.data[seed], image.data[seed + 1], image.data[seed + 2], image.data[seed + 3]], [r, g, b] = hexToRgb(catPaintColor.value);
-                    const visited = new Uint8Array(width * height), stack = [point.x, point.y];
-                    while (stack.length) {
-                        const y = stack.pop(), x = stack.pop(), cell = y * width + x;
-                        if (visited[cell] || !isPaintablePixel(x, y)) continue; visited[cell] = 1;
-                        const i = cell * 4; if (!samePixel(image.data, i, sr, sg, sb, sa)) continue;
-                        if (catPaintTool.value === 'eraser') restoreBasePixel(image.data, i); else { image.data[i] = r; image.data[i + 1] = g; image.data[i + 2] = b; image.data[i + 3] = 255; }
-                        if (x > 0) stack.push(x - 1, y); if (x < width - 1) stack.push(x + 1, y); if (y > 0) stack.push(x, y - 1); if (y < height - 1) stack.push(x, y + 1);
-                    }
-                    ctx.putImageData(image, 0, 0);
-                };
-                const handleCatPaintPointerDown = (event) => {
-                    if (!catPaintState || event.button !== 0) return;
-                    event.preventDefault(); catPaintPointerId = event.pointerId; catPaintCanvas.value.setPointerCapture?.(event.pointerId); pushCatPaintHistory();
-                    const point = paintPointFromEvent(event); if (catPaintTool.value === 'fill') fillAt(point); else paintBrushAt(point);
-                };
-                const handleCatPaintPointerMove = (event) => { if (!catPaintState || catPaintPointerId !== event.pointerId || catPaintTool.value === 'fill') return; event.preventDefault(); paintBrushAt(paintPointFromEvent(event)); };
-                const finishCatPaintStroke = (event) => { if (event.pointerId === catPaintPointerId) { catPaintCanvas.value?.releasePointerCapture?.(event.pointerId); catPaintPointerId = null; } };
-                const undoCatPaint = () => { if (!catPaintState || !catPaintHistory.value.length) return; const history = [...catPaintHistory.value]; catPaintState.ctx.putImageData(history.pop(), 0, 0); catPaintHistory.value = history; };
-                const resetCatPaint = () => { if (!catPaintState) return; pushCatPaintHistory(); catPaintState.ctx.putImageData(catPaintState.baseImage, 0, 0); };
-                const saveCatPaint = async () => {
-                    if (!catPaintState || !selectedCat.value || !catPaintCanvas.value) return;
-                    try {
-                        const blob = await new Promise(resolve => catPaintCanvas.value.toBlob(resolve, 'image/png'));
-                        if (!blob) throw new Error('画布导出失败。');
-                        const previousId = selectedCat.value.paintedMapAvatar?.assetId;
-                        const assetId = `meeow-cat-paint-${selectedCat.value.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-                        await putSpriteBlob(assetId, blob); await loadPaintAsset(assetId);
-                        selectedCat.value.paintedMapAvatar = { assetId, baseVersion: ensureMeeowPaintBase().version, updatedAt: new Date().toISOString() };
-                        if (previousId && previousId !== assetId) { releasePaintAssetUrl(previousId); await deleteSpriteBlob(previousId); }
-                        paintAssetRevision.value += 1; closeCatPaintWorkshop(); showToast(`${selectedCat.value.name} 的涂色已保存`, 'success');
-                    } catch (error) { showToast(`保存失败：${error.message}`, 'error'); }
-                };
                 const getSpriteAssetSource = (cat, action = 'stand') => {
                     // Explicit dependency: object-URL cache itself is a Map, so the
                     // revision counter requests a template redraw when async files arrive.
                     void spriteAssetRevision.value;
                     const assetId = cat?.spriteAssets?.[action]?.assetId;
                     return assetId ? (spriteObjectUrls.get(assetId) || '') : '';
-                };
-                const meeowBaseColorFields = [
-                    { key: 'coat', label: '主毛色' },
-                    { key: 'undercoat', label: '胸腹 / 口鼻 / 爪尖' },
-                    { key: 'innerEar', label: '内耳' },
-                    { key: 'marking', label: '花纹' },
-                    { key: 'outline', label: '描边' },
-                    { key: 'eyeLeft', label: '左眼' },
-                    { key: 'eyeRight', label: '右眼' }
-                ];
-                const ensureMeeowBaseAppearance = (cat) => {
-                    if (!cat) return createMeeowBaseAppearance();
-                    if (!cat.meeowBaseAppearance || typeof cat.meeowBaseAppearance !== 'object') {
-                        cat.meeowBaseAppearance = createMeeowBaseAppearance(cat);
-                    }
-                    return cat.meeowBaseAppearance;
-                };
-                const resetMeeowBaseAppearance = (cat) => {
-                    if (!cat) return;
-                    cat.meeowBaseAppearance = createMeeowBaseAppearance(cat);
-                    spriteAssetRevision.value += 1;
-                    showToast(`${cat.name} 的四足猫外观已恢复默认配色`, 'success');
-                };
-                const hasUploadedMapSprite = (cat, action = 'stand') => Boolean(
-                    getSpriteAssetSource(cat, action) || getSpriteAssetSource(cat, 'stand')
-                );
-                /* Legacy inline cat base retained in source history below. It is no
-                   longer used by the map; hand-painted PNGs take precedence. */
-                /*
-                const getMeeowBaseCatSource = (cat) => {
-                    const appearance = ensureMeeowBaseAppearance(cat);
-                    const colors = appearance.colors;
-                    const tail = {
-                        straight: `<path fill="${colors.coat}" d="M45 33h11v5h5v6h-7v-5H45z"/>`,
-                        fluffy: `<path fill="${colors.coat}" d="M45 31h9v3h5v4h3v7h-5v-4h-5v-3h-7z"/>`,
-                        curl: `<path fill="${colors.coat}" d="M45 33h9v4h4v8h-9v-4h5v-3h-9z"/>`,
-                        short: `<path fill="${colors.coat}" d="M44 34h9v7h-9z"/>`
-                    }[appearance.tailStyle] || '';
-                    const markings = {
-                        solid: '',
-                        socks: `<path fill="${colors.undercoat}" d="M16 47h7v8h-7zm10 0h7v8h-7zm11 0h7v8h-7zm10 0h7v8h-7z"/>`,
-                        tuxedo: `<path fill="${colors.undercoat}" d="M25 30h12v15h-4v10h-7v-10h-4V33h3z"/><path fill="${colors.undercoat}" d="M25 23h12v5H25z"/>`,
-                        tabby: `<path fill="${colors.marking}" d="M16 34h7v3h-7zm0 7h8v3h-8zm17-9h4v13h-4zm7 2h5v3h-5zm0 7h5v3h-5zM24 15h3v7h-3zm5-2h3v9h-3zm5 2h3v7h-3z"/>`,
-                        patches: `<path fill="${colors.marking}" d="M18 33h10v9h-10zm17 6h10v8H35zm-12-25h8v7h-8z"/>`,
-                        mask: `<path fill="${colors.marking}" d="M22 18h19v8H22z"/><path fill="${colors.undercoat}" d="M27 25h9v5h-9z"/>`
-                    }[appearance.markingStyle] || '';
-                    const safeName = String(cat?.name || 'Meeow cat').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
-                    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="${safeName} 的四足猫"><g stroke="${colors.outline}" stroke-width="2" stroke-linejoin="round" stroke-linecap="square">${tail}<path fill="${colors.coat}" d="M14 29h33v18H14z"/><path fill="${colors.coat}" d="M20 14h22v18H20z"/><path fill="${colors.coat}" d="M21 16V7l8 7m5 0 8-7v9"/><path fill="${colors.undercoat}" d="M25 25h12v7H25z"/><path fill="${colors.undercoat}" d="M26 31h10v16H26z"/><path fill="${colors.coat}" d="M16 45h7v10h-7zm10 0h7v10h-7zm11 0h7v10h-7zm10 0h7v10h-7z"/><path fill="${colors.innerEar}" d="M23 14v-3l4 4m9 0 4-4v3"/>${markings}<ellipse fill="${colors.eyeLeft}" cx="27" cy="21" rx="3" ry="3.5"/><ellipse fill="${colors.eyeRight}" cx="36" cy="21" rx="3" ry="3.5"/><path fill="#17151b" stroke="none" d="M26 19h2v4h-2zm9 0h2v4h-2z"/><path fill="#fff" stroke="none" d="M27 19h1v1h-1zm9 0h1v1h-1z"/><path fill="${colors.innerEar}" d="M29 26h4v2h-4z"/><path fill="none" d="M31 28v2m-4 1h4m1 0h4"/></g></svg>`;
-                    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-                };
-                */
-                // Legacy helper kept only for old, disabled templates. New map code
-                // never calls it and falls back directly to the existing avatar.
-                const getMeeowBaseCatSource = (cat) => cat?.image || makeStableCatAvatar(cat?.name || 'Cat', cat?.color);
-                const hexToHsl = (hex) => {
-                    const value = Number.parseInt(String(hex || '#6b4f3c').replace('#', ''), 16);
-                    const red = ((value >> 16) & 255) / 255;
-                    const green = ((value >> 8) & 255) / 255;
-                    const blue = (value & 255) / 255;
-                    const maximum = Math.max(red, green, blue);
-                    const minimum = Math.min(red, green, blue);
-                    const lightness = (maximum + minimum) / 2;
-                    const delta = maximum - minimum;
-                    let hue = 0;
-                    let saturation = 0;
-                    if (delta) {
-                        saturation = delta / (1 - Math.abs(2 * lightness - 1));
-                        if (maximum === red) hue = ((green - blue) / delta) % 6;
-                        else if (maximum === green) hue = (blue - red) / delta + 2;
-                        else hue = (red - green) / delta + 4;
-                        hue = Math.round(hue * 60);
-                        if (hue < 0) hue += 360;
-                    }
-                    return { hue, saturation: Math.round(saturation * 100), lightness: Math.round(lightness * 100) };
-                };
-                const getMeeowBaseCatStyle = (cat) => {
-                    const appearance = ensureMeeowBaseAppearance(cat);
-                    const tone = hexToHsl(appearance.colors.coat);
-                    // The original sprite is a dark four-colour cat with a bright-eye
-                    // detail. This palette treatment keeps its pixels recognisable
-                    // while applying the resident's dominant coat colour.
-                    return {
-                        filter: `brightness(0) saturate(100%) sepia(1) hue-rotate(${tone.hue - 18}deg) saturate(${Math.max(80, tone.saturation * 2.1)}%) brightness(${Math.max(72, Math.min(145, tone.lightness * 1.55))}%) drop-shadow(0 5px 6px color-mix(in srgb, var(--ui-text) 18%, transparent))`
-                    };
                 };
                 const getSpriteAssetLabel = (cat, action) => {
                     const descriptor = cat?.spriteAssets?.[action];
@@ -10992,9 +11046,14 @@ ${buildCatMemoryContext(cat)}`;
                 const getCatAvatarSource = (cat) => {
                     if (!cat) return makeStableCatAvatar('Cat');
                     if (cat.isHuman) return cat.image_human || cat.image || makeStableCatAvatar(cat.name, cat.color);
-                    if (isUsingUploadedSprite(cat)) return getSpriteAssetSource(cat, 'stand');
-                    if (isUsingPixelAvatar(cat)) return makePixelCatAvatar(cat.pixelAvatar, cat.name);
                     return cat.image || makeStableCatAvatar(cat.name, cat.color);
+                };
+                const handleMapAvatarError = (event, cat) => {
+                    const image = event?.currentTarget;
+                    if (!image || image.dataset.fallbackApplied === '1') return;
+                    image.dataset.fallbackApplied = '1';
+                    image.onerror = null;
+                    image.src = makeStableCatAvatar(cat?.name || 'Cat', cat?.color);
                 };
                 const openPixelAvatarWorkshop = () => {
                     if (!selectedCat.value) return;
@@ -11996,7 +12055,7 @@ JSON 格式：
                         const newCats = data.cats.slice(0, 3).map((cat, index) => {
                             const color = /^#[0-9a-f]{6}$/i.test(cat.color || '') ? cat.color : '#64748b';
                             const codename = cleanText(cat.name || `新角色 ${index + 1}`).replace(/\s+/g, '+');
-                            const resident = makeHallCat(`${hallId}-cat-${index + 1}`, hallId, {
+                            return makeHallCat(`${hallId}-cat-${index + 1}`, hallId, {
                                 name: cleanText(cat.name || `新角色 ${index + 1}`),
                                 humanName: cleanText(cat.humanName || cat.name || `新角色 ${index + 1}`),
                                 breed: cleanText(cat.breed || '未知品种的异世界猫'),
@@ -12010,8 +12069,6 @@ JSON 格式：
                                 origin: newHall.source,
                                 isMarvel: /marvel/i.test(newHall.source)
                             });
-                            resident.meeowBaseAppearance = createMeeowBaseAppearance({ color });
-                            return resident;
                         });
 
                         const rawDestinations = (Array.isArray(data.destinations) && data.destinations.length ? data.destinations : [
@@ -14162,11 +14219,20 @@ ${buildCatMemoryContext(cat)}`;
                     const changed = clean !== cleanText(cat.status || '');
                     cat.status = clean;
                     if (options.innerVoice) cat.innerVoice = cleanText(options.innerVoice);
-                    cat.mapRoom = MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
+                    const explicitPoint = findMapPoint(options.mapPoint || options.mapSpot);
+                    cat.mapRoom = explicitPoint?.roomId || (MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
                         ? options.mapRoom
-                        : inferMapRoomFromStatus(clean);
+                        : inferMapRoomFromStatus(clean));
                     const roomDefinition = MAP_ROOM_DEFINITIONS.find(room => room.id === cat.mapRoom);
-                    if (roomDefinition?.zones.some(zone => zone.id === options.mapSpot)) cat.mapSpot = options.mapSpot;
+                    const validPoint = findMapPoint(options.mapPoint || options.mapSpot, cat.mapRoom);
+                    if (validPoint) {
+                        cat.mapPoint = validPoint.id;
+                        cat.mapSpot = validPoint.id;
+                        cat.mapFurniture = cleanText(options.mapFurniture || validPoint.furnitureId || '');
+                        cat.mapPositionLabel = cleanText(options.mapPositionLabel || validPoint.name || '');
+                    } else if (roomDefinition?.zones.some(zone => zone.id === options.mapSpot)) {
+                        cat.mapSpot = options.mapSpot;
+                    }
                     cat.lastStatusUpdateTime = Date.now();
                     if (changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {});
                     return changed;
@@ -15409,15 +15475,17 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const timeStr = getCurrentTimeStr();
                         const selectedVoiceCatId = currentFocusVoiceEntry.value?.catId;
                         const nextVoiceEntries = [];
+                        const logParts = [];
 
                         participants.forEach(cat => {
                             const update = updateById.get(String(cat.id));
                             const action = cleanText(update?.status || update?.action || '仍留在专注现场，以自己的方式陪伴馆长。');
                             const voice = cleanText(update?.innerVoice || update?.voice || '先把这一段时间守住。');
-                            currentFocusLog.value.unshift(`${timeStr} [${cat.name}] ${action}`);
+                            logParts.push(`${cat.name}：${action}`);
                             setCatStatus(cat, action, { innerVoice: voice, source: 'focus', forceLog: true });
                             nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat) });
                         });
+                        if (logParts.length) currentFocusLog.value.unshift(`${timeStr}｜${logParts.join('；')}`);
 
                         focusVoiceEntries.value = nextVoiceEntries;
                         const retainedIndex = nextVoiceEntries.findIndex(entry => String(entry.catId) === String(selectedVoiceCatId));
@@ -15428,13 +15496,15 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const timeStr = getCurrentTimeStr();
                         const selectedVoiceCatId = currentFocusVoiceEntry.value?.catId;
                         const nextVoiceEntries = [];
+                        const logParts = [];
                         participants.forEach(cat => {
                             const fallback = '仍留在专注现场，以自己的方式陪伴馆长。';
-                            currentFocusLog.value.unshift(`${timeStr} [${cat.name}] ${fallback}`);
+                            logParts.push(`${cat.name}：${fallback}`);
                             const voice = cleanText(cat.innerVoice || '先守住这一小段时间。');
                             setCatStatus(cat, fallback, { innerVoice: voice, source: 'focus-fallback', forceLog: true });
                             nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat) });
                         });
+                        if (logParts.length) currentFocusLog.value.unshift(`${timeStr}｜${logParts.join('；')}`);
                         focusVoiceEntries.value = nextVoiceEntries;
                         const retainedIndex = nextVoiceEntries.findIndex(entry => String(entry.catId) === String(selectedVoiceCatId));
                         focusVoiceIndex.value = retainedIndex >= 0 ? retainedIndex : 0;
@@ -15544,6 +15614,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     clearInterval(focusTimer.value);
                     if (audioPlayer.value) audioPlayer.value.pause();
                     isFocusing.value = false;
+                    focusMusic.modalOpen = false;
+                    focusMusic.addPanel = false;
                     void releaseFocusWakeLock();
 
                     const participants = [...focusCats.value];
@@ -15551,6 +15623,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const duration = success ? minutes * 60 : Math.max(0, minutes * 60 - focusTime.value);
                     const catNames = participants.map(c => c.name).join(', ');
                     const chronologicalLogs = [...currentFocusLog.value].reverse();
+                    const endedFocusStatus = `刚刚结束「${cleanText(focusAction.value)}」专注任务`;
+                    user.currentStatus = endedFocusStatus;
+                    tempUserStatus.value = endedFocusStatus;
                     const fallbackSummary = success
                         ? `${catNames || '参与猫咪'}陪馆长完成了「${focusAction.value}」。本次记录已归档。`
                         : `「${focusAction.value}」在本次专注中止后归档；${catNames || '参与猫咪'}已保留现场记录。`;
@@ -15757,6 +15832,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         - NO OOC. The source material and each cat's stored prompt are binding; cat form never overrides core personality.
                         
                         Task: Update status for ALL characters.
+                        [MEEOW MAP POINTS]:
+                        Use EXACTLY one mapPoint from this list for every cat at home. The status text must naturally mention the same furniture and position. Do not place cats on stove, hearth, or hot surfaces. The sink-basin point is allowed only for safe water/sink-basin scenes.
+                        ${getMapPointPromptGuide()}
+
                         [MANDATORY OUTPUT FORMAT]:
                         Return a JSON array of objects:
                         [
@@ -15766,8 +15845,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             "innerVoice": "Human language internal monologue (max 30 words). **MANDATORY:** Refer to yourself as '我' (I) or similar, NEVER use your full name to refer to yourself in thoughts.",
                             "isOut": boolean,
                             "isHuman": boolean,
-                            "mapRoom": "dorm | living | dining | litter | bath (omit when isOut is true)",
-                            "mapSpot": "a valid matching room zone: dorm[nest,cushion,tree,window,wardrobe]; living[sofa,toy,scratch,rug,bookshelf]; dining[food-cabinet,food-bowl,water-bowl,snack-shelf,table]; litter[litter-a,litter-b,cleaning,deodorizer,waiting-mat]; bath[sink,tub,towel,dryer,laundry]"
+                            "mapRoom": "dorm | living | dining (omit when isOut is true)",
+                            "mapFurniture": "stable furniture id from the chosen point, e.g. sofa/table/shelf",
+                            "mapPoint": "exact point id from [MEEOW MAP POINTS]",
+                            "mapPositionLabel": "short Chinese label matching status, e.g. 沙发上/沙发脚/左侧桌下"
                           }
                         ]`;
 
@@ -15782,7 +15863,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             updates.forEach(update => {
                                 const cat = catsToUpdate.find(c => c.id === update.id);
                                 if (cat) {
-                                    if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, source: 'status-sync', forceLog: true });
+                                    if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                     if (update.isOut !== undefined) {
                                         if (!cat.isOut && update.isOut) cat.hasHackedThisPatrol = false;
@@ -15927,17 +16008,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 };
                 const exportSave = async () => {
                     try {
-                        showToast('正在打包存档与手动涂色素材…', 'loading');
-                        const spriteAssetFiles = await collectSpriteAssetBackups();
-                        const meeowPaintFiles = await collectMeeowPaintBackups();
+                        showToast('正在打包喵喵馆存档…', 'loading');
+                        const catPaintAssets = await collectCatPaintBackups();
                         const data = JSON.stringify({
                             version: 2,
                             user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings,
-                            // The JSON is intentionally self-contained: files remain
-                            // in IndexedDB for normal use and are also embedded here
-                            // for a manual backup / device transfer.
-                            spriteAssetFiles,
-                            meeowPaintFiles
+                            catPaintAssets
                         });
                         const blob = new Blob([data], { type: 'application/json' });
                         const url = URL.createObjectURL(blob);
@@ -15946,9 +16022,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         a.download = `meeow_house_save_${new Date().toISOString().slice(0, 10)}.json`;
                         a.click();
                         window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-                        showToast('存档与手动涂色素材已导出', 'success');
+                        showToast('喵喵馆存档已导出', 'success');
                     } catch (error) {
-                        addLog(`SPRITE EXPORT FAILED: ${error.message}`, 'error');
+                        addLog(`SAVE EXPORT FAILED: ${error.message}`, 'error');
                         showToast(`导出失败：${error.message}`, 'error');
                     }
                 };
@@ -15965,7 +16041,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             mergeBuiltInCats();
                             normalizeCustomHallPresentation();
                             if (data.settings) Object.assign(settings, data.settings);
-                            ensureMeeowPaintBase();
+                            if (data.catPaintAssets) await restoreCatPaintBackups(data.catPaintAssets);
                             if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
                             settings.focusMusicVolume = Math.max(0, Math.min(1, Number(settings.focusMusicVolume ?? 0.7)));
                             settings.focusMusicLoop = settings.focusMusicLoop !== false;
@@ -15973,13 +16049,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             customFontInput.value = settings.customFontUrl || '';
                             applyUISettings();
                             if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
-                            if (data.spriteAssetFiles) await restoreSpriteAssetBackups(data.spriteAssetFiles);
-                            else await preloadAllSpriteAssets();
-                            if (data.meeowPaintFiles) await restoreMeeowPaintBackups(data.meeowPaintFiles);
-                            else await preloadMeeowPaintAssets();
-                            showToast(data.meeowPaintFiles ? '喵喵馆存档与手动涂色素材已导入' : '喵喵馆存档已导入；本机涂色素材会自动恢复', 'success');
+                            showToast('喵喵馆存档已导入', 'success');
                         } catch (error) {
-                            addLog(`SPRITE IMPORT FAILED: ${error.message}`, 'error');
+                            addLog(`SAVE IMPORT FAILED: ${error.message}`, 'error');
                             showToast(`存档导入失败：${error.message}`, 'error');
                         } finally {
                             event.target.value = '';
@@ -16000,12 +16072,16 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 };
                 const stopFocus = () => { if (confirm("确定中止任务？")) { const plannedMinutes = focusTotalTime.value / 60; finishFocus(plannedMinutes, false); } };
                 const playLogSound = () => { const audio = new Audio('https://files.catbox.moe/mz99nm.mp3'); audio.volume = 0.5; audio.play().catch(() => { }); };
+                const normalizeApiBaseUrl = (value) => String(value || '').trim().replace(/\/+$/, '');
                 const fetchModels = async () => {
                     if (!settings.apiKey || !settings.baseUrl) return;
                     showToast("正在同步馆舍模型服务器...", "loading");
                     isFetchingModels.value = true;
                     try {
-                        const res = await fetch(settings.baseUrl + '/models', { method: 'GET', headers: { 'Authorization': `Bearer ${settings.apiKey}` } });
+                        const baseUrl = normalizeApiBaseUrl(settings.baseUrl);
+                        settings.baseUrl = baseUrl;
+                        const currentModel = String(settings.model || '').trim();
+                        const res = await fetch(baseUrl + '/models', { method: 'GET', headers: { 'Authorization': `Bearer ${settings.apiKey}` } });
                         const raw = await res.text();
                         let data;
                         try { data = JSON.parse(raw); } catch (error) { throw new Error(`模型列表返回了无效数据：${raw.slice(0, 300)}`); }
@@ -16013,7 +16089,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             throw new Error(data?.error?.message || data?.message || `HTTP ${res.status}`);
                         }
                         if (!Array.isArray(data?.data)) throw new Error('模型列表响应缺少 data 数组');
-                        availableModels.value = data.data.map(m => m.id).filter(Boolean);
+                        availableModels.value = [...new Set(data.data.map(m => m.id).filter(Boolean))];
+                        // Refreshing the server list must never silently choose a
+                        // different model. Keep a valid saved custom model visible.
+                        if (currentModel) settings.model = currentModel;
+                        persistSettings();
                         showToast("模型列表已更新", "success");
                     } catch (e) {
                         addLog(`MODEL LIST ERROR: ${getReadableAPIError(e)}`, 'error');
@@ -16085,8 +16165,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 lastStatusUpdateTime: Date.now(),
                                 prompt: data.prompt,
                                 isMarvel: false,
-                                origin: data.origin,
-                                meeowBaseAppearance: createMeeowBaseAppearance({ color: data.color })
+                                origin: data.origin
                             });
                             showToast("许愿成功！新伙伴已加入。", "success");
                             currentTab.value = 'lounge';
@@ -16106,7 +16185,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const existingNames = roomCats.value.map(c => c.name).join(', ');
                     const systemPrompt = `You are ${newCat.name} (${newCat.codename || newCat.name}). Personality traits: ${newCat.personality || 'unknown'}. Breed: ${newCat.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. Stay true to your canon personality at all times. Do NOT act tsundere or like a generic anime cat. Your tone, humor, and emotional expression must match your established character. Known Associates in this hall only: ${existingNames}.`;
                     const id = Date.now();
-                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住', isOut: false, affinity: 10, isHuman: false, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false, meeowBaseAppearance: createMeeowBaseAppearance({ color: newCat.color }) });
+                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住', isOut: false, affinity: 10, isHuman: false, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false });
                     currentTab.value = 'lounge';
                 };
 
@@ -16115,7 +16194,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const existingNames = roomCats.value.map(c => c.name).join(', ');
                         const systemPrompt = `You are ${gachaResult.value.name}. Personality: ${gachaResult.value.personality || 'unknown'}. Breed: ${gachaResult.value.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. Stay true to your canon personality. Do NOT default to tsundere or generic cute-cat behavior. Express your character\'s unique voice, emotional range, and worldview authentically. Known Associates in this hall only: ${existingNames}. ${gachaResult.value.prompt}`;
                         const id = Date.now();
-                        cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: 10, isHuman: false, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole, meeowBaseAppearance: createMeeowBaseAppearance({ color: gachaResult.value.color }) });
+                        cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: 10, isHuman: false, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
                         currentTab.value = 'lounge';
                     }
                     gachaResult.value = null;
@@ -16125,6 +16204,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
 
                 const currentFocusMusicTrack = computed(() => settings.focusMusicPlaylist?.[focusMusic.currentIndex] || null);
                 const isFocusMusicPlaying = computed(() => focusMusicPlaying.value);
+                const openFocusMusicModal = () => {
+                    focusMusic.modalOpen = true;
+                };
                 const formatFocusMusicTime = (seconds) => {
                     const value = Math.max(0, Number(seconds) || 0);
                     return `${Math.floor(value / 60)}:${String(Math.floor(value % 60)).padStart(2, '0')}`;
@@ -16355,10 +16437,6 @@ ${buildCatMemoryContext(cat)}`).join('\n');
 
                 onMounted(() => {
                     syncAppViewport();
-                    // Restore user-uploaded full-body sprite previews from the
-                    // browser's persistent asset store without blocking startup.
-                    void preloadAllSpriteAssets();
-                    void preloadMeeowPaintAssets();
                     window.addEventListener('resize', refreshSafeAreaAndViewport, { passive: true });
                     window.addEventListener('orientationchange', refreshSafeAreaAndViewport, { passive: true });
                     window.addEventListener('pageshow', refreshSafeAreaAndViewport, { passive: true });
@@ -16421,7 +16499,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText,
-                    hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, getMapZoneStyle, getMapStageStyle, getMapFurnitureLayers, handleMapCatTap, openMapCatDetail,
+                    hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
@@ -16430,7 +16508,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     showCatVisitModal, visitCat, visitTargetHallId, visitMessage, visitIsProcessing, openCatVisit, sendCatVisiting, returnVisitingCat,
                     handleImageUpload, adoptCat, wishAdoptCat, isWishLoading,
                     friendsList, sendFriendRequest, acceptFriendRequest,
-                    saveSettings: () => { localStorage.setItem(STORAGE_KEY, JSON.stringify({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings })); showToast("数据已加密保存", "success"); },
+                    saveSettings: () => { settings.baseUrl = normalizeApiBaseUrl(settings.baseUrl); persistSettings(); showToast("数据已加密保存", "success"); },
+                    persistSelectedModel,
+                    persistSettings,
                     resetData: () => { if (confirm("确定要删除所有存档吗？")) { localStorage.removeItem(STORAGE_KEY); location.reload(); } },
                     exportSave, importSave, fileInput,
                     shopItems, filteredShopItems, buyItem, openBag: () => showBag.value = true, useItem, readItem,
@@ -16439,11 +16519,13 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     notification, showNotification, hideNotification,
                     formatTime: (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`,
                     stopFocus, focusMessage, currentNoise, customNoiseUrl, playNoise, audioPlayer, harassCat, currentFocusLog, isFinishingFocus, focusSettlementLoading,
-                    focusMusicAudioPlayer, focusMusicPlaying, focusMusic, currentFocusMusicTrack, isFocusMusicPlaying, formatFocusMusicTime, syncFocusMusicVolume, updateFocusMusicProgress, playFocusMusic, toggleFocusMusic, seekFocusMusic, addFocusMusicUrl, handleFocusMusicUpload, removeFocusMusic, handleFocusMusicEnded, handleFocusMusicError, searchFocusMusic, addFocusMusicTrack,
+                    focusMusicAudioPlayer, focusMusicPlaying, focusMusic, currentFocusMusicTrack, isFocusMusicPlaying, openFocusMusicModal, formatFocusMusicTime, syncFocusMusicVolume, updateFocusMusicProgress, playFocusMusic, toggleFocusMusic, seekFocusMusic, addFocusMusicUrl, handleFocusMusicUpload, removeFocusMusic, handleFocusMusicEnded, handleFocusMusicError, searchFocusMusic, addFocusMusicTrack,
                     toggleHumanMode, handleSpecificImageUpload, releaseCat, shareMemory,
-                    getCatAvatarSource, getCatActionSpriteSource, getSpriteAssetSource, getSpriteAssetLabel, getMapSpriteStyle, isSpriteSheetAction, spriteActionDefinitions, handleSpriteAssetUpload, handleSpritePackUpload, removeSpriteAsset, saveSpriteActionMetadata, useSpriteAvatar,
-                    getMapCatAvatarSource, hasPaintedMapAvatar, paintBaseMeta, paintBasePreviewUrl, paintBaseReady, handlePaintBaseUpload, removePaintBase,
-                    showCatPaintModal, catPaintCanvas, catPaintTool, catPaintColor, catPaintBrushSize, catPaintHistory, openCatPaintWorkshop, closeCatPaintWorkshop, handleCatPaintPointerDown, handleCatPaintPointerMove, finishCatPaintStroke, undoCatPaint, resetCatPaint, saveCatPaint,
+                    getCatAvatarSource, getMapCatAvatarSource, handleMapAvatarError,
+                    showCatPaintModal, catPaintCanvas, catPaintTool, catPaintColor, catPaintUndoStack, catPaintRedoStack, catPaintTools,
+                    handleSharedCatTemplateUpload, openCatPaintWorkshop, closeCatPaintWorkshop, saveCatPaint, undoCatPaint, redoCatPaint, resetCatPaint,
+                    startCatPaintStroke, moveCatPaintStroke, endCatPaintStroke,
+                    isUsingPixelAvatar, makePixelCatAvatar, openPixelAvatarWorkshop, closePixelAvatarWorkshop, savePixelAvatar, useOriginalAvatar, resetPixelAvatarDraft, randomizePixelAvatarDraft,
                     showFocusSetupModal, focusSetupData, availableCatsForFocus, canStartFocus, openFocusSetupModal, toggleFocusCat, startFocus,
                     currentFocusVoice, currentFocusVoiceCat, focusVoiceEntries, focusVoiceIndex, cycleFocusVoice, focusWakeLockMessage,
                     currentSettlement, unreadMailCount, openMailbox, claimMailItem, todayEvent,
