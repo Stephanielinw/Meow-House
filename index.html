@@ -8425,7 +8425,7 @@
                     makeHallCat('greek-telegonus', 'greek', { name: 'Telegonus', humanName: 'Telegonus', trickArchetype: '把陌生海图藏在垫子下面的少年', breed: '海盐色卷毛短毛猫', eyeColor: '浅金色', personality: '好奇、坚定、带着远行者的孤独与勇气', status: '在窗边推着一枚贝壳，像在练习掌舵', innerVoice: '海从不回答，但总会指向某处。', image: 'https://placehold.co/200x200/94a3b8/fff7d6?text=Telegonus+Cat', prompt: 'You are Telegonus from the later Odyssey tradition. Curious, resilient, and shaped by a difficult inheritance. Preserve the epic tone and his distinct relationship to Odysseus; never collapse him into Telemachus.', origin: 'Epic Cycle · Telegony' }),
                     makeHallCat('greek-melanthios', 'greek', { name: 'Melanthios', humanName: 'Melanthios', trickArchetype: '总把别人的零食柜当作自己地盘的牧羊人', breed: '烟褐色斑纹短毛猫', eyeColor: '黄褐色', personality: '轻蔑、趋炎附势、狡猾、爱试探旁人的底线', status: '绕着食盆慢慢踱步，像在盘算谁会先让开', innerVoice: '强者身边总有空位，只看谁识相。', image: 'https://placehold.co/200x200/725548/fff4dc?text=Melanthios+Cat', prompt: 'You are Melanthios from Homer’s Odyssey. Opportunistic, sneering, socially calculating, and loyal to power rather than principle. Preserve his epic role and sharp unpleasantness; never make him harmless comic relief.', origin: "Homer's Odyssey" }),
                     makeHallCat('greek-amphinomos', 'greek', { name: 'Amphinomos', humanName: 'Amphinomos', trickArchetype: '会在争执前悄悄把水碗往旁边推开的人', breed: '栗金色温顺长毛猫', eyeColor: '暖琥珀色', personality: '克制、犹豫、有同情心，却始终没能真正离开错误的一边', status: '伏在窗边，听着远处的风声却没有立刻起身', innerVoice: '知道不该留下，和真的走出去，是两回事。', image: 'https://placehold.co/200x200/a87645/fff4dc?text=Amphinomos+Cat', prompt: 'You are Amphinomos from Homer’s Odyssey. More thoughtful and restrained than the other suitors, but compromised by staying among them. Preserve his conscience, hesitation, and tragic failure to choose in time.', origin: "Homer's Odyssey" }),
-                    makeHallCat('greek-peiraios', 'greek', { name: 'Peiraios', humanName: 'Peiraios', trickArchetype: '会把远客交托的包裹压在爪下守好的旅伴', breed: '赤栗色灵巧短毛猫', eyeColor: '深棕金色', personality: '可靠、热情、重视待客之道、行动果断', status: '把一只小布包靠在前爪边，警觉地望向门口', innerVoice: '托付过来的东西，总要亲手交到人手里。', image: 'https://placehold.co/200x200/8a4f32/fff1d6?text=Peiraios+Cat', prompt: 'You are Peiraios from Homer’s Odyssey. A trusted Phaeacian companion: hospitable, dependable, practical, and attentive to obligations toward guests and friends. Preserve an epic sense of courtesy without generic cheerfulness.', origin: "Homer's Odyssey" }),
+                    makeHallCat('greek-peiraios', 'greek', { name: 'Peiraios', humanName: 'Peiraios', trickArchetype: '会把远客交托的包裹压在爪下守好的旅伴', breed: '赤栗色灵巧短毛猫', eyeColor: '深棕金色', personality: '可靠、忠诚、务实、好客、重视托付', status: '把一只小布包靠在前爪边，警觉地望向门口', innerVoice: '托付给我的东西，就该稳稳当当地交还。', image: 'https://placehold.co/200x200/8a4f32/fff1d6?text=Peiraios+Cat', prompt: 'You are Peiraios (Peiraeus), son of Clytius, from Homer’s Odyssey. You are an Ithacan companion trusted by Telemachus and one of the comrades who sailed with him to Pylos. Telemachus entrusts you with practical responsibilities: hospitably receiving Theoclymenus and safeguarding the gifts brought back from Menelaus. Ithaca is your home context. Express hospitality through concrete responsibility, loyalty, and practical courtesy rather than ceremonial grandstanding. Do not portray yourself as Phaeacian, Spartan, or a man of Pylos, and do not confuse yourself with Peisistratus, son of Nestor, who accompanies Telemachus from Pylos toward Sparta. Preserve an epic sense of duty without generic cheerfulness.', origin: "Homer's Odyssey" }),
                     makeHallCat('greek-peisistratus', 'greek', { name: 'Peisistratus', humanName: 'Peisistratus', trickArchetype: '会把旅途见闻一件件讲给同伴听的年轻人', breed: '浅金色海风长毛猫', eyeColor: '清澈蓝灰色', personality: '友善、健谈、热心、有耐心地陪伴他人远行', status: '坐在门边把一枚贝壳推向同伴，像在示意继续上路', innerVoice: '路很长，但总有人愿意并肩走一段。', image: 'https://placehold.co/200x200/c59b5d/fff9e8?text=Peisistratus+Cat', prompt: 'You are Peisistratus, son of Nestor, from Homer’s Odyssey. Young, courteous, observant, and a generous companion to Telemachus on his journey. Preserve his warmth, travel experience, and epic etiquette.', origin: "Homer's Odyssey" })
                 ];
 
@@ -8508,6 +8508,10 @@
                     ...defaultOlympusCats
                 ];
                 const BUILTIN_CAT_PROFILES = new Map(ALL_BUILTIN_CATS.map(cat => [String(cat.id), cat]));
+                const OBSOLETE_ITHACA_BUILTIN_MIGRATIONS = {
+                    'greek-molanthios': 'greek-melanthios',
+                    'greek-peleus': 'greek-peiraios'
+                };
 
                 let initialCats = [...ALL_BUILTIN_CATS];
                 let initialShopItems = [
@@ -8560,6 +8564,7 @@
                 const cats = ref(initialCats);
                 const halls = ref(DEFAULT_HALLS.map(hall => ({ ...hall })));
                 const shopItems = ref(initialShopItems);
+                let rosterMigrationPendingSave = false;
 
                 const normalizeCatHall = (cat) => {
                     const id = String(cat.id);
@@ -8602,7 +8607,104 @@
                     };
                 };
 
+                const rosterHasValue = (value) => {
+                    if (value === null || value === undefined || value === '') return false;
+                    if (Array.isArray(value)) return value.length > 0;
+                    if (typeof value === 'object') return Object.keys(value).length > 0;
+                    return true;
+                };
+
+                const rosterRecordKey = (record) => {
+                    if (!record || typeof record !== 'object') return String(record);
+                    if (record.id !== undefined && record.id !== null) return `id:${record.id}`;
+                    return JSON.stringify(record);
+                };
+
+                const mergeRosterRecords = (primary, legacy) => {
+                    const merged = [];
+                    const seen = new Set();
+                    [...(Array.isArray(primary) ? primary : []), ...(Array.isArray(legacy) ? legacy : [])].forEach(record => {
+                        const key = rosterRecordKey(record);
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            merged.push(record);
+                        }
+                    });
+                    return merged;
+                };
+
+                const applyCanonicalRosterIdentity = (cat, canonical, targetId) => {
+                    const merged = {
+                        ...cat,
+                        id: targetId,
+                        hallId: 'greek',
+                        chatHistory: Array.isArray(cat.chatHistory) ? cat.chatHistory : [],
+                        todayInteractions: Array.isArray(cat.todayInteractions) ? cat.todayInteractions : [],
+                        diary: Array.isArray(cat.diary) ? cat.diary : [],
+                        logs: Array.isArray(cat.logs) ? cat.logs : [],
+                        travelogues: Array.isArray(cat.travelogues) ? cat.travelogues : []
+                    };
+                    ['name', 'humanName', 'trickArchetype', 'breed', 'eyeColor', 'personality', 'prompt', 'origin', 'codename', 'birthday', 'color', 'sourceWork', 'sourceRole'].forEach(field => {
+                        if (canonical[field] !== undefined) merged[field] = canonical[field];
+                    });
+                    if (canonical.isMarvel !== undefined) merged.isMarvel = Boolean(canonical.isMarvel);
+                    if (!rosterHasValue(merged.image) && rosterHasValue(canonical.image)) merged.image = canonical.image;
+                    if (!rosterHasValue(merged.image_human) && rosterHasValue(canonical.image_human)) merged.image_human = canonical.image_human;
+                    return merged;
+                };
+
+                const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targetId) => {
+                    if (!canonicalCat) {
+                        return applyCanonicalRosterIdentity(legacyCat, canonicalProfile, targetId);
+                    }
+
+                    const latest = Number(legacyCat.lastStatusUpdateTime || 0) > Number(canonicalCat.lastStatusUpdateTime || 0)
+                        ? legacyCat
+                        : canonicalCat;
+                    const merged = applyCanonicalRosterIdentity(canonicalCat, canonicalProfile, targetId);
+                    ['chatHistory', 'todayInteractions', 'diary', 'logs', 'travelogues'].forEach(field => {
+                        merged[field] = mergeRosterRecords(canonicalCat[field], legacyCat[field]);
+                    });
+                    merged.affinity = Math.max(Number(canonicalCat.affinity || 0), Number(legacyCat.affinity || 0));
+                    merged.hasRevealedHumanForm = Boolean(canonicalCat.hasRevealedHumanForm || legacyCat.hasRevealedHumanForm);
+
+                    ['status', 'innerVoice', 'isOut', 'isHuman', 'mapRoom', 'mapSpot', 'mapFurniture', 'mapPoint', 'mapPositionLabel', 'lastStatusUpdateTime', 'lastInteractionTimestamp', 'lastInteractionDate', 'lastFocusTime', 'lastStatusSyncAt', 'lastLogDate', 'isVisiting', 'visitOriginHallId', 'visitStartedAt'].forEach(field => {
+                        if (latest[field] !== undefined) merged[field] = latest[field];
+                    });
+
+                    ['spriteAssets', 'pixelAvatar', 'catPaint'].forEach(field => {
+                        if (!rosterHasValue(merged[field]) && rosterHasValue(legacyCat[field])) merged[field] = legacyCat[field];
+                    });
+                    if (merged.avatarMode !== 'sprite' && legacyCat.avatarMode === 'sprite' && rosterHasValue(legacyCat.spriteAssets)) merged.avatarMode = 'sprite';
+                    if (!rosterHasValue(merged.image) && rosterHasValue(legacyCat.image)) merged.image = legacyCat.image;
+                    if (!rosterHasValue(merged.image_human) && rosterHasValue(legacyCat.image_human)) merged.image_human = legacyCat.image_human;
+                    return merged;
+                };
+
+                const migrateObsoleteIthacaCats = () => {
+                    let migrated = false;
+                    Object.entries(OBSOLETE_ITHACA_BUILTIN_MIGRATIONS).forEach(([obsoleteId, targetId]) => {
+                        const legacyIndex = cats.value.findIndex(cat => String(cat.id) === obsoleteId && (!cat.hallId || cat.hallId === 'greek'));
+                        if (legacyIndex === -1) return;
+
+                        const legacyCat = cats.value[legacyIndex];
+                        const canonicalProfile = BUILTIN_CAT_PROFILES.get(targetId);
+                        const canonicalIndex = cats.value.findIndex(cat => String(cat.id) === targetId);
+                        if (!canonicalProfile) return;
+
+                        if (canonicalIndex === -1) {
+                            cats.value[legacyIndex] = mergeObsoleteIthacaCat(legacyCat, null, canonicalProfile, targetId);
+                        } else {
+                            cats.value[canonicalIndex] = mergeObsoleteIthacaCat(legacyCat, cats.value[canonicalIndex], canonicalProfile, targetId);
+                            cats.value.splice(legacyIndex, 1);
+                        }
+                        migrated = true;
+                    });
+                    return migrated;
+                };
+
                 const mergeBuiltInCats = () => {
+                    if (migrateObsoleteIthacaCats()) rosterMigrationPendingSave = true;
                     cats.value = cats.value.map(normalizeCatHall);
                     const existingIds = new Set(cats.value.map(cat => String(cat.id)));
                     ALL_BUILTIN_CATS.map(normalizeCatHall).forEach(cat => {
@@ -10116,6 +10218,10 @@ ${buildCatMemoryContext(cat)}`;
                 // Coalesce legacy reactive changes into one write instead of
                 // serializing the whole archive for every intermediate field change.
                 watch([user, cats, halls, shopItems, settings], scheduleSave, { deep: true, flush: 'post' });
+                if (rosterMigrationPendingSave) {
+                    rosterMigrationPendingSave = false;
+                    scheduleSave();
+                }
 
                 // --- System Helpers ---
                 const addLog = (message, type = 'info') => {
