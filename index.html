@@ -15622,6 +15622,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     try {
                         let characterBlock = "";
                         let activeCatNames = [];
+                        const requestedIds = [];
                         catsToUpdate.forEach(c => {
                             const isActive = activeCatIds && activeCatIds.includes(c.id);
                             if (isActive && !isFocusEnd && !isExploreEnd) {
@@ -15631,6 +15632,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             if (isActive && (isFocusEnd || isExploreEnd)) {
                                 activeCatNames.push(c.name);
                             }
+                            requestedIds.push(String(c.id));
 
                             // Mandatory Δt Logic (Strict)
                             const lastUpdate = c.lastStatusUpdateTime || (Date.now() - 3600000);
@@ -15718,10 +15720,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         ${getMapPointPromptGuide()}
 
                         [MANDATORY OUTPUT FORMAT]:
+                        Copy each CHARACTER ID exactly as supplied above. Never translate, shorten, renumber, or replace an ID with a character name.
                         Return a JSON array of objects:
                         [
                           {
-                            "id": number,
+                            "id": "exact supplied character id",
                             "status": "Short description of current action (max 20 words)",
                             "innerVoice": "Human language internal monologue (max 30 words). **MANDATORY:** Refer to yourself as '我' (I) or similar, NEVER use your full name to refer to yourself in thoughts.",
                             "isOut": boolean,
@@ -15733,6 +15736,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                           }
                         ]`;
 
+                        addLog(`STATUS SYNC SCOPE: hall=${currentHall.value.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
+
                         const res = await callAI(characterBlock + "\n" + prompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                             ...requestOptions,
                             label: `STATUS SYNC · ${currentHall.value.name}`,
@@ -15741,9 +15746,23 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const updates = parseAIJSON(res);
 
                         if (Array.isArray(updates)) {
-                            updates.forEach(update => {
-                                const cat = catsToUpdate.find(c => c.id === update.id);
+                            const responseEntries = updates.filter(update => update && typeof update === 'object');
+                            const receivedIds = responseEntries.map(update => String(update.id ?? '')).filter(Boolean);
+                            const requestedIdSet = new Set(requestedIds);
+                            const matchedIds = new Set();
+                            let statusChanged = 0;
+                            let innerVoiceChanged = 0;
+
+                            addLog(`STATUS SYNC RESPONSE: expected=${requestedIds.length}; received=${responseEntries.length}; ids=[${receivedIds.join(', ')}]`, "info");
+
+                            responseEntries.forEach(update => {
+                                const updateId = String(update.id ?? '');
+                                if (!requestedIdSet.has(updateId) || matchedIds.has(updateId)) return;
+                                const cat = catsToUpdate.find(c => String(c.id) === updateId);
                                 if (cat) {
+                                    const oldStatus = cat.status;
+                                    const oldInnerVoice = cat.innerVoice;
+                                    matchedIds.add(updateId);
                                     if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                     if (update.isOut !== undefined) {
@@ -15761,8 +15780,19 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                     }
 
                                     cat.lastStatusUpdateTime = Date.now();
+                                    if (cat.status !== oldStatus) statusChanged++;
+                                    if (cat.innerVoice !== oldInnerVoice) innerVoiceChanged++;
                                 }
                             });
+
+                            const matched = matchedIds.size;
+                            const unmatched = requestedIds.filter(id => !matchedIds.has(id));
+                            addLog(`STATUS SYNC APPLIED: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; statusChanged=${statusChanged}; innerVoiceChanged=${innerVoiceChanged}; unmatched=[${unmatched.join(', ')}]`, matched === 0 ? "error" : (unmatched.length > 0 ? "info" : "sent"));
+
+                            if (matched === 0) {
+                                addLog(`STATUS SYNC FAILED: expected=${requestedIds.length}; received=${responseEntries.length}; matched=0; unmatched=[${unmatched.join(', ')}]`, "error");
+                                return false;
+                            }
 
                             // Base Defense Rule: At least 2 cats must remain at home
                             let outCats = catsToUpdate.filter(c => c.isOut);
@@ -15779,7 +15809,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
 
                             localStorage.setItem('last_sync_time', Date.now().toString());
                             alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${currentHall.value.guardian} 已将${currentHall.value.name}监控同步至 ${timeStr}。`;
-                            addLog(`STATUS SYNC SUCCESS: ${currentHall.value.name} members updated.`, "sent");
+                            if (unmatched.length > 0) {
+                                addLog(`STATUS SYNC PARTIAL: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; unmatched=[${unmatched.join(', ')}]`, "info");
+                            } else {
+                                addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
+                            }
                             return true;
                         } else {
                             addLog("STATUS SYNC FAILED: AI returned invalid JSON format.", "error");
