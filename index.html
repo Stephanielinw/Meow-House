@@ -4284,6 +4284,7 @@
         #app .reader-book-card { border-radius: 18px; }
         #app .reader-chapter-row { border-bottom: 1px solid var(--ui-border); color: var(--ui-text); }
         #app .reader-chapter-row:last-child { border-bottom: 0; }
+        #app .reader-chapter-row.reader-chapter-current { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
         #app .reader-text { font-family: var(--app-font-family); color: var(--ui-text); font-size: 16px; line-height: 1.95; }
         #app .reader-paragraph { position: relative; padding: 0 38px 0 0; margin: 0 0 1.15em; white-space: pre-wrap; }
         #app .reader-paw {
@@ -5348,8 +5349,8 @@
                                     <div class="reader-panel rounded-2xl p-4"><div class="font-black text-xs mb-3">陪读选择</div><button type="button" @click="startReaderSession(null)" class="w-full rounded-xl py-2.5 text-xs font-black" style="background:var(--ui-surface-hover); color:var(--ui-text)"><i class="fas fa-book-open mr-1"></i>独自阅读 · 不调用 AI</button><div class="text-[10px] mt-3 mb-2" style="color:var(--ui-text-muted)">或选择一只小猫一起读</div><button v-for="cat in readerAvailableCats" :key="cat.id" type="button" @click="startReaderSession(cat.id)" class="w-full flex items-center gap-2 p-2 rounded-xl text-left mb-1" style="background:var(--ui-surface-hover)"><img :src="getCatAvatarSource(cat)" class="w-8 h-8 object-contain rounded-lg"><span class="text-xs font-bold">{{ cat.name }}</span></button></div>
                                 </div>
 
-                                <div v-else-if="phoneState.reader.view === 'toc'" class="flex-1 overflow-y-auto p-3 custom-scrollbar">
-                                    <button v-for="(chapter, chapterIndex) in activeReaderBook?.chapters || []" :key="chapter.id" type="button" @click="selectReaderChapter(chapterIndex)" class="reader-chapter-row w-full text-left p-3"><div class="text-xs font-bold">{{ chapterIndex + 1 }}. {{ chapter.title }}</div><div class="text-[9px] mt-1" style="color:var(--ui-text-muted)">{{ chapter.paragraphCount || 0 }} 段 · {{ getReaderChapterAnnotationCount(chapter.id) }} 条猫爪笔记</div></button>
+                                <div v-else-if="phoneState.reader.view === 'toc'" ref="readerTocRef" class="flex-1 overflow-y-auto p-3 custom-scrollbar">
+                                    <button v-for="(chapter, chapterIndex) in activeReaderBook?.chapters || []" :key="chapter.id" type="button" @click="selectReaderChapter(chapterIndex)" :data-reader-chapter="chapter.id" :class="{'reader-chapter-current': chapterIndex === phoneState.reader.chapterIndex}" class="reader-chapter-row w-full text-left p-3"><div class="text-xs font-bold">{{ chapterIndex + 1 }}. {{ chapter.title }}</div><div class="text-[9px] mt-1" style="color:var(--ui-text-muted)">{{ chapter.paragraphCount || 0 }} 段 · {{ getReaderChapterAnnotationCount(chapter.id) }} 条猫爪笔记</div></button>
                                 </div>
 
                                 <div v-else-if="phoneState.reader.view === 'reader'" class="flex-1 min-h-0 flex flex-col">
@@ -5371,6 +5372,17 @@
                                         <div class="space-y-3 max-h-[55dvh] overflow-y-auto custom-scrollbar">
                                             <div v-for="note in getReaderParagraphAnnotations(phoneState.reader.annotationParagraphIndex)" :key="note.id" class="reader-annotation-card rounded-2xl p-3"><div class="reader-cats-list mb-2"><span class="reader-cat-chip"><img :src="getCatAvatarSource(getCatById(note.catId))"><b>{{ getCatById(note.catId)?.name || '未知小猫' }}</b></span><span class="text-[9px]" style="color:var(--ui-text-subtle)">{{ formatReaderNoteTime(note) }}</span></div><template v-if="note.status || note.innerVoice"><div class="reader-note-section rounded-xl p-3 mb-2"><div class="reader-note-section-label text-[10px] font-black mb-1"><i class="fas fa-paw mr-1"></i>阅读状态</div><p class="reader-modal-copy text-sm">{{ note.status }}</p></div><div class="reader-note-section rounded-xl p-3"><div class="reader-note-section-label text-[10px] font-black mb-1"><i class="fas fa-comment-dots mr-1"></i>小猫心声</div><p class="reader-modal-copy text-sm">{{ note.innerVoice }}</p></div></template><div v-else class="reader-note-legacy rounded-xl p-3"><div class="text-[10px] font-black mb-1" style="color:var(--ui-text-muted)">旧版笔记</div><p class="reader-modal-copy text-sm">{{ note.content }}</p></div></div>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <div v-if="phoneState.reader.companionChapterPickerOpen" class="fixed inset-0 z-[1301] meeow-modal-overlay flex items-center justify-center p-4" @click.self="continueReaderIndependently">
+                                    <div class="meeow-modal-card w-full max-w-sm rounded-3xl p-5">
+                                        <div class="flex justify-between items-center gap-3 mb-2"><div class="font-black text-base"><i class="fas fa-paw mr-1" style="color:var(--accent)"></i>{{ phoneState.reader.unreadPromptChapterId ? '小猫还没有读到这里哦' : '选择陪读章节' }}</div><button type="button" @click="continueReaderIndependently" class="text-lg" style="color:var(--ui-text-muted)">×</button></div>
+                                        <p class="text-xs leading-relaxed mb-3" style="color:var(--ui-text-muted)">{{ getCatById(phoneState.reader.pendingCompanionCatId)?.name || '这只小猫' }} 只会阅读你勾选的章节。你始终可以先独自继续读。</p>
+                                        <div class="max-h-[45dvh] overflow-y-auto custom-scrollbar rounded-2xl border" style="border-color:var(--ui-border)">
+                                            <label v-for="(chapter, chapterIndex) in activeReaderBook?.chapters || []" :key="chapter.id" class="flex items-center gap-3 p-3 border-b last:border-0 cursor-pointer" style="border-color:var(--ui-border)"><input v-model="phoneState.reader.selectedCompanionChapterIds" :value="chapter.id" type="checkbox" class="accent-current"><span class="min-w-0"><span class="block text-xs font-bold">{{ chapterIndex + 1 }}. {{ chapter.title }}</span><span class="block text-[9px] mt-1" style="color:var(--ui-text-muted)">{{ getReaderChapterAnnotationCount(chapter.id) }} 条猫爪笔记</span></span></label>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 mt-4"><button type="button" @click="continueReaderIndependently" class="reader-panel rounded-xl py-2.5 text-xs font-black">先自己读</button><button type="button" @click="confirmReaderCompanionChapters" :disabled="!phoneState.reader.selectedCompanionChapterIds.length" class="rounded-xl py-2.5 text-xs font-black disabled:opacity-40" style="background:var(--accent); color:var(--accent-contrast)">让 {{ getCatById(phoneState.reader.pendingCompanionCatId)?.name || '小猫' }} 阅读</button></div>
                                     </div>
                                 </div>
                             </div>
@@ -9759,6 +9771,10 @@
                         chapterIndex: 0,
                         paragraphIndex: 0,
                         companionCatId: null,
+                        pendingCompanionCatId: null,
+                        selectedCompanionChapterIds: [],
+                        companionChapterPickerOpen: false,
+                        unreadPromptChapterId: null,
                         startMode: 'resume',
                         payload: null,
                         annotationParagraphIndex: null,
@@ -14123,6 +14139,7 @@ ${options.extra || ''}
                 const READER_DB_STORE = 'books';
                 let readerDbPromise = null;
                 const readerScrollRef = ref(null);
+                const readerTocRef = ref(null);
                 const readerBooks = computed(() => user.phoneData?.reader?.books || []);
                 const activeReaderBook = computed(() => readerBooks.value.find(book => book.id === phoneState.reader.activeBookId) || null);
                 const activeReaderChapter = computed(() => phoneState.reader.payload?.chapters?.[phoneState.reader.chapterIndex] || null);
@@ -14323,19 +14340,22 @@ ${options.extra || ''}
                     if (batch.length) batches.push(batch);
                     return batches;
                 };
-                const createReaderNotes = async (book, chapterStart, cat, windowSize = 5) => {
+                const createReaderNotes = async (book, cat, chapterIds) => {
                     const payload = phoneState.reader.payload;
-                    const windowChapters = (payload?.chapters || []).slice(chapterStart, chapterStart + windowSize);
-                    const targetChapters = windowChapters.filter(chapter => !hasReaderNotesForCat(book.id, chapter.id, cat.id));
+                    const requestedIds = new Set((chapterIds || []).map(id => String(id)));
+                    const targetChapters = (payload?.chapters || []).filter(chapter => requestedIds.has(String(chapter.id)) && !hasReaderNotesForCat(book.id, chapter.id, cat.id));
                     if (!targetChapters.length) return;
                     const batches = buildReaderBatches(targetChapters);
-                    const waveBatchId = `reader-${book.id}-${cat.id}-${chapterStart}-${Date.now()}`;
+                    const waveBatchId = `reader-${book.id}-${cat.id}-${targetChapters.map(chapter => chapter.id).join('-')}-${Date.now()}`;
                     const stagedNotes = [];
                     setReaderLoading(`正在准备 ${targetChapters.length} 个阅读章节`, 10, false);
                     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
                         const batch = batches[batchIndex];
                         const material = batch.map(chapter => `CHAPTER_ID: ${chapter.id}\nTITLE: ${chapter.title}\nPARAGRAPHS:\n${chapter.paragraphs.map((paragraph, index) => `${index}: ${paragraph}`).join('\n')}`).join('\n\n---\n\n');
-                        const nearbyIds = (payload?.chapters || []).slice(Math.max(0, chapterStart - 1), chapterStart + 6).map(chapter => chapter.id);
+                        const batchIndexes = batch.map(chapter => (payload?.chapters || []).findIndex(item => item.id === chapter.id)).filter(index => index >= 0);
+                        const nearbyStart = Math.max(0, Math.min(...batchIndexes) - 1);
+                        const nearbyEnd = Math.max(...batchIndexes) + 2;
+                        const nearbyIds = (payload?.chapters || []).slice(nearbyStart, nearbyEnd).map(chapter => chapter.id);
                         const previousNotes = getReaderExistingNotesContext(book.id, nearbyIds, 12) || 'None';
                         const chapterLabel = batch.map(chapter => chapter.title).join('、');
                         const prompt = `[MEEOW READER · COMPANION NOTES]\nBook title: ${book.title}\nCompanion cat: ${cat.name}\n\nYou are leaving tiny private margin notes while reading with the safe, kind museum owner. For EVERY supplied chapter, pick exactly 2 or 3 distinct paragraph indices. Every note must be Simplified Chinese and contain exactly two fields: status (a brief cat sound plus a tiny physical reaction while reading) and innerVoice (the cat's concise internal thought in canon voice). The two fields combined must be no more than 50 Chinese characters. Never write ordinary dialogue, scene narration, spoilers beyond supplied text, markdown, or an identity reveal. Notes may naturally react to earlier notes by this cat or other cats, but may never alter or contradict them. Preserve exact original-character voice, fixed breed, and fixed eye colour.\n\nEXISTING NOTES NEAR THESE CHAPTERS:\n${previousNotes}\n\nNEW CHAPTERS:\n${material}\n\nReturn strict JSON only: {"notes":[{"chapterId":"","paragraphIndex":0,"status":"","innerVoice":""}]}.`;
@@ -14388,7 +14408,7 @@ ${options.extra || ''}
                         phoneState.reader.payload = payload; phoneState.reader.activeBookId = book.id;
                         phoneState.reader.chapterIndex = Math.max(0, Math.min(Number(book.progress?.chapterIndex || 0), payload.chapters.length - 1));
                         phoneState.reader.paragraphIndex = Math.max(0, Number(book.progress?.paragraphIndex || 0));
-                        phoneState.reader.companionCatId = null; phoneState.reader.startMode = 'resume'; phoneState.reader.view = 'entry';
+                        phoneState.reader.companionCatId = null; phoneState.reader.pendingCompanionCatId = null; phoneState.reader.selectedCompanionChapterIds = []; phoneState.reader.companionChapterPickerOpen = false; phoneState.reader.unreadPromptChapterId = null; phoneState.reader.startMode = 'resume'; phoneState.reader.view = 'entry';
                         closeReaderLoading();
                     } catch (error) { closeReaderLoading(); showToast(error.message, 'error'); }
                 };
@@ -14404,6 +14424,12 @@ ${options.extra || ''}
                 const openReaderTableOfContents = (forStart = false) => {
                     phoneState.reader.returnToEntry = Boolean(forStart);
                     phoneState.reader.view = 'toc';
+                    nextTick(() => {
+                        const container = readerTocRef.value;
+                        const chapter = activeReaderBook.value?.chapters?.[phoneState.reader.chapterIndex];
+                        const row = chapter ? container?.querySelector(`[data-reader-chapter="${chapter.id}"]`) : null;
+                        if (container && row) container.scrollTop = Math.max(0, row.offsetTop - (container.clientHeight / 2) + (row.offsetHeight / 2));
+                    });
                 };
                 const selectReaderChapter = async (index) => {
                     phoneState.reader.chapterIndex = index; phoneState.reader.paragraphIndex = 0;
@@ -14414,7 +14440,7 @@ ${options.extra || ''}
                     }
                     // Browsing through the table of contents is always passive: existing
                     // notes stay visible, while new notes require the explicit reader action.
-                    phoneState.reader.view = 'reader'; persistReaderPosition(); restoreReaderPosition();
+                    phoneState.reader.view = 'reader'; persistReaderPosition(); restoreReaderPosition(); maybePromptReaderCompanionUnread();
                 };
                 const persistReaderPosition = () => {
                     const book = activeReaderBook.value; if (!book) return;
@@ -14427,17 +14453,63 @@ ${options.extra || ''}
                     const target = element.querySelector(`[data-reader-paragraph="${phoneState.reader.paragraphIndex}"]`);
                     target?.scrollIntoView({ block: 'start' });
                 });
-                const startReaderSession = async (catId) => {
-                    const book = activeReaderBook.value; if (!book || !phoneState.reader.payload) return;
-                    const cat = catId ? getCatById(catId) : null;
-                    phoneState.reader.companionCatId = cat?.id || null;
+                const openReaderCompanionChapterPicker = (catId, chapterIds = []) => {
+                    const cat = getCatById(catId);
+                    if (!cat || !activeReaderBook.value) return;
+                    const defaultChapterId = activeReaderChapter.value?.id;
+                    phoneState.reader.pendingCompanionCatId = cat.id;
+                    phoneState.reader.selectedCompanionChapterIds = [...new Set(chapterIds.length ? chapterIds : (defaultChapterId ? [defaultChapterId] : []))];
+                    phoneState.reader.companionChapterPickerOpen = true;
+                };
+                const continueReaderIndependently = () => {
+                    phoneState.reader.companionChapterPickerOpen = false;
+                    phoneState.reader.pendingCompanionCatId = null;
+                    phoneState.reader.selectedCompanionChapterIds = [];
+                    phoneState.reader.unreadPromptChapterId = null;
+                    if (phoneState.reader.view !== 'reader') {
+                        phoneState.reader.companionCatId = null;
+                        phoneState.reader.view = 'reader';
+                        persistReaderPosition();
+                        restoreReaderPosition();
+                    }
+                };
+                const confirmReaderCompanionChapters = async () => {
+                    const book = activeReaderBook.value;
+                    const cat = getCatById(phoneState.reader.pendingCompanionCatId);
+                    const chapterIds = [...new Set(phoneState.reader.selectedCompanionChapterIds || [])];
+                    if (!book || !cat || !chapterIds.length) return;
                     try {
-                        if (cat) await createReaderNotes(book, phoneState.reader.chapterIndex, cat);
-                        phoneState.reader.view = 'reader'; persistReaderPosition(); restoreReaderPosition();
+                        await createReaderNotes(book, cat, chapterIds);
+                        phoneState.reader.companionCatId = cat.id;
+                        phoneState.reader.companionChapterPickerOpen = false;
+                        phoneState.reader.pendingCompanionCatId = null;
+                        phoneState.reader.selectedCompanionChapterIds = [];
+                        phoneState.reader.unreadPromptChapterId = null;
+                        phoneState.reader.view = 'reader';
+                        persistReaderPosition();
+                        restoreReaderPosition();
                     } catch (error) {
                         closeReaderLoading();
                         if (!(error instanceof AIRequestCancelledError)) showToast(`陪读笔记未生成：${getReadableAPIError(error)}`, 'error');
                     } finally { closeReaderLoading(); }
+                };
+                const maybePromptReaderCompanionUnread = () => {
+                    const book = activeReaderBook.value;
+                    const cat = getCatById(phoneState.reader.companionCatId);
+                    const chapter = activeReaderChapter.value;
+                    if (!book || !cat || !chapter || hasReaderNotesForCat(book.id, chapter.id, cat.id)) return;
+                    phoneState.reader.unreadPromptChapterId = chapter.id;
+                    openReaderCompanionChapterPicker(cat.id, [chapter.id]);
+                };
+                const startReaderSession = async (catId) => {
+                    const book = activeReaderBook.value; if (!book || !phoneState.reader.payload) return;
+                    const cat = catId ? getCatById(catId) : null;
+                    if (cat) {
+                        openReaderCompanionChapterPicker(cat.id);
+                        return;
+                    }
+                    phoneState.reader.companionCatId = null;
+                    phoneState.reader.view = 'reader'; persistReaderPosition(); restoreReaderPosition();
                 };
                 const saveReaderScrollPosition = (event) => {
                     const container = event?.target; if (!container || !activeReaderBook.value) return;
@@ -14452,29 +14524,22 @@ ${options.extra || ''}
                     phoneState.reader.paragraphIndex = 0;
                     persistReaderPosition();
                     restoreReaderPosition();
+                    maybePromptReaderCompanionUnread();
                 };
                 const requestReaderNotesForCurrentChapter = async () => {
                     const book = activeReaderBook.value;
                     const cat = getCatById(phoneState.reader.companionCatId);
                     if (!book || !cat || !activeReaderChapter.value || hasReaderNotesForCat(book.id, activeReaderChapter.value.id, cat.id)) return;
-                    try {
-                        // Explicit backfill is intentionally limited to the open chapter;
-                        // revisiting an old page must never silently prepare five new chapters.
-                        await createReaderNotes(book, phoneState.reader.chapterIndex, cat, 1);
-                    } catch (error) {
-                        closeReaderLoading();
-                        if (!(error instanceof AIRequestCancelledError)) showToast(`本章陪读笔记未生成：${getReadableAPIError(error)}`, 'error');
-                    } finally { closeReaderLoading(); }
+                    phoneState.reader.unreadPromptChapterId = activeReaderChapter.value.id;
+                    openReaderCompanionChapterPicker(cat.id, [activeReaderChapter.value.id]);
                 };
-                const advanceReaderChapter = async () => {
+                const advanceReaderChapter = () => {
                     if (!hasNextReaderChapter.value) return;
-                    const next = phoneState.reader.chapterIndex + 1; const cat = getCatById(phoneState.reader.companionCatId);
-                    try {
-                        if (cat && !hasReaderNotesForCat(activeReaderBook.value.id, phoneState.reader.payload.chapters[next].id, cat.id)) await createReaderNotes(activeReaderBook.value, next, cat);
-                        phoneState.reader.chapterIndex = next; phoneState.reader.paragraphIndex = 0; persistReaderPosition(); restoreReaderPosition();
-                    } catch (error) {
-                        closeReaderLoading(); if (!(error instanceof AIRequestCancelledError)) showToast(`下一段陪读笔记未生成：${getReadableAPIError(error)}`, 'error');
-                    } finally { closeReaderLoading(); }
+                    phoneState.reader.chapterIndex += 1;
+                    phoneState.reader.paragraphIndex = 0;
+                    persistReaderPosition();
+                    restoreReaderPosition();
+                    maybePromptReaderCompanionUnread();
                 };
                 const getLocalDateKey = (value = new Date()) => {
                     const date = value instanceof Date ? value : new Date(value);
@@ -16429,8 +16494,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef, rememberPhoneChatScrollPosition,
-                    readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
-                    openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
+                    readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, readerTocRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
+                    openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, confirmReaderCompanionChapters, continueReaderIndependently, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
                     openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
                     openPhoneImageComposer, openPhoneLocationComposer, openPhoneMoneyComposer, togglePhoneEmojiPicker, phoneShowEmojiPicker, insertEmoji,
