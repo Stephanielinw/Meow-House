@@ -8318,6 +8318,7 @@
                 // A separate key keeps legacy calendar-day values from causing an
                 // accidental archive immediately after upgrading.
                 const OPERATIONAL_DAY_KEY = 'meeow_operational_day_key';
+                const STATUS_DAY_REFRESH_PENDING_KEY = 'meeow_status_day_refresh_pending_v1';
                 const DAILY_ARCHIVE_PENDING_KEY = 'meeow_daily_archive_pending_v1';
                 const OPERATIONAL_DAY_START_HOUR = 3;
 
@@ -14942,6 +14943,7 @@ ${JSON.stringify(diaryContext)}
                     localStorage.setItem('last_diary_date', todayStr);
                     localStorage.setItem('last_login_date', todayStr);
                     localStorage.setItem(OPERATIONAL_DAY_KEY, todayKey);
+                    localStorage.setItem(STATUS_DAY_REFRESH_PENDING_KEY, todayKey);
                     clearDailyArchivePending();
                 };
                 const generateDailyArchivePackage = async (snapshot, requestOptions = {}) => {
@@ -15723,12 +15725,20 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const timeStr = getCurrentTimeStr();
                     const h = now.getHours();
                     const isNight = (h >= 22 || h < 6);
+                    const operationalDayKey = getOperationalDayKey(now);
+                    let pendingStatusDayRefresh = false;
+                    try {
+                        pendingStatusDayRefresh = localStorage.getItem(STATUS_DAY_REFRESH_PENDING_KEY) === operationalDayKey;
+                    } catch (error) {
+                        addLog(`STATUS SYNC DAY MARKER READ FAILED: ${error.message}`, 'warn');
+                    }
                     const userContext = getUserRealLifeContext() + (additionalContext ? ` RECENT EVENT: ${additionalContext}` : "");
 
                     try {
                         let characterBlock = "";
                         let activeCatNames = [];
                         const requestedIds = [];
+                        const crossedDayBoundary = [];
                         catsToUpdate.forEach(c => {
                             const isActive = activeCatIds && activeCatIds.includes(c.id);
                             if (isActive && !isFocusEnd && !isExploreEnd) {
@@ -15745,6 +15755,16 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             const diffMs = Date.now() - lastUpdate;
                             const diffMinutes = Math.floor(diffMs / (1000 * 60));
                             const timeContext = `[Δt RULE]: Last Status Update was ${diffMinutes} minutes ago.`;
+                            let crossedOperationalDay = false;
+                            if (c.lastStatusUpdateTime) {
+                                const lastStatusDate = new Date(c.lastStatusUpdateTime);
+                                crossedOperationalDay = !Number.isNaN(lastStatusDate.getTime()) &&
+                                    getOperationalDayKey(lastStatusDate) !== operationalDayKey;
+                            }
+                            crossedDayBoundary.push(`${String(c.id)}:${crossedOperationalDay}`);
+                            const dayBoundaryContext = crossedOperationalDay
+                                ? `\n[DAY BOUNDARY]: This cat's previous status belongs to the previous operational day. Treat it as historical context only and generate a genuinely current activity for ${operationalDayKey}; do not merely paraphrase or cosmetically continue it.`
+                                : '';
 
                             const memoryBlock = buildCatMemoryContext(c, { extra: timeContext });
 
@@ -15763,8 +15783,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 gapContext = `\n[CRITICAL TIME GAP]: The user has been away for over an hour. THE PREVIOUS INTERACTION IS STRICTLY OVER. DO NOT mention previous interactions holding your paw or looking at you. You MUST be entertaining yourself, sleeping, or harassing other cats independently.`;
                             }
 
-                            characterBlock += `\n--- CHARACTER ---\nID: ${c.id}\nName: ${c.name} (${c.breed})\nTraits: ${c.personality}\nPrevious Status: ${c.status} ${timeContext}\nIs Currently Out: ${c.isOut}\n${memoryBlock}\n${specificContext}\n${gapContext}\n`;
+                            characterBlock += `\n--- CHARACTER ---\nID: ${c.id}\nName: ${c.name} (${c.breed})\nTraits: ${c.personality}\nPrevious Status: ${c.status} ${timeContext}\nIs Currently Out: ${c.isOut}\n${memoryBlock}\n${dayBoundaryContext}\n${specificContext}\n${gapContext}\n`;
                         });
+
+                        addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
 
                         let activeCatContext = "";
                         if (activeCatNames.length > 0) {
@@ -15785,7 +15807,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             : `\n[SAME-HALL SOCIAL CONTINUITY]: Fewer than two cats are currently at home. Do not invent a cat-to-cat interaction.`;
 
                         const gnnTrendsGlobal = user.phoneData.gnn?.trending?.map(t => `#${t.topic}`).join(', ') || 'None';
-                        const prompt = `Current Local Time: ${now.toLocaleString()}. ${isNight ? 'Night Time (Patrol/Sleep Likely)' : 'Day Time (Active/Rest Likely)'}. 
+                        const newOperationalDayContext = pendingStatusDayRefresh
+                            ? `\n[NEW OPERATIONAL DAY]: The previous operational day's final statuses are historical context only. Do not directly continue, lightly rewrite, or synonym-swap yesterday's final action. Unless an explicit ongoing event requires continuity (such as travel, visiting another hall, a focus session, or an exploration), generate a genuinely new activity appropriate to the current local time, personality, hall, and recent history for the new operational day ${operationalDayKey}.`
+                            : '';
+                        const prompt = `Current Local Time: ${now.toLocaleString()}. ${isNight ? 'Night Time (Patrol/Sleep Likely)' : 'Day Time (Active/Rest Likely)'}. ${newOperationalDayContext}
                         GNN Global Trends: ${gnnTrendsGlobal}
                         User Context: ${userContext} ${activeCatContext} ${hallSocialContext}
                         
@@ -15910,6 +15935,15 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                     c.isOut = false;
                                     c.hasHackedThisPatrol = false;
                                     setCatStatus(c, '因馆舍需要留守，被临时召回巡视领地', { source: 'status-sync', forceLog: true });
+                                }
+                            }
+
+                            if (pendingStatusDayRefresh) {
+                                try {
+                                    localStorage.removeItem(STATUS_DAY_REFRESH_PENDING_KEY);
+                                    addLog(`STATUS SYNC DAY MARKER CLEARED: operationalDay=${operationalDayKey}; matched=${matched}`, 'info');
+                                } catch (error) {
+                                    addLog(`STATUS SYNC DAY MARKER CLEAR FAILED: ${error.message}`, 'warn');
                                 }
                             }
 
