@@ -438,6 +438,20 @@
             border-radius: 20px;
         }
 
+        .chat-v2-item {
+            background: linear-gradient(135deg, rgba(113, 78, 35, 0.96), rgba(47, 35, 26, 0.98));
+            border: 1px solid rgba(245, 190, 78, 0.62);
+            box-shadow: 0 8px 22px rgba(217, 157, 47, 0.18), inset 0 1px rgba(255, 238, 186, 0.16);
+        }
+
+        .chat-item-label {
+            color: #ffe3a4;
+            letter-spacing: .08em;
+        }
+
+        .chat-item-affinity-positive { color: #fca5a5; }
+        .chat-item-affinity-negative { color: #93c5fd; }
+
         .chat-avatar {
             margin-bottom: 2px;
         }
@@ -4048,6 +4062,12 @@
             background: var(--ui-surface-soft) !important;
             color: var(--ui-text) !important;
         }
+
+        #app .gotham-detail-page .chat-v2-item {
+            background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 38%, var(--ui-surface-strong)), var(--ui-surface-soft)) !important;
+            border-color: color-mix(in srgb, var(--accent) 68%, var(--ui-border)) !important;
+            color: var(--ui-text) !important;
+        }
         #app .gotham-detail-page .text-white,
         #app .gotham-detail-page .text-gray-100,
         #app .gotham-detail-page .text-gray-200,
@@ -5161,15 +5181,32 @@
                                     class="w-8 h-8 rounded-2xl border border-white/20 shadow-md object-contain" />
                             </div>
                             <div
-                                :class="['chat-bubble-v2 sully-card', msg.role === 'user' ? 'chat-v2-user bg-yellow-500/90 text-black font-medium border-yellow-400' : (msg.isSystem ? 'chat-v2-system' : 'chat-v2-ai bg-zinc-900/90 text-gray-100 border-white/10'), {'chat-thinking': msg.isThinking}]">
+                                :class="['chat-bubble-v2 sully-card', msg.type === 'item-interaction' ? 'chat-v2-item' : (msg.role === 'user' ? 'chat-v2-user bg-yellow-500/90 text-black font-medium border-yellow-400' : (msg.isSystem ? 'chat-v2-system' : 'chat-v2-ai bg-zinc-900/90 text-gray-100 border-white/10')), {'chat-thinking': msg.isThinking}]">
                                 <!-- Reroll button -->
-                                <button v-if="msg.role === 'assistant' && !msg.isSystem && index === selectedCat.chatHistory.length - 1"
+                                <button v-if="msg.role === 'assistant' && !msg.isSystem && msg.type !== 'item-interaction' && index === selectedCat.chatHistory.length - 1"
                                     @click.stop="reRollLastMessage"
                                     class="absolute -right-6 top-2 text-xs text-gray-500 hover:text-yellow-400 transition-colors p-1"
                                     title="重抽回复">
                                     <i class="fas fa-redo-alt"></i>
                                 </button>
-                                <div class="message-text leading-relaxed">{{ cleanText(msg.content) }}</div>
+                                <template v-if="msg.type === 'item-interaction'">
+                                    <div class="flex items-start gap-2.5 mb-2">
+                                        <div class="w-8 h-8 shrink-0 rounded-xl flex items-center justify-center bg-black/20 border border-white/15 text-yellow-200">
+                                            <i v-if="msg.itemIcon && msg.itemIcon.startsWith('fa-')" :class="msg.itemIcon"></i>
+                                            <span v-else>{{ msg.itemIcon || '🎁' }}</span>
+                                        </div>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="chat-item-label text-[9px] font-black uppercase">特殊互动 · {{ msg.itemDisposition || '物品使用' }}</div>
+                                            <div class="text-xs font-black leading-snug break-words text-amber-50">{{ msg.itemName }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="message-text leading-relaxed text-amber-50">{{ cleanText(msg.content) }}</div>
+                                    <div class="mt-2 flex items-center justify-between text-[10px] font-bold">
+                                        <span class="text-amber-100/80">{{ selectedCat.name }}</span>
+                                        <span :class="msg.affinityDelta >= 0 ? 'chat-item-affinity-positive' : 'chat-item-affinity-negative'">亲密度 {{ msg.affinityDelta >= 0 ? '+' : '' }}{{ msg.affinityDelta }}</span>
+                                    </div>
+                                </template>
+                                <div v-else class="message-text leading-relaxed">{{ cleanText(msg.content) }}</div>
                                 <div v-if="msg.time" class="chat-message-time">{{ msg.time }}</div>
                             </div>
                         </div>
@@ -7347,12 +7384,13 @@
                     <div v-if="currentBagItems.length === 0" class="text-center text-gray-500 py-10 text-xs italic">分类下无任何道具</div>
                     <div class="grid grid-cols-3 gap-2.5">
                         <div v-for="item in currentBagItems" :key="item.uniqueId" @click="useItem(item)"
-                            class="sully-card p-2 rounded-2xl flex flex-col items-center justify-center border border-white/10 aspect-square cursor-pointer hover:border-yellow-500/50 relative group">
+                            :class="{'opacity-50 pointer-events-none': itemInteractionInFlight}"
+                            class="sully-card min-h-32 p-2 rounded-2xl flex flex-col items-center justify-center border border-white/10 cursor-pointer hover:border-yellow-500/50 relative group">
                             <div class="text-2xl mb-1 text-yellow-400 group-hover:scale-110 transition-transform">
                                 <i v-if="item.icon && item.icon.startsWith('fa-')" :class="item.icon"></i>
                                 <span v-else>{{ item.icon }}</span>
                             </div>
-                            <div class="text-[10px] text-center text-gray-200 leading-tight font-bold truncate w-full px-1">{{ item.name }}</div>
+                            <div class="text-[10px] text-center text-gray-200 leading-tight font-bold whitespace-normal break-words w-full px-1">{{ item.name }}</div>
                             <div class="text-[8px] text-gray-500 mt-1 scale-95 font-mono">{{ item.type === 'consumable' ? '点击使用' : '详情' }}</div>
                             <div v-if="item.type === 'letter'" class="absolute top-1.5 right-1.5 text-pink-400 text-[9px]"><i class="fas fa-heart"></i></div>
                         </div>
@@ -9464,6 +9502,7 @@
                 const selectedCat = ref(null);
                 const chatInput = ref('');
                 const thinkingStates = reactive({});
+                const itemInteractionInFlight = ref(false);
                 const showPixelAvatarModal = ref(false);
                 const pixelAvatarDraft = ref(null);
                 // The first in-house pixel workshop is intentionally paused:
@@ -16293,19 +16332,94 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 const currentBagItems = computed(() => { if (currentBagTab.value === 'consumable') { return user.inventory.filter(i => i.type === 'consumable'); } else { return user.inventory.filter(i => i.type === 'collectible' || i.type === 'letter'); } });
 
                 const useItem = async (item) => {
-                    if (item.type === 'collectible' || item.type === 'letter') { if (item.type === 'letter') { alert(`【${item.name}】\n\n${item.fullContent || item.desc}`); } else { alert(`【${item.name}】\n\n${item.desc}`); } return; }
-                    const idx = user.inventory.findIndex(i => i === item); if (idx > -1) user.inventory.splice(idx, 1);
-                    if (selectedCat.value) {
-                        let affinityBonus = 0;
-                        if (settings.apiKey) {
-                            const prompt = `User gives [${item.name}] to ${selectedCat.value.name}. Cat Personality: ${selectedCat.value.personality}. Does cat like it? JSON: { "liked": boolean, "reaction": "Action description" }\n${buildCatMemoryContext(selectedCat.value)}`;
-                            try { const res = await callAI(prompt, "Game AI", 600); const data = parseAIJSON(res); if (data) { affinityBonus = data.liked ? (Math.floor(Math.random() * 3) + 1) : -(Math.floor(Math.random() * 3) + 2); setCatStatus(selectedCat.value, data.reaction || '正在回应馆长送来的物品', { source: 'item', forceLog: true }); appendInteractionEvent(selectedCat.value, 'item', `馆长赠送了${item.name}：${data.reaction || '作出回应'}`, { source: 'item' }); } else { affinityBonus = 1; } } catch (e) { affinityBonus = 1; }
-                        } else { affinityBonus = 2; }
-                        selectedCat.value.affinity = Math.max(0, selectedCat.value.affinity + affinityBonus);
-                        await checkAffinityThreshold(selectedCat.value);
-                        const msg = `(使用物品: ${item.name}) ${affinityBonus > 0 ? '[特效] 喜爱' : '[抗拒] 厌恶'}`; await sendMessage(msg, true);
+                    if (item.type === 'collectible' || item.type === 'letter') {
+                        if (item.type === 'letter') alert(`【${item.name}】\n\n${item.fullContent || item.desc}`);
+                        else alert(`【${item.name}】\n\n${item.desc}`);
+                        return;
                     }
-                    showBag.value = false;
+                    if (itemInteractionInFlight.value) return;
+
+                    const targetCat = selectedCat.value;
+                    if (!targetCat) {
+                        showToast('请先选择要互动的小猫。', 'error');
+                        return;
+                    }
+                    if (!settings.apiKey) {
+                        showToast('需要连接馆舍档案网络 (API) 才能使用互动道具。', 'error');
+                        return;
+                    }
+
+                    const targetCatId = targetCat.id;
+                    const targetItem = item;
+                    const itemKey = targetItem.uniqueId ?? targetItem.id;
+                    const locateItem = () => {
+                        if (targetItem.uniqueId != null) {
+                            return user.inventory.findIndex(entry => String(entry?.uniqueId) === String(itemKey));
+                        }
+                        const sameReference = user.inventory.findIndex(entry => entry === targetItem);
+                        if (sameReference >= 0) return sameReference;
+                        return user.inventory.findIndex(entry => String(entry?.id) === String(itemKey) && entry?.name === targetItem.name);
+                    };
+
+                    itemInteractionInFlight.value = true;
+                    thinkingStates[targetCatId] = true;
+                    try {
+                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Does cat like it? Return JSON only: { "liked": boolean, "reaction": "Action description" }. The reaction must be a non-empty Simplified Chinese description in character.\n${buildCatMemoryContext(targetCat)}`;
+                        const response = await callAI(prompt, 'Game AI', 600, ThinkingLevel.LOW, {
+                            label: `ITEM INTERACTION · ${targetCat.name}`,
+                            priority: 'foreground'
+                        });
+                        const data = parseAIJSON(response);
+                        const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
+                        if (!data || Array.isArray(data) || typeof data !== 'object' || typeof data.liked !== 'boolean' || !reaction) {
+                            throw new Error('物品互动回包缺少有效的 liked 或 reaction 字段');
+                        }
+
+                        const inventoryIndex = locateItem();
+                        if (inventoryIndex < 0) throw new Error('该物品已不在背包中，未写入互动结果');
+
+                        const affinityDelta = data.liked
+                            ? (Math.floor(Math.random() * 3) + 1)
+                            : -(Math.floor(Math.random() * 3) + 2);
+                        const itemDisposition = data.liked ? '喜欢' : '抗拒';
+
+                        setCatStatus(targetCat, reaction, { source: 'item', forceLog: true });
+                        targetCat.affinity = Math.max(0, targetCat.affinity + affinityDelta);
+                        targetCat.chatHistory.push({
+                            role: 'assistant',
+                            type: 'item-interaction',
+                            itemName: targetItem.name,
+                            itemIcon: targetItem.icon,
+                            itemDisposition,
+                            affinityDelta,
+                            content: reaction,
+                            time: getCurrentTimeStr(),
+                            at: new Date().toISOString()
+                        });
+                        appendInteractionEvent(targetCat, 'item', `馆长使用${targetItem.name}：${reaction}`, {
+                            source: 'item-interaction',
+                            itemId: targetItem.id,
+                            itemName: targetItem.name,
+                            liked: data.liked,
+                            affinityDelta
+                        });
+                        user.inventory.splice(inventoryIndex, 1);
+                        showBag.value = false;
+                        showToast(`${targetItem.name} 已用于 ${targetCat.name}`, 'success');
+
+                        // Keep the original threshold scene as an optional legacy side effect.
+                        void checkAffinityThreshold(targetCat);
+                        void refreshAllStatus(true, `User used ${targetItem.name} with ${targetCat.name}.`, [targetCatId], reaction, false, false, {
+                            label: `ITEM FOLLOW-UP STATUS · ${currentHall.value.name}`,
+                            priority: 'background'
+                        });
+                    } catch (error) {
+                        addLog(`ITEM INTERACTION ERROR: ${targetCat.name} / ${error.message}`, 'error');
+                        showToast(`物品互动未完成：${error.message}`, 'error');
+                    } finally {
+                        delete thinkingStates[targetCatId];
+                        itemInteractionInFlight.value = false;
+                    }
                 };
 
                 const readItem = (item) => { if (item.type === 'letter') alert(`【${item.name}】\n\n${item.desc}`); };
@@ -16425,7 +16539,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
-                    chatInput, thinkingStates, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
+                    chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
