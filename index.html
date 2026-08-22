@@ -14670,7 +14670,11 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         - [FORM_DECISION]: Affinity ${sendingCat.affinity}/100. If < 50 → output CAT. If >= 50 → decide based on context.
                         - [STATUS]: 3rd person, ~10 chars, action only.
                         - [VOICE]: 1st person inner monologue. NO meows. Use 我, not your name. Wrap mental state in【】.
-                        - [REPLY] 50-100 Chinese chars. Use【】for ALL actions/sounds. ${sendingCat.isHuman ? 'HUMAN FORM: speak naturally.' : 'CAT FORM: Meow/Hiss/Purr ONLY — no human words in speech.'}
+                        - [REPLY] For this homepage interaction, aim for 80-140 Chinese characters when natural. The value must come from specific, continuous, in-character action that directly follows the user's turn, current status, nearby objects/space, and recent interaction; do not cut a natural action short just to fit a number.
+                        - CAT FORM: Any direct sound may only be a feline sound such as "喵。", "呜。", or "嘶。" — never human speech. A feline sound is optional, and when used must use ordinary double quotes, never 「」. HUMAN FORM: speak naturally.
+                        - Do not mechanically introduce breed, fur colour, or eye colour. Let fixed appearance appear only when it has real visual or physical relevance to the current action.
+                        - Never fall into a generic sequence such as "looked for a while → ears moved → tail moved → meowed → stepped closer". Show this character's own judgment, habits, distance, and action logic instead.
+                        - Rhythm example only; never copy its actions or wording as a template: 【从手边的东西上抬起眼睛，停了一瞬，又把它往怀里拢紧一点。尾尖轻轻碰了一下地面，像是在判断你这句话值不值得回应。】"喵。"【下巴重新落回前爪，视线却没有移开。】
                         - [USER_STATUS]: What user is doing; if just chatting use "正在和${sendingCat.name}聊天"
                         **MANDATORY LANGUAGE:** 简体中文 only in all sections.
                         `;
@@ -15815,9 +15819,22 @@ ${buildCatMemoryContext(cat)}`).join('\n');
   "innerVoice": "A non-empty Simplified Chinese first-person inner thought suitable for the cat inner voice."
 }
 All four fields are mandatory. reaction, status, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another.\n${buildCatMemoryContext(targetCat)}`;
-                        const response = await callAI(prompt, 'Game AI', 600, ThinkingLevel.LOW, {
+                        const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
-                            priority: 'foreground'
+                            priority: 'foreground',
+                            validateResponse: (content) => {
+                                const data = parseAIJSON(content);
+                                const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
+                                const status = cleanText(typeof data?.status === 'string' ? data.status : '');
+                                const innerVoice = cleanText(typeof data?.innerVoice === 'string' ? data.innerVoice : '');
+                                const hasChineseText = (value) => /[\u3400-\u9fff]/.test(value);
+                                if (!data || Array.isArray(data) || typeof data !== 'object') return 'ITEM INTERACTION 回包不是有效对象。';
+                                if (typeof data.liked !== 'boolean') return 'ITEM INTERACTION 回包缺少 boolean liked 字段。';
+                                if (!reaction || !status || !innerVoice || !hasChineseText(reaction) || !hasChineseText(status) || !hasChineseText(innerVoice)) {
+                                    return 'ITEM INTERACTION 回包缺少完整的中文 reaction、status 或 innerVoice 字段。';
+                                }
+                                return true;
+                            }
                         });
                         const data = parseAIJSON(response);
                         const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
