@@ -445,12 +445,16 @@
         }
 
         .chat-item-label {
-            color: #ffe3a4;
+            color: var(--accent);
             letter-spacing: .08em;
         }
 
-        .chat-item-affinity-positive { color: #fca5a5; }
-        .chat-item-affinity-negative { color: #93c5fd; }
+        .chat-item-icon { color: var(--accent); }
+        .chat-item-name,
+        .chat-item-reaction { color: var(--ui-text); }
+        .chat-item-cat-name { color: var(--ui-text-muted); }
+        .chat-item-affinity-positive { color: color-mix(in srgb, #b42318 72%, var(--ui-text)); }
+        .chat-item-affinity-negative { color: color-mix(in srgb, #1d4ed8 72%, var(--ui-text)); }
 
         .chat-avatar {
             margin-bottom: 2px;
@@ -5187,18 +5191,18 @@
                                 </button>
                                 <template v-if="msg.type === 'item-interaction'">
                                     <div class="flex items-start gap-2.5 mb-2">
-                                        <div class="w-8 h-8 shrink-0 rounded-xl flex items-center justify-center bg-black/20 border border-white/15 text-yellow-200">
+                                        <div class="chat-item-icon w-8 h-8 shrink-0 rounded-xl flex items-center justify-center bg-black/20 border border-white/15">
                                             <i v-if="msg.itemIcon && msg.itemIcon.startsWith('fa-')" :class="msg.itemIcon"></i>
                                             <span v-else>{{ msg.itemIcon || '🎁' }}</span>
                                         </div>
                                         <div class="min-w-0 flex-1">
                                             <div class="chat-item-label text-[9px] font-black uppercase">特殊互动 · {{ msg.itemDisposition || '物品使用' }}</div>
-                                            <div class="text-xs font-black leading-snug break-words text-amber-50">{{ msg.itemName }}</div>
+                                            <div class="chat-item-name text-xs font-black leading-snug break-words">{{ msg.itemName }}</div>
                                         </div>
                                     </div>
-                                    <div class="message-text leading-relaxed text-amber-50">{{ cleanText(msg.content) }}</div>
+                                    <div class="chat-item-reaction message-text leading-relaxed">{{ cleanText(msg.content) }}</div>
                                     <div class="mt-2 flex items-center justify-between text-[10px] font-bold">
-                                        <span class="text-amber-100/80">{{ selectedCat.name }}</span>
+                                        <span class="chat-item-cat-name">{{ selectedCat.name }}</span>
                                         <span :class="msg.affinityDelta >= 0 ? 'chat-item-affinity-positive' : 'chat-item-affinity-negative'">亲密度 {{ msg.affinityDelta >= 0 ? '+' : '' }}{{ msg.affinityDelta }}</span>
                                     </div>
                                 </template>
@@ -14671,7 +14675,17 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         **MANDATORY LANGUAGE:** 简体中文 only in all sections.
                         `;
 
-                        const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 1100, ThinkingLevel.LOW, { label: `HOMEPAGE CHAT · ${sendingCat.name}`, priority: 'foreground' });
+                        const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 1100, ThinkingLevel.LOW, {
+                            label: `HOMEPAGE CHAT · ${sendingCat.name}`,
+                            priority: 'foreground',
+                            validateResponse: (content) => {
+                                const reply = extractSection(content, 'REPLY');
+                                const userStatus = extractSection(content, 'USER_STATUS');
+                                if (!reply || !reply.trim()) return 'Homepage Chat 回复缺少完整 [REPLY] 段。';
+                                if (!userStatus || !userStatus.trim()) return 'Homepage Chat 回复在 [USER_STATUS] 前截断。';
+                                return true;
+                            }
+                        });
 
                         const formDecision = extractSection(responseRaw, 'FORM_DECISION');
                         if (formDecision && formDecision.includes('HUMAN')) {
@@ -14685,16 +14699,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const status = extractSection(responseRaw, 'STATUS');
                         const voice = extractSection(responseRaw, 'VOICE');
                         const userStatus = extractSection(responseRaw, 'USER_STATUS');
-                        let reply = extractSection(responseRaw, 'REPLY');
-
-                        if (!reply) {
-                            const cleaned = cleanText(responseRaw);
-                            if (cleaned && cleaned.length > 0) {
-                                reply = cleaned;
-                            } else {
-                                reply = "(...沉默)";
-                            }
-                        }
+                        const reply = extractSection(responseRaw, 'REPLY');
 
                         if (status) setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
                         else if (voice) sendingCat.innerVoice = voice;
@@ -14717,7 +14722,10 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
 
                         sendingCat.lastInteractionTimestamp = Date.now();
                     } catch (e) {
-                        sendingCat.chatHistory.push({ role: 'assistant', content: "(信号中断，详情请查看任务日志)", time: getCurrentTimeStr(), at: new Date().toISOString() });
+                        const isIncompleteHomepageReply = /^Homepage Chat 回复(?:缺少完整 \[REPLY\] 段。|在 \[USER_STATUS\] 前截断。)$/.test(String(e?.message || ''));
+                        if (!isIncompleteHomepageReply) {
+                            sendingCat.chatHistory.push({ role: 'assistant', content: "(信号中断，详情请查看任务日志)", time: getCurrentTimeStr(), at: new Date().toISOString() });
+                        }
                         addLog(`CHAT ERROR: ${e.message}`, "error");
                     }
                     finally { thinkingStates[sendingCat.id] = false; }
@@ -15799,15 +15807,26 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
                     try {
-                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Does cat like it? Return JSON only: { "liked": boolean, "reaction": "Action description" }. The reaction must be a non-empty Simplified Chinese description in character.\n${buildCatMemoryContext(targetCat)}`;
+                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Return JSON only:
+{
+  "liked": boolean,
+  "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
+  "status": "A non-empty Simplified Chinese third-person current activity suitable for the cat status.",
+  "innerVoice": "A non-empty Simplified Chinese first-person inner thought suitable for the cat inner voice."
+}
+All four fields are mandatory. reaction, status, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another.\n${buildCatMemoryContext(targetCat)}`;
                         const response = await callAI(prompt, 'Game AI', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
                             priority: 'foreground'
                         });
                         const data = parseAIJSON(response);
                         const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
-                        if (!data || Array.isArray(data) || typeof data !== 'object' || typeof data.liked !== 'boolean' || !reaction) {
-                            throw new Error('物品互动回包缺少有效的 liked 或 reaction 字段');
+                        const status = cleanText(typeof data?.status === 'string' ? data.status : '');
+                        const innerVoice = cleanText(typeof data?.innerVoice === 'string' ? data.innerVoice : '');
+                        const isChineseText = (value) => /[\u3400-\u9fff]/.test(value);
+                        if (!data || Array.isArray(data) || typeof data !== 'object' || typeof data.liked !== 'boolean' ||
+                            !reaction || !status || !innerVoice || !isChineseText(reaction) || !isChineseText(status) || !isChineseText(innerVoice)) {
+                            throw new Error('物品互动回包缺少有效的 liked、reaction、status 或 innerVoice 字段');
                         }
 
                         const inventoryIndex = locateItem();
@@ -15818,7 +15837,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             : -(Math.floor(Math.random() * 3) + 2);
                         const itemDisposition = data.liked ? '喜欢' : '抗拒';
 
-                        setCatStatus(targetCat, reaction, { source: 'item', forceLog: true });
+                        setCatStatus(targetCat, status, { innerVoice, source: 'item', forceLog: true });
                         targetCat.affinity = Math.max(0, targetCat.affinity + affinityDelta);
                         targetCat.chatHistory.push({
                             role: 'assistant',
