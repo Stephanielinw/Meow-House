@@ -15197,7 +15197,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 activeCatContext = `\n[CRITICAL CONTEXT]: ${activeCatNames.join(', ')} just returned from exploring. Other cats should react to their return.`;
                             } else {
                                 const bystanderNames = catsToUpdate.filter(c => !activeCatIds.includes(c.id)).map(c => c.name).join(', ');
-                                activeCatContext = `\n[ACTIVE INTERACTION]: User is interacting ONLY with ${activeCatNames.join(', ')}. Active status: "${truncateMemoryText(focusCatLastAction || '近期互动', 140)}". Other cats (${bystanderNames}) may observe, react, or ignore it, but MUST NOT act as the user's target or directly interact with the user.`;
+                                activeCatContext = `\n[ACTIVE INTERACTION]: User is interacting ONLY with ${activeCatNames.join(', ')}. Active status: "${truncateMemoryText(focusCatLastAction || '近期互动', 140)}". Other cats (${bystanderNames}) may observe, react, or ignore it, but MUST NOT act as the user's target or directly interact with the user.\n[FOLLOW-UP PROGRESSION]: Ignoring this interaction never means freezing or copying a previous status. Every supplied bystander must return a freshly sampled current status and inner voice for this exact moment. Advance at least one plausible beat through posture, attention, location, an object, starting/finishing a small action, a subtle same-hall moment, or independent activity. Fresh means a natural next beat, not an unreasonable major jump; do not copy the previous status or inner voice verbatim.`;
                             }
                         }
 
@@ -15221,7 +15221,7 @@ ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 - Stored canon and [STATUS SYNC CONTEXT] are binding. Cat form never changes personality. Low affinity means boundaries/independent rhythm, never default fear, hostility, or contempt toward the safe owner.
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
 - Form: affinity <50 => isHuman false; affinity >=50 decides by context; explore-return cats must be false.
-- Read each [Δt RULE]: >60m requires a genuinely changed state; <30m keeps continuity unless a major event occurred. Keep physical time logic. At least two cats remain home.
+- Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic. At least two cats remain home.
 
 [MAP]
 For every at-home cat use exactly one listed mapPoint. Status must naturally match its furniture/position; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
@@ -15252,6 +15252,8 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                             const matchedIds = new Set();
                             let statusChanged = 0;
                             let innerVoiceChanged = 0;
+                            const staleStatusIds = [];
+                            const staleVoiceIds = [];
 
                             addLog(`STATUS SYNC RESPONSE: expected=${requestedIds.length}; received=${responseEntries.length}; ids=[${receivedIds.join(', ')}]`, "info");
 
@@ -15281,13 +15283,16 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
 
                                     cat.lastStatusUpdateTime = Date.now();
                                     if (cat.status !== oldStatus) statusChanged++;
+                                    else staleStatusIds.push(updateId);
                                     if (cat.innerVoice !== oldInnerVoice) innerVoiceChanged++;
+                                    else staleVoiceIds.push(updateId);
                                 }
                             });
 
                             const matched = matchedIds.size;
                             const unmatched = requestedIds.filter(id => !matchedIds.has(id));
                             addLog(`STATUS SYNC APPLIED: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; statusChanged=${statusChanged}; innerVoiceChanged=${innerVoiceChanged}; unmatched=[${unmatched.join(', ')}]`, matched === 0 ? "error" : (unmatched.length > 0 ? "info" : "sent"));
+                            addLog(`STATUS SYNC STALE: status=[${staleStatusIds.join(', ')}]; innerVoice=[${staleVoiceIds.join(', ')}]`, staleStatusIds.length || staleVoiceIds.length ? "warn" : "info");
 
                             if (matched === 0) {
                                 addLog(`STATUS SYNC FAILED: expected=${requestedIds.length}; received=${responseEntries.length}; matched=0; unmatched=[${unmatched.join(', ')}]`, "error");
