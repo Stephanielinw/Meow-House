@@ -13589,6 +13589,41 @@ ${buildCatMemoryContext(cat)}`;
 ${options.extra || ''}
 [CONTINUITY RULE] Read this timeline before writing. Continue from the latest plausible action; do not repeat a stale status after meaningful time has passed. The stored original-character prompt and immutable identity are binding: never OOC, never generic cute-cat behavior, and never impose a DC/superhero premise outside a hall where it belongs.`;
                 };
+                // Status Sync runs one request for every cat in a hall. It needs
+                // stable identity and immediate continuity, not each feature's
+                // full memory package repeated once per character.
+                const buildStatusSyncCatContext = (cat, options = {}) => {
+                    const now = options.now instanceof Date ? options.now : new Date();
+                    const lastUpdate = Number(cat?.lastStatusUpdateTime) || (now.getTime() - 3600000);
+                    const diffMinutes = Math.max(0, Math.floor((now.getTime() - lastUpdate) / 60000));
+                    const interactions = (cat?.todayInteractions || []).map(entry =>
+                        `[${entry.time || '近期'}·${entry.type || '互动'}] ${cleanText(entry.content || '')}`
+                    );
+                    const monitoring = getRecentMonitorEntries(cat, 1);
+                    const travel = (cat?.travelogues || []).slice(-1).map(entry =>
+                        `[${entry.date || '近期'}·${entry.location || '外出'}] ${cleanText(entry.content || '')}`
+                    );
+                    const focus = getCatFocusReports(cat, 1);
+                    const permanent = getPermanentDiaryEntries(cat, 1);
+                    const continuity = cat?.isOut ? travel[0] : (focus[0] || permanent[0] || travel[0]);
+                    const lastStatusLabel = cat?.lastStatusUpdateTime
+                        ? new Date(cat.lastStatusUpdateTime).toLocaleString()
+                        : '无记录';
+                    const context = `[STATUS SYNC CONTEXT]
+ID: ${String(cat?.id || '')}
+Name: ${cat?.name || '未命名角色'}
+Breed: ${truncateMemoryText(cat?.breed || '未设定', 32)}; Eyes: ${truncateMemoryText(cat?.eyeColor || '未设定', 22)}
+Traits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}
+Canon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}
+Affinity: ${cat?.affinity ?? 0}/100; Form: ${cat?.isHuman ? 'HUMAN' : 'CAT'}; Out: ${Boolean(cat?.isOut)}
+Current status: ${truncateMemoryText(cat?.status || '未知', 35)}
+Current inner voice: ${truncateMemoryText(cat?.innerVoice || '无记录', 24)}
+Updated: ${lastStatusLabel}; [Δt RULE]: ${diffMinutes}m
+Recent interactions: ${formatMemoryEntries(interactions, 2, 25)}
+Recent monitoring: ${formatMemoryEntries(monitoring, 1, 28)}
+Continuity: ${truncateMemoryText(continuity || 'None', 34)}`;
+                    return truncateMemoryText(context, 570);
+                };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
                 // The save stores only book metadata, position and annotations. The
@@ -15106,11 +15141,6 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             }
                             requestedIds.push(String(c.id));
 
-                            // Mandatory Δt Logic (Strict)
-                            const lastUpdate = c.lastStatusUpdateTime || (Date.now() - 3600000);
-                            const diffMs = Date.now() - lastUpdate;
-                            const diffMinutes = Math.floor(diffMs / (1000 * 60));
-                            const timeContext = `[Δt RULE]: Last Status Update was ${diffMinutes} minutes ago.`;
                             let crossedOperationalDay = false;
                             if (c.lastStatusUpdateTime) {
                                 const lastStatusDate = new Date(c.lastStatusUpdateTime);
@@ -15122,7 +15152,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 ? `\n[DAY BOUNDARY]: This cat's previous status belongs to the previous operational day. Treat it as historical context only and generate a genuinely current activity for ${operationalDayKey}; do not merely paraphrase or cosmetically continue it.`
                                 : '';
 
-                            const memoryBlock = buildCatMemoryContext(c, { extra: timeContext });
+                            const memoryBlock = buildStatusSyncCatContext(c, { now });
 
                             let specificContext = "";
                             if (isActive && isFocusEnd) {
@@ -15139,7 +15169,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 gapContext = `\n[CRITICAL TIME GAP]: The user has been away for over an hour. THE PREVIOUS INTERACTION IS STRICTLY OVER. DO NOT mention previous interactions holding your paw or looking at you. You MUST be entertaining yourself, sleeping, or harassing other cats independently.`;
                             }
 
-                            characterBlock += `\n--- CHARACTER ---\nID: ${c.id}\nName: ${c.name} (${c.breed})\nTraits: ${c.personality}\nPrevious Status: ${c.status} ${timeContext}\nIs Currently Out: ${c.isOut}\n${memoryBlock}\n${dayBoundaryContext}\n${specificContext}\n${gapContext}\n`;
+                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${dayBoundaryContext}\n${specificContext}\n${gapContext}\n`;
                         });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
@@ -15166,9 +15196,14 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const newOperationalDayContext = pendingStatusDayRefresh
                             ? `\n[NEW OPERATIONAL DAY]: The previous operational day's final statuses are historical context only. Do not directly continue, lightly rewrite, or synonym-swap yesterday's final action. Unless an explicit ongoing event requires continuity (such as travel, visiting another hall, a focus session, or an exploration), generate a genuinely new activity appropriate to the current local time, personality, hall, and recent history for the new operational day ${operationalDayKey}.`
                             : '';
+                        const latestStatusBriefing = getLatestHouseBriefing();
+                        const sharedBriefingContext = latestStatusBriefing
+                            ? `Latest house briefing: ${truncateMemoryText(latestStatusBriefing.summary || '', 140)}`
+                            : 'Latest house briefing: None.';
                         const prompt = `Current Local Time: ${now.toLocaleString()}. ${isNight ? 'Night Time (Patrol/Sleep Likely)' : 'Day Time (Active/Rest Likely)'}. ${newOperationalDayContext}
                         GNN Global Trends: ${gnnTrendsGlobal}
-                        User Context: ${userContext} ${activeCatContext} ${hallSocialContext}
+                        User Context: ${userContext}
+                        ${sharedBriefingContext}${activeCatContext}${hallSocialContext}
                         
                         [WORLDVIEW: MEEOW HOUSE]:
                         - PROJECT GOAL: Immersive living with characters from their own original works transformed into cats inside Meeow House.
@@ -15192,7 +15227,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         1. **Δt Rule**: Check "[Δt RULE]" for each cat. 
                            - If Δt > 60 mins (1h): The character MUST have changed their state completely. If asleep, they MUST be awake now. NO STATIC LOOPS.
                            - If Δt < 30 mins: Maintain high continuity unless a major event happened.
-                        2. **Memory Rule**: You MUST read the [FORCED MEMORY CONTEXT] for each cat. Their behavior, mood, and inner voice MUST reflect recent events.
+                        2. **Memory Rule**: You MUST read the [STATUS SYNC CONTEXT] for each cat. Their behavior, mood, and inner voice MUST reflect the supplied recent events and continuity.
                         3. **Physical Logic**: Actions must follow the passage of time.
                         4. **Global Scenario**: At least 2 cats must stay home ([ISOUT] false).
                         
@@ -15223,9 +15258,14 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                           }
                         ]`;
 
+                        const statusRequestPrompt = characterBlock + "\n" + prompt;
+                        const statusPromptChars = statusRequestPrompt.length;
+                        const statusInputChars = statusPromptChars + String(CORE_ROLEPLAY_PROMPT || '').length + String(CANON_FIDELITY_GUARDRAIL || '').length + 1;
+                        const budgetLevel = statusInputChars > 15000 ? 'warn' : 'info';
                         addLog(`STATUS SYNC SCOPE: hall=${currentHall.value.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
+                        addLog(`STATUS SYNC BUDGET: hall=${currentHall.value.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; prompt=${statusPromptChars} chars; prompt+system=${statusInputChars} chars${statusInputChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
 
-                        const res = await callAI(characterBlock + "\n" + prompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
+                        const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                             ...requestOptions,
                             label: `STATUS SYNC · ${currentHall.value.name}`,
                             dedupeKey: requestOptions.dedupeKey || `status-sync-${activeHallId.value}`
