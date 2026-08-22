@@ -4654,7 +4654,7 @@
                 <!-- Action Header Widget -->
                 <div class="sully-widget p-4 flex flex-col gap-3">
                     <div class="flex space-x-2">
-                        <button @click="refreshAllStatus(true)" :disabled="isUpdatingStatus"
+                        <button @click="refreshAllStatus(true, '', [], '', false, false, { priority: 'foreground', maxAttempts: 2 })" :disabled="isUpdatingStatus"
                             class="flex-1 sully-btn bg-gradient-to-r from-zinc-800 to-zinc-900 hover:from-zinc-700 hover:to-zinc-800 text-yellow-500 font-bold py-3 text-xs border border-yellow-500/20 shadow-md flex items-center justify-center">
                             <i class="fas fa-sync-alt mr-2" :class="{'loading-spin': isUpdatingStatus}"></i>
                             {{ isUpdatingStatus ? `正在扫描${currentHall.name}信号...` : '强制刷新馆内动态' }}
@@ -8957,6 +8957,9 @@
                     }).join('; ');
                     return `${room.id}(${room.name}): ${points}`;
                 }).join('\n');
+                const getCompactMapPointPromptGuide = () => MAP_ROOM_DEFINITIONS.map(room =>
+                    `${room.id}: ${room.zones.map(point => `${point.id}=${point.furnitureId}/${point.name}`).join('; ')}`
+                ).join('\n');
                 let mapTapTimer = null;
                 let mapTapCatId = null;
                 const stableMapIndex = (value, length) => {
@@ -9891,7 +9894,7 @@ ${buildCatMemoryContext(cat)}`;
                     const prompt = `\n【馆舍通讯录：首次互动后的好友申请】\n你是 ${identity.name}，来自 ${hall.name}。${userSocialProfile}。你希望与这位馆长建立一个日常、可靠的文字联络渠道；真实原因是你需要在不打扰对方的情况下保持沟通，但绝不能泄露猫形态、喵喵馆秘密或任何超现实身份。\n要求：\n1. 用你在原作中合理的公开身份、正在处理的小事、共同认识的日常场景或当前事件作为自然开场；像真实人类申请好友。\n2. 严禁提及“见过像你的猫”“你的猫似曾相识”“听说你有猫”“可能与你有关的猫”或任何类似借口。\n3. 不得擅自添加不属于原作的身份、关系或世界观；不得默认哥谭、韦恩、夜巡或超英身份。\n4. 借口必须符合 ${identity.name} 的语言习惯与性格，严格避免 OOC 和泛化撒娇。\n5. 简体中文，50 字以内。只输出好友申请内容。\n                    `;
 
                     try {
-                        const excuse = await callAI(`${prompt}\n${buildCatMemoryContext(cat, { compact: true })}`, `You write one natural, canon-faithful friend request for the named character. Preserve their original voice and boundaries exactly; never reveal that they are a Meeow House cat or invent a default Gotham/superhero identity.`, 180, ThinkingLevel.LOW, { label: `FRIEND REQUEST · ${identity.name}`, priority: 'background' });
+                        const excuse = await callAI(`${prompt}\n${buildCatMemoryContext(cat, { compact: true })}`, `You write one natural, canon-faithful friend request for the named character. Preserve their original voice and boundaries exactly; never reveal that they are a Meeow House cat or invent a default Gotham/superhero identity.`, 180, ThinkingLevel.LOW, { label: `FRIEND REQUEST · ${identity.name}`, priority: 'background', maxAttempts: 1 });
                         const cleanedExcuse = cleanText(excuse);
                         // Only polish the already-delivered request. The safe local
                         // fallback remains valid if the request was accepted while
@@ -11170,6 +11173,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         const didRefresh = await refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${arrivalStatus}`, [], '', false, false, {
                             label: `ENTER HALL · ${hall.name}`,
                             priority: 'foreground',
+                            maxAttempts: 2,
                             onProgress: (event) => {
                                 applyAPILoadingEvent(event, hallEntryLoading);
                                 hallEntryLoading.message = event.stage === 'waiting'
@@ -11398,7 +11402,10 @@ JSON 格式：
                     user.currentStatus = tempUserStatus.value;
                     addLog(`USER STATUS UPDATED: ${user.currentStatus || '(Empty)'}`, "info");
                     showToast(`正在同步${currentHall.value.name}状态...`, "loading");
-                    const success = await refreshAllStatus(true, `User Status Changed: ${user.currentStatus || 'Cleared'}`);
+                    const success = await refreshAllStatus(true, `User Status Changed: ${user.currentStatus || 'Cleared'}`, [], '', false, false, {
+                        priority: 'foreground',
+                        maxAttempts: 2
+                    });
                     if (success) {
                         showToast("状态已同步", "success");
                     } else {
@@ -13624,6 +13631,10 @@ Recent monitoring: ${formatMemoryEntries(monitoring, 1, 28)}
 Continuity: ${truncateMemoryText(continuity || 'None', 34)}`;
                     return truncateMemoryText(context, 570);
                 };
+                const buildStatusSyncUserContext = (additionalContext = '') => {
+                    const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
+                    return `[STATUS USER]\nName: ${truncateMemoryText(user.nickname || '馆长', 48)}\nCurrent status: ${truncateMemoryText(user.currentStatus || '未知', 90)}\nRecent event: ${recentEvent || 'None'}`;
+                };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
                 // The save stores only book metadata, position and annotations. The
@@ -14619,12 +14630,12 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     if (typeof msg !== 'string') return;
                     if (!overrideContent) chatInput.value = '';
                     const isFirstInteraction = !isReRoll && !(sendingCat.todayInteractions || []).length;
+                    const shouldSendFriendRequest = isFirstInteraction;
 
                     if (!isReRoll) {
                         const time = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'user', content: msg, time, at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, isItemUse ? 'item' : 'chat-user', msg, { source: 'detail-chat' });
-                        if (isFirstInteraction) void sendFriendRequest(sendingCat.id);
                     }
 
                     if (sendingCat.isOut && Math.random() > 0.15) {
@@ -14642,6 +14653,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         }
                         sendingCat.chatHistory.push({ role: 'assistant', isSystem: false, content: sendingCat.autoReply, time: getCurrentTimeStr(), at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, 'chat-reply', sendingCat.autoReply, { source: 'auto-reply' });
+                        if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
                         return;
                     }
 
@@ -14717,6 +14729,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 1100, ThinkingLevel.LOW, {
                             label: `HOMEPAGE CHAT · ${sendingCat.name}`,
                             priority: 'foreground',
+                            maxAttempts: 2,
                             validateResponse: (content) => {
                                 const reply = extractSection(content, 'REPLY');
                                 const userStatus = extractSection(content, 'USER_STATUS');
@@ -14749,6 +14762,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const replyTime = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, 'chat-reply', `[${sendingCat.isHuman ? 'HUMAN' : 'CAT'}][REPLY]: ${reply}`, { source: 'detail-chat' });
+                        if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
                         // The reply is already safely written. Let the larger
                         // hall-status sync follow in the background so the chat
@@ -14756,7 +14770,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         // every message waits for a second full AI request.
                         void refreshAllStatus(true, `User is interacting with ${sendingCat.name}. User Status: ${user.currentStatus}`, [sendingCat.id], status, false, false, {
                             label: `CHAT FOLLOW-UP STATUS · ${currentHall.value.name}`,
-                            priority: 'background'
+                            priority: 'background',
+                            maxAttempts: 1
                         });
 
                         sendingCat.lastInteractionTimestamp = Date.now();
@@ -15123,7 +15138,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     } catch (error) {
                         addLog(`STATUS SYNC DAY MARKER READ FAILED: ${error.message}`, 'warn');
                     }
-                    const userContext = getUserRealLifeContext() + (additionalContext ? ` RECENT EVENT: ${additionalContext}` : "");
+                    const userContext = buildStatusSyncUserContext(additionalContext);
 
                     try {
                         let characterBlock = "";
@@ -15182,81 +15197,39 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 activeCatContext = `\n[CRITICAL CONTEXT]: ${activeCatNames.join(', ')} just returned from exploring. Other cats should react to their return.`;
                             } else {
                                 const bystanderNames = catsToUpdate.filter(c => !activeCatIds.includes(c.id)).map(c => c.name).join(', ');
-                                activeCatContext = `\n[CRITICAL CONTEXT & STRICT RULE]: User is actively interacting ONLY with ${activeCatNames.join(', ')} (Their status: "${focusCatLastAction}").\nALL OTHER CATS (${bystanderNames}) MUST update their status by reacting to, observing, or ignoring this specific interaction between the User and ${activeCatNames.join(', ')}.\nABSOLUTELY DO NOT generate status where bystanders interact with the user or assume they are the target of the user's interaction. You must emphasize that the User is interacting exclusively with ${activeCatNames.join(', ')}!`;
+                                activeCatContext = `\n[ACTIVE INTERACTION]: User is interacting ONLY with ${activeCatNames.join(', ')}. Active status: "${truncateMemoryText(focusCatLastAction || '近期互动', 140)}". Other cats (${bystanderNames}) may observe, react, or ignore it, but MUST NOT act as the user's target or directly interact with the user.`;
                             }
                         }
 
                         const homeCats = catsToUpdate.filter(cat => !cat.isOut);
                         const hallSocialContext = homeCats.length >= 2
-                            ? `\n[SAME-HALL SOCIAL CONTINUITY]: Cats currently at home: ${homeCats.map(cat => cat.name).join(', ')}.
-                            You MAY include one or two natural cat-to-cat moments in this full-hall update: sharing a sun patch, wary observation, a brief scuffle, grooming, curled-up proximity, mutual annoyance, or working around one another. These moments must fit canon personality, source-supported relationships, and established same-hall memory. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior. If you name another cat in one status, update the named cat's status with a coherent counterpart view of the same moment. Other cats may remain independent.`
-                            : `\n[SAME-HALL SOCIAL CONTINUITY]: Fewer than two cats are currently at home. Do not invent a cat-to-cat interaction.`;
+                            ? `\n[HALL SOCIAL]: At home: ${homeCats.map(cat => cat.name).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior.`
+                            : `\n[HALL SOCIAL]: Fewer than two cats are home; do not invent cat-to-cat interaction.`;
 
-                        const gnnTrendsGlobal = user.phoneData.gnn?.trending?.map(t => `#${t.topic}`).join(', ') || 'None';
+                        const gnnTrendsGlobal = user.phoneData.gnn?.trending?.slice(0, 3)
+                            .map(t => `#${truncateMemoryText(t.topic || '', 28)}`).filter(Boolean).join(', ') || 'None';
                         const newOperationalDayContext = pendingStatusDayRefresh
-                            ? `\n[NEW OPERATIONAL DAY]: The previous operational day's final statuses are historical context only. Do not directly continue, lightly rewrite, or synonym-swap yesterday's final action. Unless an explicit ongoing event requires continuity (such as travel, visiting another hall, a focus session, or an exploration), generate a genuinely new activity appropriate to the current local time, personality, hall, and recent history for the new operational day ${operationalDayKey}.`
+                            ? `\n[NEW OPERATIONAL DAY]: Previous-day status is history, not a template. Do not paraphrase it; unless travel/visit/focus/explore is ongoing, create a genuinely new current activity for ${operationalDayKey}.`
                             : '';
-                        const latestStatusBriefing = getLatestHouseBriefing();
-                        const sharedBriefingContext = latestStatusBriefing
-                            ? `Latest house briefing: ${truncateMemoryText(latestStatusBriefing.summary || '', 140)}`
-                            : 'Latest house briefing: None.';
-                        const prompt = `Current Local Time: ${now.toLocaleString()}. ${isNight ? 'Night Time (Patrol/Sleep Likely)' : 'Day Time (Active/Rest Likely)'}. ${newOperationalDayContext}
-                        GNN Global Trends: ${gnnTrendsGlobal}
-                        User Context: ${userContext}
-                        ${sharedBriefingContext}${activeCatContext}${hallSocialContext}
-                        
-                        [WORLDVIEW: MEEOW HOUSE]:
-                        - PROJECT GOAL: Immersive living with characters from their own original works transformed into cats inside Meeow House.
-                        - Current hall: ${currentHall.value.name}. Its guardian is ${currentHall.value.guardian}.
-                        - Cats in this hall are the only cats visible to this update. Never reference cats from another hall.
-                        - Cats may live ordinary house life, reenact an epic, solve a problem, or cause trouble only when it naturally fits their original work. Do not default to DC hero patrols or battles.
-                        - The user is the house owner. Do not assume they are unaware, helpless, or the target of a rescue unless the supplied context explicitly says so.
-                        - **RELATIONSHIPS:** Maintain only relationships supported by the cats' shared source work or their established same-hall history. Never import Bat-family dynamics, superhero jargon, or DC assumptions into other halls.
-                        
-                        [INDEPENDENT BEHAVIOR RULE]:
-                        - If the User is NOT actively interacting with a specific cat, ALL cats MUST focus solely on their own independent activities (e.g., sleeping, grooming, playing by themselves, tracking bugs, or playing with OTHER at-home cats).
-                        - ABSOLUTELY DO NOT invent or hallucinate interactions with the User (e.g., DO NOT generate statuses implying the user is teasing, bathing, or feeding the cat) unless the User Context explicitly states the user is doing so! Do not "steal the scene" by forcing user interactions!
-                        - Describe the CAT'S independent life.
-                        
-                        [FORM LOGIC]:
-                        - If Affinity < 50: [isHuman] MUST be false.
-                        - If Affinity >= 50: The cat DECIDES [isHuman] (true/false) autonomously based on mood/context/personality.
-                        - [EXCEPTION]: If the cat just returned from an adventure (isExploreEnd), [isHuman] MUST be false.
-                        
-                        [MANDATORY CONTINUITY RULES]:
-                        1. **Δt Rule**: Check "[Δt RULE]" for each cat. 
-                           - If Δt > 60 mins (1h): The character MUST have changed their state completely. If asleep, they MUST be awake now. NO STATIC LOOPS.
-                           - If Δt < 30 mins: Maintain high continuity unless a major event happened.
-                        2. **Memory Rule**: You MUST read the [STATUS SYNC CONTEXT] for each cat. Their behavior, mood, and inner voice MUST reflect the supplied recent events and continuity.
-                        3. **Physical Logic**: Actions must follow the passage of time.
-                        4. **Global Scenario**: At least 2 cats must stay home ([ISOUT] false).
-                        
-                        [ROLEPLAY QUALITY]:
-                        - NO AI FLAVOR. Stay in character.
-                        - CLOSENESS MATTERS: Low affinity means independent rhythm or ordinary boundaries, never default fear, hostility, or contempt toward the safe, kind house owner.
-                        - NO OOC. The source material and each cat's stored prompt are binding; cat form never overrides core personality.
-                        
-                        Task: Update status for ALL characters.
-                        [MEEOW MAP POINTS]:
-                        Use EXACTLY one mapPoint from this list for every cat at home. The status text must naturally mention the same furniture and position. Do not place cats on stove, hearth, or hot surfaces. The sink-basin point is allowed only for safe water/sink-basin scenes.
-                        ${getMapPointPromptGuide()}
+                        const prompt = `[STATUS SYNC]
+Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${currentHall.value.name}; Guardian: ${currentHall.value.guardian}.
+GNN: ${gnnTrendsGlobal}
+${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 
-                        [MANDATORY OUTPUT FORMAT]:
-                        Copy each CHARACTER ID exactly as supplied above. Never translate, shorten, renumber, or replace an ID with a character name.
-                        Return a JSON array of objects:
-                        [
-                          {
-                            "id": "exact supplied character id",
-                            "status": "Short description of current action (max 20 words)",
-                            "innerVoice": "Human language internal monologue (max 30 words). **MANDATORY:** Refer to yourself as '我' (I) or similar, NEVER use your full name to refer to yourself in thoughts.",
-                            "isOut": boolean,
-                            "isHuman": boolean,
-                            "mapRoom": "dorm | living | dining (omit when isOut is true)",
-                            "mapFurniture": "stable furniture id from the chosen point, e.g. sofa/table/shelf",
-                            "mapPoint": "exact point id from [MEEOW MAP POINTS]",
-                            "mapPositionLabel": "short Chinese label matching status, e.g. 沙发上/沙发脚/左侧桌下"
-                          }
-                        ]`;
+[RULES]
+- Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.
+- Stored canon and [STATUS SYNC CONTEXT] are binding. Cat form never changes personality. Low affinity means boundaries/independent rhythm, never default fear, hostility, or contempt toward the safe owner.
+- Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
+- Form: affinity <50 => isHuman false; affinity >=50 decides by context; explore-return cats must be false.
+- Read each [Δt RULE]: >60m requires a genuinely changed state; <30m keeps continuity unless a major event occurred. Keep physical time logic. At least two cats remain home.
+
+[MAP]
+For every at-home cat use exactly one listed mapPoint. Status must naturally match its furniture/position; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
+${getCompactMapPointPromptGuide()}
+
+[OUTPUT]
+Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per character:
+[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
                         const statusPromptChars = statusRequestPrompt.length;
@@ -15862,6 +15835,7 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
                         const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
                             priority: 'foreground',
+                            maxAttempts: 2,
                             validateResponse: (content) => {
                                 const data = parseAIJSON(content);
                                 const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
@@ -15922,7 +15896,8 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
                         void checkAffinityThreshold(targetCat);
                         void refreshAllStatus(true, `User used ${targetItem.name} with ${targetCat.name}.`, [targetCatId], reaction, false, false, {
                             label: `ITEM FOLLOW-UP STATUS · ${currentHall.value.name}`,
-                            priority: 'background'
+                            priority: 'background',
+                            maxAttempts: 1
                         });
                     } catch (error) {
                         addLog(`ITEM INTERACTION ERROR: ${targetCat.name} / ${error.message}`, 'error');

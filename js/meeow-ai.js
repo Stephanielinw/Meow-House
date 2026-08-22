@@ -211,6 +211,7 @@ const isConfigurationOrRouteError = (error) => {
 };
 
 const _waitForRetryDecision = (request, lastError, attemptsUsed = 5, immediateDecision = false) => {
+    const maxAttempts = request.effectiveMaxAttempts || 5;
     return new Promise((resolve) => {
         request.resolveRetryDecision = resolve;
         dependencies.apiRetryModal.requestId = request.id;
@@ -219,7 +220,7 @@ const _waitForRetryDecision = (request, lastError, attemptsUsed = 5, immediateDe
         dependencies.apiRetryModal.attempt = attemptsUsed;
         dependencies.apiRetryModal.errorMessage = immediateDecision
             ? `当前连接配置或反代路由无法使用，已停止自动重试。\n\n错误详情：\n${getReadableAPIError(lastError)}\n\n请确认 API 密钥和反代地址后，再决定是否重新尝试。`
-            : `连续 ${attemptsUsed} 次请求均失败。\n\n最后一次错误：\n${getReadableAPIError(lastError)}\n\n你可以停止本次请求，或明确再开启一轮 5 次尝试。`;
+            : `连续 ${attemptsUsed} 次请求均失败。\n\n最后一次错误：\n${getReadableAPIError(lastError)}\n\n你可以停止本次请求，或明确再开启一轮 ${maxAttempts} 次尝试。`;
         const payloadInfo = request.payloadBytes ? `${Math.ceil(request.payloadBytes / 1024)} KB` : '尚未发送';
         const waitInfo = request.lastWaitMs ? `${(request.lastWaitMs / 1000).toFixed(1)} 秒` : '—';
         const queueInfo = request.queueWaitMs ? `${(request.queueWaitMs / 1000).toFixed(1)} 秒` : '0.0 秒';
@@ -228,7 +229,7 @@ const _waitForRetryDecision = (request, lastError, attemptsUsed = 5, immediateDe
             ? '此类配置或 404 错误不会自动空转；停止后可进入终端检查连接设置。'
             : /超时/.test(getReadableAPIError(lastError))
             ? '本轮最后一次请求已等待 40 秒后中止；不会继续在后台挂起。'
-            : '本轮 5 次尝试均已结束；选择“继续重试”才会开始新的 5 次。';
+            : `本轮 ${maxAttempts} 次尝试均已结束；选择“继续重试”才会开始新的 ${maxAttempts} 次。`;
         dependencies.apiRetryModal.isDeciding = false;
         dependencies.apiRetryModal.show = true;
     });
@@ -271,14 +272,17 @@ const cancelCurrentAIRequest = () => {
 };
 
 const _runAIRequest = async (request) => {
-    const MAX_AUTO_RETRIES = 5;
+    const maxAttempts = Number.isInteger(request.maxAttempts)
+        ? Math.max(1, request.maxAttempts)
+        : 5;
+    request.effectiveMaxAttempts = maxAttempts;
     const guardedSystemPrompt = `${request.systemPrompt || ''}\n${dependencies.getCanonFidelityGuardrail()}`;
     // Background work (status sync, wording polish, phone photo)
     // must not overwrite a user-facing notification such as a new
     // friend request. Its progress remains visible in the system log.
     if (request.priority !== 'background') dependencies.showToast('正在建立加密通道...', 'loading');
     request.guardedInputChars = String(request.prompt || '').length + String(guardedSystemPrompt || '').length;
-    dependencies.addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${dependencies.getSettings().model || 'default'} maxTokens=${request.maxTokens}; input=${request.guardedInputChars} chars.`);
+    dependencies.addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${dependencies.getSettings().model || 'default'} maxTokens=${request.maxTokens}; input=${request.guardedInputChars} chars; attempts=${maxAttempts}.`);
     request.onProgress?.({ stage: 'queued', requestId: request.id, label: request.label, attempt: 0, round: request.round });
 
     while (!request.cancelled && !cancelledApiBatches.has(request.batchId)) {
@@ -287,13 +291,13 @@ const _runAIRequest = async (request) => {
         let attemptsUsed = 0;
         let immediateDecision = false;
 
-        for (let attempt = 1; attempt <= MAX_AUTO_RETRIES; attempt++) {
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             attemptsUsed = attempt;
             if (request.cancelled || cancelledApiBatches.has(request.batchId)) throw new AIRequestCancelledError();
             try {
                 if (attempt > 1) {
-                    dependencies.addLog(`API REQUEST #${request.id} RETRY ${attempt}/${MAX_AUTO_RETRIES} (round ${request.round})...`, 'warn');
-                    if (request.priority !== 'background') dependencies.showToast(`🔄 重试中 (${attempt}/${MAX_AUTO_RETRIES})...`, "loading");
+                    dependencies.addLog(`API REQUEST #${request.id} RETRY ${attempt}/${maxAttempts} (round ${request.round})...`, 'warn');
+                    if (request.priority !== 'background') dependencies.showToast(`🔄 重试中 (${attempt}/${maxAttempts})...`, "loading");
                     request.onProgress?.({ stage: 'retrying', requestId: request.id, label: request.label, attempt, round: request.round });
                     await new Promise(r => setTimeout(r, 800 * attempt));
                 }
@@ -329,8 +333,12 @@ const _runAIRequest = async (request) => {
             }
         }
 
-        dependencies.addLog(`API REQUEST #${request.id} ${immediateDecision ? 'NEEDS CONFIGURATION DECISION' : 'FAILED 5 TIMES'}. Waiting for user decision.`, 'error');
-        if (request.priority !== 'background') dependencies.showToast(immediateDecision ? '连接配置或反代路由有误，请查看错误窗口' : `连续 ${MAX_AUTO_RETRIES} 次请求失败，请查看错误窗口`, "error");
+        if (request.priority === 'background' && Number.isInteger(request.maxAttempts)) {
+            dependencies.addLog(`API REQUEST #${request.id} BACKGROUND FAILED AFTER ${attemptsUsed}/${maxAttempts}; releasing queue.`, 'warn');
+            throw lastError || new Error('后台请求未返回有效内容。');
+        }
+        dependencies.addLog(`API REQUEST #${request.id} ${immediateDecision ? 'NEEDS CONFIGURATION DECISION' : `FAILED ${maxAttempts} TIMES`}. Waiting for user decision.`, 'error');
+        if (request.priority !== 'background') dependencies.showToast(immediateDecision ? '连接配置或反代路由有误，请查看错误窗口' : `连续 ${maxAttempts} 次请求失败，请查看错误窗口`, "error");
         const decision = await _waitForRetryDecision(request, lastError, attemptsUsed, immediateDecision);
         if (decision !== 'retry' || request.cancelled || cancelledApiBatches.has(request.batchId)) {
             throw new AIRequestCancelledError();
@@ -384,6 +392,7 @@ const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, op
         cancelled: false,
         abortController: null,
         priority: options.priority || 'normal',
+        maxAttempts: Number.isInteger(options.maxAttempts) ? Math.max(1, options.maxAttempts) : null,
         temperature: Number.isFinite(options.temperature) ? options.temperature : null,
         resolveRetryDecision: null,
         enqueuedAt: Date.now(),
