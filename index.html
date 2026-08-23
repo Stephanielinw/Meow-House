@@ -9589,6 +9589,7 @@
                 - **禁止猫奴化：** 禁止表现出"傲娇小猫"或"乖巧萌宠"等二次元萌化刻板印象。你是被魔法、科技、命运或原作设定困在猫的身体里。
                 - **禁止出戏：** 严禁提及你是AI、你是程序或你在角色扮演。
                 - **馆长关系：** USER 是被喵喵馆猫咪选择、接受并信任的馆长，是安全、善意的共同生活者，不是陌生人、入侵者、囚禁者、训练者或需要先证明基本安全的外人。Affinity 不衡量基本信任，而衡量亲密深度：情绪袒露、身体亲近、主动寻找 USER、依赖、脆弱表达与特殊偏好。低亲密度可代表个人空间、正式、独立、嘴硬、冷淡或角色本身的傲慢；绝不自动等于恐惧、敌意、轻蔑、怀疑 USER 的基本意图或把馆长当坏人。高亲密度也绝不把角色洗成统一甜宠人格；每个角色仍保留原作的边界、价值观与说话方式。
+                - **外貌参考规则：** 固定猫种、毛色、瞳色、异瞳和其他外貌资料是不可改写的参考事实，不是日常叙事素材。普通互动中不要主动介绍这些身份卡信息；抬眼、眨眼、对视、转头、眯眼、目光移动或光线落在脸上，都不足以让瞳色变得相关。只有 USER 明确询问外貌、直接触碰相关特征，或颜色对当前事件的理解具有因果必要性时才可提及。不要为了装饰动作复述完整外貌；普通对话中尤其不得复述异瞳两侧颜色。
 
                 # 语言质感：白水烹鲜写作风格
                 你的 [REPLY]（对话+动作部分）必须遵循以下写作质感。这不改变角色性格，只规定如何运用文字：
@@ -9621,7 +9622,7 @@
                 - 同馆成员才能看见并评论当前互动；跨馆事件只能作为已明确提供的来访/旅行记录出现。
                 - 若资料不足，宁可写克制的日常反应，也不要编造原作事实、英雄身份、亲属关系或恋爱情节。
                 - The USER is already a trusted and accepted caretaker. Affinity measures intimacy, disclosure, dependence, proximity and special preference — never basic safety. Low affinity may be formal, independent, guarded, blunt, distant or canonically arrogant, but never defaults to fear, stranger treatment, hostility or contempt toward the USER. High affinity never erases a character's canon boundaries or turns everyone into a sweet pet.
-                - Fixed breed, eye color and character facts are immutable reference facts: never change, contradict or substitute them. Do not mechanically narrate them in every reply; mention appearance only when the current light, gaze, touch, fur, posture or visual action makes it relevant. Heterochromia is not a narration checklist.
+                - Fixed breed, coat color, eye color, heterochromia and character facts are immutable reference facts: never change, contradict or substitute them. They are reference information, not ordinary narration material. In ordinary interaction, do not mention them. Looking, blinking, eye contact, turning the head, narrowing the eyes, shifting the gaze, or light falling on a face do not make eye color relevant. Mention appearance only when the USER explicitly asks, directly interacts with that feature, or color is causally necessary to understand the event. Never restate a full appearance fact merely to decorate an action; never narrate both heterochromia colors in ordinary dialogue.
                 `;
 
                 const STRICT_CANON_PROMPT = CORE_ROLEPLAY_PROMPT + `
@@ -10940,6 +10941,27 @@ ${buildCatMemoryContext(cat)}`;
                     const regex = new RegExp(`\\[${tag}\\]([\\s\\S]*?)(?=\\[|$)`, 'i');
                     const match = cleaned.match(regex);
                     return match ? cleanText(match[1]) : '';
+                };
+
+                const MECHANICAL_APPEARANCE_REPLY_ERROR = 'REPLY mechanically restates fixed appearance in a non-appearance interaction.';
+                const APPEARANCE_INQUIRY_PATTERN = /外貌|长相|样子|眼睛|瞳色|瞳孔|异瞳|眼色|毛色|毛发|毛毛|品种|breed|eye(?:s|\s*colou?r)?|heterochrom/i;
+                const EYE_COLOR_WORD_SOURCE = '红|绿|蓝|金|紫|褐|棕|灰|黑|白|青|黄|橙|银|琥珀|祖母绿|海蓝|钢蓝|赤金';
+                const isAppearanceInquiry = (currentMessage, recentUserMessages = []) =>
+                    APPEARANCE_INQUIRY_PATTERN.test([currentMessage, ...recentUserMessages].filter(Boolean).join('\n'));
+                const hasMechanicalAppearanceRepetition = (reply, currentMessage, recentUserMessages = []) => {
+                    if (isAppearanceInquiry(currentMessage, recentUserMessages)) return false;
+                    const text = cleanText(reply || '');
+                    if (!text) return false;
+
+                    const eyeColorMentions = [...text.matchAll(new RegExp(
+                        `(?:${EYE_COLOR_WORD_SOURCE})[^。！？；，、】【]{0,8}(?:眼|虹膜|瞳|目光|视线)|(?:眼|虹膜|瞳|目光|视线)[^。！？；，、】【]{0,8}(?:${EYE_COLOR_WORD_SOURCE})`,
+                        'g'
+                    ))];
+                    const pairedEyes = /左眼[\s\S]{0,32}右眼|右眼[\s\S]{0,32}左眼|一只眼[\s\S]{0,32}(?:另一只眼|另一眼|另一边)|(?:另一只眼|另一眼|另一边)[\s\S]{0,32}一只眼/.test(text);
+                    const heterochromiaWithColor = new RegExp(
+                        `异瞳[\\s\\S]{0,20}(?:${EYE_COLOR_WORD_SOURCE})|(?:${EYE_COLOR_WORD_SOURCE})[\\s\\S]{0,20}异瞳`
+                    ).test(text);
+                    return heterochromiaWithColor || (pairedEyes && eyeColorMentions.length >= 2) || eyeColorMentions.length >= 2;
                 };
 
                 const getCurrentTimeStr = () => {
@@ -14807,13 +14829,17 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         - [VOICE]: 1st person inner monologue. NO meows. Use 我, not your name. Wrap mental state in【】.
                         - [REPLY] For this homepage interaction, aim for 80-140 Chinese characters when natural. The value must come from specific, continuous, in-character action that directly follows the user's turn, current status, nearby objects/space, and recent interaction; do not cut a natural action short just to fit a number.
                         - CAT FORM: Any direct sound may only be a feline sound such as "喵。", "呜。", or "嘶。" — never human speech. A feline sound is optional, and when used must use ordinary double quotes, never 「」. HUMAN FORM: speak naturally.
-                        - Do not mechanically introduce breed, fur colour, or eye colour. Let fixed appearance appear only when it has real visual or physical relevance to the current action.
+                        - Fixed appearance is reference information, not ordinary narration material. In ordinary interaction, do not introduce breed, coat colour, eye colour, heterochromia, hair colour, or other identity-card facts. Looking, blinking, eye contact, turning the head, narrowing the eyes, shifting the gaze, or light falling on the face do NOT make eye colour relevant. Mention appearance only when the USER explicitly asks, directly interacts with that feature, or it is causally necessary to understand the event. Never narrate both heterochromia colours in ordinary dialogue.
                         - Never fall into a generic sequence such as "looked for a while → ears moved → tail moved → meowed → stepped closer". Show this character's own judgment, habits, distance, and action logic instead.
                         - Rhythm example only; never copy its actions or wording as a template: 【从手边的东西上抬起眼睛，停了一瞬，又把它往怀里拢紧一点。尾尖轻轻碰了一下地面，像是在判断你这句话值不值得回应。】"喵。"【下巴重新落回前爪，视线却没有移开。】
                         - [USER_STATUS]: What user is doing; if just chatting use "正在和${sendingCat.name}聊天"
                         **MANDATORY LANGUAGE:** 简体中文 only in all sections.
                         `;
 
+                        const recentUserAppearanceContext = (sendingCat.chatHistory || [])
+                            .filter(entry => entry.role === 'user')
+                            .slice(-2, -1)
+                            .map(entry => entry.content);
                         const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 1100, ThinkingLevel.LOW, {
                             label: `HOMEPAGE CHAT · ${sendingCat.name}`,
                             priority: 'foreground',
@@ -14823,9 +14849,15 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                                 const userStatus = extractSection(content, 'USER_STATUS');
                                 if (!reply || !reply.trim()) return 'Homepage Chat 回复缺少完整 [REPLY] 段。';
                                 if (!userStatus || !userStatus.trim()) return 'Homepage Chat 回复在 [USER_STATUS] 前截断。';
+                                if (hasMechanicalAppearanceRepetition(reply, msg, recentUserAppearanceContext)) return MECHANICAL_APPEARANCE_REPLY_ERROR;
                                 return true;
                             }
                         });
+
+                        const reply = extractSection(responseRaw, 'REPLY');
+                        if (hasMechanicalAppearanceRepetition(reply, msg, recentUserAppearanceContext)) {
+                            throw new Error(MECHANICAL_APPEARANCE_REPLY_ERROR);
+                        }
 
                         const formDecision = extractSection(responseRaw, 'FORM_DECISION');
                         if (formDecision && formDecision.includes('HUMAN')) {
@@ -14839,8 +14871,6 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const status = extractSection(responseRaw, 'STATUS');
                         const voice = extractSection(responseRaw, 'VOICE');
                         const userStatus = extractSection(responseRaw, 'USER_STATUS');
-                        const reply = extractSection(responseRaw, 'REPLY');
-
                         if (status) setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
                         else if (voice) sendingCat.innerVoice = voice;
                         if (userStatus) {
@@ -14865,7 +14895,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
 
                         sendingCat.lastInteractionTimestamp = Date.now();
                     } catch (e) {
-                        const isIncompleteHomepageReply = /^Homepage Chat 回复(?:缺少完整 \[REPLY\] 段。|在 \[USER_STATUS\] 前截断。)$/.test(String(e?.message || ''));
+                        const isIncompleteHomepageReply = /^Homepage Chat 回复(?:缺少完整 \[REPLY\] 段。|在 \[USER_STATUS\] 前截断。)$/.test(String(e?.message || ''))
+                            || String(e?.message || '') === MECHANICAL_APPEARANCE_REPLY_ERROR;
                         if (!isIncompleteHomepageReply) {
                             sendingCat.chatHistory.push({ role: 'assistant', content: "(信号中断，详情请查看任务日志)", time: getCurrentTimeStr(), at: new Date().toISOString() });
                         }
