@@ -8440,6 +8440,7 @@
                     ALL_BUILTIN_CATS,
                     BUILTIN_CAT_PROFILES,
                     BUILTIN_CANONICAL_PROMPT_REFRESH_IDS,
+                    BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS,
                     OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
                     normalizeCatHall,
                     rosterHasValue,
@@ -8518,12 +8519,19 @@
                     if (migrateObsoleteIthacaCats()) rosterMigrationPendingSave = true;
                     cats.value.forEach(cat => {
                         const catId = String(cat.id);
-                        if (!BUILTIN_CANONICAL_PROMPT_REFRESH_IDS.has(catId)) return;
                         const canonical = BUILTIN_CAT_PROFILES.get(catId);
-                        if (canonical?.prompt && cat.prompt !== canonical.prompt) {
+                        if (BUILTIN_CANONICAL_PROMPT_REFRESH_IDS.has(catId) && canonical?.prompt && cat.prompt !== canonical.prompt) {
                             cat.prompt = canonical.prompt;
                             rosterMigrationPendingSave = true;
                         }
+                        const metadataFields = BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS.get(catId);
+                        if (!canonical || !metadataFields) return;
+                        metadataFields.forEach(field => {
+                            if (canonical[field] !== undefined && cat[field] !== canonical[field]) {
+                                cat[field] = canonical[field];
+                                rosterMigrationPendingSave = true;
+                            }
+                        });
                     });
                     cats.value = cats.value.map(normalizeCatHall);
                     const existingIds = new Set(cats.value.map(cat => String(cat.id)));

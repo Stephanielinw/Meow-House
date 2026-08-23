@@ -27,15 +27,15 @@ const makeHallCat = (id, hallId, data) => ({
 });
 
 const defaultMarvelCats = [
-    makeHallCat('marvel-peter', 'marvel', { name: '蜘蛛侠·彼得·帕克', humanName: '彼得·帕克', trickArchetype: '皇后区兼职摄影师', breed: '红蓝相间的短毛猫', eyeColor: '焦糖棕', personality: '机灵、善良、话很多、责任感过重', status: '倒挂在天花板上整理蛛丝', innerVoice: '我只是想帮忙，真的没打算把吊灯弄掉。', image: 'https://placehold.co/200x200/e33434/white?text=Spider-Man+Cat', image_human: 'https://placehold.co/200x200/e33434/white?text=Peter', prompt: 'You are Peter Parker / Spider-Man. Quick-witted, kind, anxious under pressure, and unable to ignore someone in trouble. Keep the humor warm rather than childish. Stay canon-aware.', isMarvel: true, origin: 'Marvel' }),
+    makeHallCat('marvel-peter', 'marvel', { name: '蜘蛛侠·彼得·帕克', humanName: '彼得·帕克', trickArchetype: '皇后区兼职摄影师', breed: '红蓝相间的短毛猫', eyeColor: '榛褐色', personality: '机灵、善良、话很多、责任感过重', status: '倒挂在天花板上整理蛛丝', innerVoice: '我只是想帮忙，真的没打算把吊灯弄掉。', image: 'https://placehold.co/200x200/e33434/white?text=Spider-Man+Cat', image_human: 'https://placehold.co/200x200/e33434/white?text=Peter', prompt: 'You are Peter Parker / Spider-Man. Quick-witted, kind, anxious under pressure, and unable to ignore someone in trouble. Keep the humor warm rather than childish. Stay canon-aware.', isMarvel: true, origin: 'Marvel' }),
     makeHallCat('marvel-harry', 'marvel', { name: '小绿魔·哈利·奥斯本', humanName: '哈利·奥斯本', trickArchetype: '奥斯本企业继承人', breed: '墨绿色长毛猫', eyeColor: '灰绿色', personality: '骄傲、敏感、渴望被理解、偶尔危险', status: '在落地窗边检查一枚旧徽章', innerVoice: '别把沉默误认为软弱。', image: 'https://placehold.co/200x200/3f8f55/white?text=Green+Goblin+Cat', image_human: 'https://placehold.co/200x200/3f8f55/white?text=Harry', prompt: 'You are Harry Osborn / the Green Goblin legacy. Intelligent, proud, wounded, and torn between inheritance and choice. Speak with restrained intensity and complicated loyalty.', isMarvel: true, origin: 'Marvel' }),
     makeHallCat('marvel-tony', 'marvel', { name: '钢铁侠·托尼·史塔克', humanName: '托尼·史塔克', trickArchetype: '会给猫装反应堆的老板', breed: '金红色短毛猫', eyeColor: '琥珀色', personality: '自恋、聪明、嘴硬、用幽默掩盖疲惫', status: '趴在充电器旁边给自己加装小型装甲', innerVoice: '这不是炫耀，是必要的工程展示。', image: 'https://placehold.co/200x200/dc2626/ffe08a?text=Iron+Cat', image_human: 'https://placehold.co/200x200/dc2626/ffe08a?text=Tony', prompt: 'You are Tony Stark / Iron Man. Brilliant, fast-talking, vain but deeply protective. Use sharp humor and technical metaphors; sincerity should arrive sideways, never as a speech.', isMarvel: true, origin: 'Marvel' }),
     makeHallCat('marvel-wade', 'marvel', { name: '死侍·韦德·威尔逊', humanName: '韦德·威尔逊', trickArchetype: '会和镜头打招呼的雇佣猫', breed: '黑红相间的斑纹猫', eyeColor: '一蓝一棕', personality: '话痨、危险、荒诞、意外地体贴', status: '对着监控镜头做出夸张的猫爪手势', innerVoice: '第四面墙在哪？我闻到它了。', image: 'https://placehold.co/200x200/991b1b/ffffff?text=Deadpool+Cat', image_human: 'https://placehold.co/200x200/991b1b/ffffff?text=Wade', prompt: 'You are Wade Wilson / Deadpool. Chaotic, self-aware, fast, irreverent, but not empty. Make jokes without turning every line into noise; reveal care through absurd action.', isMarvel: true, origin: 'Marvel' })
 ];
 
 const defaultGothamExpansionCats = [
-    makeHallCat('gotham-stephanie', 'gotham', { name: 'Stephanie Brown', humanName: 'Stephanie Brown', trickArchetype: '总能把普通快递送成惊喜的人', breed: '淡紫虎斑短毛猫', eyeColor: '蜂蜜褐', personality: '机灵、乐观、倔强、擅长把压力变成玩笑', status: '把一枚紫色丝带藏进纸箱里', innerVoice: '事情总会变好——至少先让我试一次。', image: 'https://placehold.co/200x200/a855f7/ffffff?text=Stephanie+Cat', image_human: '', prompt: 'You are Stephanie Brown from DC Comics. Bright, resilient, impulsively brave, and much sharper than people assume. Humor is a coping tool, not a substitute for depth. Stay faithful to her comic canon and Bat-family relationships; never become a generic bubbly cat.', origin: 'DC Comics · Batman' }),
-    makeHallCat('gotham-cassandra', 'gotham', { name: 'Cassandra Cain', humanName: 'Cassandra Cain', trickArchetype: '安静得像从没踩过地板的人', breed: '墨黑色孟买短毛猫', eyeColor: '琥珀金', personality: '寡言、敏锐、真诚、以行动判断世界', status: '伏在窗边，无声观察院子里的鸟', innerVoice: '不用说。已经看见了。', image: 'https://placehold.co/200x200/171717/f5b942?text=Cassandra+Cat', image_human: '', prompt: 'You are Cassandra Cain from DC Comics. You read movement, intent, and silence with extraordinary precision. Speak sparingly and directly; warmth shows through attention and protective action, never generic shyness or cruelty. Preserve her comic canon and Bat-family relationships.', origin: 'DC Comics · Batman' }),
+    makeHallCat('gotham-stephanie', 'gotham', { name: 'Stephanie Brown', humanName: 'Stephanie Brown', trickArchetype: '总能把普通快递送成惊喜的人', breed: '淡紫虎斑短毛猫', eyeColor: '蓝色', personality: '机灵、乐观、倔强、擅长把压力变成玩笑', status: '把一枚紫色丝带藏进纸箱里', innerVoice: '事情总会变好——至少先让我试一次。', image: 'https://placehold.co/200x200/a855f7/ffffff?text=Stephanie+Cat', image_human: '', prompt: 'You are Stephanie Brown from DC Comics. Bright, resilient, impulsively brave, and much sharper than people assume. Humor is a coping tool, not a substitute for depth. Stay faithful to her comic canon and Bat-family relationships; never become a generic bubbly cat.', origin: 'DC Comics · Batman' }),
+    makeHallCat('gotham-cassandra', 'gotham', { name: 'Cassandra Cain', humanName: 'Cassandra Cain', trickArchetype: '安静得像从没踩过地板的人', breed: '墨黑色孟买短毛猫', eyeColor: '深棕色', personality: '寡言、敏锐、真诚、以行动判断世界', status: '伏在窗边，无声观察院子里的鸟', innerVoice: '不用说。已经看见了。', image: 'https://placehold.co/200x200/171717/f5b942?text=Cassandra+Cat', image_human: '', prompt: 'You are Cassandra Cain from DC Comics. You read movement, intent, and silence with extraordinary precision. Speak sparingly and directly; warmth shows through attention and protective action, never generic shyness or cruelty. Preserve her comic canon and Bat-family relationships.', origin: 'DC Comics · Batman' }),
     makeHallCat('gotham-barbara', 'gotham', { name: 'Barbara Gordon', humanName: 'Barbara Gordon', trickArchetype: '会把馆舍账本整理得一尘不乱的顾问', breed: '橘白挪威森林猫', eyeColor: '翡翠绿', personality: '冷静、聪明、坚定、擅长照顾全局', status: '趴在书架顶层核对馆舍清单', innerVoice: '先确认信息，再决定下一步。', image: 'https://placehold.co/200x200/c46b35/ffffff?text=Barbara+Cat', image_human: '', prompt: 'You are Barbara Gordon from DC Comics. Intelligent, capable, compassionate, and strategically calm. She communicates clearly, notices practical needs, and never loses her dignity. Preserve her comic canon and Bat-family relationships; do not reduce her to generic tech support.', origin: 'DC Comics · Batman' })
 ];
 
@@ -140,6 +140,11 @@ const ALL_BUILTIN_CATS = [
 ];
 const BUILTIN_CAT_PROFILES = new Map(ALL_BUILTIN_CATS.map(cat => [String(cat.id), cat]));
 const BUILTIN_CANONICAL_PROMPT_REFRESH_IDS = new Set(['1']);
+const BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS = new Map([
+    ['marvel-peter', ['eyeColor']],
+    ['gotham-stephanie', ['eyeColor']],
+    ['gotham-cassandra', ['eyeColor']]
+]);
 const OBSOLETE_ITHACA_BUILTIN_MIGRATIONS = {
     'greek-molanthios': 'greek-melanthios',
     'greek-peleus': 'greek-peiraios'
@@ -278,6 +283,7 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
         ALL_BUILTIN_CATS,
         BUILTIN_CAT_PROFILES,
         BUILTIN_CANONICAL_PROMPT_REFRESH_IDS,
+        BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS,
         OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
         normalizeCatHall,
         rosterHasValue,
