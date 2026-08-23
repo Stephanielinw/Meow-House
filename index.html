@@ -15845,8 +15845,26 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     }
 
                     const targetCatId = targetCat.id;
+                    const itemForm = targetCat.isHuman ? 'HUMAN' : 'CAT';
                     const targetItem = item;
                     const itemKey = targetItem.uniqueId ?? targetItem.id;
+                    const hasCatReactionHumanDialogue = (reaction) => {
+                        if (itemForm !== 'CAT') return false;
+                        const quotePatterns = [
+                            /"([^"]*)"/g,
+                            /“([^”]*)”/g,
+                            /「([^」]*)」/g,
+                            /『([^』]*)』/g
+                        ];
+                        const removableSoundAndPunctuation = /(?:喵|咪|呜|嗷|嘶|呼噜|呼嚕|咕噜|咕嚕|哈气|哈氣|呼|噜|嚕|\s|[，。！？、…·—\-~～!?,.;:：；（）()\[\]【】])+/g;
+                        return quotePatterns.some((pattern) => {
+                            let match;
+                            while ((match = pattern.exec(reaction)) !== null) {
+                                if (match[1].replace(removableSoundAndPunctuation, '')) return true;
+                            }
+                            return false;
+                        });
+                    };
                     const locateItem = () => {
                         if (targetItem.uniqueId != null) {
                             return user.inventory.findIndex(entry => String(entry?.uniqueId) === String(itemKey));
@@ -15859,15 +15877,19 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
                     try {
-                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Return JSON only:
+                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Current Form: ${itemForm}. Return JSON only:
 {
   "liked": boolean,
   "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
   "status": "A non-empty Simplified Chinese third-person current activity suitable for the cat status.",
   "innerVoice": "A non-empty Simplified Chinese first-person inner thought suitable for the cat inner voice."
 }
-All four fields are mandatory. reaction, status, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another.\n${buildCatMemoryContext(targetCat)}`;
-                        const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields.', 600, ThinkingLevel.LOW, {
+All four fields are mandatory. reaction, status, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another.
+[FORM RULES]
+- CAT FORM: reaction is visible third-person behavior only. The character cannot speak human language aloud. Optional direct vocalization may only be feline sounds such as "喵。", "呜。", "呼噜。", or "嘶。". Human-language thoughts belong only in innerVoice and are never spoken aloud. Show personality/canon through action choice, distance, posture, and handling of the item.
+- HUMAN FORM: reaction may include normal in-character dialogue and action. Preserve the character's canon voice.
+${buildCatMemoryContext(targetCat)}`;
+                        const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
@@ -15882,6 +15904,7 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
                                 if (!reaction || !status || !innerVoice || !hasChineseText(reaction) || !hasChineseText(status) || !hasChineseText(innerVoice)) {
                                     return 'ITEM INTERACTION 回包缺少完整的中文 reaction、status 或 innerVoice 字段。';
                                 }
+                                if (hasCatReactionHumanDialogue(reaction)) return 'CAT FORM 的 reaction 含有带引号的人类对白。';
                                 return true;
                             }
                         });
@@ -15893,6 +15916,9 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
                         if (!data || Array.isArray(data) || typeof data !== 'object' || typeof data.liked !== 'boolean' ||
                             !reaction || !status || !innerVoice || !isChineseText(reaction) || !isChineseText(status) || !isChineseText(innerVoice)) {
                             throw new Error('物品互动回包缺少有效的 liked、reaction、status 或 innerVoice 字段');
+                        }
+                        if (hasCatReactionHumanDialogue(reaction)) {
+                            throw new Error('CAT FORM 的 reaction 含有带引号的人类对白');
                         }
 
                         const inventoryIndex = locateItem();
