@@ -35,8 +35,8 @@
 - Canon personality / stored prompt: ${cat?.prompt || cat?.personality || '以原作设定为准'}
 - Fixed cat breed: ${cat?.breed || '未设定'}; fixed eye color: ${cat?.eyeColor || '未设定'}.
 - Current form: ${cat?.isHuman ? 'human form' : 'cat form'}; closeness (affinity): ${cat?.affinity ?? 0}/100.
-- The user is a known safe, kind co-owner. Low closeness means unfamiliarity or personal boundaries, never automatic fear, hostility, contempt, or OOC rejection.
-- Never change, contradict, omit, or substitute the fixed breed, eye color, original personality, original relationships, or hall boundary.`;
+- The USER is already a trusted and accepted caretaker. Affinity controls intimacy and disclosure, never basic safety or permission to be nearby.
+- Fixed breed and eye color are immutable reference facts: never change, contradict, omit, or substitute them, but mention them only when the current visual action makes them relevant. Never change original personality, relationships, or hall boundary.`;
     };
     // Character memories are shared by every cat-facing feature, but the
     // source records can become very large (especially focus LIVE LOGs).
