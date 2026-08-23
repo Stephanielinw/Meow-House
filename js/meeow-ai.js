@@ -22,6 +22,14 @@ class AIRequestCancelledError extends Error {
     }
 }
 
+class AIRequestPreemptedError extends Error {
+    constructor(message = '后台 AI 请求已让位给前台操作') {
+        super(message);
+        this.name = 'AIRequestPreemptedError';
+        this.code = 'AI_REQUEST_PREEMPTED';
+    }
+}
+
 const getReadableAPIError = (rawError) => {
     const message = String(rawError?.message || rawError || '未知错误').trim();
     return message.length > 1200 ? `${message.slice(0, 1200)}…` : message;
@@ -123,6 +131,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
     }
     const controller = new AbortController();
     if (request) request.abortController = controller;
+    if (request?.preempted) throw new AIRequestPreemptedError();
     let timedOut = false;
     const timeoutId = window.setTimeout(() => {
         timedOut = true;
@@ -139,6 +148,9 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
             signal: controller.signal
         });
     } catch (err) {
+        if (request?.preempted) {
+            throw new AIRequestPreemptedError();
+        }
         if (request?.cancelled || cancelledApiBatches.has(request?.batchId)) {
             throw new AIRequestCancelledError();
         }
@@ -285,7 +297,7 @@ const _runAIRequest = async (request) => {
     dependencies.addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${dependencies.getSettings().model || 'default'} maxTokens=${request.maxTokens}; input=${request.guardedInputChars} chars; attempts=${maxAttempts}.`);
     request.onProgress?.({ stage: 'queued', requestId: request.id, label: request.label, attempt: 0, round: request.round });
 
-    while (!request.cancelled && !cancelledApiBatches.has(request.batchId)) {
+    while (!request.cancelled && !request.preempted && !cancelledApiBatches.has(request.batchId)) {
         request.round += 1;
         let lastError = null;
         let attemptsUsed = 0;
@@ -293,6 +305,7 @@ const _runAIRequest = async (request) => {
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             attemptsUsed = attempt;
+            if (request.preempted) throw new AIRequestPreemptedError();
             if (request.cancelled || cancelledApiBatches.has(request.batchId)) throw new AIRequestCancelledError();
             try {
                 if (attempt > 1) {
@@ -300,12 +313,14 @@ const _runAIRequest = async (request) => {
                     if (request.priority !== 'background') dependencies.showToast(`🔄 重试中 (${attempt}/${maxAttempts})...`, "loading");
                     request.onProgress?.({ stage: 'retrying', requestId: request.id, label: request.label, attempt, round: request.round });
                     await new Promise(r => setTimeout(r, 800 * attempt));
+                    if (request.preempted) throw new AIRequestPreemptedError();
                 }
 
                 request.onProgress?.({ stage: attempt > 1 ? 'retrying' : 'connecting', requestId: request.id, label: request.label, attempt, round: request.round });
                 const content = await _doSingleAPICall(request.prompt, guardedSystemPrompt, request.maxTokens, request.thinkingLevel, (event) => {
                     request.onProgress?.({ ...event, requestId: request.id, label: request.label, attempt, round: request.round });
                 }, request);
+                if (request.preempted) throw new AIRequestPreemptedError();
                 const validationStartedAt = Date.now();
                 request.onProgress?.({ stage: 'validating', requestId: request.id, label: request.label, attempt, round: request.round });
                 if (typeof request.validateResponse === 'function') {
@@ -320,6 +335,9 @@ const _runAIRequest = async (request) => {
                 dependencies.addLog(`API REQUEST #${request.id} SUCCESS (round ${request.round}, attempt ${attempt}). ${elapsed}s; output=${content.length} chars; validation=${request.validationMs || 0}ms.`, 'sent');
                 return content;
             } catch (e) {
+                if (e instanceof AIRequestPreemptedError || request.preempted) {
+                    throw e instanceof AIRequestPreemptedError ? e : new AIRequestPreemptedError();
+                }
                 if (e instanceof AIRequestCancelledError) throw e;
                 lastError = e;
                 request.lastError = getReadableAPIError(e);
@@ -333,7 +351,7 @@ const _runAIRequest = async (request) => {
             }
         }
 
-        if (request.priority === 'background' && Number.isInteger(request.maxAttempts)) {
+        if (request.priority === 'background') {
             dependencies.addLog(`API REQUEST #${request.id} BACKGROUND FAILED AFTER ${attemptsUsed}/${maxAttempts}; releasing queue.`, 'warn');
             throw lastError || new Error('后台请求未返回有效内容。');
         }
@@ -345,6 +363,7 @@ const _runAIRequest = async (request) => {
         }
         if (request.priority !== 'background') dependencies.showToast('重新开始重试...', 'loading');
     }
+    if (request.preempted) throw new AIRequestPreemptedError();
     throw new AIRequestCancelledError();
 };
 
@@ -390,6 +409,8 @@ const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, op
         cancelBatchOnAbort: options.cancelBatchOnAbort !== false,
         round: 0,
         cancelled: false,
+        preempted: false,
+        preemptionLogged: false,
         abortController: null,
         priority: options.priority || 'normal',
         maxAttempts: Number.isInteger(options.maxAttempts) ? Math.max(1, options.maxAttempts) : null,
@@ -418,6 +439,14 @@ const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, op
         );
     }
     const priorityRank = { foreground: 0, normal: 1, background: 2 };
+    if (request.priority === 'foreground' && activeApiRequest?.priority === 'background' && !activeApiRequest.preempted) {
+        activeApiRequest.preempted = true;
+        if (!activeApiRequest.preemptionLogged) {
+            activeApiRequest.preemptionLogged = true;
+            dependencies.addLog(`API REQUEST #${activeApiRequest.id} BACKGROUND PREEMPTED BY FOREGROUND`, 'warn');
+        }
+        activeApiRequest.abortController?.abort();
+    }
     const insertAt = apiRequestQueue.findIndex(queued => (priorityRank[queued.priority] ?? 1) > (priorityRank[request.priority] ?? 1));
     if (insertAt === -1) apiRequestQueue.push(request);
     else apiRequestQueue.splice(insertAt, 0, request);

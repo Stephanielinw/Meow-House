@@ -9292,6 +9292,7 @@
                 });
                 const activeAIRequestId = ref(null);
                 const statusRefreshInFlight = new Map();
+                const hallStatusRefreshPending = new Map();
                 let dailyInitializationPromise = null;
                 // A stopped daily batch must never immediately restart from a
                 // visibility/pageshow event in the same app session. Reloading
@@ -11137,8 +11138,17 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     if (hall) hall.lastEnteredAt = Date.now();
                 };
 
-                const enterHall = async (hall) => {
-                    if (!hall || hallEntryLoading.visible) return;
+                const enterHall = (hall) => {
+                    if (!hall) return;
+                    const startBackgroundArrivalRefresh = (recovery = false) => {
+                        void refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${user.currentStatus}`, [], '', false, false, {
+                            label: `ENTER HALL STATUS · ${hall.name}`,
+                            priority: 'background',
+                            maxAttempts: 1,
+                            trackBackgroundPending: true,
+                            backgroundFailureToast: recovery ? '' : '实时动态暂未刷新，将显示最近状态'
+                        });
+                    };
                     const elapsedSinceLastEntry = Date.now() - getHallLastEnteredAt(hall);
                     if (getHallLastEnteredAt(hall) && elapsedSinceLastEntry < HALL_ENTRY_REFRESH_COOLDOWN_MS) {
                         activeHallId.value = hall.id;
@@ -11151,58 +11161,24 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         markHallEntered(hall);
                         alfredMessage.value = `${hall.guardian || '馆舍管家'}：欢迎回来。馆内动态仍在刚才的时间线上，无需重复同步。`;
                         addLog(`ENTER HALL CACHED: ${hall.name} / ${Math.max(0, Math.floor(elapsedSinceLastEntry / 60000))}m since previous entry`, 'info');
+                        if (hallStatusRefreshPending.has(hall.id)) startBackgroundArrivalRefresh(true);
                         return;
                     }
-                    const previousHallId = activeHallId.value;
-                    const previousStatus = user.currentStatus;
-                    const previousMessage = alfredMessage.value;
-                    hallEntryLoading.visible = true;
-                    hallEntryLoading.name = hall.name;
-                    hallEntryLoading.guardian = hall.guardian || '馆舍管家';
-                    hallEntryLoading.icon = hall.icon || 'fa-door-open';
-                    hallEntryLoading.message = `正在连接${hall.name}，同步馆内猫咪的最新状态…`;
-                    hallEntryLoading.phase = '步骤 1/2 · 正在建立馆舍连接';
-                    hallEntryLoading.progress = 12;
-                    hallEntryLoading.indeterminate = false;
                     activeHallId.value = hall.id;
                     const arrivalStatus = `刚刚迈步进入${hall.name}`;
                     tempUserStatus.value = arrivalStatus;
                     user.currentStatus = arrivalStatus;
                     alfredMessage.value = `${hall.guardian}：欢迎进入${hall.name}。馆内信号已切换，正在为你重新整理猫咪状态。`;
+                    hallSceneActive.value = true;
+                    loungeView.value = 'room';
+                    currentTab.value = 'lounge';
+                    selectedCat.value = null;
+                    hallScrollPositions[hall.id] = 0;
+                    setContentScrollTop(0);
+                    markHallEntered(hall);
                     addLog(`ENTER HALL: ${hall.name} / guardian=${hall.guardian}`, 'info');
-                    try {
-                        const didRefresh = await refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${arrivalStatus}`, [], '', false, false, {
-                            label: `ENTER HALL · ${hall.name}`,
-                            priority: 'foreground',
-                            maxAttempts: 2,
-                            onProgress: (event) => {
-                                applyAPILoadingEvent(event, hallEntryLoading);
-                                hallEntryLoading.message = event.stage === 'waiting'
-                                    ? `正在等待${hall.name}的实时动态…`
-                                    : '正在同步馆内猫咪的最新状态…';
-                            }
-                        });
-                        if (!didRefresh) throw new Error('馆内实时动态尚未完成同步');
-                        hallEntryLoading.message = '实时动态已同步，正在打开馆门…';
-                        hallEntryLoading.phase = '步骤 2/2 · 状态已写入馆舍时间线';
-                        hallEntryLoading.progress = 96;
-                        hallEntryLoading.indeterminate = false;
-                        markHallEntered(hall);
-                        hallSceneActive.value = true;
-                        hallScrollPositions[hall.id] = 0;
-                        loungeView.value = 'room';
-                        currentTab.value = 'lounge';
-                        setContentScrollTop(0);
-                    } catch (error) {
-                        activeHallId.value = previousHallId;
-                        user.currentStatus = previousStatus;
-                        tempUserStatus.value = previousStatus;
-                        alfredMessage.value = previousMessage;
-                        showToast(`${hall.name} 暂时无法完成状态同步，请稍后重试。`, 'error');
-                        addLog(`ENTER HALL FAILED: ${hall.name} / ${getReadableAPIError(error)}`, 'error');
-                    } finally {
-                        hallEntryLoading.visible = false;
-                    }
+                    addLog(`ENTER HALL READY: ${hall.name} / using saved state while refresh runs`, 'info');
+                    startBackgroundArrivalRefresh();
                 };
 
                 const openCatVisit = (cat) => {
@@ -14690,7 +14666,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         void refreshAllStatus(true, `User is interacting with ${sendingCat.name}. User Status: ${user.currentStatus}`, [sendingCat.id], status, false, false, {
                             label: `CHAT FOLLOW-UP STATUS · ${currentHall.value.name}`,
                             priority: 'background',
-                            maxAttempts: 1
+                            maxAttempts: 1,
+                            trackBackgroundPending: true
                         });
 
                         sendingCat.lastInteractionTimestamp = Date.now();
@@ -15030,21 +15007,26 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 };
 
                 const _refreshAllStatus = async (forceUpdate = false, additionalContext = "", activeCatIds = [], focusCatLastAction = "", isFocusEnd = false, isExploreEnd = false, requestOptions = {}) => {
+                    const requestHallId = requestOptions.requestHallId || activeHallId.value;
+                    const requestHall = requestOptions.requestHall || {
+                        ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
+                    };
+                    const isBackgroundStatusSync = requestOptions.priority === 'background';
                     if (!settings.apiKey) {
                         if (forceUpdate) {
                             addLog("STATUS UPDATE FAILED: No API Key configured.", "error");
-                            showToast("连接失败: 请先在设置中配置 API Key (在'终端'页签)", "error");
+                            if (!isBackgroundStatusSync) showToast("连接失败: 请先在设置中配置 API Key (在'终端'页签)", "error");
                         }
                         return false;
                     }
 
                     if (!forceUpdate && !settings.autoUpdate) return false;
-                    const catsToUpdate = roomCats.value;
+                    const catsToUpdate = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
                     if (catsToUpdate.length === 0) return false;
 
                     isUpdatingStatus.value = true;
                     addLog(`STATUS SYNC: ${forceUpdate ? 'Manual' : 'Auto'} update initiated...`, "info");
-                    showToast(`正在扫描${currentHall.value.name}信号...`, "loading");
+                    if (!isBackgroundStatusSync) showToast(`正在扫描${requestHall.name}信号...`, "loading");
 
                     const now = new Date();
                     const timeStr = getCurrentTimeStr();
@@ -15131,7 +15113,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             ? `\n[NEW OPERATIONAL DAY]: Previous-day status is history, not a template. Do not paraphrase it; unless travel/visit/focus/explore is ongoing, create a genuinely new current activity for ${operationalDayKey}.`
                             : '';
                         const prompt = `[STATUS SYNC]
-Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${currentHall.value.name}; Guardian: ${currentHall.value.guardian}.
+Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
 ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 
@@ -15154,13 +15136,13 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                         const statusPromptChars = statusRequestPrompt.length;
                         const statusInputChars = statusPromptChars + String(CORE_ROLEPLAY_PROMPT || '').length + String(CANON_FIDELITY_GUARDRAIL || '').length + 1;
                         const budgetLevel = statusInputChars > 15000 ? 'warn' : 'info';
-                        addLog(`STATUS SYNC SCOPE: hall=${currentHall.value.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
-                        addLog(`STATUS SYNC BUDGET: hall=${currentHall.value.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; prompt=${statusPromptChars} chars; prompt+system=${statusInputChars} chars${statusInputChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
+                        addLog(`STATUS SYNC SCOPE: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
+                        addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; prompt=${statusPromptChars} chars; prompt+system=${statusInputChars} chars${statusInputChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
 
                         const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                             ...requestOptions,
-                            label: `STATUS SYNC · ${currentHall.value.name}`,
-                            dedupeKey: requestOptions.dedupeKey || `status-sync-${activeHallId.value}`
+                            label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
+                            dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`
                         });
                         const updates = parseAIJSON(res);
 
@@ -15241,7 +15223,9 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                             }
 
                             localStorage.setItem('last_sync_time', Date.now().toString());
-                            alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${currentHall.value.guardian} 已将${currentHall.value.name}监控同步至 ${timeStr}。`;
+                            if (activeHallId.value === requestHallId) {
+                                alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
+                            }
                             if (unmatched.length > 0) {
                                 addLog(`STATUS SYNC PARTIAL: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; unmatched=[${unmatched.join(', ')}]`, "info");
                             } else {
@@ -15253,6 +15237,10 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                             return false;
                         }
                     } catch (e) {
+                        if (e?.code === 'AI_REQUEST_PREEMPTED') {
+                            addLog(`STATUS SYNC BACKGROUND PREEMPTED: hall=${requestHallId}`, 'warn');
+                            return false;
+                        }
                         console.error("Status refresh failed:", e);
                         addLog(`STATUS SYNC ERROR: ${e.message}`, "error");
                         return false;
@@ -15261,16 +15249,55 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                 };
 
                 const refreshAllStatus = (...args) => {
-                    const hallId = activeHallId.value;
-                    if (statusRefreshInFlight.has(hallId)) {
+                    const requestOptions = (args[6] && typeof args[6] === 'object') ? args[6] : {};
+                    const requestHallId = activeHallId.value;
+                    const requestHall = {
+                        ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
+                    };
+                    const requestPriority = requestOptions.priority || 'normal';
+                    const trackBackgroundPending = requestPriority === 'background' && requestOptions.trackBackgroundPending === true;
+                    const existing = statusRefreshInFlight.get(requestHallId);
+
+                    if (existing && !(existing.priority === 'background' && requestPriority === 'foreground')) {
                         addLog('STATUS SYNC JOINED: Reusing the active status refresh.', 'info');
-                        return statusRefreshInFlight.get(hallId);
+                        return existing.task;
                     }
-                    const task = _refreshAllStatus(...args);
-                    statusRefreshInFlight.set(hallId, task);
+                    if (existing) {
+                        addLog(`STATUS SYNC FOREGROUND REPLACING BACKGROUND: hall=${requestHallId}`, 'info');
+                    }
+
+                    const normalizedArgs = [...args];
+                    normalizedArgs[6] = {
+                        ...requestOptions,
+                        requestHallId,
+                        requestHall,
+                        dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${requestPriority === 'background' ? 'background' : 'foreground'}`
+                    };
+                    const task = _refreshAllStatus(...normalizedArgs);
+                    const entry = { task, priority: requestPriority };
+                    statusRefreshInFlight.set(requestHallId, entry);
+
+                    const settle = (didRefresh) => {
+                        if (statusRefreshInFlight.get(requestHallId) !== entry) return;
+                        statusRefreshInFlight.delete(requestHallId);
+                        if (didRefresh) {
+                            if (hallStatusRefreshPending.delete(requestHallId)) {
+                                addLog(`STATUS SYNC BACKGROUND RECOVERED: hall=${requestHallId}`, 'sent');
+                            }
+                            return;
+                        }
+                        if (!trackBackgroundPending) return;
+                        const wasPending = hallStatusRefreshPending.has(requestHallId);
+                        hallStatusRefreshPending.set(requestHallId, true);
+                        if (!wasPending) addLog(`STATUS SYNC BACKGROUND PENDING: hall=${requestHallId}`, 'warn');
+                        if (requestOptions.backgroundFailureToast && activeHallId.value === requestHallId) {
+                            showToast(requestOptions.backgroundFailureToast, 'warning');
+                        }
+                    };
+
                     task.then(
-                        () => { if (statusRefreshInFlight.get(hallId) === task) statusRefreshInFlight.delete(hallId); },
-                        () => { if (statusRefreshInFlight.get(hallId) === task) statusRefreshInFlight.delete(hallId); }
+                        (didRefresh) => settle(didRefresh),
+                        () => settle(false)
                     );
                     return task;
                 };
@@ -15821,7 +15848,8 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
                         void refreshAllStatus(true, `User used ${targetItem.name} with ${targetCat.name}.`, [targetCatId], reaction, false, false, {
                             label: `ITEM FOLLOW-UP STATUS · ${currentHall.value.name}`,
                             priority: 'background',
-                            maxAttempts: 1
+                            maxAttempts: 1,
+                            trackBackgroundPending: true
                         });
                     } catch (error) {
                         addLog(`ITEM INTERACTION ERROR: ${targetCat.name} / ${error.message}`, 'error');
