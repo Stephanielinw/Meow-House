@@ -4404,11 +4404,47 @@
                     <div v-else class="meeow-progress-fill h-full rounded-full" :style="{ width: hallEntryLoading.progress + '%' }"></div>
                 </div>
                 <div class="mt-3 text-[10px]" style="color: var(--ui-text-subtle);">{{ hallEntryLoading.phase }}</div>
-                <button @click="dismissHallEntryLoading"
+                <button @click="useRecentHallStatus"
                     class="mt-5 px-4 py-2 rounded-xl text-xs font-bold transition-colors"
                     style="color: var(--ui-text); background: var(--ui-surface-hover); border: 1px solid var(--ui-border);">
                     使用最近状态先进入
                 </button>
+            </div>
+        </div>
+
+        <!-- Arrival status retry modal: a failed refresh never revokes hall access. -->
+        <div v-if="hallStatusRetryModal.show"
+            class="fixed inset-0 z-[100101] flex items-center justify-center p-5"
+            style="background: rgba(0,0,0,0.76); backdrop-filter: blur(8px);">
+            <div class="w-full max-w-sm rounded-2xl p-5"
+                style="background: var(--ui-surface); border: 1px solid var(--ui-active-border); box-shadow: 0 16px 50px rgba(0,0,0,0.36);">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center"
+                        style="background: var(--accent-soft); color: var(--accent); border: 1px solid var(--ui-active-border);">
+                        <i class="fas fa-satellite-dish"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-base font-black" style="color: var(--ui-text);">馆舍实时动态未完成</div>
+                        <p class="mt-1 text-xs leading-relaxed" style="color: var(--ui-text-muted);">{{ hallStatusRetryModal.hallName }} 正在显示最近保存的状态。</p>
+                    </div>
+                </div>
+                <div class="mt-4 rounded-xl p-3 text-xs leading-relaxed"
+                    style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border); color: var(--ui-text-muted);">
+                    <template v-if="hallStatusRetryModal.partial">
+                        已更新 {{ hallStatusRetryModal.matched }} / {{ hallStatusRetryModal.expected }} 只小猫；仍有 {{ hallStatusRetryModal.missingCount }} 只未完成。
+                        <div v-if="hallStatusRetryModal.missingNames.length" class="mt-2" style="color: var(--ui-text-subtle);">未更新：{{ hallStatusRetryModal.missingNames.join('、') }}</div>
+                    </template>
+                    <template v-else>{{ hallStatusRetryModal.errorMessage }}</template>
+                </div>
+                <p class="mt-3 text-[11px] leading-relaxed" style="color: var(--ui-text-subtle);">继续重试会开启一轮新的两次尝试；暂不处理不会影响你在馆内聊天或使用物品。</p>
+                <div class="mt-5 grid grid-cols-2 gap-3">
+                    <button @click="useRecentHallStatus"
+                        class="rounded-xl py-3 text-sm font-bold"
+                        style="background: var(--ui-surface-hover); border: 1px solid var(--ui-border); color: var(--ui-text-muted);">使用最近状态先进入</button>
+                    <button @click="retryHallArrivalStatus"
+                        class="rounded-xl py-3 text-sm font-black"
+                        style="background: var(--accent); color: var(--ui-button-text,#182012);">继续重试</button>
+                </div>
             </div>
         </div>
 
@@ -9298,10 +9334,23 @@
                     archiveDateKey: '',
                     errorMessage: ''
                 });
+                const hallStatusRetryModal = reactive({
+                    show: false,
+                    requestHallId: '',
+                    requestToken: '',
+                    hallName: '',
+                    partial: false,
+                    matched: 0,
+                    expected: 0,
+                    missingCount: 0,
+                    missingNames: [],
+                    errorMessage: ''
+                });
                 const activeAIRequestId = ref(null);
                 const statusRefreshInFlight = new Map();
                 const hallStatusRefreshPending = new Map();
                 let hallEntryRequestSequence = 0;
+                let statusRefreshTaskSequence = 0;
                 let dailyInitializationPromise = null;
                 // A stopped daily batch must never immediately restart from a
                 // visibility/pageshow event in the same app session. Reloading
@@ -11154,7 +11203,13 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     hallEntryLoading.requestToken === requestToken &&
                     activeHallId.value === requestHallId;
 
+                const isCurrentHallEntryRequest = (requestHallId, requestToken) =>
+                    hallEntryLoading.requestHallId === requestHallId &&
+                    hallEntryLoading.requestToken === requestToken &&
+                    activeHallId.value === requestHallId;
+
                 const showHallEntryLoading = (hall, requestToken, recovery = false) => {
+                    hallStatusRetryModal.show = false;
                     hallEntryLoading.visible = true;
                     hallEntryLoading.requestHallId = hall.id;
                     hallEntryLoading.requestToken = requestToken;
@@ -11174,6 +11229,15 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     if (!hallEntryLoading.visible) return;
                     hallEntryLoading.dismissed = true;
                     hallEntryLoading.visible = false;
+                };
+
+                const dismissHallStatusRetryModal = () => {
+                    hallStatusRetryModal.show = false;
+                };
+
+                const useRecentHallStatus = () => {
+                    dismissHallEntryLoading();
+                    dismissHallStatusRetryModal();
                 };
 
                 const updateHallEntryLoading = (requestHallId, requestToken, event) => {
@@ -11197,34 +11261,77 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     return true;
                 };
 
+                const showHallStatusRetryModal = (hall, requestHallId, requestToken, statusCompletion) => {
+                    if (!isCurrentHallEntryRequest(requestHallId, requestToken) || hallEntryLoading.dismissed || statusCompletion.preempted) return;
+                    const missingNames = (statusCompletion.unmatched || []).map((id) =>
+                        cats.value.find(cat => String(cat.id) === String(id))?.name || String(id)
+                    );
+                    hallStatusRetryModal.requestHallId = requestHallId;
+                    hallStatusRetryModal.requestToken = requestToken;
+                    hallStatusRetryModal.hallName = hall.name;
+                    hallStatusRetryModal.partial = Boolean(statusCompletion.partial);
+                    hallStatusRetryModal.matched = Number(statusCompletion.matched || 0);
+                    hallStatusRetryModal.expected = Number(statusCompletion.expected || 0);
+                    hallStatusRetryModal.missingCount = missingNames.length;
+                    hallStatusRetryModal.missingNames = missingNames;
+                    hallStatusRetryModal.errorMessage = statusCompletion.lastError || '本轮实时动态未能完成，请稍后重试。';
+                    hallStatusRetryModal.show = true;
+                };
+
+                const startHallArrivalRefresh = (hall, recovery = false) => {
+                    if (!hall) return;
+                    const requestHallId = hall.id;
+                    const existing = statusRefreshInFlight.get(requestHallId);
+                    const statusCompletion = existing?.statusCompletion || {
+                        requestHallId,
+                        requestToken: `hall-entry-${++hallEntryRequestSequence}`,
+                        expected: 0,
+                        matched: 0,
+                        unmatched: [],
+                        partial: false,
+                        lastError: '',
+                        preempted: false,
+                        complete: false
+                    };
+                    const requestToken = statusCompletion.requestToken;
+                    showHallEntryLoading(hall, requestToken, recovery);
+                    const task = refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${user.currentStatus}`, [], '', false, false, {
+                        label: `ENTER HALL STATUS · ${hall.name}`,
+                        priority: 'background',
+                        maxAttempts: 2,
+                        trackBackgroundPending: true,
+                        statusCompletion,
+                        onProgress: (event) => updateHallEntryLoading(requestHallId, requestToken, event)
+                    });
+                    void task.then(
+                        (didRefresh) => {
+                            const canPresentFailure = !didRefresh && isCurrentHallEntryRequest(requestHallId, requestToken) && !hallEntryLoading.dismissed && !statusCompletion.preempted;
+                            finishHallEntryLoading(requestHallId, requestToken, didRefresh);
+                            if (canPresentFailure) showHallStatusRetryModal(hall, requestHallId, requestToken, statusCompletion);
+                        },
+                        (error) => {
+                            statusCompletion.lastError = statusCompletion.lastError || getReadableAPIError(error);
+                            const canPresentFailure = isCurrentHallEntryRequest(requestHallId, requestToken) && !hallEntryLoading.dismissed && !statusCompletion.preempted;
+                            finishHallEntryLoading(requestHallId, requestToken, false);
+                            if (canPresentFailure) showHallStatusRetryModal(hall, requestHallId, requestToken, statusCompletion);
+                        }
+                    );
+                };
+
+                const retryHallArrivalStatus = () => {
+                    const requestHallId = hallStatusRetryModal.requestHallId;
+                    const requestToken = hallStatusRetryModal.requestToken;
+                    if (!hallStatusRetryModal.show || activeHallId.value !== requestHallId || hallEntryLoading.requestHallId !== requestHallId || hallEntryLoading.requestToken !== requestToken) {
+                        dismissHallStatusRetryModal();
+                        return;
+                    }
+                    const hall = halls.value.find(entry => entry.id === requestHallId);
+                    dismissHallStatusRetryModal();
+                    startHallArrivalRefresh(hall, true);
+                };
+
                 const enterHall = (hall) => {
                     if (!hall) return;
-                    const startBackgroundArrivalRefresh = (recovery = false) => {
-                        const requestHallId = hall.id;
-                        const requestToken = `hall-entry-${++hallEntryRequestSequence}`;
-                        showHallEntryLoading(hall, requestToken, recovery);
-                        const task = refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${user.currentStatus}`, [], '', false, false, {
-                            label: `ENTER HALL STATUS · ${hall.name}`,
-                            priority: 'background',
-                            maxAttempts: 2,
-                            trackBackgroundPending: true,
-                            onProgress: (event) => updateHallEntryLoading(requestHallId, requestToken, event)
-                        });
-                        void task.then(
-                            (didRefresh) => {
-                                const wasVisible = finishHallEntryLoading(requestHallId, requestToken, didRefresh);
-                                if (!didRefresh && wasVisible && activeHallId.value === requestHallId) {
-                                    showToast('实时动态未完全刷新，当前使用最近状态', 'warning');
-                                }
-                            },
-                            () => {
-                                const wasVisible = finishHallEntryLoading(requestHallId, requestToken, false);
-                                if (wasVisible && activeHallId.value === requestHallId) {
-                                    showToast('实时动态未完全刷新，当前使用最近状态', 'warning');
-                                }
-                            }
-                        );
-                    };
                     const elapsedSinceLastEntry = Date.now() - getHallLastEnteredAt(hall);
                     if (getHallLastEnteredAt(hall) && elapsedSinceLastEntry < HALL_ENTRY_REFRESH_COOLDOWN_MS) {
                         activeHallId.value = hall.id;
@@ -11237,7 +11344,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         markHallEntered(hall);
                         alfredMessage.value = `${hall.guardian || '馆舍管家'}：欢迎回来。馆内动态仍在刚才的时间线上，无需重复同步。`;
                         addLog(`ENTER HALL CACHED: ${hall.name} / ${Math.max(0, Math.floor(elapsedSinceLastEntry / 60000))}m since previous entry`, 'info');
-                        if (hallStatusRefreshPending.has(hall.id)) startBackgroundArrivalRefresh(true);
+                        if (hallStatusRefreshPending.has(hall.id)) startHallArrivalRefresh(hall, true);
                         return;
                     }
                     activeHallId.value = hall.id;
@@ -11254,7 +11361,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     markHallEntered(hall);
                     addLog(`ENTER HALL: ${hall.name} / guardian=${hall.guardian}`, 'info');
                     addLog(`ENTER HALL READY: ${hall.name} / using saved state while refresh runs`, 'info');
-                    startBackgroundArrivalRefresh();
+                    startHallArrivalRefresh(hall);
                 };
 
                 const openCatVisit = (cat) => {
@@ -15087,8 +15194,19 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const requestHall = requestOptions.requestHall || {
                         ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                     };
+                    const statusCompletion = requestOptions.statusCompletion;
+                    if (statusCompletion) {
+                        statusCompletion.complete = false;
+                        statusCompletion.partial = false;
+                        statusCompletion.preempted = false;
+                        statusCompletion.lastError = '';
+                        statusCompletion.expected = 0;
+                        statusCompletion.matched = 0;
+                        statusCompletion.unmatched = [];
+                    }
                     const isBackgroundStatusSync = requestOptions.priority === 'background';
                     if (!settings.apiKey) {
+                        if (statusCompletion) statusCompletion.lastError = '未配置 API 密钥。';
                         if (forceUpdate) {
                             addLog("STATUS UPDATE FAILED: No API Key configured.", "error");
                             if (!isBackgroundStatusSync) showToast("连接失败: 请先在设置中配置 API Key (在'终端'页签)", "error");
@@ -15096,9 +15214,15 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         return false;
                     }
 
-                    if (!forceUpdate && !settings.autoUpdate) return false;
+                    if (!forceUpdate && !settings.autoUpdate) {
+                        if (statusCompletion) statusCompletion.lastError = '自动状态同步当前未开启。';
+                        return false;
+                    }
                     const catsToUpdate = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
-                    if (catsToUpdate.length === 0) return false;
+                    if (catsToUpdate.length === 0) {
+                        if (statusCompletion) statusCompletion.lastError = '当前馆舍没有可同步的小猫。';
+                        return false;
+                    }
 
                     isUpdatingStatus.value = true;
                     addLog(`STATUS SYNC: ${forceUpdate ? 'Manual' : 'Auto'} update initiated...`, "info");
@@ -15165,6 +15289,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
+                        if (statusCompletion) statusCompletion.expected = requestedIds.length;
 
                         let activeCatContext = "";
                         if (activeCatNames.length > 0) {
@@ -15268,10 +15393,15 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
 
                             const matched = matchedIds.size;
                             const unmatched = requestedIds.filter(id => !matchedIds.has(id));
+                            if (statusCompletion) {
+                                statusCompletion.matched = matched;
+                                statusCompletion.unmatched = [...unmatched];
+                            }
                             addLog(`STATUS SYNC APPLIED: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; statusChanged=${statusChanged}; innerVoiceChanged=${innerVoiceChanged}; unmatched=[${unmatched.join(', ')}]`, matched === 0 ? "error" : (unmatched.length > 0 ? "info" : "sent"));
                             addLog(`STATUS SYNC STALE: status=[${staleStatusIds.join(', ')}]; innerVoice=[${staleVoiceIds.join(', ')}]`, staleStatusIds.length || staleVoiceIds.length ? "warn" : "info");
 
                             if (matched === 0) {
+                                if (statusCompletion) statusCompletion.lastError = `模型回包未匹配任何角色（0 / ${requestedIds.length}）。`;
                                 addLog(`STATUS SYNC FAILED: expected=${requestedIds.length}; received=${responseEntries.length}; matched=0; unmatched=[${unmatched.join(', ')}]`, "error");
                                 return false;
                             }
@@ -15294,10 +15424,12 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                                 requestedIds.every(id => matchedIds.has(String(id)));
 
                             if (!isComplete) {
-                                if (requestOptions.statusCompletion) requestOptions.statusCompletion.partial = true;
+                                if (statusCompletion) statusCompletion.partial = true;
                                 addLog(`STATUS SYNC PARTIAL: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; pending=true; unmatched=[${unmatched.join(', ')}]`, "info");
                                 return false;
                             }
+
+                            if (statusCompletion) statusCompletion.complete = true;
 
                             if (pendingStatusDayRefresh) {
                                 try {
@@ -15315,14 +15447,17 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
                             return true;
                         } else {
+                            if (statusCompletion) statusCompletion.lastError = '模型回包不是可用的状态 JSON 数组。';
                             addLog("STATUS SYNC FAILED: AI returned invalid JSON format.", "error");
                             return false;
                         }
                     } catch (e) {
                         if (e?.code === 'AI_REQUEST_PREEMPTED') {
+                            if (statusCompletion) statusCompletion.preempted = true;
                             addLog(`STATUS SYNC BACKGROUND PREEMPTED: hall=${requestHallId}`, 'warn');
                             return false;
                         }
+                        if (statusCompletion) statusCompletion.lastError = getReadableAPIError(e);
                         console.error("Status refresh failed:", e);
                         addLog(`STATUS SYNC ERROR: ${e.message}`, "error");
                         return false;
@@ -15338,6 +15473,19 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     };
                     const requestPriority = requestOptions.priority || 'normal';
                     const trackBackgroundPending = requestPriority === 'background' && requestOptions.trackBackgroundPending === true;
+                    const statusCompletion = requestOptions.statusCompletion && typeof requestOptions.statusCompletion === 'object'
+                        ? requestOptions.statusCompletion
+                        : {
+                            requestHallId,
+                            requestToken: `status-refresh-${++statusRefreshTaskSequence}`,
+                            partial: false,
+                            expected: 0,
+                            matched: 0,
+                            unmatched: [],
+                            lastError: '',
+                            preempted: false,
+                            complete: false
+                        };
                     const existing = statusRefreshInFlight.get(requestHallId);
 
                     if (existing && !(existing.priority === 'background' && requestPriority === 'foreground')) {
@@ -15349,7 +15497,6 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     }
 
                     const normalizedArgs = [...args];
-                    const statusCompletion = { partial: false };
                     normalizedArgs[6] = {
                         ...requestOptions,
                         requestHallId,
@@ -15358,7 +15505,7 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                         dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${requestPriority === 'background' ? 'background' : 'foreground'}`
                     };
                     const task = _refreshAllStatus(...normalizedArgs);
-                    const entry = { task, priority: requestPriority };
+                    const entry = { task, priority: requestPriority, statusCompletion };
                     statusRefreshInFlight.set(requestHallId, entry);
 
                     const settle = (didRefresh) => {
@@ -16147,7 +16294,7 @@ ${buildCatMemoryContext(targetCat)}`;
                     SLOT_BETS, slotState, initSlots, spinSlots, collectSlotWin, gambleSlotWin, closeSlots,
                     watermelonState, initWatermelon, handleWatermelonInput, flappyState, initFlappy, startFlappy, flappyJump, reRollLastMessage,
                     isAppLoading, loadingProgress, loadingMessage, loadingOperation, activeAIRequestId, cancelCurrentAIRequest,
-                    hallEntryLoading, dismissHallEntryLoading,
+                    hallEntryLoading, dismissHallEntryLoading, hallStatusRetryModal, useRecentHallStatus, retryHallArrivalStatus,
                     tempUserStatus, showPhoneImageDescModal, phoneImageDesc, sendPhoneDescImage,
                     uiTheme, uiBlur, uiScanlines, uiShowStatusbar, saveStatusbarPreference, setUITheme, applyUISettings, customFontInput, applyCustomFont, resetCustomFont,
                     apiRetryModal, resolveApiRetryDecision,
