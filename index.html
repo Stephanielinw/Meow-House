@@ -11179,6 +11179,14 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const updateHallEntryLoading = (requestHallId, requestToken, event) => {
                     if (!isCurrentHallEntryLoading(requestHallId, requestToken)) return;
                     applyAPILoadingEvent(event, hallEntryLoading);
+                    if (event.attempt === 2 && (event.stage === 'retrying' || event.stage === 'connecting' || event.stage === 'waiting')) {
+                        updateBlockingProgress(hallEntryLoading, {
+                            message: '馆舍信号响应较慢，正在重新连接…',
+                            phase: '第 2 / 2 次',
+                            indeterminate: true,
+                            progress: 22
+                        });
+                    }
                 };
 
                 const finishHallEntryLoading = (requestHallId, requestToken, didRefresh) => {
@@ -11198,7 +11206,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         const task = refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${user.currentStatus}`, [], '', false, false, {
                             label: `ENTER HALL STATUS · ${hall.name}`,
                             priority: 'background',
-                            maxAttempts: 1,
+                            maxAttempts: 2,
                             trackBackgroundPending: true,
                             onProgress: (event) => updateHallEntryLoading(requestHallId, requestToken, event)
                         });
