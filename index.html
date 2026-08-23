@@ -13736,6 +13736,8 @@ ${buildCatMemoryContext(cat)}`;
                     getHalls: () => halls.value,
                     getCurrentHall: () => currentHall.value,
                     getDateContext,
+                    getOperationalDayKey: (...args) => getOperationalDayKey(...args),
+                    getPreviousOperationalDayKey: (...args) => getPreviousOperationalDayKey(...args),
                     buildOwnerDailyContext: (...args) => buildOwnerDailyContext(...args),
                     cleanText
                 });
@@ -14353,6 +14355,10 @@ ${buildCatMemoryContext(cat)}`;
                 const buildDailyArchivePrompt = (snapshot) => {
                     const diaryTargets = getDailyArchiveTargets(snapshot);
                     const hallOverview = halls.value.map(hall => `${hall.name}：${snapshot.cats.filter(cat => cat.hallId === hall.id).map(cat => cat.name).join('、') || '暂无成员'}`).join('；');
+                    const archiveFocusReports = (snapshot.missionReports || []).filter(report => {
+                        const timestamp = report?.archivedAt || report?.at || report?.date;
+                        return report.duration > 0 && timestamp && getOperationalDayKey(timestamp) === snapshot.dateKey;
+                    });
                     const diaryContext = diaryTargets.map(cat => ({
                         catId: cat.id,
                         name: cat.name,
@@ -14365,14 +14371,14 @@ ${buildCatMemoryContext(cat)}`;
                         interactions: cat.todayInteractions || [],
                         chat: cat.chatHistory || [],
                         monitoring: cat.monitor || [],
-                        focus: (snapshot.missionReports || []).filter(report => String(report.executor || '').includes(cat.name) && report.duration > 0).slice(-5),
+                        focus: archiveFocusReports.filter(report => String(report.executor || '').includes(cat.name)).slice(-5),
                         travelogues: (cat.travelogues || []).slice(-3)
                     }));
                     const doneTasks = (snapshot.todos || []).filter(todo => todo.done).map(todo => todo.text);
                     const pendingTasks = (snapshot.todos || []).filter(todo => !todo.done).map(todo => todo.text);
                     const deadlines = (snapshot.deadlines || []).map(item => `${item.title || item.text || '未命名 DDL'}${item.time ? `（${item.time}）` : ''}`);
                     const schedule = (snapshot.schedule || []).map(item => `${item.time || ''} ${item.event || item.title || ''}`.trim()).filter(Boolean);
-                    const focusRecords = (snapshot.missionReports || []).filter(report => report.duration > 0).slice(-12).map(report => `${report.missionName || '专注'} · ${Math.floor((report.duration || 0) / 60)} 分钟 · ${report.isSuccess === false || report.status === 'FAILED' ? '中止' : '完成'} · ${report.coinsDelta || 0}G`);
+                    const focusRecords = archiveFocusReports.slice(-12).map(report => `${report.missionName || '专注'} · ${Math.floor((report.duration || 0) / 60)} 分钟 · ${report.isSuccess === false || report.status === 'FAILED' ? '中止' : '完成'} · ${report.coinsDelta || 0}G`);
                     return `你正在为 Meeow House 生成“昨日归档包”。馆长：${user.nickname}。昨天日期：${snapshot.date}。日期/节日信息：${getDateContext(`${snapshot.dateKey}T12:00:00`)}。
 
 馆舍概览：${hallOverview}
@@ -14384,6 +14390,12 @@ DDL：${deadlines.join('、') || '无'}
 
 需要写日记的猫（只可依据提供的真实记录；这些角色虽然为猫形态，但人格、原作关系、道德边界和语气必须严格符合原作，绝对不 OOC，不把任何馆舍默认写成 DC）：
 ${JSON.stringify(diaryContext)}
+
+[TEMPORAL INTEGRITY]
+- Only summarize events explicitly present in the provided archive-day records.
+- Never infer, recreate, or reuse completed tasks from another operational day.
+- Never mention focus sessions, rewards, deadlines, or interactions unless they appear in this archive-day context.
+- If this archive day's records are empty, clearly state that no recorded events occurred.
 
 请只输出一个严格 JSON 对象，不要 Markdown、不要解释、不要代码围栏：
 {

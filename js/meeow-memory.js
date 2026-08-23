@@ -14,17 +14,32 @@
         .map(entry => `[${entry.date || entry.time || '历史'}] ${cleanText(entry.content || '')}`);
     const getRecentMonitorEntries = (cat, limit = 16) => (cat?.diary || []).slice(-limit)
         .map(entry => `[${entry.time || '历史'}] ${cleanText(entry.content || '')}`);
+    const getBriefingDateKey = (report) => {
+        const explicitKey = String(report?.dateKey || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(explicitKey)) return explicitKey;
+        const rawDate = String(report?.date || '').trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return rawDate;
+        const parsed = new Date(rawDate);
+        if (Number.isNaN(parsed.getTime())) return '';
+        return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+    };
+    const getFocusReportOperationalDayKey = (report) => {
+        const timestamp = report?.archivedAt || report?.at || report?.date;
+        return timestamp ? dependencies.getOperationalDayKey(timestamp) : '';
+    };
     const getCatFocusReports = (cat, limit = 5) => {
         const user = dependencies.getUser();
+        const operationalDayKey = dependencies.getOperationalDayKey();
         return (user.missionReports || [])
-            .filter(report => String(report.executor || '').includes(cat.name) && report.duration > 0)
+            .filter(report => String(report.executor || '').includes(cat.name) && report.duration > 0 && getFocusReportOperationalDayKey(report) === operationalDayKey)
             .slice(-limit)
             .map(report => `[${report.date || '历史'} · ${report.missionName}] ${cleanText(report.summary || '')}${report.logs?.length ? ` | LIVE LOG: ${report.logs.slice(-5).join(' / ')}` : ''}`);
     };
     const getLatestHouseBriefing = () => {
         const user = dependencies.getUser();
+        const previousOperationalDayKey = dependencies.getPreviousOperationalDayKey();
         return [...(user.missionReports || [])].reverse()
-            .find(report => report.missionName === '昨日总结报告');
+            .find(report => report.missionName === '昨日总结报告' && getBriefingDateKey(report) === previousOperationalDayKey) || null;
     };
     const buildCatIdentityBlock = (cat) => {
         const halls = dependencies.getHalls();
@@ -79,7 +94,7 @@
 - All interactions today: ${formatMemoryEntries(interactions, profile.interactions, profile.interactionChars)}
 - Recent monitoring today: ${formatMemoryEntries(monitoring, profile.monitoring, profile.monitorChars)}
 - Recent permanent diary entries: ${formatMemoryEntries(diaries, profile.diaries, profile.diaryChars)}
-- Recent focus records: ${formatMemoryEntries(focus, profile.focus, profile.focusChars)}
+- Current operational day focus records: ${formatMemoryEntries(focus, profile.focus, profile.focusChars)}
 - Recent travelogues: ${formatMemoryEntries(travelogues, profile.travel, profile.travelChars)}
 - Latest Nain house briefing: ${briefing ? truncateMemoryText(briefing.summary || '', profile.briefingChars) : 'None'}
 ${options.extra || ''}
