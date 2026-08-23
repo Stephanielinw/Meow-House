@@ -4387,8 +4387,8 @@
             </button>
         </div>
 
-        <!-- Hall transition: the directory remains behind this screen until
-             the selected hall has completed its live-status sync. -->
+        <!-- Hall transition: this protects the room while a live refresh runs,
+             but never prevents the local hall entry from completing. -->
         <div v-if="hallEntryLoading.visible"
             class="meeow-hall-entry-screen fixed inset-0 z-[100000] flex items-center justify-center p-6 font-mono">
             <div class="meeow-hall-entry-card">
@@ -4404,6 +4404,11 @@
                     <div v-else class="meeow-progress-fill h-full rounded-full" :style="{ width: hallEntryLoading.progress + '%' }"></div>
                 </div>
                 <div class="mt-3 text-[10px]" style="color: var(--ui-text-subtle);">{{ hallEntryLoading.phase }}</div>
+                <button @click="dismissHallEntryLoading"
+                    class="mt-5 px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+                    style="color: var(--ui-text); background: var(--ui-surface-hover); border: 1px solid var(--ui-border);">
+                    使用最近状态先进入
+                </button>
             </div>
         </div>
 
@@ -8306,6 +8311,9 @@
                 });
                 const hallEntryLoading = reactive({
                     visible: false,
+                    requestHallId: '',
+                    requestToken: '',
+                    dismissed: false,
                     name: '',
                     guardian: '',
                     icon: 'fa-door-open',
@@ -9293,6 +9301,7 @@
                 const activeAIRequestId = ref(null);
                 const statusRefreshInFlight = new Map();
                 const hallStatusRefreshPending = new Map();
+                let hallEntryRequestSequence = 0;
                 let dailyInitializationPromise = null;
                 // A stopped daily batch must never immediately restart from a
                 // visibility/pageshow event in the same app session. Reloading
@@ -11138,16 +11147,75 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     if (hall) hall.lastEnteredAt = Date.now();
                 };
 
+                const isCurrentHallEntryLoading = (requestHallId, requestToken) =>
+                    hallEntryLoading.visible &&
+                    !hallEntryLoading.dismissed &&
+                    hallEntryLoading.requestHallId === requestHallId &&
+                    hallEntryLoading.requestToken === requestToken &&
+                    activeHallId.value === requestHallId;
+
+                const showHallEntryLoading = (hall, requestToken, recovery = false) => {
+                    hallEntryLoading.visible = true;
+                    hallEntryLoading.requestHallId = hall.id;
+                    hallEntryLoading.requestToken = requestToken;
+                    hallEntryLoading.dismissed = false;
+                    hallEntryLoading.name = hall.name;
+                    hallEntryLoading.guardian = hall.guardian || '';
+                    hallEntryLoading.icon = hall.icon || 'fa-door-open';
+                    hallEntryLoading.message = recovery
+                        ? '正在恢复此前未完成的馆内实时动态…'
+                        : '已进入馆舍，正在刷新实时动态…';
+                    hallEntryLoading.phase = recovery ? '正在恢复状态同步' : '正在同步馆内动态';
+                    hallEntryLoading.progress = 12;
+                    hallEntryLoading.indeterminate = false;
+                };
+
+                const dismissHallEntryLoading = () => {
+                    if (!hallEntryLoading.visible) return;
+                    hallEntryLoading.dismissed = true;
+                    hallEntryLoading.visible = false;
+                };
+
+                const updateHallEntryLoading = (requestHallId, requestToken, event) => {
+                    if (!isCurrentHallEntryLoading(requestHallId, requestToken)) return;
+                    applyAPILoadingEvent(event, hallEntryLoading);
+                };
+
+                const finishHallEntryLoading = (requestHallId, requestToken, didRefresh) => {
+                    if (!isCurrentHallEntryLoading(requestHallId, requestToken)) return false;
+                    hallEntryLoading.visible = false;
+                    hallEntryLoading.indeterminate = false;
+                    hallEntryLoading.progress = didRefresh ? 100 : hallEntryLoading.progress;
+                    return true;
+                };
+
                 const enterHall = (hall) => {
                     if (!hall) return;
                     const startBackgroundArrivalRefresh = (recovery = false) => {
-                        void refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${user.currentStatus}`, [], '', false, false, {
+                        const requestHallId = hall.id;
+                        const requestToken = `hall-entry-${++hallEntryRequestSequence}`;
+                        showHallEntryLoading(hall, requestToken, recovery);
+                        const task = refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${user.currentStatus}`, [], '', false, false, {
                             label: `ENTER HALL STATUS · ${hall.name}`,
                             priority: 'background',
                             maxAttempts: 1,
                             trackBackgroundPending: true,
-                            backgroundFailureToast: recovery ? '' : '实时动态暂未刷新，将显示最近状态'
+                            onProgress: (event) => updateHallEntryLoading(requestHallId, requestToken, event)
                         });
+                        void task.then(
+                            (didRefresh) => {
+                                const wasVisible = finishHallEntryLoading(requestHallId, requestToken, didRefresh);
+                                if (!didRefresh && wasVisible && activeHallId.value === requestHallId) {
+                                    showToast('实时动态未完全刷新，当前使用最近状态', 'warning');
+                                }
+                            },
+                            () => {
+                                const wasVisible = finishHallEntryLoading(requestHallId, requestToken, false);
+                                if (wasVisible && activeHallId.value === requestHallId) {
+                                    showToast('实时动态未完全刷新，当前使用最近状态', 'warning');
+                                }
+                            }
+                        );
                     };
                     const elapsedSinceLastEntry = Date.now() - getHallLastEnteredAt(hall);
                     if (getHallLastEnteredAt(hall) && elapsedSinceLastEntry < HALL_ENTRY_REFRESH_COOLDOWN_MS) {
@@ -15129,7 +15197,7 @@ For every at-home cat use exactly one listed mapPoint. Status must naturally mat
 ${getCompactMapPointPromptGuide()}
 
 [OUTPUT]
-Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per character:
+Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} objects, one for every supplied ID. Never stop after a partial list. Return JSON array only, one object per character:
 [{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
@@ -15213,6 +15281,16 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                                 }
                             }
 
+                            const isComplete =
+                                matchedIds.size === requestedIds.length &&
+                                requestedIds.every(id => matchedIds.has(String(id)));
+
+                            if (!isComplete) {
+                                if (requestOptions.statusCompletion) requestOptions.statusCompletion.partial = true;
+                                addLog(`STATUS SYNC PARTIAL: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; pending=true; unmatched=[${unmatched.join(', ')}]`, "info");
+                                return false;
+                            }
+
                             if (pendingStatusDayRefresh) {
                                 try {
                                     localStorage.removeItem(STATUS_DAY_REFRESH_PENDING_KEY);
@@ -15226,11 +15304,7 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                             if (activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
-                            if (unmatched.length > 0) {
-                                addLog(`STATUS SYNC PARTIAL: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}; unmatched=[${unmatched.join(', ')}]`, "info");
-                            } else {
-                                addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
-                            }
+                            addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
                             return true;
                         } else {
                             addLog("STATUS SYNC FAILED: AI returned invalid JSON format.", "error");
@@ -15267,10 +15341,12 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                     }
 
                     const normalizedArgs = [...args];
+                    const statusCompletion = { partial: false };
                     normalizedArgs[6] = {
                         ...requestOptions,
                         requestHallId,
                         requestHall,
+                        statusCompletion,
                         dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${requestPriority === 'background' ? 'background' : 'foreground'}`
                     };
                     const task = _refreshAllStatus(...normalizedArgs);
@@ -15286,7 +15362,7 @@ Copy each supplied CHARACTER ID exactly. Return JSON array only, one object per 
                             }
                             return;
                         }
-                        if (!trackBackgroundPending) return;
+                        if (!trackBackgroundPending && !statusCompletion.partial) return;
                         const wasPending = hallStatusRefreshPending.has(requestHallId);
                         hallStatusRefreshPending.set(requestHallId, true);
                         if (!wasPending) addLog(`STATUS SYNC BACKGROUND PENDING: hall=${requestHallId}`, 'warn');
@@ -16037,7 +16113,7 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
                     SLOT_BETS, slotState, initSlots, spinSlots, collectSlotWin, gambleSlotWin, closeSlots,
                     watermelonState, initWatermelon, handleWatermelonInput, flappyState, initFlappy, startFlappy, flappyJump, reRollLastMessage,
                     isAppLoading, loadingProgress, loadingMessage, loadingOperation, activeAIRequestId, cancelCurrentAIRequest,
-                    hallEntryLoading,
+                    hallEntryLoading, dismissHallEntryLoading,
                     tempUserStatus, showPhoneImageDescModal, phoneImageDesc, sendPhoneDescImage,
                     uiTheme, uiBlur, uiScanlines, uiShowStatusbar, saveStatusbarPreference, setUITheme, applyUISettings, customFontInput, applyCustomFont, resetCustomFont,
                     apiRetryModal, resolveApiRetryDecision,

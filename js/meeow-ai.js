@@ -186,6 +186,21 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
     } catch (error) {
         throw new Error(`API 返回了无法解析的 JSON：${error.message}`);
     }
+
+    if (request) {
+        const openAIChoice = result?.choices?.[0];
+        const googleCandidate = result?.candidates?.[0];
+        const usage = result?.usage || result?.usageMetadata || null;
+        const finishReason = openAIChoice?.finish_reason ?? googleCandidate?.finishReason ?? 'unavailable';
+        const usageSummary = usage
+            ? [
+                `prompt=${usage.prompt_tokens ?? usage.promptTokenCount ?? '—'}`,
+                `completion=${usage.completion_tokens ?? usage.candidatesTokenCount ?? '—'}`,
+                `total=${usage.total_tokens ?? usage.totalTokenCount ?? '—'}`
+            ].join(', ')
+            : 'unavailable';
+        dependencies.addLog(`API REQUEST #${request.id} RESPONSE META: finish_reason=${finishReason}; usage=${usageSummary}.`, 'info');
+    }
     let content = "";
 
     if (baseUrl) {
