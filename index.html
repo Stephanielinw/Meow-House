@@ -14897,7 +14897,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         void refreshAllStatus(true, `User is interacting with ${sendingCat.name}. User Status: ${user.currentStatus}`, [sendingCat.id], status, false, false, {
                             label: `CHAT FOLLOW-UP STATUS · ${currentHall.value.name}`,
                             priority: 'background',
-                            maxAttempts: 1,
+                            maxAttempts: 2,
                             trackBackgroundPending: true
                         });
 
@@ -15238,6 +15238,60 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     }
                 };
 
+                const validateStatusSyncResponse = (content, requestedIds) => {
+                    const updates = parseAIJSON(content);
+                    if (!Array.isArray(updates)) {
+                        return 'Status Sync contract validation failed: response is not a valid JSON array.';
+                    }
+
+                    const expectedIds = requestedIds.map(id => String(id));
+                    const expectedIdSet = new Set(expectedIds);
+                    const receivedIds = [];
+                    const seenReturnedIds = new Set();
+                    const returnedExpectedIds = new Set();
+                    const unexpectedIds = [];
+                    const duplicateIds = [];
+                    const entryErrors = [];
+
+                    updates.forEach((update, index) => {
+                        if (!update || typeof update !== 'object' || Array.isArray(update)) {
+                            entryErrors.push(`entry ${index} is not an object`);
+                            return;
+                        }
+
+                        const rawId = update.id;
+                        if (rawId === undefined || rawId === null || String(rawId).trim() === '') {
+                            entryErrors.push(`entry ${index} has a missing id`);
+                        } else {
+                            const responseId = String(rawId);
+                            receivedIds.push(responseId);
+                            if (seenReturnedIds.has(responseId)) duplicateIds.push(responseId);
+                            else seenReturnedIds.add(responseId);
+                            if (expectedIdSet.has(responseId)) returnedExpectedIds.add(responseId);
+                            else unexpectedIds.push(responseId);
+                        }
+
+                        ['status', 'innerVoice'].forEach(field => {
+                            if (typeof update[field] !== 'string') entryErrors.push(`entry ${index} has invalid ${field}`);
+                        });
+                        ['isOut', 'isHuman'].forEach(field => {
+                            if (typeof update[field] !== 'boolean') entryErrors.push(`entry ${index} has invalid ${field}`);
+                        });
+                    });
+
+                    const missingIds = expectedIds.filter(id => !returnedExpectedIds.has(id));
+                    const countMatches = updates.length === expectedIds.length;
+                    const isExactCoverage =
+                        countMatches &&
+                        missingIds.length === 0 &&
+                        unexpectedIds.length === 0 &&
+                        duplicateIds.length === 0 &&
+                        entryErrors.length === 0;
+
+                    if (isExactCoverage) return true;
+                    return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
+                };
+
                 const _refreshAllStatus = async (forceUpdate = false, additionalContext = "", activeCatIds = [], focusCatLastAction = "", isFocusEnd = false, isExploreEnd = false, requestOptions = {}) => {
                     const requestHallId = requestOptions.requestHallId || activeHallId.value;
                     const requestHall = requestOptions.requestHall || {
@@ -15392,7 +15446,8 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                         const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                             ...requestOptions,
                             label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
-                            dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`
+                            dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
+                            validateResponse: content => validateStatusSyncResponse(content, requestedIds)
                         });
                         const updates = parseAIJSON(res);
 
