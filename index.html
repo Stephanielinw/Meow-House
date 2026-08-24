@@ -4731,7 +4731,7 @@
                 <!-- Cat / Hero Cards Grid -->
                 <div v-if="hallDisplayMode === 'text'" class="grid grid-cols-2 gap-3.5 pt-1">
                     <div v-for="cat in roomCats" :key="cat.id" @click="handleCatClick(cat)"
-                        class="sully-card p-3 shadow-2xl cursor-pointer relative group flex flex-col items-center" :class="{'opacity-75 grayscale-[30%]': cat.isOut}">
+                        class="sully-card p-3 shadow-2xl cursor-pointer relative group flex flex-col items-center" :class="{'opacity-75 grayscale-[30%]': isResidentAway(cat)}">
                         
                         <!-- Avatar Container with Glass Border -->
                         <div class="relative w-full aspect-square mb-2.5 overflow-hidden rounded-2xl border border-white/10 shadow-inner group-hover:scale-[1.02] transition-transform" :class="{'pixel-cat-frame': isUsingPixelAvatar(cat)}">
@@ -4741,8 +4741,8 @@
                                 class="absolute top-1.5 right-1.5 bg-gradient-to-r from-pink-600 to-purple-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border border-white/20">猫耳模式</span>
                             <span v-if="cat.origin && currentHall.id !== 'gotham'"
                                 class="absolute bottom-1.5 right-1.5 bg-red-600/90 border border-red-400 font-black tracking-wider text-white text-[8px] px-1.5 py-0.5 rounded-full shadow-md z-10">{{ currentHall.catLabel }}</span>
-                            <span v-if="cat.isOut"
-                                class="absolute top-1.5 left-1.5 bg-red-900/90 border border-red-500 font-bold text-white text-[8px] px-2 py-0.5 rounded-full shadow-md">🚨 外出中</span>
+                            <span v-if="isResidentAway(cat)"
+                                class="absolute top-1.5 left-1.5 bg-red-900/90 border border-red-500 font-bold text-white text-[8px] px-2 py-0.5 rounded-full shadow-md">🚨 {{ getResidentPresenceLabel(cat) }}</span>
                         </div>
 
                         <!-- Hero Info -->
@@ -4760,7 +4760,7 @@
                             <i class="fas fa-suitcase-rolling mr-1"></i>串门中 · {{ halls.find(h => h.id === cat.visitOriginHallId)?.name || '原馆舍' }}来客
                         </div>
                         <div class="flex gap-1.5 w-full mt-1.5">
-                            <button v-if="!cat.isVisiting && !cat.isOut" @click.stop="openCatVisit(cat)"
+                            <button v-if="!cat.isVisiting && isResidentInHall(cat)" @click.stop="openCatVisit(cat)"
                                 class="sully-btn flex-1 text-[9px] py-1 rounded-lg border border-sky-500/25 text-sky-300 bg-sky-950/30 hover:bg-sky-900/50">
                                 <i class="fas fa-route mr-1"></i>安排串门
                             </button>
@@ -4770,7 +4770,7 @@
                             </button>
                         </div>
 
-                        <button v-if="cat.isOut" @click.stop="hackCamera(cat)"
+                        <button v-if="isResidentAway(cat)" @click.stop="hackCamera(cat)"
                             class="sully-btn bg-red-950/80 border border-red-500/50 text-red-300 text-[9px] w-full mt-1.5 py-1 rounded-xl shadow hover:bg-red-900 transition flex items-center justify-center gap-1">
                             <i class="fas fa-video text-xs"></i> 查看外出记录
                         </button>
@@ -4998,7 +4998,7 @@
                                 <div class="relative">
                                     <img :src="getCatAvatarSource(cat)" class="w-12 h-12 rounded-full border-2 object-contain"
                                         :class="exploreState.companion?.id === cat.id ? 'border-yellow-600 shadow-[0_0_10px_rgba(212,175,55,0.5)]' : 'border-zinc-600'">
-                                    <div v-if="cat.isOut"
+                                    <div v-if="isResidentAway(cat)"
                                         class="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center text-[8px] text-white">
                                         外出中</div>
                                 </div>
@@ -5149,8 +5149,8 @@
                         <div class="relative shrink-0">
                             <img :src="getCatAvatarSource(selectedCat)"
                                 class="w-16 h-16 rounded-2xl object-contain border-2 border-yellow-500/50 shadow-xl"
-                                :class="{'grayscale': selectedCat.isOut}">
-                            <span v-if="selectedCat.isOut" class="absolute -bottom-1 -right-1 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold shadow">外出中</span>
+                                :class="{'grayscale': isResidentAway(selectedCat)}">
+                            <span v-if="isResidentAway(selectedCat)" class="absolute -bottom-1 -right-1 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold shadow">{{ getResidentPresenceLabel(selectedCat) }}</span>
                         </div>
                         <div class="flex-1 min-w-0">
                             <h2 class="text-base font-extrabold text-white flex items-center gap-1.5 truncate">
@@ -5195,14 +5195,14 @@
                         class="sully-btn bg-black/40 border border-white/10 p-2.5 rounded-2xl text-xs hover:bg-black/60 transition text-yellow-500 flex flex-col items-center gap-1 shadow-md">
                         <i class="fas fa-book text-sm text-yellow-400"></i>秘密日记
                     </button>
-                    <button @click="toggleHumanMode" v-if="selectedCat.affinity >= 50" :disabled="selectedCat.isOut"
+                    <button @click="toggleHumanMode" v-if="selectedCat.affinity >= 50" :disabled="isResidentAway(selectedCat)"
                         class="sully-btn bg-gradient-to-r from-pink-900 to-purple-900 border border-pink-500/30 p-2.5 rounded-2xl text-xs hover:brightness-110 transition flex flex-col items-center gap-1 text-pink-200 shadow-md"
-                        :class="{'btn-disabled opacity-50': selectedCat.isOut}">
+                        :class="{'btn-disabled opacity-50': isResidentAway(selectedCat)}">
                         <i class="fas fa-magic text-sm text-pink-400"></i>{{ selectedCat.isHuman ? '变回原形' : '拟人模式' }}
                     </button>
-                    <button @click="openBag" :disabled="selectedCat.isOut"
+                    <button @click="openBag" :disabled="isResidentAway(selectedCat)"
                         class="sully-btn col-span-3 bg-black/40 border border-white/10 p-3 rounded-2xl text-xs hover:bg-black/60 flex justify-center items-center gap-2 text-gray-200 font-bold shadow-md"
-                        :class="{'btn-disabled opacity-50': selectedCat.isOut}">
+                        :class="{'btn-disabled opacity-50': isResidentAway(selectedCat)}">
                         <i class="fas fa-briefcase text-yellow-500"></i> 打开背包喂食 / 互动道具
                     </button>
                 </div>
@@ -5258,7 +5258,7 @@
                     </div>
                     <div class="fixed-input-bar">
                         <textarea v-model="chatInput" @keydown.enter.prevent="sendMessage"
-                            :placeholder="selectedCat.isOut ? '他可能很忙...' : '发送消息...'"
+                            :placeholder="isResidentAway(selectedCat) ? '他可能很忙...' : '发送消息...'"
                             class="flex-1 shadow-lg bg-zinc-800 border-zinc-700 text-sm resize-none custom-scrollbar"
                             rows="1" style="min-height: 42px; max-height: 100px;"></textarea>
                         <button @click="sendMessage" :disabled="!chatInput.trim() || thinkingStates[selectedCat.id]"
@@ -8327,6 +8327,7 @@
 
     <script src="./js/meeow-core.js"></script>
     <script src="./js/meeow-data.js"></script>
+    <script src="./js/meeow-presence.js"></script>
     <script src="./js/meeow-map.js"></script>
     <script src="./js/meeow-storage.js"></script>
     <script src="./js/meeow-ai.js"></script>
@@ -8871,6 +8872,13 @@
                 const activeHallId = ref(localStorage.getItem('meeow_active_hall') || 'gotham');
                 watch(activeHallId, (hallId) => localStorage.setItem('meeow_active_hall', hallId));
                 const currentHall = computed(() => halls.value.find(hall => hall.id === activeHallId.value) || halls.value[0] || DEFAULT_HALLS[0]);
+                const {
+                    isResidentAway,
+                    isResidentInHall,
+                    getResidentCommunicationMode,
+                    getResidentPresenceLabel,
+                    deriveResidentPresence
+                } = window.Meeow.presence;
                 const roomCats = computed(() => cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === activeHallId.value));
                 const storedHallDisplayMode = localStorage.getItem('meeow_hall_display_mode');
                 const hallDisplayMode = ref((storedHallDisplayMode || settings.hallDisplayMode) === 'map' ? 'map' : 'text');
@@ -8930,7 +8938,7 @@
                 };
                 const getMapCatAction = (cat) => {
                     const status = cleanText(cat?.status || '');
-                    if (cat?.isOut || /外出|出门|旅行|赶路|走|踱|跑|巡/.test(status)) return 'walk';
+                    if (isResidentAway(cat) || /外出|出门|旅行|赶路|走|踱|跑|巡/.test(status)) return 'walk';
                     if (/睡|休息|打盹|蜷|补眠/.test(status)) return 'sleep';
                     if (/吃|食|饭|零食|喂/.test(status)) return 'eat';
                     if (/坐|趴|蹲|伏/.test(status)) return 'sit';
@@ -9046,7 +9054,7 @@
                     };
                 };
                 const mapCatMarkers = computed(() => {
-                    const markers = roomCats.value.filter(cat => !cat.isOut).map((cat) => {
+                    const markers = roomCats.value.filter(isResidentInHall).map((cat) => {
                         const room = getMapRoomForCat(cat);
                         const spot = getMapSpotForCat(cat, room);
                         return { cat, room, spot, action: getMapCatAction(cat) };
@@ -9068,7 +9076,7 @@
                 });
                 const activeMapRoomDefinition = computed(() => MAP_ROOM_DEFINITIONS.find(room => room.id === activeMapRoom.value) || MAP_ROOM_DEFINITIONS[0]);
                 const activeMapCatMarkers = computed(() => mapCatMarkers.value.filter(marker => marker.room === activeMapRoom.value));
-                const mapOutCats = computed(() => roomCats.value.filter(cat => cat.isOut));
+                const mapOutCats = computed(() => roomCats.value.filter(isResidentAway));
                 const setActiveMapRoom = (roomId) => {
                     if (!MAP_ROOM_DEFINITIONS.some(room => room.id === roomId)) return;
                     activeMapRoom.value = roomId;
@@ -9400,7 +9408,7 @@
                     minutes: 25,
                     selectedCatIds: []
                 });
-                const availableCatsForFocus = computed(() => roomCats.value.filter(c => !c.isOut));
+                const availableCatsForFocus = computed(() => roomCats.value.filter(isResidentInHall));
                 const canStartFocus = computed(() => focusSetupData.action.trim() && focusSetupData.minutes > 0 && focusSetupData.selectedCatIds.length > 0);
 
                 const openFocusSetupModal = () => {
@@ -9802,7 +9810,7 @@ ${buildCatMemoryContext(cat)}`;
 
                 const startGlitchTimer = () => {
                     setInterval(() => {
-                        const activeCats = roomCats.value.filter(c => !c.isOut);
+                        const activeCats = roomCats.value.filter(isResidentInHall);
                         if (activeCats.length === 0) return;
                         if (Math.random() < 0.15) {
                             const cat = activeCats[Math.floor(Math.random() * activeCats.length)];
@@ -11000,7 +11008,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
 
                 const handleCatClick = (cat) => {
-                    if (cat.isOut) return showToast("这只猫正在外出，暂时无法建立联络。", "error");
+                    if (isResidentAway(cat)) return showToast("这只猫正在外出，暂时无法建立联络。", "error");
                     rememberHallScrollPosition();
                     activeHallId.value = cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham');
                     hallSceneActive.value = true;
@@ -11303,7 +11311,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const openCatVisit = (cat) => {
-                    if (!cat || cat.isOut || cat.isVisiting) return;
+                    if (!cat || isResidentAway(cat) || cat.isVisiting) return;
                     visitCat.value = cat;
                     visitTargetHallId.value = halls.value.find(hall => hall.id !== cat.hallId)?.id || '';
                     visitMessage.value = '';
@@ -11313,7 +11321,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const sendCatVisiting = async () => {
                     const cat = visitCat.value;
                     const targetHall = halls.value.find(hall => hall.id === visitTargetHallId.value);
-                    if (!cat || !targetHall || cat.isOut || cat.isVisiting) return;
+                    if (!cat || !targetHall || isResidentAway(cat) || cat.isVisiting) return;
                     visitIsProcessing.value = true;
                     const originHallId = cat.hallId || activeHallId.value;
                     cat.visitOriginHallId = originHallId;
@@ -11518,7 +11526,7 @@ JSON 格式：
                 };
 
                 const selectExploreCompanion = (cat) => {
-                    if (cat.isOut) return showToast("这只猫正在外面忙呢", "error");
+                    if (isResidentAway(cat)) return showToast("这只猫正在外面忙呢", "error");
                     exploreState.companion = cat;
                 };
 
@@ -11960,7 +11968,7 @@ ${buildExploreKPContext({ phase: 'opening' })}`;
 
                     // Check for rescue if rounds are high or situation is dire
                     let rescueContext = "";
-                    const outCats = roomCats.value.filter(c => c.isOut && c.id !== exploreState.companion.id);
+                    const outCats = roomCats.value.filter(c => isResidentAway(c) && c.id !== exploreState.companion.id);
                     if (outCats.length > 0 && Math.random() < 0.2) {
                         const rescuer = outCats[Math.floor(Math.random() * outCats.length)];
                         rescueContext = `[SPECIAL EVENT: RESCUE] ${rescuer.name} is currently patrolling nearby and can intervene if the user is in extreme danger.`;
@@ -13663,7 +13671,7 @@ ${buildCatMemoryContext(cat)}`;
                 const readerBooks = computed(() => user.phoneData?.reader?.books || []);
                 const activeReaderBook = computed(() => readerBooks.value.find(book => book.id === phoneState.reader.activeBookId) || null);
                 const activeReaderChapter = computed(() => phoneState.reader.payload?.chapters?.[phoneState.reader.chapterIndex] || null);
-                const readerAvailableCats = computed(() => cats.value.filter(cat => !cat.isOut));
+                const readerAvailableCats = computed(() => cats.value.filter(isResidentInHall));
                 const hasPreviousReaderChapter = computed(() => Number(phoneState.reader.chapterIndex) > 0);
                 const hasNextReaderChapter = computed(() => Boolean(phoneState.reader.payload?.chapters?.[phoneState.reader.chapterIndex + 1]));
                 const getCatById = (id) => cats.value.find(cat => String(cat.id) === String(id)) || null;
@@ -14567,7 +14575,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         appendInteractionEvent(sendingCat, isItemUse ? 'item' : 'chat-user', msg, { source: 'detail-chat' });
                     }
 
-                    if (sendingCat.isOut && Math.random() > 0.15) {
+                    if (isResidentAway(sendingCat) && Math.random() > 0.15) {
                         if (!sendingCat.autoReply) {
                             thinkingStates[sendingCat.id] = true;
                             try {
@@ -14774,7 +14782,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                 };
 
                 const focusTickBehavior = async () => {
-                    const participants = focusCats.value.filter(cat => cat && cat.hallId === activeHallId.value && !cat.isOut);
+                    const participants = focusCats.value.filter(cat => cat && cat.hallId === activeHallId.value && isResidentInHall(cat));
                     if (!participants.length) return false;
 
                     const previousLogs = currentFocusLog.value.slice(0, 8).reverse().join(' -> ');
@@ -16110,7 +16118,7 @@ ${buildCatMemoryContext(targetCat)}`;
                 };
 
                 return {
-                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText,
+                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, getResidentPresenceLabel,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
