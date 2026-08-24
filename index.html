@@ -7560,8 +7560,8 @@
                         <div class="text-[9px] font-mono mb-1" style="color: var(--ui-text-muted);">当前状态</div>
                         <p class="text-xs leading-relaxed break-words" style="color: var(--ui-text);">{{ cleanText(awayRecordCat.status || '暂无状态') }}</p>
                     </div>
-                    <div v-if="(awayRecordCat.travelogues || []).length" class="space-y-3">
-                        <article v-for="(record, index) in (awayRecordCat.travelogues || []).slice().reverse()" :key="record.id || `${record.date || 'travelogue'}-${index}`" class="log-paper relative">
+                    <div v-if="getAwayTraceRecords(awayRecordCat).length" class="space-y-3">
+                        <article v-for="(record, index) in getAwayTraceRecords(awayRecordCat).slice().reverse()" :key="record.id || `${record.date || 'travelogue'}-${index}`" class="log-paper relative">
                             <div class="border-b border-gray-400 pb-1 mb-2 flex flex-wrap justify-between gap-x-3 gap-y-1">
                                 <span class="font-bold text-xs">{{ record.date }}</span>
                                 <span v-if="record.location" class="text-[10px]" style="color: var(--ui-text-muted);">{{ record.location }}</span>
@@ -9785,6 +9785,9 @@
                     awayRecordCat.value = cat;
                     showAwayRecordModal.value = true;
                 };
+                const getAwayTraceRecords = (cat) => Array.isArray(cat?.travelogues)
+                    ? cat.travelogues.filter(record => record && typeof record === 'object' && record.source === 'away')
+                    : [];
                 const closeAwayRecordViewer = () => {
                     showAwayRecordModal.value = false;
                     awayRecordCat.value = null;
@@ -11428,7 +11431,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 
                     if (!cat.travelogues) cat.travelogues = [];
                     if (!cat.logs) cat.logs = [];
-                    cat.travelogues.push({ date: new Date().toLocaleString(), location: `${visitedName}（串门）`, content: travelogueContent });
+                    cat.travelogues.push({ date: new Date().toLocaleString(), location: `${visitedName}（串门）`, content: travelogueContent, source: 'visit' });
                     appendInteractionEvent(cat, 'visit-end', `从${visitedName}返回`, { source: 'visit' });
                     appendMonitorEvent(cat, `【串门旅记】从${visitedName}回馆：${travelogueContent}`, 'visit');
                     cat.logs.push({ date: new Date().toLocaleDateString(), content: `【跨馆串门归档】\n来访馆舍：${visitedName}\n\n${travelogueContent}` });
@@ -12144,7 +12147,8 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                             exploreState.companion.travelogues.push({
                                 date: new Date().toLocaleString(),
                                 location: exploreState.location.name,
-                                content: travelogueContent
+                                content: travelogueContent,
+                                source: 'explore'
                             });
 
                             appendInteractionEvent(exploreState.companion, 'explore-end', `与馆长在${exploreState.location.name}完成探险：${data.summary}`, { source: 'explore' });
@@ -16176,7 +16180,7 @@ ${buildCatMemoryContext(targetCat)}`;
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, getResidentPresenceLabel,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, closeAwayRecordViewer, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
