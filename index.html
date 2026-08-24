@@ -8443,6 +8443,7 @@
                     BUILTIN_CAT_HALL_MIGRATIONS,
                     ALL_BUILTIN_CATS,
                     BUILTIN_CAT_PROFILES,
+                    isPermanentOutBuiltin,
                     BUILTIN_CANONICAL_PROMPT_REFRESH_IDS,
                     BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS,
                     OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
@@ -8524,6 +8525,10 @@
                     cats.value.forEach(cat => {
                         const catId = String(cat.id);
                         const canonical = BUILTIN_CAT_PROFILES.get(catId);
+                        if (isPermanentOutBuiltin(cat) && !cat.isOut) {
+                            cat.isOut = true;
+                            rosterMigrationPendingSave = true;
+                        }
                         if (BUILTIN_CANONICAL_PROMPT_REFRESH_IDS.has(catId) && canonical?.prompt && cat.prompt !== canonical.prompt) {
                             cat.prompt = canonical.prompt;
                             rosterMigrationPendingSave = true;
@@ -14131,7 +14136,7 @@ ${buildCatMemoryContext(cat)}`;
                         cat.diary = [...(savedCat.monitor || [])];
                         cat.status = savedCat.status;
                         cat.innerVoice = savedCat.innerVoice;
-                        cat.isOut = Boolean(savedCat.isOut);
+                        cat.isOut = isPermanentOutBuiltin(cat) || Boolean(savedCat.isOut);
                         cat.isHuman = Boolean(savedCat.isHuman);
                         cat.lastStatusUpdateTime = savedCat.lastStatusUpdateTime || 0;
                     });
@@ -15293,11 +15298,12 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                                     if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                     if (update.isOut !== undefined) {
-                                        if (!cat.isOut && update.isOut) cat.hasHackedThisPatrol = false;
-                                        if (cat.isOut !== update.isOut) {
-                                            appendMonitorEvent(cat, update.isOut ? '离开馆舍，开始处理自己的行程。' : '结束外出，回到馆舍。', 'status-sync');
+                                        const nextIsOut = isPermanentOutBuiltin(cat) ? true : update.isOut;
+                                        if (!cat.isOut && nextIsOut) cat.hasHackedThisPatrol = false;
+                                        if (cat.isOut !== nextIsOut) {
+                                            appendMonitorEvent(cat, nextIsOut ? '离开馆舍，开始处理自己的行程。' : '结束外出，回到馆舍。', 'status-sync');
                                         }
-                                        cat.isOut = update.isOut;
+                                        cat.isOut = nextIsOut;
                                     }
 
                                     if (cat.affinity < 50) {
@@ -15330,7 +15336,7 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                             }
 
                             // Base Defense Rule: At least 2 cats must remain at home
-                            let outCats = catsToUpdate.filter(c => c.isOut);
+                            let outCats = catsToUpdate.filter(c => c.isOut && !isPermanentOutBuiltin(c));
                             let homeCats = catsToUpdate.filter(c => !c.isOut);
                             if (catsToUpdate.length >= 2 && homeCats.length < 2) {
                                 let needed = 2 - homeCats.length;

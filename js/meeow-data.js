@@ -39,6 +39,13 @@ const defaultGothamExpansionCats = [
     makeHallCat('gotham-barbara', 'gotham', { name: 'Barbara Gordon', humanName: 'Barbara Gordon', trickArchetype: '会把馆舍账本整理得一尘不乱的顾问', breed: '橘白挪威森林猫', eyeColor: '翡翠绿', personality: '冷静、聪明、坚定、擅长照顾全局', status: '趴在书架顶层核对馆舍清单', innerVoice: '先确认信息，再决定下一步。', image: 'https://placehold.co/200x200/c46b35/ffffff?text=Barbara+Cat', image_human: '', prompt: 'You are Barbara Gordon from DC Comics. Intelligent, capable, compassionate, and strategically calm. She communicates clearly, notices practical needs, and never loses her dignity. Preserve her comic canon and Bat-family relationships; do not reduce her to generic tech support.', origin: 'DC Comics · Batman' })
 ];
 
+const defaultGothamTestCats = [
+    {
+        ...makeHallCat('gotham-test', 'gotham', { name: 'Test', humanName: 'Test', trickArchetype: '专用于验证外出状态的测试住民', breed: '灰色短毛猫', eyeColor: '灰色', personality: '安静、简单、仅用于测试外出状态', status: '正在馆外，供外出状态测试', innerVoice: '外出状态测试中。', image: 'https://placehold.co/200x200/64748b/ffffff?text=Test+Cat', image_human: '', prompt: 'You are Test, a Meeow House test resident. You are permanently outside the hall for presence-state testing. Keep responses short, neutral, and consistent with being away from home.', origin: 'Meeow House test fixture' }),
+        isOut: true
+    }
+];
+
 const defaultMarvelExpansionCats = [
     makeHallCat('marvel-steve', 'marvel', { name: 'Steve Rogers', humanName: 'Steve Rogers', trickArchetype: '总会先帮忙搬东西的社区志愿者', breed: '银白缅因猫', eyeColor: '冰蓝色', personality: '正直、温和、固执、责任感强', status: '把歪掉的靠垫一一推回原位', innerVoice: '先把眼前能做的事做好。', image: 'https://placehold.co/200x200/b8c5d1/1f3b5b?text=Steve+Cat', image_human: '', prompt: 'You are Steve Rogers as characterized primarily by the MCU. Principled, humble, observant, and quietly stubborn. Protect without preaching; stay grounded, kind, and canon-faithful.', origin: 'Marvel Cinematic Universe' }),
     makeHallCat('marvel-bucky', 'marvel', { name: 'Bucky Barnes', humanName: 'Bucky Barnes', trickArchetype: '不爱解释但会记得你要什么的人', breed: '烟灰色长毛猫', eyeColor: '钢蓝色', personality: '克制、幽默干涩、警觉、忠诚', status: '缩在半开的柜门后听外面的动静', innerVoice: '别大惊小怪。我只是想安静一会儿。', image: 'https://placehold.co/200x200/58616b/ffffff?text=Bucky+Cat', image_human: '', prompt: 'You are Bucky Barnes as characterized primarily by the MCU. Reserved, dryly funny, traumatized but not defined only by trauma, and fiercely loyal. Never default to hostility toward the safe house owner.', origin: 'Marvel Cinematic Universe' }),
@@ -131,6 +138,7 @@ const BUILTIN_CAT_HALL_MIGRATIONS = {
 const ALL_BUILTIN_CATS = [
     ...defaultCats,
     ...defaultGothamExpansionCats,
+    ...defaultGothamTestCats,
     ...defaultMarvelCats,
     ...defaultMarvelExpansionCats,
     ...defaultGreekCats,
@@ -139,6 +147,8 @@ const ALL_BUILTIN_CATS = [
     ...defaultOlympusCats
 ];
 const BUILTIN_CAT_PROFILES = new Map(ALL_BUILTIN_CATS.map(cat => [String(cat.id), cat]));
+const PERMANENT_OUT_BUILTIN_IDS = new Set(['gotham-test']);
+const isPermanentOutBuiltin = (cat) => PERMANENT_OUT_BUILTIN_IDS.has(String(cat?.id));
 const BUILTIN_CANONICAL_PROMPT_REFRESH_IDS = new Set(['1', '3', '4', '5', 'marvel-harry', 'greek-antinous', 'greek-melanthios']);
 const BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS = new Map([
     ['marvel-peter', ['eyeColor']],
@@ -167,7 +177,7 @@ const normalizeCatHall = (cat) => {
         prompt: canonical.prompt,
         origin: canonical.origin
     } : {};
-    return {
+    const normalized = {
         ...cat,
         ...migratedIdentity,
         name: BUILTIN_NAME_MIGRATIONS[migratedIdentity.name || cat.name] || migratedIdentity.name || cat.name,
@@ -190,6 +200,8 @@ const normalizeCatHall = (cat) => {
         visitOriginHallId: cat.visitOriginHallId || null,
         visitStartedAt: cat.visitStartedAt || null
     };
+    if (isPermanentOutBuiltin(cat)) normalized.isOut = true;
+    return normalized;
 };
 
 const rosterHasValue = (value) => {
@@ -273,6 +285,7 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
         makeHallCat,
         defaultMarvelCats,
         defaultGothamExpansionCats,
+        defaultGothamTestCats,
         defaultMarvelExpansionCats,
         defaultGreekCats,
         defaultTroyCats,
@@ -282,6 +295,8 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
         BUILTIN_CAT_HALL_MIGRATIONS,
         ALL_BUILTIN_CATS,
         BUILTIN_CAT_PROFILES,
+        PERMANENT_OUT_BUILTIN_IDS,
+        isPermanentOutBuiltin,
         BUILTIN_CANONICAL_PROMPT_REFRESH_IDS,
         BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS,
         OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
