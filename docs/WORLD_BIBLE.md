@@ -92,7 +92,58 @@ Future memory work must preserve conceptual provenance for every shareable fact:
 
 These are world rules, not instructions to change the current save schema.
 
-## 5. Character form and expression
+## 5. Resident presence and away state
+
+### Independent resident lives
+
+Residents are independent living characters, not permanently anchored to Meeow House. A resident may temporarily leave their hall for human-identity responsibilities, travel, training, work or other external obligations, private character-related activities, exploration, or story-driven events.
+
+Absence is a continuity-bearing world state, not merely a UI visibility condition. An away resident does not disappear, pause, or stop existing; they continue living through activities outside the USER's immediate view and may later return with experiences relevant to their own perspective and continuity.
+
+### User perspective
+
+From the USER's perspective, “my cat is not at home” means that the resident is currently living through their own activities, rather than being unavailable because of a system limitation. Meeow House should preserve the feeling that residents have lives beyond direct interaction.
+
+### Presence balance
+
+Resident independence should remain balanced with companionship. Not all residents should be away simultaneously: Meeow House should continue to feel inhabited, with some residents available to maintain emotional continuity.
+
+### Communication while away
+
+A resident's communication availability may decrease while away. Responses may be delayed or absent, become shorter, or be limited by the resident's current situation and form.
+
+Away status is not rejection, punishment, or reduced affection. It describes the resident's current circumstances, not a change in the legitimacy of their relationship with the USER.
+
+### Future-world distinctions
+
+Future world systems may distinguish between residents who are:
+
+- physically present in their hall;
+- temporarily away;
+- unavailable; or
+- returned with new experiences.
+
+These distinctions describe world intent only. They do not claim that every away-state behavior or transition is currently implemented.
+
+### Form constraint
+
+Away status does not override character expression rules. A CAT-form resident communicating while away remains limited to feline sounds, visible or indirect behavior, and emotional reactions; they may not use human dialogue.
+
+## 6. Character-to-character relationships
+
+Relationships exist between residents, not only between each resident and the USER. Characters may hold independent histories, trust, conflicts, friendships, impressions, and perspectives concerning one another.
+
+A character's relationship with the USER does not automatically determine their relationship with another resident. Likewise, one resident's knowledge, opinion, or emotional response does not automatically transfer to others.
+
+Character interactions should preserve these independent perspectives. Shared knowledge, agreement, or conflict must arise from an established relationship or a legitimate acquisition path rather than from a house-wide assumption.
+
+## 7. Trust and disclosure are separate
+
+Trusted companionship does not grant complete disclosure or omniscient access. A character may trust the USER while maintaining personal boundaries, a hidden identity, private memories, or undisclosed history.
+
+What a character reveals remains dependent on relationship depth, current form, situational context, and established world rules. Trust establishes safety and legitimacy within the shared world; it does not erase a character's right to perspective, privacy, or selective disclosure.
+
+## 8. Character form and expression
 
 A character's memory does not determine what they can express aloud. Expression depends on current form, context, visibility, and relationship conditions.
 
@@ -108,7 +159,7 @@ In human/anthropomorphic form, a character may communicate normally. What they c
 
 Form is not a mechanical reward switch. Characters retain agency over whether and when to show a form, subject to established world conditions and current implementation behavior.
 
-## 6. Domain boundaries
+## 9. Domain boundaries
 
 Meeow House domains should remain separated by responsibility. A domain may collaborate with another through explicit inputs, adapters, or validated outputs; it should not silently take ownership of unrelated state.
 
@@ -126,7 +177,7 @@ Meeow House domains should remain separated by responsibility. A domain may coll
 
 The UI/application composition layer remains responsible for connecting these domains to reactive state and visible interaction flows.
 
-## 7. Future development principles
+## 10. Future development principles
 
 - Prefer a focused new domain or narrow adapter over expanding a root god module.
 - Preserve observed behavior, localStorage compatibility, prompt contracts, and state ownership during refactoring.
