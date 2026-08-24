@@ -4770,7 +4770,7 @@
                             </button>
                         </div>
 
-                        <button v-if="isResidentAway(cat)" @click.stop="hackCamera(cat)"
+                        <button v-if="isResidentAway(cat)" @click.stop="openAwayRecordViewer(cat)"
                             class="sully-btn bg-red-950/80 border border-red-500/50 text-red-300 text-[9px] w-full mt-1.5 py-1 rounded-xl shadow hover:bg-red-900 transition flex items-center justify-center gap-1">
                             <i class="fas fa-video text-xs"></i> 查看外出记录
                         </button>
@@ -7542,6 +7542,41 @@
             </section>
         </div>
 
+        <!-- Away Record Viewer -->
+        <div v-if="showAwayRecordModal && awayRecordCat" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="closeAwayRecordViewer">
+            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="`${awayRecordCat.name} 的外出记录`">
+                <div class="meeow-reader-header flex justify-between items-center mb-3 pb-3">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <img :src="getCatAvatarSource(awayRecordCat)" class="w-9 h-9 rounded-xl object-contain border border-white/10" :class="{'grayscale': isResidentAway(awayRecordCat)}">
+                        <div class="min-w-0">
+                            <h2 class="text-base font-bold truncate">{{ awayRecordCat.name }}</h2>
+                            <p class="text-[10px] font-mono" style="color: var(--ui-text-muted);">外出记录</p>
+                        </div>
+                    </div>
+                    <button @click="closeAwayRecordViewer" class="meeow-reader-close p-1" aria-label="关闭外出记录"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="meeow-reader-body flex-1 custom-scrollbar p-1 space-y-3">
+                    <div class="rounded-xl border p-3" style="border-color: var(--ui-border); background: var(--ui-surface-soft);">
+                        <div class="text-[9px] font-mono mb-1" style="color: var(--ui-text-muted);">当前状态</div>
+                        <p class="text-xs leading-relaxed break-words" style="color: var(--ui-text);">{{ cleanText(awayRecordCat.status || '暂无状态') }}</p>
+                    </div>
+                    <div v-if="(awayRecordCat.travelogues || []).length" class="space-y-3">
+                        <article v-for="(record, index) in (awayRecordCat.travelogues || []).slice().reverse()" :key="record.id || `${record.date || 'travelogue'}-${index}`" class="log-paper relative">
+                            <div class="border-b border-gray-400 pb-1 mb-2 flex flex-wrap justify-between gap-x-3 gap-y-1">
+                                <span class="font-bold text-xs">{{ record.date }}</span>
+                                <span v-if="record.location" class="text-[10px]" style="color: var(--ui-text-muted);">{{ record.location }}</span>
+                            </div>
+                            <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ cleanText(record.content) }}</p>
+                        </article>
+                    </div>
+                    <div v-else class="text-center py-10 text-xs italic" style="color: var(--ui-text-muted);">
+                        <p>暂时没有留下新的记录。</p>
+                        <p class="mt-2">它目前没有留下可查看的外出痕迹。</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+
         <!-- Diary/Logs Modal -->
         <div v-if="showDiaryModal || showLogModal" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center">
             <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="showDiaryModal ? '实时监控记录' : '过往日记'">
@@ -9238,6 +9273,8 @@
 
                 const showShopModal = ref(false);
                 const showLogModal = ref(false);
+                const showAwayRecordModal = ref(false);
+                const awayRecordCat = ref(null);
                 const showEditCatModal = ref(false);
                 const currentShopCategory = ref('food');
                 const isReleasing = ref(false);
@@ -9741,6 +9778,16 @@
                     } catch (e) {
                         showToast("监控连接失败！", "error");
                     }
+                };
+
+                const openAwayRecordViewer = (cat) => {
+                    if (!cat || !isResidentAway(cat)) return;
+                    awayRecordCat.value = cat;
+                    showAwayRecordModal.value = true;
+                };
+                const closeAwayRecordViewer = () => {
+                    showAwayRecordModal.value = false;
+                    awayRecordCat.value = null;
                 };
 
                 // ===== GROUP CHAT + CAUGHT IN THE ACT =====
@@ -16129,7 +16176,7 @@ ${buildCatMemoryContext(targetCat)}`;
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, getResidentPresenceLabel,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, closeAwayRecordViewer, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
