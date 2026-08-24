@@ -11013,7 +11013,6 @@ ${buildCatMemoryContext(cat)}`;
                 };
 
                 const handleCatClick = (cat) => {
-                    if (isResidentAway(cat)) return showToast("这只猫正在外出，暂时无法建立联络。", "error");
                     rememberHallScrollPosition();
                     activeHallId.value = cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham');
                     hallSceneActive.value = true;
