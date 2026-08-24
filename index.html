@@ -5168,6 +5168,9 @@
                             <p class="text-[10px] text-yellow-500/90 mt-1 font-mono leading-relaxed break-words">
                                 动态: {{ cleanText(selectedCat.status) }}
                             </p>
+                            <p v-if="isResidentAway(selectedCat)" class="text-[10px] mt-1 leading-relaxed" style="color: var(--ui-text-muted);">
+                                正在外出，可能无法及时回应；这不代表它不想联系你。
+                            </p>
                         </div>
                     </div>
 
