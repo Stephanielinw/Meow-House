@@ -8332,6 +8332,7 @@
     <script src="./js/meeow-ai.js"></script>
     <script src="./js/meeow-memory.js"></script>
     <script src="./js/meeow-reader.js"></script>
+    <script src="./js/meeow-inventory.js"></script>
     <script type="module">
         const { createApp, ref, reactive, onMounted, watch, computed, nextTick } = Vue;
         const ThinkingLevel = { LOW: "LOW", HIGH: "HIGH" };
@@ -13685,6 +13686,9 @@ ${buildCatMemoryContext(cat)}`;
                 const getReaderPayload = window.Meeow.reader.getReaderPayload;
                 const parseTxtBook = window.Meeow.reader.parseTxtBook;
                 const parseEpubBook = window.Meeow.reader.parseEpubBook;
+                const getInventoryItemKey = window.Meeow.inventory.getInventoryItemKey;
+                const findInventoryItemIndex = window.Meeow.inventory.findInventoryItemIndex;
+                const validateItemInteractionResponse = window.Meeow.inventory.validateItemInteractionResponse;
                 const getReaderBookProgress = (book) => {
                     if (!book?.chapters?.length) return 0;
                     const index = Math.max(0, Math.min(Number(book.progress?.chapterIndex || 0), book.chapters.length - 1));
@@ -15906,32 +15910,7 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     const targetCatId = targetCat.id;
                     const itemForm = targetCat.isHuman ? 'HUMAN' : 'CAT';
                     const targetItem = item;
-                    const itemKey = targetItem.uniqueId ?? targetItem.id;
-                    const hasCatReactionHumanDialogue = (reaction) => {
-                        if (itemForm !== 'CAT') return false;
-                        const quotePatterns = [
-                            /"([^"]*)"/g,
-                            /“([^”]*)”/g,
-                            /「([^」]*)」/g,
-                            /『([^』]*)』/g
-                        ];
-                        const removableSoundAndPunctuation = /(?:喵|咪|呜|嗷|嘶|呼噜|呼嚕|咕噜|咕嚕|哈气|哈氣|呼|噜|嚕|\s|[，。！？、…·—\-~～!?,.;:：；（）()\[\]【】])+/g;
-                        return quotePatterns.some((pattern) => {
-                            let match;
-                            while ((match = pattern.exec(reaction)) !== null) {
-                                if (match[1].replace(removableSoundAndPunctuation, '')) return true;
-                            }
-                            return false;
-                        });
-                    };
-                    const locateItem = () => {
-                        if (targetItem.uniqueId != null) {
-                            return user.inventory.findIndex(entry => String(entry?.uniqueId) === String(itemKey));
-                        }
-                        const sameReference = user.inventory.findIndex(entry => entry === targetItem);
-                        if (sameReference >= 0) return sameReference;
-                        return user.inventory.findIndex(entry => String(entry?.id) === String(itemKey) && entry?.name === targetItem.name);
-                    };
+                    const itemKey = getInventoryItemKey(targetItem);
 
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
@@ -15953,34 +15932,21 @@ ${buildCatMemoryContext(targetCat)}`;
                             priority: 'foreground',
                             maxAttempts: 2,
                             validateResponse: (content) => {
-                                const data = parseAIJSON(content);
-                                const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
-                                const status = cleanText(typeof data?.status === 'string' ? data.status : '');
-                                const innerVoice = cleanText(typeof data?.innerVoice === 'string' ? data.innerVoice : '');
-                                const hasChineseText = (value) => /[\u3400-\u9fff]/.test(value);
-                                if (!data || Array.isArray(data) || typeof data !== 'object') return 'ITEM INTERACTION 回包不是有效对象。';
-                                if (typeof data.liked !== 'boolean') return 'ITEM INTERACTION 回包缺少 boolean liked 字段。';
-                                if (!reaction || !status || !innerVoice || !hasChineseText(reaction) || !hasChineseText(status) || !hasChineseText(innerVoice)) {
-                                    return 'ITEM INTERACTION 回包缺少完整的中文 reaction、status 或 innerVoice 字段。';
-                                }
-                                if (hasCatReactionHumanDialogue(reaction)) return 'CAT FORM 的 reaction 含有带引号的人类对白。';
-                                return true;
+                                const validation = validateItemInteractionResponse(parseAIJSON(content), itemForm, cleanText);
+                                return validation.valid ? true : validation.error;
                             }
                         });
                         const data = parseAIJSON(response);
-                        const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
-                        const status = cleanText(typeof data?.status === 'string' ? data.status : '');
-                        const innerVoice = cleanText(typeof data?.innerVoice === 'string' ? data.innerVoice : '');
-                        const isChineseText = (value) => /[\u3400-\u9fff]/.test(value);
-                        if (!data || Array.isArray(data) || typeof data !== 'object' || typeof data.liked !== 'boolean' ||
-                            !reaction || !status || !innerVoice || !isChineseText(reaction) || !isChineseText(status) || !isChineseText(innerVoice)) {
+                        const validation = validateItemInteractionResponse(data, itemForm, cleanText);
+                        const { reaction, status, innerVoice } = validation.payload;
+                        if (!validation.valid && validation.error !== 'CAT FORM 的 reaction 含有带引号的人类对白。') {
                             throw new Error('物品互动回包缺少有效的 liked、reaction、status 或 innerVoice 字段');
                         }
-                        if (hasCatReactionHumanDialogue(reaction)) {
+                        if (!validation.valid) {
                             throw new Error('CAT FORM 的 reaction 含有带引号的人类对白');
                         }
 
-                        const inventoryIndex = locateItem();
+                        const inventoryIndex = findInventoryItemIndex(user.inventory, targetItem, itemKey);
                         if (inventoryIndex < 0) throw new Error('该物品已不在背包中，未写入互动结果');
 
                         const affinityDelta = data.liked
