@@ -14156,10 +14156,21 @@ ${buildCatMemoryContext(cat)}`;
                         lastMailSenderId: user.lastMailSenderId || null
                     }
                 });
-                const hasDailyDiaryTrigger = (snapshotCat) => {
+                const getPrivateAwayExperiences = (snapshotCat, archiveDateKey) => (snapshotCat?.travelogues || [])
+                    .filter(record => {
+                        if (!record || record.source !== 'away' || record.kind !== 'activity' || !cleanText(record.residentActivity || '') || !record.at) return false;
+                        const timestamp = new Date(record.at);
+                        return !Number.isNaN(timestamp.getTime()) && getOperationalDayKey(record.at) === archiveDateKey;
+                    })
+                    .map(record => ({
+                        at: record.at,
+                        residentActivity: cleanText(record.residentActivity)
+                    }));
+                const hasDailyDiaryTrigger = (snapshotCat, archiveDateKey) => {
                     const triggerTypes = new Set(['chat-user', 'chat-reply', 'phone-message-user', 'phone-message-cat', 'item', 'special', 'human-reveal', 'focus-start', 'focus-end', 'explore-start', 'explore-end', 'visit-start', 'visit-end']);
                     return (snapshotCat.todayInteractions || []).some(event => triggerTypes.has(event.type)) ||
-                        (snapshotCat.chatHistory || []).length > 0; // compatibility for a save made before typed events
+                        (snapshotCat.chatHistory || []).length > 0 || // compatibility for a save made before typed events
+                        getPrivateAwayExperiences(snapshotCat, archiveDateKey).length > 0;
                 };
                 const clearDailyCatRecords = (dateKey = getOperationalDayKey(), archivedBefore = null) => {
                     const cutoff = archivedBefore ? new Date(archivedBefore).getTime() : Number.POSITIVE_INFINITY;
@@ -14204,7 +14215,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (start < 0 || end <= start) return null;
                     try { return JSON.parse(text.slice(start, end + 1)); } catch (_) { return null; }
                 };
-                const getDailyArchiveTargets = (snapshot) => (snapshot.cats || []).filter(hasDailyDiaryTrigger);
+                const getDailyArchiveTargets = (snapshot) => (snapshot.cats || []).filter(cat => hasDailyDiaryTrigger(cat, snapshot.dateKey));
                 const validateDailyArchivePackage = (payload, snapshot) => {
                     if (!payload || typeof payload !== 'object') return '归档包不是有效 JSON 对象。';
                     if (!cleanText(payload.summary || '')) return '归档包缺少奈恩昨日总结。';
@@ -14237,6 +14248,7 @@ ${buildCatMemoryContext(cat)}`;
                         chat: cat.chatHistory || [],
                         monitoring: cat.monitor || [],
                         focus: archiveFocusReports.filter(report => String(report.executor || '').includes(cat.name)).slice(-5),
+                        privateAwayExperiences: getPrivateAwayExperiences(cat, snapshot.dateKey),
                         travelogues: (cat.travelogues || []).slice(-3).map(record => ({
                             date: record?.date,
                             at: record?.at,
@@ -14262,6 +14274,13 @@ DDL：${deadlines.join('、') || '无'}
 
 需要写日记的猫（只可依据提供的真实记录；这些角色虽然为猫形态，但人格、原作关系、道德边界和语气必须严格符合原作，绝对不 OOC，不把任何馆舍默认写成 DC）：
 ${JSON.stringify(diaryContext)}
+
+[PRIVATE RESIDENT AWAY CONTEXT]
+- Each cat's privateAwayExperiences belongs only to that exact catId and may be used ONLY when writing that same cat's diary row.
+- Never use it in Nain's house summary, house news, the social moment, another cat's diary, or another resident's knowledge or reaction.
+- Do not imply that the USER or another resident knew these private events unless separate supplied records explicitly establish that knowledge.
+- A diary may reveal or reflect its owner's private experience with natural discretion and character voice, but must remain grounded in the supplied residentActivity and must not invent a different off-site event.
+- Diary prose is a resident-perspective narrative surface, not CAT-form spoken dialogue. Preserve canon identity, worldview, relationships, priorities, and private knowledge without automatically exposing hidden identity.
 
 [TEMPORAL INTEGRITY]
 - Only summarize events explicitly present in the provided archive-day records.
@@ -14545,7 +14564,7 @@ ${JSON.stringify(diaryContext)}
                     const yesterdayStr = snapshot.date;
                     const latestBriefing = getLatestHouseBriefing();
                     for (const snapshotCat of snapshot.cats) {
-                        if (!hasDailyDiaryTrigger(snapshotCat)) continue;
+                        if (!hasDailyDiaryTrigger(snapshotCat, snapshot.dateKey)) continue;
                         const cat = cats.value.find(item => item.id === snapshotCat.id);
                         if (!cat) continue;
                         const focusReports = snapshot.missionReports
