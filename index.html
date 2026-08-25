@@ -4695,7 +4695,7 @@
                 <!-- Action Header Widget -->
                 <div class="sully-widget p-4 flex flex-col gap-3">
                     <div class="flex space-x-2">
-                        <button @click="refreshAllStatus(true, '', [], '', false, false, { priority: 'foreground', maxAttempts: 2 })" :disabled="isUpdatingStatus"
+                        <button @click="refreshAllStatus(true, '', [], '', false, false, { priority: 'foreground', maxAttempts: 2, sceneMode: 'ambient' })" :disabled="isUpdatingStatus"
                             class="flex-1 sully-btn bg-gradient-to-r from-zinc-800 to-zinc-900 hover:from-zinc-700 hover:to-zinc-800 text-yellow-500 font-bold py-3 text-xs border border-yellow-500/20 shadow-md flex items-center justify-center">
                             <i class="fas fa-sync-alt mr-2" :class="{'loading-spin': isUpdatingStatus}"></i>
                             {{ isUpdatingStatus ? `正在扫描${currentHall.name}信号...` : '强制刷新馆内动态' }}
@@ -11335,6 +11335,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         priority: 'background',
                         maxAttempts: 2,
                         trackBackgroundPending: true,
+                        sceneMode: 'ambient',
                         statusCompletion,
                         onProgress: (event) => updateHallEntryLoading(requestHallId, requestToken, event)
                     });
@@ -14776,7 +14777,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     const lastSync = parseInt(localStorage.getItem('last_sync_time') || '0');
                     if (now - lastSync < 20 * 60 * 1000) return;
                     addLog("AUTO-SYNC: 触发后台状态更新 (逻辑B)");
-                    const didSync = await refreshAllStatus(false);
+                    const didSync = await refreshAllStatus(false, '', [], '', false, false, { sceneMode: 'ambient' });
                     if (didSync) await checkMailboxLogic();
                 };
 
@@ -15745,7 +15746,14 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
 - CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks. innerVoice remains that resident's private perspective.
 - USER text is already stored verbatim by code. Do not rewrite or repeat it as a scene field.`
-                            : '';
+                            : sceneMode === 'ambient'
+                                ? `\n[AMBIENT HALL SOCIAL SCENE]
+- scene:null is the normal valid outcome. Return a non-null scene only when two or more supplied, in-hall residents are plausibly sharing one small physical moment right now.
+- Draw the moment from canon relationships, temperament, current status, location, and continuity. Residents may sleep together, groom, watch, ignore, follow, play, compete over food or toys, or show brief territorial friction; never force affection, conflict, romance, reconciliation, generic cute behavior, or any quota of social scenes.
+- Every participant reaction and status must describe the same shared physical moment. reaction is the visible shared-event behavior, status is the resulting observable state, and innerVoice is that resident's private perspective. Nonparticipants continue with independent updates.
+- Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
+- Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
+                                : '';
                         const statusOutputContract = sceneMode
                             ? `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"scene":null}\nIf a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}. The isOut:false example is illustrative only; decide each resident independently.`
                             : `Return JSON array only, one object per character:\n[The isOut:false value in the schema example is illustrative only. Independently decide true or false for every supplied cat.]\n[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
