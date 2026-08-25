@@ -15333,6 +15333,9 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                             const responseEntries = updates.filter(update => update && typeof update === 'object');
                             const receivedIds = responseEntries.map(update => String(update.id ?? '')).filter(Boolean);
                             const requestedIdSet = new Set(requestedIds);
+                            const originalPresenceById = new Map(catsToUpdate
+                                .filter(cat => requestedIdSet.has(String(cat.id)))
+                                .map(cat => [String(cat.id), Boolean(cat.isOut)]));
                             const matchedIds = new Set();
                             let statusChanged = 0;
                             let innerVoiceChanged = 0;
@@ -15352,18 +15355,7 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                                     if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                     if (update.isOut !== undefined) {
-                                        const wasOut = cat.isOut;
                                         const nextIsOut = isPermanentOutBuiltin(cat) ? true : update.isOut;
-                                        if (!cat.isOut && nextIsOut) cat.hasHackedThisPatrol = false;
-                                        if (wasOut !== nextIsOut) {
-                                            appendMonitorEvent(cat, nextIsOut ? '离开馆舍，开始处理自己的行程。' : '结束外出，回到馆舍。', 'status-sync');
-                                            cat.travelogues.push({
-                                                source: 'away',
-                                                date: new Date().toLocaleString(),
-                                                location: 'Meeow House',
-                                                content: `${cat.name} ${nextIsOut ? '离开了' : '回到了'} Meeow House。`
-                                            });
-                                        }
                                         cat.isOut = nextIsOut;
                                     }
 
@@ -15408,6 +15400,22 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                                     setCatStatus(c, '因馆舍需要留守，被临时召回巡视领地', { source: 'status-sync', forceLog: true });
                                 }
                             }
+
+                            catsToUpdate.forEach(cat => {
+                                const catId = String(cat.id);
+                                if (!originalPresenceById.has(catId)) return;
+                                const wasOut = originalPresenceById.get(catId);
+                                const isOut = Boolean(cat.isOut);
+                                if (wasOut === isOut) return;
+                                if (!wasOut && isOut) cat.hasHackedThisPatrol = false;
+                                appendMonitorEvent(cat, isOut ? '离开馆舍，开始处理自己的行程。' : '结束外出，回到馆舍。', 'status-sync');
+                                cat.travelogues.push({
+                                    source: 'away',
+                                    date: new Date().toLocaleString(),
+                                    location: 'Meeow House',
+                                    content: `${cat.name} ${isOut ? '离开了' : '回到了'} Meeow House。`
+                                });
+                            });
 
                             const isComplete =
                                 matchedIds.size === requestedIds.length &&
