@@ -14775,7 +14775,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             label: `CHAT FOLLOW-UP STATUS · ${currentHall.value.name}`,
                             priority: 'background',
                             maxAttempts: 2,
-                            trackBackgroundPending: true
+                            trackBackgroundPending: true,
+                            backgroundFailureToast: '这次互动已完成，但其他小猫的状态没有全部同步；下次刷新馆舍时会重试。'
                         });
 
                         sendingCat.lastInteractionTimestamp = Date.now();
