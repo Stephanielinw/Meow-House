@@ -14640,6 +14640,32 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     await sendMessageInternal(arg1, arg2, false);
                 };
 
+                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = []) => {
+                    const payload = parseAIJSON(content);
+                    if (!payload || Array.isArray(payload) || typeof payload !== 'object') {
+                        return 'Homepage Chat 回包不是有效 JSON 对象。';
+                    }
+                    const active = payload.activeCat;
+                    if (!active || Array.isArray(active) || typeof active !== 'object') {
+                        return 'Homepage Chat 回包缺少 activeCat。';
+                    }
+                    if (String(active.id ?? '') !== String(activeCatId)) {
+                        return 'Homepage Chat activeCat ID 与当前角色不匹配。';
+                    }
+                    for (const field of ['reply', 'status', 'innerVoice', 'userStatus']) {
+                        if (typeof active[field] !== 'string' || !active[field].trim()) {
+                            return `Homepage Chat activeCat 缺少有效 ${field}。`;
+                        }
+                    }
+                    if (!['CAT', 'HUMAN'].includes(String(active.formDecision || '').trim().toUpperCase())) {
+                        return 'Homepage Chat activeCat 缺少有效 formDecision。';
+                    }
+                    if (hasMechanicalAppearanceRepetition(active.reply, currentMessage, recentUserMessages)) {
+                        return MECHANICAL_APPEARANCE_REPLY_ERROR;
+                    }
+                    return true;
+                };
+
                 const sendMessageInternal = async (arg1 = null, arg2 = false, isReRoll = false) => {
                     let overrideContent = null;
                     let isItemUse = false;
@@ -14698,7 +14724,32 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             else if (hours >= 1) timePerceptionStr = `[TIME PERCEPTION]: You haven't talked to the user for ${hours} hours.`;
                         }
                         const context = getUserRealLifeContext();
-                        const hallContext = `[CURRENT HALL] ${currentHall.value.name} · 管家：${currentHall.value.guardian}。只能感知同馆成员：${roomCats.value.map(cat => cat.name).join(', ') || '暂无其他成员'}。`;
+                        const requestHallId = sendingCat.hallId || (sendingCat.isMarvel ? 'marvel' : 'gotham');
+                        const requestHall = {
+                            ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
+                        };
+                        const frozenNow = new Date();
+                        const frozenOperationalDayKey = getOperationalDayKey(frozenNow);
+                        const frozenHallResidents = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
+                        const frozenBystanders = frozenHallResidents.filter(cat => String(cat.id) !== String(sendingCat.id));
+                        const frozenBystanderIds = frozenBystanders.map(cat => String(cat.id));
+                        const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。`;
+                        const hallUpdateContext = frozenBystanders.length
+                            ? `[BYSTANDER HALL UPDATE]
+Time: ${frozenNow.toLocaleString()}; Operational day: ${frozenOperationalDayKey}; Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
+The USER is interacting directly only with ${sendingCat.name}. Do not include ${sendingCat.name} in hallUpdates and do not write a second status, inner voice, form, map, or presence decision for that resident.
+Update exactly these frozen bystanders with independent current state. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
+
+[BYSTANDER CONTEXT]
+${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(cat, { now: frozenNow })}`).join('\n')}
+
+[BYSTANDER RULES]
+- Return exactly one update for every supplied bystander ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, replace, duplicate, omit, or add IDs.
+- Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
+- Form: affinity <50 means isHuman false; otherwise decide from context. Keep physical time logic and at least two supplied residents home after the full hall layer is applied.
+- Every at-home resident needs one listed mapPoint matching the status. Never use stove/hearth/hot surfaces; sink-basin is safe-water scenes only.
+${getCompactMapPointPromptGuide()}`
+                            : `[BYSTANDER HALL UPDATE]\nThere are no frozen bystanders. Return hallUpdates as an empty array.`;
 
                         const prompt = `
                         [TIME & TRENDS]:
@@ -14733,57 +14784,53 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         - ${hallContext}
                         - User Input: "${msg}" ${isItemUse ? '(User used an item on you)' : ''}
 
-                        NOW RESPOND. Follow the mandatory 5-tag format from system instructions EXACTLY.
-                        KEY REMINDERS FOR THIS TURN:
-                        - [FORM_DECISION]: Affinity ${sendingCat.affinity}/100. If < 50 → output CAT. If >= 50 → decide based on context.
-                        - [STATUS]: 3rd person, ~10 chars, action only.
-                        - [VOICE]: 1st person inner monologue. NO meows. Use 我, not your name. Wrap mental state in【】.
-                        - [REPLY] For this homepage interaction, aim for 80-140 Chinese characters when natural. The value must come from specific, continuous, in-character action that directly follows the user's turn, current status, nearby objects/space, and recent interaction; do not cut a natural action short just to fit a number.
-                        - CAT FORM: Any direct sound may only be a feline sound such as "喵。", "呜。", or "嘶。" — never human speech. A feline sound is optional, and when used must use ordinary double quotes, never 「」. HUMAN FORM: speak naturally.
+                        NOW RESPOND with one JSON object only. No markdown, tags, code fences, or commentary.
+                        [ACTIVE CAT RULES]
+                        - formDecision: Affinity ${sendingCat.affinity}/100. If < 50 use CAT; otherwise decide from context.
+                        - status: third-person current action, about 10 Chinese characters. innerVoice: first-person inner monologue using 我, never meows, wrapped in 【】. userStatus: a short summary of what the USER is doing within 15 Chinese characters; ordinary chat may use "正在和${sendingCat.name}聊天".
+                        - reply: 80-140 Chinese characters when natural. It must directly continue the user's turn through specific, continuous, in-character action, current status, nearby objects/space, and recent interaction.
+                        - CAT form: any direct sound may only be feline sounds such as "喵。", "呜。", or "嘶。"; never human speech. Use ordinary double quotes for an optional feline sound, never 「」. HUMAN form may speak naturally.
                         - Fixed appearance is reference information, not ordinary narration material. In ordinary interaction, do not introduce breed, coat colour, eye colour, heterochromia, hair colour, or other identity-card facts. Looking, blinking, eye contact, turning the head, narrowing the eyes, shifting the gaze, or light falling on the face do NOT make eye colour relevant. Mention appearance only when the USER explicitly asks, directly interacts with that feature, or it is causally necessary to understand the event. Never narrate both heterochromia colours in ordinary dialogue.
                         - Never fall into a generic sequence such as "looked for a while → ears moved → tail moved → meowed → stepped closer". Show this character's own judgment, habits, distance, and action logic instead.
                         - Rhythm example only; never copy its actions or wording as a template: 【从手边的东西上抬起眼睛，停了一瞬，又把它往怀里拢紧一点。尾尖轻轻碰了一下地面，像是在判断你这句话值不值得回应。】"喵。"【下巴重新落回前爪，视线却没有移开。】
-                        - [USER_STATUS]: What user is doing; if just chatting use "正在和${sendingCat.name}聊天"
-                        **MANDATORY LANGUAGE:** 简体中文 only in all sections.
+
+                        ${hallUpdateContext}
+
+                        [OUTPUT]
+                        Return exactly this JSON shape. All text values must be Simplified Chinese:
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]}
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
                             .filter(entry => entry.role === 'user')
                             .slice(-2, -1)
                             .map(entry => entry.content);
-                        const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 1100, ThinkingLevel.LOW, {
-                            label: `HOMEPAGE CHAT · ${sendingCat.name}`,
+                        const responseRaw = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 4300, ThinkingLevel.LOW, {
+                            label: `HOMEPAGE CHAT + HALL UPDATE · ${sendingCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
-                            validateResponse: (content) => {
-                                const reply = extractSection(content, 'REPLY');
-                                const userStatus = extractSection(content, 'USER_STATUS');
-                                if (!reply || !reply.trim()) return 'Homepage Chat 回复缺少完整 [REPLY] 段。';
-                                if (!userStatus || !userStatus.trim()) return 'Homepage Chat 回复在 [USER_STATUS] 前截断。';
-                                if (hasMechanicalAppearanceRepetition(reply, msg, recentUserAppearanceContext)) return MECHANICAL_APPEARANCE_REPLY_ERROR;
-                                return true;
-                            }
+                            validateResponse: content => validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext)
                         });
 
-                        const reply = extractSection(responseRaw, 'REPLY');
-                        if (hasMechanicalAppearanceRepetition(reply, msg, recentUserAppearanceContext)) {
-                            throw new Error(MECHANICAL_APPEARANCE_REPLY_ERROR);
-                        }
+                        const payload = parseAIJSON(responseRaw);
+                        const activeValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext);
+                        if (activeValidation !== true) throw new Error(activeValidation);
+                        const activeResponse = payload.activeCat;
+                        const reply = cleanText(activeResponse.reply);
 
-                        const formDecision = extractSection(responseRaw, 'FORM_DECISION');
-                        if (formDecision && formDecision.includes('HUMAN')) {
+                        const formDecision = String(activeResponse.formDecision).trim().toUpperCase();
+                        if (formDecision === 'HUMAN') {
                             if (!sendingCat.isHuman) appendMonitorEvent(sendingCat, '在与馆长互动时暂时显露了拟人形态。', 'detail-chat');
                             sendingCat.isHuman = true;
-                        } else if (formDecision && formDecision.includes('CAT')) {
+                        } else if (formDecision === 'CAT') {
                             if (sendingCat.isHuman) appendMonitorEvent(sendingCat, '在与馆长互动后恢复了猫咪形态。', 'detail-chat');
                             sendingCat.isHuman = false;
                         }
 
-                        const status = extractSection(responseRaw, 'STATUS');
-                        const voice = extractSection(responseRaw, 'VOICE');
-                        const userStatus = extractSection(responseRaw, 'USER_STATUS');
-                        if (status) setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
-                        else if (voice) sendingCat.innerVoice = voice;
+                        const status = cleanText(activeResponse.status);
+                        const voice = cleanText(activeResponse.innerVoice);
+                        const userStatus = cleanText(activeResponse.userStatus);
+                        setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
                         if (userStatus) {
                             user.currentStatus = userStatus.substring(0, 15);
                             tempUserStatus.value = user.currentStatus;
@@ -14793,21 +14840,20 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         appendInteractionEvent(sendingCat, 'chat-reply', `[${sendingCat.isHuman ? 'HUMAN' : 'CAT'}][REPLY]: ${reply}`, { source: 'detail-chat' });
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
-                        // The reply is already safely written. Let the larger
-                        // hall-status sync follow in the background so the chat
-                        // input becomes usable immediately instead of feeling like
-                        // every message waits for a second full AI request.
-                        void refreshAllStatus(true, `User is interacting with ${sendingCat.name}. User Status: ${user.currentStatus}`, [sendingCat.id], status, false, false, {
-                            label: `CHAT FOLLOW-UP STATUS · ${currentHall.value.name}`,
-                            priority: 'background',
-                            maxAttempts: 2,
-                            trackBackgroundPending: true,
-                            backgroundFailureToast: '这次互动已完成，但其他小猫的状态没有全部同步；下次刷新馆舍时会重试。'
-                        });
+                        if (frozenBystanderIds.length) {
+                            void applyMergedHomepageHallUpdates({
+                                requestHallId,
+                                requestHall,
+                                frozenBystanders,
+                                frozenNow,
+                                operationalDayKey: frozenOperationalDayKey,
+                                updates: payload.hallUpdates
+                            });
+                        }
 
                         sendingCat.lastInteractionTimestamp = Date.now();
                     } catch (e) {
-                        const isIncompleteHomepageReply = /^Homepage Chat 回复(?:缺少完整 \[REPLY\] 段。|在 \[USER_STATUS\] 前截断。)$/.test(String(e?.message || ''))
+                        const isIncompleteHomepageReply = String(e?.message || '').startsWith('Homepage Chat ')
                             || String(e?.message || '') === MECHANICAL_APPEARANCE_REPLY_ERROR;
                         if (!isIncompleteHomepageReply) {
                             sendingCat.chatHistory.push({ role: 'assistant', content: "(信号中断，详情请查看任务日志)", time: getCurrentTimeStr(), at: new Date().toISOString() });
@@ -15142,12 +15188,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     }
                 };
 
-                const validateStatusSyncResponse = (content, requestedIds) => {
-                    const updates = parseAIJSON(content);
-                    if (!Array.isArray(updates)) {
-                        return 'Status Sync contract validation failed: response is not a valid JSON array.';
-                    }
-
+                const validateStatusSyncUpdates = (updates, requestedIds) => {
+                    if (!Array.isArray(updates)) return 'Status Sync contract validation failed: response is not a valid JSON array.';
                     const expectedIds = requestedIds.map(id => String(id));
                     const expectedIdSet = new Set(expectedIds);
                     const receivedIds = [];
@@ -15195,6 +15237,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (isExactCoverage) return true;
                     return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
                 };
+                const validateStatusSyncResponse = (content, requestedIds) => validateStatusSyncUpdates(parseAIJSON(content), requestedIds);
 
                 const hasAwayActivityForOperationalDay = (cat, operationalDayKey) => (cat?.travelogues || []).some(record =>
                     record && record.source === 'away' && record.kind === 'activity' && record.at &&
@@ -15346,7 +15389,9 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                         if (statusCompletion) statusCompletion.lastError = '自动状态同步当前未开启。';
                         return false;
                     }
-                    const catsToUpdate = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
+                    const catsToUpdate = Array.isArray(requestOptions.frozenCatsToUpdate)
+                        ? requestOptions.frozenCatsToUpdate
+                        : cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
                     if (catsToUpdate.length === 0) {
                         if (statusCompletion) statusCompletion.lastError = '当前馆舍没有可同步的小猫。';
                         return false;
@@ -15356,11 +15401,11 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                     addLog(`STATUS SYNC: ${forceUpdate ? 'Manual' : 'Auto'} update initiated...`, "info");
                     if (!isBackgroundStatusSync) showToast(`正在扫描${requestHall.name}信号...`, "loading");
 
-                    const now = new Date();
+                    const now = requestOptions.frozenNow ? new Date(requestOptions.frozenNow) : new Date();
                     const timeStr = getCurrentTimeStr();
                     const h = now.getHours();
                     const isNight = (h >= 22 || h < 6);
-                    const operationalDayKey = getOperationalDayKey(now);
+                    const operationalDayKey = requestOptions.operationalDayKey || getOperationalDayKey(now);
                     let pendingStatusDayRefresh = false;
                     try {
                         pendingStatusDayRefresh = localStorage.getItem(STATUS_DAY_REFRESH_PENDING_KEY) === operationalDayKey;
@@ -15468,13 +15513,27 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                         addLog(`STATUS SYNC SCOPE: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
                         addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; prompt=${statusPromptChars} chars; prompt+system=${statusInputChars} chars${statusInputChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
 
-                        const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
-                            ...requestOptions,
-                            label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
-                            dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
-                            validateResponse: content => validateStatusSyncResponse(content, requestedIds)
-                        });
-                        const updates = parseAIJSON(res);
+                        let updates;
+                        if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
+                            const validation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
+                            if (validation !== true) {
+                                if (statusCompletion) {
+                                    statusCompletion.partial = true;
+                                    statusCompletion.lastError = validation;
+                                }
+                                addLog(`STATUS SYNC PREVALIDATED FAILED: ${validation}`, 'warn');
+                                return false;
+                            }
+                            updates = requestOptions.prevalidatedStatusUpdates;
+                        } else {
+                            const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
+                                ...requestOptions,
+                                label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
+                                dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
+                                validateResponse: content => validateStatusSyncResponse(content, requestedIds)
+                            });
+                            updates = parseAIJSON(res);
+                        }
 
                         if (Array.isArray(updates)) {
                             const responseEntries = updates.filter(update => update && typeof update === 'object');
@@ -15624,10 +15683,60 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     finally { isUpdatingStatus.value = false; }
                 };
 
+                const settleHallStatusRefresh = ({ requestHallId, didRefresh, trackBackgroundPending, statusCompletion, backgroundFailureToast }) => {
+                    if (didRefresh) {
+                        if (hallStatusRefreshPending.delete(requestHallId)) {
+                            addLog(`STATUS SYNC BACKGROUND RECOVERED: hall=${requestHallId}`, 'sent');
+                        }
+                        return;
+                    }
+                    if (!trackBackgroundPending && !statusCompletion?.partial) return;
+                    const wasPending = hallStatusRefreshPending.has(requestHallId);
+                    hallStatusRefreshPending.set(requestHallId, true);
+                    if (!wasPending) addLog(`STATUS SYNC BACKGROUND PENDING: hall=${requestHallId}`, 'warn');
+                    if (backgroundFailureToast && activeHallId.value === requestHallId) {
+                        showToast(backgroundFailureToast, 'warning');
+                    }
+                };
+
+                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates }) => {
+                    if (!frozenBystanders.length) return true;
+                    const statusCompletion = {
+                        requestHallId,
+                        requestToken: `merged-homepage-status-${++statusRefreshTaskSequence}`,
+                        partial: false,
+                        expected: 0,
+                        matched: 0,
+                        unmatched: [],
+                        lastError: '',
+                        preempted: false,
+                        complete: false
+                    };
+                    const backgroundFailureToast = '这次互动已完成，但其他小猫的状态没有全部同步；下次刷新馆舍时会重试。';
+                    const didRefresh = await _refreshAllStatus(true, '', [], '', false, false, {
+                        requestHallId,
+                        requestHall,
+                        frozenCatsToUpdate: frozenBystanders,
+                        frozenNow,
+                        operationalDayKey,
+                        prevalidatedStatusUpdates: updates,
+                        priority: 'background',
+                        statusCompletion
+                    });
+                    settleHallStatusRefresh({
+                        requestHallId,
+                        didRefresh,
+                        trackBackgroundPending: true,
+                        statusCompletion,
+                        backgroundFailureToast
+                    });
+                    return didRefresh;
+                };
+
                 const refreshAllStatus = (...args) => {
                     const requestOptions = (args[6] && typeof args[6] === 'object') ? args[6] : {};
-                    const requestHallId = activeHallId.value;
-                    const requestHall = {
+                    const requestHallId = requestOptions.requestHallId || activeHallId.value;
+                    const requestHall = requestOptions.requestHall || {
                         ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                     };
                     const requestPriority = requestOptions.priority || 'normal';
@@ -15670,19 +15779,13 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     const settle = (didRefresh) => {
                         if (statusRefreshInFlight.get(requestHallId) !== entry) return;
                         statusRefreshInFlight.delete(requestHallId);
-                        if (didRefresh) {
-                            if (hallStatusRefreshPending.delete(requestHallId)) {
-                                addLog(`STATUS SYNC BACKGROUND RECOVERED: hall=${requestHallId}`, 'sent');
-                            }
-                            return;
-                        }
-                        if (!trackBackgroundPending && !statusCompletion.partial) return;
-                        const wasPending = hallStatusRefreshPending.has(requestHallId);
-                        hallStatusRefreshPending.set(requestHallId, true);
-                        if (!wasPending) addLog(`STATUS SYNC BACKGROUND PENDING: hall=${requestHallId}`, 'warn');
-                        if (requestOptions.backgroundFailureToast && activeHallId.value === requestHallId) {
-                            showToast(requestOptions.backgroundFailureToast, 'warning');
-                        }
+                        settleHallStatusRefresh({
+                            requestHallId,
+                            didRefresh,
+                            trackBackgroundPending,
+                            statusCompletion,
+                            backgroundFailureToast: requestOptions.backgroundFailureToast
+                        });
                     };
 
                     task.then(
