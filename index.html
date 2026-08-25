@@ -4713,6 +4713,33 @@
                     </div>
                 </div>
 
+                <section v-if="hallSceneFeedRecords.length" class="sully-card p-4 space-y-3" aria-label="馆内共享片段">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="text-xs font-black tracking-wide text-yellow-400"><i class="fas fa-wand-sparkles mr-1.5"></i>馆内片段</div>
+                        <span class="text-[9px] text-gray-500">当前运营日</span>
+                    </div>
+                    <article v-for="scene in hallSceneFeedRecords.slice(0, 3)" :key="scene.id" class="rounded-2xl border border-white/10 bg-black/25 p-3 space-y-2">
+                        <div class="flex items-center justify-between gap-3 text-[10px]">
+                            <strong class="text-gray-200 truncate">{{ scene.type === 'user-directed' ? '馆长 / ' : '' }}{{ getHallSceneParticipantNames(scene) }}</strong>
+                            <time class="shrink-0 text-gray-500">{{ new Date(scene.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</time>
+                        </div>
+                        <p v-if="scene.userText !== null" class="whitespace-pre-wrap text-[11px] leading-relaxed text-yellow-100/90">{{ scene.userText }}</p>
+                        <div class="space-y-1.5">
+                            <p v-for="reaction in scene.reactions" :key="scene.id + '-' + reaction.id" class="text-[11px] leading-relaxed text-gray-300"><span class="font-bold text-yellow-500/90">{{ getHallSceneReactionName(reaction.id) }}</span>：{{ cleanText(reaction.content) }}</p>
+                        </div>
+                    </article>
+                    <details v-if="hallSceneFeedRecords.length > 3" class="rounded-xl bg-black/20 px-3 py-2 text-[10px] text-gray-400">
+                        <summary class="cursor-pointer font-bold text-yellow-500/80">查看更早的今日片段（{{ hallSceneFeedRecords.length - 3 }}）</summary>
+                        <div class="mt-3 space-y-3">
+                            <article v-for="scene in hallSceneFeedRecords.slice(3)" :key="scene.id" class="border-t border-white/10 pt-3 space-y-1.5">
+                                <div class="flex items-center justify-between gap-3"><strong class="truncate text-gray-300">{{ scene.type === 'user-directed' ? '馆长 / ' : '' }}{{ getHallSceneParticipantNames(scene) }}</strong><time class="shrink-0 text-gray-600">{{ new Date(scene.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</time></div>
+                                <p v-if="scene.userText !== null" class="whitespace-pre-wrap leading-relaxed text-yellow-100/80">{{ scene.userText }}</p>
+                                <p v-for="reaction in scene.reactions" :key="scene.id + '-' + reaction.id" class="leading-relaxed"><span class="font-bold text-yellow-500/80">{{ getHallSceneReactionName(reaction.id) }}</span>：{{ cleanText(reaction.content) }}</p>
+                            </article>
+                        </div>
+                    </details>
+                </section>
+
                 <!-- Alfred Voice Card -->
                 <div class="sully-card p-4 text-xs text-gray-300 italic border-l-4 border-yellow-500 relative overflow-hidden">
                     <i class="fas fa-quote-left absolute -right-2 -bottom-2 text-4xl text-yellow-500/10 pointer-events-none"></i>
@@ -8534,6 +8561,9 @@
                 const cats = ref(initialCats);
                 const halls = ref(DEFAULT_HALLS.map(hall => ({ ...hall })));
                 const shopItems = ref(initialShopItems);
+                // Hall scenes are world events, not USER-owned records. They
+                // persist only so the current operational day can be reviewed.
+                const hallSceneRecords = ref([]);
                 let rosterMigrationPendingSave = false;
 
                 const migrateObsoleteIthacaCats = () => {
@@ -8638,6 +8668,7 @@
                                 };
                             }
                         }
+                        if (Array.isArray(parsed.hallSceneRecords)) hallSceneRecords.value = parsed.hallSceneRecords;
                         if (parsed.settings) {
                             // Keep a saved custom model. Older versions replaced
                             // any model containing "gpt" during migration, which
@@ -9987,7 +10018,7 @@ ${buildCatMemoryContext(cat)}`;
                 const isWishLoading = ref(false);
 
                 window.Meeow.storage.configure({
-                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings }),
+                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings, hallSceneRecords: hallSceneRecords.value }),
                     storageKey: STORAGE_KEY,
                     modelStorageKey: MODEL_STORAGE_KEY,
                     addLog: (...args) => addLog(...args),
@@ -9999,7 +10030,7 @@ ${buildCatMemoryContext(cat)}`;
                 const scheduleSave = window.Meeow.storage.scheduleSave;
                 // Coalesce legacy reactive changes into one write instead of
                 // serializing the whole archive for every intermediate field change.
-                watch([user, cats, halls, shopItems, settings], scheduleSave, { deep: true, flush: 'post' });
+                watch([user, cats, halls, shopItems, settings, hallSceneRecords], scheduleSave, { deep: true, flush: 'post' });
                 if (rosterMigrationPendingSave) {
                     rosterMigrationPendingSave = false;
                     scheduleSave();
@@ -11175,6 +11206,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const openHallDirectory = () => {
+                    clearHallSceneFocus();
                     hallScrollPositions[activeHallId.value] = 0;
                     currentTab.value = 'lounge';
                     loungeView.value = 'selector';
@@ -11335,6 +11367,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 
                 const enterHall = (hall) => {
                     if (!hall) return;
+                    if (activeHallId.value !== hall.id) clearHallSceneFocus();
                     const elapsedSinceLastEntry = Date.now() - getHallLastEnteredAt(hall);
                     if (getHallLastEnteredAt(hall) && elapsedSinceLastEntry < HALL_ENTRY_REFRESH_COOLDOWN_MS) {
                         activeHallId.value = hall.id;
@@ -11562,12 +11595,28 @@ JSON 格式：
                 };
 
                 const updateUserStatus = async () => {
-                    user.currentStatus = tempUserStatus.value;
+                    const rawUserText = tempUserStatus.value;
+                    const requestHallId = activeHallId.value;
+                    const requestHall = { ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value) };
+                    const frozenNow = new Date();
+                    const sceneCandidates = buildHallSceneCandidateContext(rawUserText, requestHallId, frozenNow);
+                    user.currentStatus = rawUserText;
                     addLog(`USER STATUS UPDATED: ${user.currentStatus || '(Empty)'}`, "info");
                     showToast(`正在同步${currentHall.value.name}状态...`, "loading");
                     const success = await refreshAllStatus(true, `User Status Changed: ${user.currentStatus || 'Cleared'}`, [], '', false, false, {
                         priority: 'foreground',
-                        maxAttempts: 2
+                        maxAttempts: 2,
+                        requestHallId,
+                        requestHall,
+                        frozenNow,
+                        operationalDayKey: getOperationalDayKey(frozenNow),
+                        sceneMode: 'user-directed',
+                        sceneContext: {
+                            rawUserText,
+                            explicitMentionIds: sceneCandidates.explicitMentionIds,
+                            previousFocusIds: sceneCandidates.previousFocusIds,
+                            candidateIds: sceneCandidates.candidateIds
+                        }
                     });
                     if (success) {
                         showToast("状态已同步", "success");
@@ -13754,6 +13803,7 @@ ${buildCatMemoryContext(cat)}`;
                 const parseEpubBook = window.Meeow.reader.parseEpubBook;
                 const getInventoryItemKey = window.Meeow.inventory.getInventoryItemKey;
                 const findInventoryItemIndex = window.Meeow.inventory.findInventoryItemIndex;
+                const hasCatReactionHumanDialogue = window.Meeow.inventory.hasCatReactionHumanDialogue;
                 const validateItemInteractionResponse = window.Meeow.inventory.validateItemInteractionResponse;
                 const getReaderBookProgress = (book) => {
                     if (!book?.chapters?.length) return 0;
@@ -14049,6 +14099,123 @@ ${buildCatMemoryContext(cat)}`;
                     return date;
                 };
                 const getPreviousOperationalDayKey = (value = new Date()) => getLocalDateKey(getPreviousOperationalDate(value));
+                const HALL_SCENE_FOCUS_IDLE_MS = 20 * 60 * 1000;
+                const hallSceneFocus = reactive({
+                    hallId: '', dateKey: '', sceneId: '', participantIds: [], updatedAt: 0
+                });
+                const getCatHallId = (cat) => cat?.hallId || (cat?.isMarvel ? 'marvel' : 'gotham');
+                const normalizeHallSceneRecords = (records) => (Array.isArray(records) ? records : [])
+                    .filter(record => record && typeof record === 'object')
+                    .map(record => {
+                        const at = typeof record.at === 'string' && !Number.isNaN(new Date(record.at).getTime())
+                            ? record.at
+                            : '';
+                        const participantIds = [...new Set((Array.isArray(record.participantIds) ? record.participantIds : [])
+                            .map(id => String(id || '').trim()).filter(Boolean))];
+                        const reactions = (Array.isArray(record.reactions) ? record.reactions : [])
+                            .map(reaction => ({ id: String(reaction?.id || '').trim(), content: cleanText(reaction?.content || '') }))
+                            .filter(reaction => reaction.id && reaction.content);
+                        const type = record.type === 'ambient' ? 'ambient' : 'user-directed';
+                        return {
+                            id: String(record.id || `hall-scene-${at || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                            hallId: String(record.hallId || ''),
+                            dateKey: String(record.dateKey || (at ? getOperationalDayKey(at) : '')),
+                            at,
+                            type,
+                            participantIds,
+                            userText: typeof record.userText === 'string' ? record.userText : null,
+                            reactions
+                        };
+                    })
+                    .filter(record => record.hallId && record.dateKey && record.at && record.participantIds.length && record.reactions.length);
+                const pruneHallSceneRecords = (dateKey = getOperationalDayKey()) => {
+                    hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value)
+                        .filter(record => record.dateKey === dateKey);
+                };
+                const clearHallSceneFocus = () => {
+                    hallSceneFocus.hallId = '';
+                    hallSceneFocus.dateKey = '';
+                    hallSceneFocus.sceneId = '';
+                    hallSceneFocus.participantIds = [];
+                    hallSceneFocus.updatedAt = 0;
+                };
+                const getValidHallSceneFocusIds = (hallId = activeHallId.value, now = new Date()) => {
+                    const currentDateKey = getOperationalDayKey(now);
+                    const idle = now.getTime() - Number(hallSceneFocus.updatedAt || 0);
+                    if (hallSceneFocus.hallId !== hallId ||
+                        hallSceneFocus.dateKey !== currentDateKey ||
+                        !hallSceneFocus.participantIds.length ||
+                        idle > HALL_SCENE_FOCUS_IDLE_MS) {
+                        clearHallSceneFocus();
+                        return [];
+                    }
+                    const validIds = hallSceneFocus.participantIds.filter(id => {
+                        const cat = cats.value.find(item => String(item.id) === String(id));
+                        return cat && getCatHallId(cat) === hallId && isResidentInHall(cat);
+                    });
+                    if (validIds.length !== hallSceneFocus.participantIds.length) {
+                        clearHallSceneFocus();
+                        return [];
+                    }
+                    return validIds;
+                };
+                const resolveExplicitHallSceneMentionIds = (rawText, hallId = activeHallId.value) => {
+                    const haystack = String(rawText || '').toLocaleLowerCase();
+                    if (!haystack) return [];
+                    const matches = [];
+                    cats.value.filter(cat => getCatHallId(cat) === hallId && isResidentInHall(cat)).forEach(cat => {
+                        const aliases = [cat.name, cat.humanName, cat.codename]
+                            .map(value => String(value || '').trim()).filter(value => value.length >= 2)
+                            .sort((a, b) => b.length - a.length);
+                        if (aliases.some(alias => haystack.includes(alias.toLocaleLowerCase()))) matches.push(String(cat.id));
+                    });
+                    return [...new Set(matches)];
+                };
+                const buildHallSceneCandidateContext = (rawText, hallId = activeHallId.value, now = new Date()) => {
+                    const explicitMentionIds = resolveExplicitHallSceneMentionIds(rawText, hallId);
+                    const previousFocusIds = getValidHallSceneFocusIds(hallId, now);
+                    return {
+                        explicitMentionIds,
+                        previousFocusIds,
+                        candidateIds: [...new Set([...previousFocusIds, ...explicitMentionIds])]
+                    };
+                };
+                const appendHallSceneRecord = ({ hallId, operationalDayKey, type, participantIds, userText = null, reactions }) => {
+                    const now = new Date();
+                    if (getOperationalDayKey(now) !== operationalDayKey) return null;
+                    pruneHallSceneRecords(operationalDayKey);
+                    const record = normalizeHallSceneRecords([{
+                        id: `hall-scene-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+                        hallId,
+                        dateKey: operationalDayKey,
+                        at: now.toISOString(),
+                        type,
+                        participantIds,
+                        userText,
+                        reactions
+                    }])[0] || null;
+                    if (!record) return null;
+                    hallSceneRecords.value.push(record);
+                    return record;
+                };
+                const setHallSceneFocus = (record) => {
+                    if (!record || record.type !== 'user-directed' || activeHallId.value !== record.hallId) return;
+                    hallSceneFocus.hallId = record.hallId;
+                    hallSceneFocus.dateKey = record.dateKey;
+                    hallSceneFocus.sceneId = record.id;
+                    hallSceneFocus.participantIds = [...record.participantIds];
+                    hallSceneFocus.updatedAt = Date.now();
+                };
+                const hallSceneFeedRecords = computed(() => {
+                    const currentDateKey = getOperationalDayKey();
+                    return normalizeHallSceneRecords(hallSceneRecords.value)
+                        .filter(record => record.hallId === activeHallId.value && record.dateKey === currentDateKey)
+                        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+                });
+                const getHallSceneParticipantNames = (record) => (record?.participantIds || [])
+                    .map(id => cats.value.find(cat => String(cat.id) === String(id))?.name || String(id)).join(' / ');
+                const getHallSceneReactionName = (id) => cats.value.find(cat => String(cat.id) === String(id))?.name || String(id);
+                hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
                 const buildOwnerDailyContext = (profileName = 'standard') => {
                     const compact = profileName === 'compact' || profileName === 'reader';
                     const itemLimit = compact ? 4 : 7;
@@ -15244,6 +15411,73 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
                 };
                 const validateStatusSyncResponse = (content, requestedIds) => validateStatusSyncUpdates(parseAIJSON(content), requestedIds);
+                const validateStatusSyncSceneEnvelope = (content, requestedIds) => {
+                    const payload = parseAIJSON(content);
+                    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+                        return 'Hall Scene Status Sync response is not a valid JSON object.';
+                    }
+                    return validateStatusSyncUpdates(payload.updates, requestedIds);
+                };
+                const validateOptionalHallScene = ({ scene, sceneMode, sceneContext, updates, requestHallId }) => {
+                    if (scene === null) return { valid: true, scene: null };
+                    if (!scene || typeof scene !== 'object' || Array.isArray(scene)) {
+                        return { valid: false, error: 'scene is not null or a valid object.' };
+                    }
+                    const expectedType = sceneMode === 'ambient' ? 'ambient' : 'user-directed';
+                    if (scene.type !== expectedType) return { valid: false, error: `scene type must be ${expectedType}.` };
+                    const participantIds = Array.isArray(scene.participantIds)
+                        ? scene.participantIds.map(id => String(id || '').trim()).filter(Boolean)
+                        : [];
+                    const minimumParticipants = expectedType === 'ambient' ? 2 : 1;
+                    if (participantIds.length < minimumParticipants || new Set(participantIds).size !== participantIds.length) {
+                        return { valid: false, error: `scene requires ${minimumParticipants}+ unique participant IDs.` };
+                    }
+                    const allowedIds = new Set(expectedType === 'user-directed'
+                        ? (sceneContext?.candidateIds || []).map(id => String(id))
+                        : (updates || []).map(update => String(update?.id || '')).filter(Boolean));
+                    if (participantIds.some(id => !allowedIds.has(id))) {
+                        return { valid: false, error: 'scene includes an ID outside its allowed participant pool.' };
+                    }
+                    const reactions = Array.isArray(scene.reactions) ? scene.reactions : [];
+                    const reactionById = new Map();
+                    for (const reaction of reactions) {
+                        const id = String(reaction?.id || '').trim();
+                        const content = cleanText(reaction?.content || '');
+                        if (!id || !content || !/[\u3400-\u9fff]/.test(content) || reactionById.has(id)) {
+                            return { valid: false, error: 'scene reactions must have unique non-empty Simplified Chinese content.' };
+                        }
+                        reactionById.set(id, content);
+                    }
+                    if (reactionById.size !== participantIds.length || participantIds.some(id => !reactionById.has(id))) {
+                        return { valid: false, error: 'scene reactions must exactly cover scene participants.' };
+                    }
+                    const updatesById = new Map((updates || []).map(update => [String(update?.id || ''), update]));
+                    let sharedRoomId = '';
+                    for (const id of participantIds) {
+                        const update = updatesById.get(id);
+                        const cat = cats.value.find(item => String(item.id) === id);
+                        if (!update || !cat || getCatHallId(cat) !== requestHallId || update.isOut !== false || !isResidentInHall(cat)) {
+                            return { valid: false, error: `scene participant ${id} is not finally in hall.` };
+                        }
+                        const mapPoint = findMapPoint(update.mapPoint);
+                        if (!mapPoint?.roomId) return { valid: false, error: `scene participant ${id} has no valid map point.` };
+                        if (sharedRoomId && sharedRoomId !== mapPoint.roomId) {
+                            return { valid: false, error: 'scene participants must share one map room.' };
+                        }
+                        sharedRoomId = mapPoint.roomId;
+                        if (hasCatReactionHumanDialogue(reactionById.get(id), cat.isHuman ? 'HUMAN' : 'CAT')) {
+                            return { valid: false, error: `CAT-form participant ${id} has quoted human dialogue.` };
+                        }
+                    }
+                    return {
+                        valid: true,
+                        scene: {
+                            type: expectedType,
+                            participantIds,
+                            reactions: participantIds.map(id => ({ id, content: reactionById.get(id) }))
+                        }
+                    };
+                };
 
                 const hasAwayActivityForOperationalDay = (cat, operationalDayKey) => (cat?.travelogues || []).some(record =>
                     record && record.source === 'away' && record.kind === 'activity' && record.at &&
@@ -15412,6 +15646,10 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                     const h = now.getHours();
                     const isNight = (h >= 22 || h < 6);
                     const operationalDayKey = requestOptions.operationalDayKey || getOperationalDayKey(now);
+                    const sceneMode = requestOptions.sceneMode === 'user-directed' || requestOptions.sceneMode === 'ambient'
+                        ? requestOptions.sceneMode
+                        : '';
+                    const sceneContext = sceneMode ? (requestOptions.sceneContext || {}) : null;
                     let pendingStatusDayRefresh = false;
                     try {
                         pendingStatusDayRefresh = localStorage.getItem(STATUS_DAY_REFRESH_PENDING_KEY) === operationalDayKey;
@@ -15492,6 +15730,25 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                         const newOperationalDayContext = pendingStatusDayRefresh
                             ? `\n[NEW OPERATIONAL DAY]: Previous-day status is history, not a template. Do not paraphrase it; unless travel/visit/focus/explore is ongoing, create a genuinely new current activity for ${operationalDayKey}.`
                             : '';
+                        const sceneCandidateCats = (sceneContext?.candidateIds || []).map(id =>
+                            catsToUpdate.find(cat => String(cat.id) === String(id))
+                        ).filter(Boolean);
+                        const scenePrompt = sceneMode === 'user-directed'
+                            ? `\n[USER-DIRECTED HALL SCENE]
+Raw USER input: ${JSON.stringify(String(sceneContext.rawUserText || ''))}
+Explicitly mentioned resident IDs: [${(sceneContext.explicitMentionIds || []).map(String).join(', ')}]
+Previous valid scene-focus IDs: [${(sceneContext.previousFocusIds || []).map(String).join(', ')}]
+Allowed scene candidate IDs: [${(sceneContext.candidateIds || []).map(String).join(', ')}]
+Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).join(', ') || 'None'}
+- Return scene:null unless the USER input clearly creates or continues a shared physical moment with one or more allowed residents. Ordinary USER status must remain scene:null.
+- If scene is non-null, select participantIds only from Allowed scene candidate IDs. The raw USER input plus every participant reaction and status must describe one same physical moment; participants may notice and react to each other, never generate unrelated simultaneous activities.
+- Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
+- CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks. innerVoice remains that resident's private perspective.
+- USER text is already stored verbatim by code. Do not rewrite or repeat it as a scene field.`
+                            : '';
+                        const statusOutputContract = sceneMode
+                            ? `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"scene":null}\nIf a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}. The isOut:false example is illustrative only; decide each resident independently.`
+                            : `Return JSON array only, one object per character:\n[The isOut:false value in the schema example is illustrative only. Independently decide true or false for every supplied cat.]\n[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -15508,15 +15765,15 @@ ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 - [AWAY CONTINUITY] Away is not indefinite by default. A recent or plausibly ongoing off-site activity may remain away over short Δt; with meaningful or long Δt, reconsider return when ordinary work, an appointment, training, travel, responsibility, or private activity plausibly ended, the time supports returning, or continuity no longer supports absence. Away should have plausible duration, not infinite duration.
 - [PRESENCE CONTINUITY] Do not mechanically preserve either isOut:true or isOut:false. Avoid rapid arbitrary home/away flapping over closely spaced syncs, but permit a transition when elapsed time and supplied continuity plausibly changed the resident's life. Prefer plausible continuity over arbitrary novelty; long Δt requires substantial reassessment rather than copying the previous boolean.
 - [HALL CALIBRATION] At least two cats home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
+${scenePrompt}
 
 [MAP]
 For every at-home cat use exactly one listed mapPoint. Status must naturally match its furniture/position; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
 ${getCompactMapPointPromptGuide()}
 
 [OUTPUT]
-Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} objects, one for every supplied ID. Never stop after a partial list. Return JSON array only, one object per character:
-[The isOut:false value in the schema example is illustrative only. Independently decide true or false for every supplied cat.]
-[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
+Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} status updates, one for every supplied ID. Never stop after a partial list.
+${statusOutputContract}`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
                         const statusPromptChars = statusRequestPrompt.length;
@@ -15526,6 +15783,7 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                         addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; prompt=${statusPromptChars} chars; prompt+system=${statusInputChars} chars${statusInputChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
 
                         let updates;
+                        let optionalScene;
                         if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
                             const validation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
                             if (validation !== true) {
@@ -15542,9 +15800,13 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                                 ...requestOptions,
                                 label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
                                 dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
-                                validateResponse: content => validateStatusSyncResponse(content, requestedIds)
+                                validateResponse: content => sceneMode
+                                    ? validateStatusSyncSceneEnvelope(content, requestedIds)
+                                    : validateStatusSyncResponse(content, requestedIds)
                             });
-                            updates = parseAIJSON(res);
+                            const parsedResponse = parseAIJSON(res);
+                            updates = sceneMode ? parsedResponse?.updates : parsedResponse;
+                            optionalScene = sceneMode ? parsedResponse?.scene : undefined;
                         }
 
                         if (Array.isArray(updates)) {
@@ -15646,6 +15908,34 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                             }
 
                             if (statusCompletion) statusCompletion.complete = true;
+
+                            if (sceneMode) {
+                                const sceneValidation = validateOptionalHallScene({
+                                    scene: optionalScene,
+                                    sceneMode,
+                                    sceneContext,
+                                    updates,
+                                    requestHallId
+                                });
+                                if (!sceneValidation.valid) {
+                                    addLog(`HALL SCENE DROPPED: hall=${requestHallId}; ${sceneValidation.error}`, 'warn');
+                                } else if (sceneValidation.scene) {
+                                    const record = appendHallSceneRecord({
+                                        hallId: requestHallId,
+                                        operationalDayKey,
+                                        type: sceneValidation.scene.type,
+                                        participantIds: sceneValidation.scene.participantIds,
+                                        userText: sceneMode === 'user-directed' ? String(sceneContext?.rawUserText || '') : null,
+                                        reactions: sceneValidation.scene.reactions
+                                    });
+                                    if (record) {
+                                        if (sceneMode === 'user-directed') setHallSceneFocus(record);
+                                        addLog(`HALL SCENE WRITTEN: hall=${requestHallId}; type=${sceneValidation.scene.type}; participants=[${record.participantIds.join(', ')}]`, 'sent');
+                                    }
+                                } else if (sceneMode === 'user-directed' && activeHallId.value === requestHallId) {
+                                    clearHallSceneFocus();
+                                }
+                            }
 
                             if (pendingStatusDayRefresh) {
                                 try {
@@ -15916,6 +16206,7 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                         try {
                             const data = JSON.parse(e.target.result);
                             if (data.user) Object.assign(user, data.user);
+                            hallSceneRecords.value = normalizeHallSceneRecords(data.hallSceneRecords);
                             if (data.cats) cats.value = data.cats.map(normalizeCatHall);
                             if (data.halls) halls.value = data.halls;
                             mergeBuiltInCats();
@@ -16470,6 +16761,7 @@ ${buildCatMemoryContext(targetCat)}`;
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, getResidentPresenceLabel,
+                    hallSceneRecords, hallSceneFeedRecords, getHallSceneParticipantNames, getHallSceneReactionName,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
