@@ -14747,6 +14747,10 @@ ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(ca
 - Return exactly one update for every supplied bystander ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, replace, duplicate, omit, or add IDs.
 - Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
 - Form: affinity <50 means isHuman false; otherwise decide from context. Keep physical time logic and at least two supplied residents home after the full hall layer is applied.
+- [PRESENCE DECISION] isOut:false is never a default or safe fallback. Decide each bystander's presence independently from canon, current status, supplied Δt/continuity, time of day, and ordinary obligations. Work, errands, relationships, solitude, training, travel, and private matters are valid reasons to be away; the USER being in this hall is not a reason to keep someone home. Away is not Explore or Visit and never requires USER participation. Do not invent combat, patrol, missions, or dramatic plots merely to justify departure.
+- [HALL CALIBRATION] At least two residents home is a minimum companionship safeguard, not a preference to keep everyone home. In a larger hall, one or more plausible absences are normal; all-home is also valid when continuity supports it. Do not create quotas, random departures, or maximize departures. Choose the most plausible state for each resident independently.
+- [PRESENCE CONTINUITY] For short Δt, strongly preserve each resident's existing isOut state unless supplied context supports a real transition. A resident already away may remain away; longer elapsed time may permit a plausible departure or return. Choose continuation before novelty and never rapidly toggle home/away states.
+- The isOut:false value in the output schema example is illustrative only. Independently decide true or false for every supplied bystander.
 - Every at-home resident needs one listed mapPoint matching the status. Never use stove/hearth/hot surfaces; sink-basin is safe-water scenes only.
 ${getCompactMapPointPromptGuide()}`
                             : `[BYSTANDER HALL UPDATE]\nThere are no frozen bystanders. Return hallUpdates as an empty array.`;
@@ -15497,6 +15501,9 @@ ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
 - Form: affinity <50 => isHuman false; affinity >=50 decides by context; explore-return cats must be false.
 - Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic. At least two cats remain home.
+- [PRESENCE DECISION] isOut:false is never a default or safe fallback. Decide each cat's presence independently from canon, current status, [Δt RULE], time of day, and recent continuity. Work, errands, relationships, solitude, training, travel, and private matters are valid reasons to be away; the USER being in this hall is not a reason to keep someone home. Away is not Explore or Visit and never requires USER participation. Do not invent combat, patrol, missions, or dramatic plots merely to justify departure.
+- [HALL CALIBRATION] At least two cats home is a minimum companionship safeguard, not a preference to keep everyone home. In a larger hall, one or more plausible absences are normal; all-home is also valid when continuity supports it. Do not create quotas, random departures, or maximize departures. Choose the most plausible state for each resident independently.
+- [PRESENCE CONTINUITY] For short Δt, strongly preserve each cat's existing isOut state unless supplied context supports a real transition. A resident already away may remain away; longer elapsed time may permit a plausible departure or return. Choose continuation before novelty and never rapidly toggle home/away states.
 
 [MAP]
 For every at-home cat use exactly one listed mapPoint. Status must naturally match its furniture/position; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
@@ -15504,6 +15511,7 @@ ${getCompactMapPointPromptGuide()}
 
 [OUTPUT]
 Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} objects, one for every supplied ID. Never stop after a partial list. Return JSON array only, one object per character:
+[The isOut:false value in the schema example is illustrative only. Independently decide true or false for every supplied cat.]
 [{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
