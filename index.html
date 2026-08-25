@@ -13968,6 +13968,8 @@ ${buildCatMemoryContext(cat)}`;
                         departedAt: departure.toISOString(),
                         plannedReturnAt: new Date(departure.getTime() + durationMs).toISOString(),
                         destination: cleanText(plan.destination || ''),
+                        // Optional display enrichment; lifecycle validity never depends on it.
+                        plannedReturnStatus: cleanText(plan.plannedReturnStatus || ''),
                         activityPlan: plan.mode === 'departure' ? {
                             activityAt: new Date(departure.getTime() + activityMs).toISOString(),
                             plannedResidentActivity: cleanText(plan.plannedResidentActivity || ''),
@@ -14015,24 +14017,33 @@ ${buildCatMemoryContext(cat)}`;
                 const settleAwayEpisodeReturn = (episode, eventAt, reconciledAt = new Date()) => {
                     const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
                     if (!cat || episode.status !== 'active') return false;
+                    const logicalReturnAt = parseLogicalDate(eventAt) || new Date();
+                    const actualReconciliationAt = parseLogicalDate(reconciledAt) || new Date();
+                    const settledPromptly = actualReconciliationAt.getTime() - logicalReturnAt.getTime() <= RECENT_RETURN_CONTINUITY_MS;
+                    const plannedStatus = getUsablePlannedReturnStatus(episode);
+                    // Catch-up must describe present in-hall life, not pretend a return
+                    // happened just as the browser reopened.
+                    const returnStatus = settledPromptly
+                        ? (plannedStatus || '刚回到馆内，正在门边安静整理前爪。')
+                        : '正在馆内安静休息，偶尔整理前爪。';
                     cat.isOut = false;
                     const room = getMapRoomForCat(cat);
                     const spot = getMapSpotForCat(cat, room);
-                    setCatStatus(cat, '结束外出，回到馆舍。', {
+                    setCatStatus(cat, returnStatus, {
                         source: 'away-episode-return',
                         forceLog: true,
                         mapRoom: room,
                         mapSpot: spot,
-                        eventAt,
-                        extra: { episodeId: episode.id, settledAt: reconciledAt.toISOString() }
+                        eventAt: logicalReturnAt,
+                        extra: { episodeId: episode.id, settledAt: actualReconciliationAt.toISOString() }
                     });
-                    appendAwayTransitionTravelogue(cat, false, eventAt, { episodeId: episode.id });
+                    appendAwayTransitionTravelogue(cat, false, logicalReturnAt, { episodeId: episode.id });
                     (episode.mailPlan || []).forEach(mail => {
                         if (mail.state === 'planned') mail.state = 'cancelled';
                     });
                     episode.status = 'completed';
-                    episode.returnedAt = eventAt.toISOString();
-                    episode.settledAt = reconciledAt.toISOString();
+                    episode.returnedAt = logicalReturnAt.toISOString();
+                    episode.settledAt = actualReconciliationAt.toISOString();
                     addLog(`AWAY EPISODE RETURN SETTLED: episode=${episode.id}; resident=${episode.residentId}; returnedAt=${episode.returnedAt}`, 'sent');
                     return true;
                 };
@@ -14040,6 +14051,7 @@ ${buildCatMemoryContext(cat)}`;
                     const now = parseLogicalDate(reconciliationTime) || new Date();
                     awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
                     const dueEvents = [];
+                    const returnedResidentIds = [];
                     awayEpisodes.value.forEach(episode => {
                         if (episode.status !== 'active') return;
                         const activityAt = parseLogicalDate(episode.activityPlan?.activityAt);
@@ -14060,9 +14072,11 @@ ${buildCatMemoryContext(cat)}`;
                     dueEvents.forEach(event => {
                         if (event.type === 'activity') materializeAwayEpisodeActivity(event.episode, event.at, now);
                         else if (event.type === 'mail') deliverPlannedAwayMail(event.episode, event.mail, event.at, now);
-                        else if (event.type === 'return') settleAwayEpisodeReturn(event.episode, event.at, now);
+                        else if (event.type === 'return' && settleAwayEpisodeReturn(event.episode, event.at, now)) {
+                            returnedResidentIds.push(String(event.episode.residentId));
+                        }
                     });
-                    return dueEvents.length;
+                    return { count: dueEvents.length, returnedResidentIds };
                 };
                 window.Meeow.memory.configure({
                     getUser: () => user,
@@ -14420,6 +14434,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const getPreviousOperationalDayKey = (value = new Date()) => getLocalDateKey(getPreviousOperationalDate(value));
                 const HALL_SCENE_FOCUS_IDLE_MS = 20 * 60 * 1000;
+                const RECENT_RETURN_CONTINUITY_MS = 30 * 60 * 1000;
                 const hallSceneFocus = reactive({
                     hallId: '', dateKey: '', sceneId: '', participantIds: [], updatedAt: 0
                 });
@@ -14451,6 +14466,9 @@ ${buildCatMemoryContext(cat)}`;
                             departedAt,
                             plannedReturnAt,
                             destination: typeof episode.destination === 'string' ? cleanText(episode.destination) : '',
+                            plannedReturnStatus: typeof episode.plannedReturnStatus === 'string'
+                                ? cleanText(episode.plannedReturnStatus)
+                                : '',
                             activityPlan: hasValidActivity ? {
                                 activityAt,
                                 plannedResidentActivity: cleanText(activityPlan.plannedResidentActivity),
@@ -14476,6 +14494,22 @@ ${buildCatMemoryContext(cat)}`;
                         };
                     })
                     .filter(episode => episode.residentId && episode.hallId && episode.departedAt && episode.plannedReturnAt);
+                const getUsablePlannedReturnStatus = (episode) => {
+                    const status = cleanText(episode?.plannedReturnStatus || '');
+                    return status && status.length <= 80 ? status : '';
+                };
+                const getRecentAwayReturn = (catOrId, now = new Date()) => {
+                    const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
+                    const timestamp = parseLogicalDate(now)?.getTime() || Date.now();
+                    return normalizeAwayEpisodes(awayEpisodes.value)
+                        .filter(episode => episode.residentId === id && episode.status === 'completed')
+                        .sort((a, b) => (parseLogicalDate(b.returnedAt)?.getTime() || 0) - (parseLogicalDate(a.returnedAt)?.getTime() || 0))
+                        .find(episode => {
+                            const returnedAt = parseLogicalDate(episode.returnedAt)?.getTime() || 0;
+                            const elapsed = timestamp - returnedAt;
+                            return elapsed >= 0 && elapsed <= RECENT_RETURN_CONTINUITY_MS;
+                        }) || null;
+                };
                 const getActiveAwayEpisode = (catOrId, now = new Date()) => {
                     const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
                     const timestamp = parseLogicalDate(now)?.getTime() || Date.now();
@@ -15281,11 +15315,14 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                         };
                         const frozenNow = new Date();
-                        reconcileAwayEpisodes(frozenNow);
+                        const reconciliation = reconcileAwayEpisodes(frozenNow);
+                        const justSettledReturnIds = new Set(reconciliation.returnedResidentIds || []);
                         const frozenOperationalDayKey = getOperationalDayKey(frozenNow);
                         const frozenHallResidents = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
                         const frozenBystanders = frozenHallResidents.filter(cat =>
-                            String(cat.id) !== String(sendingCat.id) && !getActiveAwayEpisode(cat, frozenNow)
+                            String(cat.id) !== String(sendingCat.id) &&
+                            !getActiveAwayEpisode(cat, frozenNow) &&
+                            !justSettledReturnIds.has(String(cat.id))
                         );
                         const frozenBystanderIds = frozenBystanders.map(cat => String(cat.id));
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => cat.name);
@@ -15297,7 +15334,7 @@ The USER is interacting directly only with ${sendingCat.name}. Do not include ${
 Update exactly these frozen bystanders with independent current state. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
 
 [BYSTANDER CONTEXT]
-${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(cat, { now: frozenNow })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}`).join('\n')}
+${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(cat, { now: frozenNow })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
 
 [BYSTANDER RULES]
 - Return exactly one update for every supplied bystander ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, replace, duplicate, omit, or add IDs.
@@ -15361,8 +15398,8 @@ ${getCompactMapPointPromptGuide()}`
 
                         [OUTPUT]
                         Return exactly this JSON shape. All text values must be Simplified Chinese:
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[{"residentId":"exact final departure id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","mailPlan":[]}]}
-                        A departure plan is required only for a bystander you set from isOut:false to isOut:true. mailPlan is optional and may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be scheduled after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example booleans and minutes are illustrative only.
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[{"residentId":"exact final departure id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","plannedReturnStatus":"concise visible status for the moment this resident returns home","mailPlan":[]}]}
+                        A departure plan is required only for a bystander you set from isOut:false to isOut:true. plannedReturnStatus is optional UX enrichment: when supplied, write one concise, character-appropriate third-person status for the resident's immediate return home without private destination/activity details. Its absence or invalidity never cancels a valid departure. mailPlan is optional and may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be scheduled after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example booleans and minutes are illustrative only.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -15879,13 +15916,18 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const duration = Number(plan.plannedDurationMinutes);
                     if (!Number.isInteger(duration) || duration < AWAY_EPISODE_MIN_DURATION_MINUTES || duration > AWAY_EPISODE_MAX_DURATION_MINUTES) return null;
                     if (mode === 'legacy-continuation') {
-                        if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
+                        if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || plan.plannedReturnStatus || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
                         return { residentId: String(expectedId), mode, plannedDurationMinutes: duration };
                     }
                     const activityAfter = Number(plan.activityAfterMinutes);
                     const destination = cleanText(plan.destination || '');
                     const plannedResidentActivity = cleanText(plan.plannedResidentActivity || '');
                     const publicTrace = cleanText(plan.publicTrace || '');
+                    // This is deliberately optional: presentation text must not decide
+                    // whether a resident can begin an otherwise valid Away Episode.
+                    const plannedReturnStatus = typeof plan.plannedReturnStatus === 'string'
+                        ? cleanText(plan.plannedReturnStatus)
+                        : '';
                     if (!Number.isInteger(activityAfter) || activityAfter < 10 || activityAfter > duration - 10 || !destination || !plannedResidentActivity || !publicTrace) return null;
                     const rawMailPlan = plan.mailPlan === undefined ? [] : plan.mailPlan;
                     if (!Array.isArray(rawMailPlan) || rawMailPlan.length > 1) return null;
@@ -15903,7 +15945,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         };
                     });
                     if (mailPlan.some(mail => !mail)) return null;
-                    return { residentId: String(expectedId), mode, plannedDurationMinutes: duration, activityAfterMinutes: activityAfter, destination, plannedResidentActivity, publicTrace, mailPlan };
+                    return {
+                        residentId: String(expectedId), mode, plannedDurationMinutes: duration,
+                        activityAfterMinutes: activityAfter, destination, plannedResidentActivity, publicTrace,
+                        plannedReturnStatus: plannedReturnStatus.length <= 80 ? plannedReturnStatus : '',
+                        mailPlan
+                    };
                 };
                 const indexAwayPlans = (awayPlans) => (Array.isArray(awayPlans) ? awayPlans : []).reduce((index, plan) => {
                     const id = String(plan?.residentId || '');
@@ -15943,7 +15990,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         return false;
                     }
                     const now = requestOptions.frozenNow ? new Date(requestOptions.frozenNow) : new Date();
-                    reconcileAwayEpisodes(now);
+                    const reconciliation = reconcileAwayEpisodes(now);
+                    const justSettledReturnIds = new Set(reconciliation.returnedResidentIds || []);
                     const fullHallCats = cats.value.filter(cat => getCatHallId(cat) === requestHallId);
                     const frozenCandidateCats = Array.isArray(requestOptions.frozenCatsToUpdate)
                         ? requestOptions.frozenCatsToUpdate
@@ -15951,10 +15999,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     // A scheduled absence is locally authoritative until its return time.
                     // Keep the resident visible as away context, but never let this request
                     // invent a contradictory home status or premature return.
-                    const catsToUpdate = frozenCandidateCats.filter(cat => !getActiveAwayEpisode(cat, now));
+                    const catsToUpdate = frozenCandidateCats.filter(cat =>
+                        !getActiveAwayEpisode(cat, now) && !justSettledReturnIds.has(String(cat.id))
+                    );
                     if (catsToUpdate.length === 0) {
                         if (statusCompletion) statusCompletion.complete = true;
-                        addLog(`STATUS SYNC SKIPPED: hall=${requestHallId}; all frozen residents are scheduled away.`, 'info');
+                        addLog(`STATUS SYNC SKIPPED: hall=${requestHallId}; no frozen residents require an AI update.`, 'info');
                         return true;
                     }
 
@@ -16013,6 +16063,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             const legacyAwayContext = c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now)
                                 ? '\n[LEGACY AWAY]: This resident is currently away without a schedule from an older save. If you keep isOut:true, provide one finite mode:"legacy-continuation" plan for this exact ID. Do not invent historical destination, activity, trace, or mail.'
                                 : '';
+                            const recentReturnContext = getRecentAwayReturn(c, now)
+                                ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Their current status is the immediate handoff from that return. Continue naturally through settling in, resting, grooming, checking familiar surroundings, food/water, or quietly observing the hall; do not reset them into an unrelated activity. Do not infer or reveal any destination, private activity, mail, or other hidden Away details.'
+                                : '';
 
                             let specificContext = "";
                             if (isActive && isFocusEnd) {
@@ -16029,7 +16082,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 gapContext = `\n[CRITICAL TIME GAP]: The user has been away for over an hour. THE PREVIOUS INTERACTION IS STRICTLY OVER. DO NOT mention previous interactions holding your paw or looking at you. You MUST be entertaining yourself, sleeping, or harassing other cats independently.`;
                             }
 
-                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${dayBoundaryContext}\n${legacyAwayContext}\n${specificContext}\n${gapContext}\n`;
+                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${dayBoundaryContext}\n${legacyAwayContext}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
                         });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
@@ -16080,7 +16133,7 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[],"scene":null}\nThe isOut:false value is illustrative only; decide each resident independently. awayPlans contains one plan only for each supplied resident who either newly changes false→true (mode:"departure") or is a legacy unmanaged true→true resident (mode:"legacy-continuation"). A departure plan must be {"residentId":"exact id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","mailPlan":[]}; duration must be 30–720 minutes and activityAfterMinutes must be at least 10 minutes after departure and at least 10 minutes before return. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; a planned mail must occur after the activity and before return. Mail is optional: do not force it and never expose private destination/activity details in it. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, or mail. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[],"scene":null}\nThe isOut:false value is illustrative only; decide each resident independently. awayPlans contains one plan only for each supplied resident who either newly changes false→true (mode:"departure") or is a legacy unmanaged true→true resident (mode:"legacy-continuation"). A departure plan must be {"residentId":"exact id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","plannedReturnStatus":"concise visible status for the moment this resident returns home","mailPlan":[]}; plannedReturnStatus is optional UX enrichment: when supplied, write one concise, character-appropriate third-person status for the resident's immediate return home without private destination/activity details. Its absence or invalidity never cancels a valid departure. Duration must be 30–720 minutes and activityAfterMinutes must be at least 10 minutes after departure and at least 10 minutes before return. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; a planned mail must occur after the activity and before return. Mail is optional: do not force it and never expose private destination/activity details in it. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, or plannedReturnStatus. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
