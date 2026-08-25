@@ -11045,6 +11045,93 @@ ${buildCatMemoryContext(cat)}`;
                 // Mail is a whole-house system: only an actual resident currently
                 // outside may write. It is deliberately called only after a
                 // successful scheduled status sync, never after direct interaction.
+                const getMailOperationalDayKey = (mail) => {
+                    const sentAt = parseLogicalDate(mail?.sentAt);
+                    return sentAt ? getOperationalDayKey(sentAt) : String(mail?.operationalDayKey || '');
+                };
+                const getDeliveredMailCountForOperationalDay = (dayKey) => {
+                    const taggedCount = (user.mailbox || []).filter(mail => getMailOperationalDayKey(mail) === dayKey).length;
+                    // Untagged legacy mail has no trustworthy historical event time.
+                    // Preserve the old scalar only for its active operational day.
+                    return dayKey === getOperationalDayKey() && user.lastMailDate === dayKey
+                        ? Math.max(taggedCount, Number(user.dailyMailCount || 0))
+                        : taggedCount;
+                };
+                const getReservedEpisodeMailCountForOperationalDay = (dayKey, excludeMailId = '') =>
+                    normalizeAwayEpisodes(awayEpisodes.value).reduce((count, episode) => count + (episode.status === 'active'
+                        ? (episode.mailPlan || []).filter(mail => mail.state === 'planned' && mail.id !== excludeMailId && getOperationalDayKey(mail.sendAt) === dayKey).length
+                        : 0), 0);
+                const hasMailCapacityForLogicalTime = (logicalTime, excludeMailId = '') => {
+                    const eventAt = parseLogicalDate(logicalTime);
+                    if (!eventAt) return false;
+                    const dayKey = getOperationalDayKey(eventAt);
+                    return getDeliveredMailCountForOperationalDay(dayKey) + getReservedEpisodeMailCountForOperationalDay(dayKey, excludeMailId) < 4;
+                };
+                const hasMailSpacingAt = (logicalTime, excludeMailId = '') => {
+                    const eventAt = parseLogicalDate(logicalTime);
+                    if (!eventAt) return false;
+                    const timestamps = [
+                        ...(user.mailbox || []).map(mail => parseLogicalDate(mail.sentAt)?.getTime()).filter(Number.isFinite),
+                        Number(user.lastMailAt) || 0,
+                        ...normalizeAwayEpisodes(awayEpisodes.value).flatMap(episode => (episode.status === 'active' ? episode.mailPlan || [] : []))
+                            .filter(mail => mail.state === 'planned' && mail.id !== excludeMailId)
+                            .map(mail => parseLogicalDate(mail.sendAt)?.getTime()).filter(Number.isFinite)
+                    ].filter(Boolean);
+                    return timestamps.every(timestamp => Math.abs(eventAt.getTime() - timestamp) >= 20 * 60 * 1000);
+                };
+                const canReservePlannedAwayMail = (plan, departedAt) => !(plan?.mailPlan || []).length || (() => {
+                    const logicalTime = new Date((parseLogicalDate(departedAt) || new Date()).getTime() + Number(plan.mailPlan[0].sendAfterMinutes) * 60 * 1000);
+                    return hasMailCapacityForLogicalTime(logicalTime) && hasMailSpacingAt(logicalTime);
+                })();
+                const recordDeliveredMail = ({ senderCat, hall, content, attachment, sentAt, deliveredAt, plannedMailId = '' }) => {
+                    const logicalSentAt = parseLogicalDate(sentAt);
+                    const reconciledAt = parseLogicalDate(deliveredAt) || new Date();
+                    if (!senderCat || !logicalSentAt) return false;
+                    const dayKey = getOperationalDayKey(logicalSentAt);
+                    const senderName = senderCat.humanName || senderCat.name;
+                    const item = attachment ? { ...attachment, id: Date.now(), type: 'collectible' } : null;
+                    user.mailbox.push({
+                        from: senderName,
+                        catId: senderCat.id,
+                        hallId: hall?.id || getCatHallId(senderCat),
+                        date: logicalSentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        content: cleanText(content),
+                        item,
+                        read: false,
+                        claimed: false,
+                        sentAt: logicalSentAt.toISOString(),
+                        deliveredAt: reconciledAt.toISOString(),
+                        operationalDayKey: dayKey,
+                        plannedMailId: plannedMailId || undefined
+                    });
+                    const currentDay = getOperationalDayKey(reconciledAt);
+                    if (dayKey === currentDay) {
+                        if (user.lastMailDate !== currentDay) user.dailyMailCount = 0;
+                        user.dailyMailCount = (user.dailyMailCount || 0) + 1;
+                        user.lastMailDate = currentDay;
+                    }
+                    user.lastMailAt = Math.max(Number(user.lastMailAt) || 0, logicalSentAt.getTime());
+                    user.lastMailSenderId = senderCat.id;
+                    showNotification('新信件', `来自 ${senderName} 的来信，请查收。`, 'https://img.icons8.com/nolan/64/open-envelope.png');
+                    return true;
+                };
+                const deliverPlannedAwayMail = (episode, mail, sendAt, reconciledAt = new Date()) => {
+                    if (!episode || !mail || episode.status !== 'active' || mail.state !== 'planned') return false;
+                    const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
+                    const hall = halls.value.find(item => item.id === episode.hallId);
+                    if (!cat || !hasMailCapacityForLogicalTime(sendAt, mail.id) || !hasMailSpacingAt(sendAt, mail.id)) {
+                        mail.state = 'cancelled';
+                        addLog(`AWAY PLANNED MAIL CANCELLED: episode=${episode.id}; mail=${mail.id}; capacity or spacing unavailable.`, 'warn');
+                        return false;
+                    }
+                    const delivered = recordDeliveredMail({ senderCat: cat, hall, content: mail.content, attachment: mail.attachment, sentAt, deliveredAt: reconciledAt, plannedMailId: mail.id });
+                    if (delivered) {
+                        mail.state = 'delivered';
+                        mail.deliveredAt = (parseLogicalDate(reconciledAt) || new Date()).toISOString();
+                        addLog(`AWAY PLANNED MAIL DELIVERED: episode=${episode.id}; mail=${mail.id}; sentAt=${parseLogicalDate(sendAt)?.toISOString()}`, 'sent');
+                    }
+                    return delivered;
+                };
                 const generateMail = async () => {
                     const now = Date.now();
                     const todayKey = getOperationalDayKey(new Date(now));
@@ -11055,10 +11142,13 @@ ${buildCatMemoryContext(cat)}`;
                         user.lastMailSenderId = null;
                     }
 
-                    if ((user.dailyMailCount || 0) >= 4) return false;
-                    if (now - (Number(user.lastMailAt) || 0) < 20 * 60 * 1000) return false;
+                    const logicalNow = new Date(now);
+                    if (!hasMailCapacityForLogicalTime(logicalNow)) return false;
+                    if (!hasMailSpacingAt(logicalNow)) return false;
 
-                    const catsOut = cats.value.filter(cat => cat.isOut);
+                    // Scheduled episodes reserve their own optional mail slots.
+                    // Random mail remains only for legacy/unmanaged away residents.
+                    const catsOut = cats.value.filter(cat => cat.isOut && !getActiveAwayEpisode(cat, logicalNow));
                     if (catsOut.length === 0 || Math.random() > 0.25) return false;
 
                     // Do not let one cat monopolise the mailbox when other real
@@ -11086,14 +11176,14 @@ ${buildCatMemoryContext(cat)}`;
                         const data = parseAIJSON(res);
                         if (!data?.content) return false;
 
-                        const newItem = data.item ? { ...data.item, id: Date.now(), type: 'collectible' } : null;
-                        user.mailbox.push({ from: senderName, catId: senderCat.id, hallId: senderHall.id, date: getCurrentTimeStr(), content: cleanText(data.content), item: newItem, read: false, claimed: false });
-                        user.dailyMailCount = (user.dailyMailCount || 0) + 1;
-                        user.lastMailDate = todayKey;
-                        user.lastMailAt = now;
-                        user.lastMailSenderId = senderCat.id;
-                        showNotification("新信件", `来自 ${senderName} 的来信，请查收。`, "https://img.icons8.com/nolan/64/open-envelope.png");
-                        return true;
+                        return recordDeliveredMail({
+                            senderCat,
+                            hall: senderHall,
+                            content: data.content,
+                            attachment: data.item ? { name: cleanText(data.item.name), icon: cleanText(data.item.icon), desc: cleanText(data.item.desc) } : null,
+                            sentAt: logicalNow,
+                            deliveredAt: logicalNow
+                        });
                     } catch (e) {
                         addLog(`OUTGOING MAIL ERROR: ${getReadableAPIError(e)}`, 'error');
                         return false;
@@ -13760,6 +13850,7 @@ ${buildCatMemoryContext(cat)}`;
                         source: 'away',
                         at: eventAt.toISOString(),
                         date: formatLogicalDisplayDate(eventAt),
+                        dateKey: getOperationalDayKey(eventAt),
                         location: 'Meeow House',
                         content,
                         ...extra
@@ -13785,7 +13876,14 @@ ${buildCatMemoryContext(cat)}`;
                             state: 'planned',
                             materializedAt: null
                         } : null,
-                        mailPlan: [],
+                        mailPlan: (plan.mailPlan || []).map(mail => ({
+                            id: `away-mail-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+                            sendAt: new Date(departure.getTime() + Number(mail.sendAfterMinutes) * 60 * 1000).toISOString(),
+                            content: cleanText(mail.content),
+                            attachment: mail.attachment ? { ...mail.attachment } : null,
+                            state: 'planned',
+                            deliveredAt: null
+                        })),
                         status: 'active',
                         returnedAt: null,
                         settledAt: null,
@@ -13805,6 +13903,7 @@ ${buildCatMemoryContext(cat)}`;
                         episodeId: episode.id,
                         at: eventAt.toISOString(),
                         date: formatLogicalDisplayDate(eventAt),
+                        dateKey: getOperationalDayKey(eventAt),
                         location: '馆外',
                         content: cleanText(plan.publicTrace),
                         residentActivity: cleanText(plan.plannedResidentActivity)
@@ -13829,6 +13928,9 @@ ${buildCatMemoryContext(cat)}`;
                         extra: { episodeId: episode.id, settledAt: reconciledAt.toISOString() }
                     });
                     appendAwayTransitionTravelogue(cat, false, eventAt, { episodeId: episode.id });
+                    (episode.mailPlan || []).forEach(mail => {
+                        if (mail.state === 'planned') mail.state = 'cancelled';
+                    });
                     episode.status = 'completed';
                     episode.returnedAt = eventAt.toISOString();
                     episode.settledAt = reconciledAt.toISOString();
@@ -13845,6 +13947,12 @@ ${buildCatMemoryContext(cat)}`;
                         if (episode.activityPlan?.state === 'planned' && activityAt && activityAt <= now) {
                             dueEvents.push({ type: 'activity', at: activityAt, episode });
                         }
+                        (episode.mailPlan || []).forEach(mail => {
+                            const sendAt = parseLogicalDate(mail.sendAt);
+                            if (mail.state === 'planned' && sendAt && sendAt <= now) {
+                                dueEvents.push({ type: 'mail', at: sendAt, episode, mail });
+                            }
+                        });
                         const returnAt = parseLogicalDate(episode.plannedReturnAt);
                         if (returnAt && returnAt <= now) dueEvents.push({ type: 'return', at: returnAt, episode });
                     });
@@ -13852,6 +13960,7 @@ ${buildCatMemoryContext(cat)}`;
                     dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type]);
                     dueEvents.forEach(event => {
                         if (event.type === 'activity') materializeAwayEpisodeActivity(event.episode, event.at, now);
+                        else if (event.type === 'mail') deliverPlannedAwayMail(event.episode, event.mail, event.at, now);
                         else if (event.type === 'return') settleAwayEpisodeReturn(event.episode, event.at, now);
                     });
                     return dueEvents.length;
@@ -14250,7 +14359,17 @@ ${buildCatMemoryContext(cat)}`;
                                 state: activityPlan.state === 'materialized' ? 'materialized' : 'planned',
                                 materializedAt: parseLogicalDate(activityPlan.materializedAt)?.toISOString() || null
                             } : null,
-                            mailPlan: Array.isArray(episode.mailPlan) ? episode.mailPlan : [],
+                            mailPlan: (Array.isArray(episode.mailPlan) ? episode.mailPlan : [])
+                                .filter(mail => mail && typeof mail === 'object')
+                                .map(mail => ({
+                                    id: String(mail.id || `away-mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                                    sendAt: parseLogicalDate(mail.sendAt)?.toISOString() || '',
+                                    content: cleanText(mail.content || ''),
+                                    attachment: mail.attachment && typeof mail.attachment === 'object' ? { ...mail.attachment } : null,
+                                    state: mail.state === 'delivered' || mail.state === 'cancelled' ? mail.state : 'planned',
+                                    deliveredAt: parseLogicalDate(mail.deliveredAt)?.toISOString() || null
+                                }))
+                                .filter(mail => mail.sendAt && mail.content),
                             status: episode.status === 'completed' ? 'completed' : 'active',
                             returnedAt: parseLogicalDate(episode.returnedAt)?.toISOString() || null,
                             settledAt: parseLogicalDate(episode.settledAt)?.toISOString() || null,
@@ -15143,8 +15262,8 @@ ${getCompactMapPointPromptGuide()}`
 
                         [OUTPUT]
                         Return exactly this JSON shape. All text values must be Simplified Chinese:
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[{"residentId":"exact final departure id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}]}
-                        A departure plan is required only for a bystander you set from isOut:false to isOut:true. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example booleans and minutes are illustrative only.
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[{"residentId":"exact final departure id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","mailPlan":[]}]}
+                        A departure plan is required only for a bystander you set from isOut:false to isOut:true. mailPlan is optional and may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be scheduled after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example booleans and minutes are illustrative only.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -15669,7 +15788,23 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const plannedResidentActivity = cleanText(plan.plannedResidentActivity || '');
                     const publicTrace = cleanText(plan.publicTrace || '');
                     if (!Number.isInteger(activityAfter) || activityAfter < 10 || activityAfter > duration - 10 || !destination || !plannedResidentActivity || !publicTrace) return null;
-                    return { residentId: String(expectedId), mode, plannedDurationMinutes: duration, activityAfterMinutes: activityAfter, destination, plannedResidentActivity, publicTrace };
+                    const rawMailPlan = plan.mailPlan === undefined ? [] : plan.mailPlan;
+                    if (!Array.isArray(rawMailPlan) || rawMailPlan.length > 1) return null;
+                    const mailPlan = rawMailPlan.map(mail => {
+                        if (!mail || typeof mail !== 'object' || Array.isArray(mail)) return null;
+                        const sendAfterMinutes = Number(mail.sendAfterMinutes);
+                        const content = cleanText(mail.content || '');
+                        if (!Number.isInteger(sendAfterMinutes) || sendAfterMinutes <= activityAfter || sendAfterMinutes >= duration || !content) return null;
+                        const attachment = mail.attachment === null || mail.attachment === undefined ? null : mail.attachment;
+                        if (attachment !== null && (typeof attachment !== 'object' || Array.isArray(attachment) || !cleanText(attachment.name || '') || !cleanText(attachment.icon || '') || !cleanText(attachment.desc || ''))) return null;
+                        return {
+                            sendAfterMinutes,
+                            content,
+                            attachment: attachment ? { name: cleanText(attachment.name), icon: cleanText(attachment.icon), desc: cleanText(attachment.desc) } : null
+                        };
+                    });
+                    if (mailPlan.some(mail => !mail)) return null;
+                    return { residentId: String(expectedId), mode, plannedDurationMinutes: duration, activityAfterMinutes: activityAfter, destination, plannedResidentActivity, publicTrace, mailPlan };
                 };
                 const indexAwayPlans = (awayPlans) => (Array.isArray(awayPlans) ? awayPlans : []).reduce((index, plan) => {
                     const id = String(plan?.residentId || '');
@@ -15846,7 +15981,7 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[],"scene":null}\nThe isOut:false value is illustrative only; decide each resident independently. awayPlans contains one plan only for each supplied resident who either newly changes false→true (mode:"departure") or is a legacy unmanaged true→true resident (mode:"legacy-continuation"). A departure plan must be {"residentId":"exact id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}; duration must be 30–720 minutes and activityAfterMinutes must be at least 10 minutes after departure and at least 10 minutes before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, or mail. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[],"scene":null}\nThe isOut:false value is illustrative only; decide each resident independently. awayPlans contains one plan only for each supplied resident who either newly changes false→true (mode:"departure") or is a legacy unmanaged true→true resident (mode:"legacy-continuation"). A departure plan must be {"residentId":"exact id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","mailPlan":[]}; duration must be 30–720 minutes and activityAfterMinutes must be at least 10 minutes after departure and at least 10 minutes before return. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; a planned mail must occur after the activity and before return. Mail is optional: do not force it and never expose private destination/activity details in it. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, or mail. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -16032,7 +16167,13 @@ ${statusOutputContract}`;
                                     const plan = candidates.length === 1 ? validateAwayEpisodePlan(candidates[0], catId, 'departure') : null;
                                     if (!plan) return;
                                     cat.hasHackedThisPatrol = false;
-                                    const episode = createAwayEpisode(cat, plan, now);
+                                    const episodePlan = canReservePlannedAwayMail(plan, now)
+                                        ? plan
+                                        : { ...plan, mailPlan: [] };
+                                    if ((plan.mailPlan || []).length && !(episodePlan.mailPlan || []).length) {
+                                        addLog(`AWAY PLANNED MAIL OMITTED: resident=${catId}; capacity or spacing reserved by existing mail.`, 'warn');
+                                    }
+                                    const episode = createAwayEpisode(cat, episodePlan, now);
                                     appendMonitorEvent(cat, '离开馆舍，开始处理自己的行程。', 'status-sync', { episodeId: episode.id }, now);
                                     appendAwayTransitionTravelogue(cat, true, now, { episodeId: episode.id });
                                     return;
