@@ -14237,7 +14237,14 @@ ${buildCatMemoryContext(cat)}`;
                         chat: cat.chatHistory || [],
                         monitoring: cat.monitor || [],
                         focus: archiveFocusReports.filter(report => String(report.executor || '').includes(cat.name)).slice(-5),
-                        travelogues: (cat.travelogues || []).slice(-3)
+                        travelogues: (cat.travelogues || []).slice(-3).map(record => ({
+                            date: record?.date,
+                            at: record?.at,
+                            location: record?.location,
+                            content: record?.content,
+                            source: record?.source,
+                            kind: record?.kind
+                        }))
                     }));
                     const doneTasks = (snapshot.todos || []).filter(todo => todo.done).map(todo => todo.text);
                     const pendingTasks = (snapshot.todos || []).filter(todo => !todo.done).map(todo => todo.text);
@@ -15170,6 +15177,127 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
                 };
 
+                const hasAwayActivityForOperationalDay = (cat, operationalDayKey) => (cat?.travelogues || []).some(record =>
+                    record && record.source === 'away' && record.kind === 'activity' && record.at &&
+                    getOperationalDayKey(record.at) === operationalDayKey
+                );
+
+                const validateAwayActivityResponse = (content, candidateIds) => {
+                    const entries = parseAIJSON(content);
+                    if (!Array.isArray(entries)) return 'Away activity validation failed: response is not a valid JSON array.';
+
+                    const expectedIds = candidateIds.map(id => String(id));
+                    const expectedIdSet = new Set(expectedIds);
+                    const seenIds = new Set();
+                    const receivedIds = [];
+                    const missingIds = [];
+                    const unexpectedIds = [];
+                    const duplicateIds = [];
+                    const entryErrors = [];
+
+                    entries.forEach((entry, index) => {
+                        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+                            entryErrors.push(`entry ${index} is not an object`);
+                            return;
+                        }
+                        const id = String(entry.id ?? '').trim();
+                        if (!id) {
+                            entryErrors.push(`entry ${index} has a missing id`);
+                        } else {
+                            receivedIds.push(id);
+                            if (seenIds.has(id)) duplicateIds.push(id);
+                            else seenIds.add(id);
+                            if (!expectedIdSet.has(id)) unexpectedIds.push(id);
+                        }
+                        ['activity', 'trace'].forEach(field => {
+                            if (typeof entry[field] !== 'string' || !entry[field].trim()) entryErrors.push(`entry ${index} has invalid ${field}`);
+                        });
+                    });
+
+                    expectedIds.forEach(id => {
+                        if (!seenIds.has(id)) missingIds.push(id);
+                    });
+                    const isExactCoverage =
+                        entries.length === expectedIds.length &&
+                        missingIds.length === 0 &&
+                        unexpectedIds.length === 0 &&
+                        duplicateIds.length === 0 &&
+                        entryErrors.length === 0;
+                    if (isExactCoverage) return true;
+                    return `Away activity validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${entries.length}.`;
+                };
+
+                const generateAwayActivities = async ({ requestHallId, requestHall, operationalDayKey, candidateIds }) => {
+                    if (getOperationalDayKey() !== operationalDayKey) return false;
+                    const getEligibleCats = () => candidateIds.map(id => cats.value.find(cat => String(cat.id) === String(id)))
+                        .filter(cat => cat &&
+                            (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId &&
+                            cat.isOut &&
+                            !isPermanentOutBuiltin(cat) &&
+                            !hasAwayActivityForOperationalDay(cat, operationalDayKey));
+                    const candidates = getEligibleCats();
+                    if (!candidates.length) return false;
+
+                    const expectedIds = candidates.map(cat => String(cat.id));
+                    const dedupeIds = [...expectedIds].sort().join('|');
+                    const prompt = `[MEEOW HOUSE · AWAY ACTIVITY CONTINUITY]
+Hall: ${requestHall.name}. Operational day: ${operationalDayKey}.
+Generate one grounded, canon-faithful off-site continuity event for every supplied resident. These residents remain away from Meeow House after a completed status sync.
+
+[RULES]
+- The resident is living independently outside the USER's immediate view. Never invent USER participation, a visit, exploration, a shared adventure, or direct communication.
+- Do not default to wandering, patrol, combat, superhero work, or a dramatic mission. Choose a specific activity that fits this resident's priorities, relationships, responsibilities, and current continuity.
+- activity is what actually happened to the resident. It may retain private context needed for later resident continuity or diary work, but it is not displayed now.
+- trace is the limited observable fragment available to the USER. It must not expose hidden identity, codename, private mission details, or omniscient information.
+- Both fields must be concise Simplified Chinese prose, not dialogue or a report heading.
+
+${candidates.map(cat => `--- RESIDENT ---\n${buildStatusSyncCatContext(cat, { now: new Date() })}`).join('\n')}
+
+[OUTPUT]
+Return JSON array only. Return exactly ${expectedIds.length} objects, one per supplied ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, or replace them.
+[{"id":"exact supplied character id","activity":"resident-private factual away experience","trace":"limited user-visible observable trace"}]`;
+
+                    try {
+                        const response = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1200, ThinkingLevel.LOW, {
+                            label: `AWAY ACTIVITY · ${requestHall.name}`,
+                            priority: 'background',
+                            maxAttempts: 1,
+                            dedupeKey: `away-activity-${requestHallId}-${operationalDayKey}-${encodeURIComponent(dedupeIds)}`,
+                            validateResponse: content => validateAwayActivityResponse(content, expectedIds)
+                        });
+                        if (getOperationalDayKey() !== operationalDayKey) return false;
+                        const entries = parseAIJSON(response);
+                        let written = 0;
+                        entries.forEach(entry => {
+                            const cat = cats.value.find(item => String(item.id) === String(entry.id));
+                            if (!cat ||
+                                (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) !== requestHallId ||
+                                !cat.isOut ||
+                                isPermanentOutBuiltin(cat) ||
+                                hasAwayActivityForOperationalDay(cat, operationalDayKey)) return;
+                            const activity = cleanText(entry.activity);
+                            const trace = cleanText(entry.trace);
+                            if (!activity || !trace) return;
+                            cat.travelogues.push({
+                                source: 'away',
+                                kind: 'activity',
+                                at: new Date().toISOString(),
+                                date: new Date().toLocaleString(),
+                                location: '馆外',
+                                content: trace,
+                                residentActivity: activity
+                            });
+                            written++;
+                        });
+                        if (written) addLog(`AWAY ACTIVITY WRITTEN: hall=${requestHallId}; cats=[${expectedIds.join(', ')}]; operationalDay=${operationalDayKey}`, 'sent');
+                        return written > 0;
+                    } catch (error) {
+                        const outcome = error?.code === 'AI_REQUEST_PREEMPTED' ? 'PREEMPTED' : 'FAILED';
+                        addLog(`AWAY ACTIVITY ${outcome}: hall=${requestHallId}; cats=[${expectedIds.join(', ')}]; ${getReadableAPIError(error)}`, 'warn');
+                        return false;
+                    }
+                };
+
                 const _refreshAllStatus = async (forceUpdate = false, additionalContext = "", activeCatIds = [], focusCatLastAction = "", isFocusEnd = false, isExploreEnd = false, requestOptions = {}) => {
                     const requestHallId = requestOptions.requestHallId || activeHallId.value;
                     const requestHall = requestOptions.requestHall || {
@@ -15441,6 +15569,20 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                             localStorage.setItem('last_sync_time', Date.now().toString());
                             if (activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
+                            }
+                            const awayActivityCandidateIds = catsToUpdate
+                                .filter(cat => originalPresenceById.get(String(cat.id)) === true &&
+                                    cat.isOut &&
+                                    !isPermanentOutBuiltin(cat) &&
+                                    !hasAwayActivityForOperationalDay(cat, operationalDayKey))
+                                .map(cat => String(cat.id));
+                            if (awayActivityCandidateIds.length) {
+                                void generateAwayActivities({
+                                    requestHallId,
+                                    requestHall,
+                                    operationalDayKey,
+                                    candidateIds: awayActivityCandidateIds
+                                });
                             }
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
                             return true;
