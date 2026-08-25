@@ -14156,10 +14156,21 @@ ${buildCatMemoryContext(cat)}`;
                         lastMailSenderId: user.lastMailSenderId || null
                     }
                 });
-                const hasDailyDiaryTrigger = (snapshotCat) => {
+                const getPrivateAwayExperiences = (snapshotCat, archiveDateKey) => (snapshotCat?.travelogues || [])
+                    .filter(record => {
+                        if (!record || record.source !== 'away' || record.kind !== 'activity' || !cleanText(record.residentActivity || '') || !record.at) return false;
+                        const timestamp = new Date(record.at);
+                        return !Number.isNaN(timestamp.getTime()) && getOperationalDayKey(record.at) === archiveDateKey;
+                    })
+                    .map(record => ({
+                        at: record.at,
+                        residentActivity: cleanText(record.residentActivity)
+                    }));
+                const hasDailyDiaryTrigger = (snapshotCat, archiveDateKey) => {
                     const triggerTypes = new Set(['chat-user', 'chat-reply', 'phone-message-user', 'phone-message-cat', 'item', 'special', 'human-reveal', 'focus-start', 'focus-end', 'explore-start', 'explore-end', 'visit-start', 'visit-end']);
                     return (snapshotCat.todayInteractions || []).some(event => triggerTypes.has(event.type)) ||
-                        (snapshotCat.chatHistory || []).length > 0; // compatibility for a save made before typed events
+                        (snapshotCat.chatHistory || []).length > 0 || // compatibility for a save made before typed events
+                        getPrivateAwayExperiences(snapshotCat, archiveDateKey).length > 0;
                 };
                 const clearDailyCatRecords = (dateKey = getOperationalDayKey(), archivedBefore = null) => {
                     const cutoff = archivedBefore ? new Date(archivedBefore).getTime() : Number.POSITIVE_INFINITY;
@@ -14204,7 +14215,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (start < 0 || end <= start) return null;
                     try { return JSON.parse(text.slice(start, end + 1)); } catch (_) { return null; }
                 };
-                const getDailyArchiveTargets = (snapshot) => (snapshot.cats || []).filter(hasDailyDiaryTrigger);
+                const getDailyArchiveTargets = (snapshot) => (snapshot.cats || []).filter(cat => hasDailyDiaryTrigger(cat, snapshot.dateKey));
                 const validateDailyArchivePackage = (payload, snapshot) => {
                     if (!payload || typeof payload !== 'object') return '归档包不是有效 JSON 对象。';
                     if (!cleanText(payload.summary || '')) return '归档包缺少奈恩昨日总结。';
@@ -14237,7 +14248,15 @@ ${buildCatMemoryContext(cat)}`;
                         chat: cat.chatHistory || [],
                         monitoring: cat.monitor || [],
                         focus: archiveFocusReports.filter(report => String(report.executor || '').includes(cat.name)).slice(-5),
-                        travelogues: (cat.travelogues || []).slice(-3)
+                        privateAwayExperiences: getPrivateAwayExperiences(cat, snapshot.dateKey),
+                        travelogues: (cat.travelogues || []).slice(-3).map(record => ({
+                            date: record?.date,
+                            at: record?.at,
+                            location: record?.location,
+                            content: record?.content,
+                            source: record?.source,
+                            kind: record?.kind
+                        }))
                     }));
                     const doneTasks = (snapshot.todos || []).filter(todo => todo.done).map(todo => todo.text);
                     const pendingTasks = (snapshot.todos || []).filter(todo => !todo.done).map(todo => todo.text);
@@ -14255,6 +14274,13 @@ DDL：${deadlines.join('、') || '无'}
 
 需要写日记的猫（只可依据提供的真实记录；这些角色虽然为猫形态，但人格、原作关系、道德边界和语气必须严格符合原作，绝对不 OOC，不把任何馆舍默认写成 DC）：
 ${JSON.stringify(diaryContext)}
+
+[PRIVATE RESIDENT AWAY CONTEXT]
+- Each cat's privateAwayExperiences belongs only to that exact catId and may be used ONLY when writing that same cat's diary row.
+- Never use it in Nain's house summary, house news, the social moment, another cat's diary, or another resident's knowledge or reaction.
+- Do not imply that the USER or another resident knew these private events unless separate supplied records explicitly establish that knowledge.
+- A diary may reveal or reflect its owner's private experience with natural discretion and character voice, but must remain grounded in the supplied residentActivity and must not invent a different off-site event.
+- Diary prose is a resident-perspective narrative surface, not CAT-form spoken dialogue. Preserve canon identity, worldview, relationships, priorities, and private knowledge without automatically exposing hidden identity.
 
 [TEMPORAL INTEGRITY]
 - Only summarize events explicitly present in the provided archive-day records.
@@ -14538,7 +14564,7 @@ ${JSON.stringify(diaryContext)}
                     const yesterdayStr = snapshot.date;
                     const latestBriefing = getLatestHouseBriefing();
                     for (const snapshotCat of snapshot.cats) {
-                        if (!hasDailyDiaryTrigger(snapshotCat)) continue;
+                        if (!hasDailyDiaryTrigger(snapshotCat, snapshot.dateKey)) continue;
                         const cat = cats.value.find(item => item.id === snapshotCat.id);
                         if (!cat) continue;
                         const focusReports = snapshot.missionReports
@@ -14614,6 +14640,32 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     await sendMessageInternal(arg1, arg2, false);
                 };
 
+                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = []) => {
+                    const payload = parseAIJSON(content);
+                    if (!payload || Array.isArray(payload) || typeof payload !== 'object') {
+                        return 'Homepage Chat 回包不是有效 JSON 对象。';
+                    }
+                    const active = payload.activeCat;
+                    if (!active || Array.isArray(active) || typeof active !== 'object') {
+                        return 'Homepage Chat 回包缺少 activeCat。';
+                    }
+                    if (String(active.id ?? '') !== String(activeCatId)) {
+                        return 'Homepage Chat activeCat ID 与当前角色不匹配。';
+                    }
+                    for (const field of ['reply', 'status', 'innerVoice', 'userStatus']) {
+                        if (typeof active[field] !== 'string' || !active[field].trim()) {
+                            return `Homepage Chat activeCat 缺少有效 ${field}。`;
+                        }
+                    }
+                    if (!['CAT', 'HUMAN'].includes(String(active.formDecision || '').trim().toUpperCase())) {
+                        return 'Homepage Chat activeCat 缺少有效 formDecision。';
+                    }
+                    if (hasMechanicalAppearanceRepetition(active.reply, currentMessage, recentUserMessages)) {
+                        return MECHANICAL_APPEARANCE_REPLY_ERROR;
+                    }
+                    return true;
+                };
+
                 const sendMessageInternal = async (arg1 = null, arg2 = false, isReRoll = false) => {
                     let overrideContent = null;
                     let isItemUse = false;
@@ -14672,7 +14724,38 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             else if (hours >= 1) timePerceptionStr = `[TIME PERCEPTION]: You haven't talked to the user for ${hours} hours.`;
                         }
                         const context = getUserRealLifeContext();
-                        const hallContext = `[CURRENT HALL] ${currentHall.value.name} · 管家：${currentHall.value.guardian}。只能感知同馆成员：${roomCats.value.map(cat => cat.name).join(', ') || '暂无其他成员'}。`;
+                        const requestHallId = sendingCat.hallId || (sendingCat.isMarvel ? 'marvel' : 'gotham');
+                        const requestHall = {
+                            ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
+                        };
+                        const frozenNow = new Date();
+                        const frozenOperationalDayKey = getOperationalDayKey(frozenNow);
+                        const frozenHallResidents = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
+                        const frozenBystanders = frozenHallResidents.filter(cat => String(cat.id) !== String(sendingCat.id));
+                        const frozenBystanderIds = frozenBystanders.map(cat => String(cat.id));
+                        const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。`;
+                        const hallUpdateContext = frozenBystanders.length
+                            ? `[BYSTANDER HALL UPDATE]
+Time: ${frozenNow.toLocaleString()}; Operational day: ${frozenOperationalDayKey}; Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
+The USER is interacting directly only with ${sendingCat.name}. Do not include ${sendingCat.name} in hallUpdates and do not write a second status, inner voice, form, map, or presence decision for that resident.
+Update exactly these frozen bystanders with independent current state. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
+
+[BYSTANDER CONTEXT]
+${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(cat, { now: frozenNow })}`).join('\n')}
+
+[BYSTANDER RULES]
+- Return exactly one update for every supplied bystander ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, replace, duplicate, omit, or add IDs.
+- Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
+- Form: affinity <50 means isHuman false; otherwise decide from context. Keep physical time logic and at least two supplied residents home after the full hall layer is applied.
+- [PRESENCE DECISION] isOut:false is never a default or safe fallback. The previous isOut value is evidence of a resident's previous location, never an instruction to copy the same boolean. Decide current presence independently from canon, status, supplied Δt/continuity, time of day, duties, habits, relationships, ordinary obligations, and whether the prior activity plausibly continues. Work, errands, appointments, relationships, solitude, training, travel, and private matters are valid reasons to be away; the USER being in this hall is not a reason to keep someone home. Away is not Explore or Visit and never requires USER participation. Do not invent combat, patrols, emergencies, quests, missions, or dramatic plots merely to justify departure.
+- [HOME CONTINUITY] Home is a current location, not a permanent stay-home commitment. For very short Δt, usually preserve home unless context supports departure. With meaningful or long Δt, reconsider a natural false→true transition; ordinary independent-life obligations are sufficient. Home should have plausible duration, not permanent duration. Residents are not waiting indefinitely for the USER.
+- [AWAY CONTINUITY] Away is not indefinite by default. A recent or plausibly ongoing off-site activity may remain away over short Δt; with meaningful or long Δt, reconsider return when ordinary work, an appointment, training, travel, responsibility, or private activity plausibly ended, the time supports returning, or continuity no longer supports absence. Away should have plausible duration, not infinite duration.
+- [PRESENCE CONTINUITY] Do not mechanically preserve either isOut:true or isOut:false. Avoid rapid arbitrary home/away flapping over closely spaced syncs, but permit a transition when elapsed time and supplied continuity plausibly changed the resident's life. Prefer plausible continuity over arbitrary novelty; long Δt requires substantial reassessment rather than copying the previous boolean.
+- [HALL CALIBRATION] At least two residents home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
+- The isOut:false value in the output schema example is illustrative only. Independently decide true or false for every supplied bystander.
+- Every at-home resident needs one listed mapPoint matching the status. Never use stove/hearth/hot surfaces; sink-basin is safe-water scenes only.
+${getCompactMapPointPromptGuide()}`
+                            : `[BYSTANDER HALL UPDATE]\nThere are no frozen bystanders. Return hallUpdates as an empty array.`;
 
                         const prompt = `
                         [TIME & TRENDS]:
@@ -14707,57 +14790,53 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         - ${hallContext}
                         - User Input: "${msg}" ${isItemUse ? '(User used an item on you)' : ''}
 
-                        NOW RESPOND. Follow the mandatory 5-tag format from system instructions EXACTLY.
-                        KEY REMINDERS FOR THIS TURN:
-                        - [FORM_DECISION]: Affinity ${sendingCat.affinity}/100. If < 50 → output CAT. If >= 50 → decide based on context.
-                        - [STATUS]: 3rd person, ~10 chars, action only.
-                        - [VOICE]: 1st person inner monologue. NO meows. Use 我, not your name. Wrap mental state in【】.
-                        - [REPLY] For this homepage interaction, aim for 80-140 Chinese characters when natural. The value must come from specific, continuous, in-character action that directly follows the user's turn, current status, nearby objects/space, and recent interaction; do not cut a natural action short just to fit a number.
-                        - CAT FORM: Any direct sound may only be a feline sound such as "喵。", "呜。", or "嘶。" — never human speech. A feline sound is optional, and when used must use ordinary double quotes, never 「」. HUMAN FORM: speak naturally.
+                        NOW RESPOND with one JSON object only. No markdown, tags, code fences, or commentary.
+                        [ACTIVE CAT RULES]
+                        - formDecision: Affinity ${sendingCat.affinity}/100. If < 50 use CAT; otherwise decide from context.
+                        - status: third-person current action, about 10 Chinese characters. innerVoice: first-person inner monologue using 我, never meows, wrapped in 【】. userStatus: a short summary of what the USER is doing within 15 Chinese characters; ordinary chat may use "正在和${sendingCat.name}聊天".
+                        - reply: 80-140 Chinese characters when natural. It must directly continue the user's turn through specific, continuous, in-character action, current status, nearby objects/space, and recent interaction.
+                        - CAT form: any direct sound may only be feline sounds such as "喵。", "呜。", or "嘶。"; never human speech. Use ordinary double quotes for an optional feline sound, never 「」. HUMAN form may speak naturally.
                         - Fixed appearance is reference information, not ordinary narration material. In ordinary interaction, do not introduce breed, coat colour, eye colour, heterochromia, hair colour, or other identity-card facts. Looking, blinking, eye contact, turning the head, narrowing the eyes, shifting the gaze, or light falling on the face do NOT make eye colour relevant. Mention appearance only when the USER explicitly asks, directly interacts with that feature, or it is causally necessary to understand the event. Never narrate both heterochromia colours in ordinary dialogue.
                         - Never fall into a generic sequence such as "looked for a while → ears moved → tail moved → meowed → stepped closer". Show this character's own judgment, habits, distance, and action logic instead.
                         - Rhythm example only; never copy its actions or wording as a template: 【从手边的东西上抬起眼睛，停了一瞬，又把它往怀里拢紧一点。尾尖轻轻碰了一下地面，像是在判断你这句话值不值得回应。】"喵。"【下巴重新落回前爪，视线却没有移开。】
-                        - [USER_STATUS]: What user is doing; if just chatting use "正在和${sendingCat.name}聊天"
-                        **MANDATORY LANGUAGE:** 简体中文 only in all sections.
+
+                        ${hallUpdateContext}
+
+                        [OUTPUT]
+                        Return exactly this JSON shape. All text values must be Simplified Chinese:
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]}
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
                             .filter(entry => entry.role === 'user')
                             .slice(-2, -1)
                             .map(entry => entry.content);
-                        const responseRaw = await callAI(prompt, STRICT_CANON_PROMPT, 1100, ThinkingLevel.LOW, {
-                            label: `HOMEPAGE CHAT · ${sendingCat.name}`,
+                        const responseRaw = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 4300, ThinkingLevel.LOW, {
+                            label: `HOMEPAGE CHAT + HALL UPDATE · ${sendingCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
-                            validateResponse: (content) => {
-                                const reply = extractSection(content, 'REPLY');
-                                const userStatus = extractSection(content, 'USER_STATUS');
-                                if (!reply || !reply.trim()) return 'Homepage Chat 回复缺少完整 [REPLY] 段。';
-                                if (!userStatus || !userStatus.trim()) return 'Homepage Chat 回复在 [USER_STATUS] 前截断。';
-                                if (hasMechanicalAppearanceRepetition(reply, msg, recentUserAppearanceContext)) return MECHANICAL_APPEARANCE_REPLY_ERROR;
-                                return true;
-                            }
+                            validateResponse: content => validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext)
                         });
 
-                        const reply = extractSection(responseRaw, 'REPLY');
-                        if (hasMechanicalAppearanceRepetition(reply, msg, recentUserAppearanceContext)) {
-                            throw new Error(MECHANICAL_APPEARANCE_REPLY_ERROR);
-                        }
+                        const payload = parseAIJSON(responseRaw);
+                        const activeValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext);
+                        if (activeValidation !== true) throw new Error(activeValidation);
+                        const activeResponse = payload.activeCat;
+                        const reply = cleanText(activeResponse.reply);
 
-                        const formDecision = extractSection(responseRaw, 'FORM_DECISION');
-                        if (formDecision && formDecision.includes('HUMAN')) {
+                        const formDecision = String(activeResponse.formDecision).trim().toUpperCase();
+                        if (formDecision === 'HUMAN') {
                             if (!sendingCat.isHuman) appendMonitorEvent(sendingCat, '在与馆长互动时暂时显露了拟人形态。', 'detail-chat');
                             sendingCat.isHuman = true;
-                        } else if (formDecision && formDecision.includes('CAT')) {
+                        } else if (formDecision === 'CAT') {
                             if (sendingCat.isHuman) appendMonitorEvent(sendingCat, '在与馆长互动后恢复了猫咪形态。', 'detail-chat');
                             sendingCat.isHuman = false;
                         }
 
-                        const status = extractSection(responseRaw, 'STATUS');
-                        const voice = extractSection(responseRaw, 'VOICE');
-                        const userStatus = extractSection(responseRaw, 'USER_STATUS');
-                        if (status) setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
-                        else if (voice) sendingCat.innerVoice = voice;
+                        const status = cleanText(activeResponse.status);
+                        const voice = cleanText(activeResponse.innerVoice);
+                        const userStatus = cleanText(activeResponse.userStatus);
+                        setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
                         if (userStatus) {
                             user.currentStatus = userStatus.substring(0, 15);
                             tempUserStatus.value = user.currentStatus;
@@ -14767,20 +14846,20 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         appendInteractionEvent(sendingCat, 'chat-reply', `[${sendingCat.isHuman ? 'HUMAN' : 'CAT'}][REPLY]: ${reply}`, { source: 'detail-chat' });
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
-                        // The reply is already safely written. Let the larger
-                        // hall-status sync follow in the background so the chat
-                        // input becomes usable immediately instead of feeling like
-                        // every message waits for a second full AI request.
-                        void refreshAllStatus(true, `User is interacting with ${sendingCat.name}. User Status: ${user.currentStatus}`, [sendingCat.id], status, false, false, {
-                            label: `CHAT FOLLOW-UP STATUS · ${currentHall.value.name}`,
-                            priority: 'background',
-                            maxAttempts: 2,
-                            trackBackgroundPending: true
-                        });
+                        if (frozenBystanderIds.length) {
+                            void applyMergedHomepageHallUpdates({
+                                requestHallId,
+                                requestHall,
+                                frozenBystanders,
+                                frozenNow,
+                                operationalDayKey: frozenOperationalDayKey,
+                                updates: payload.hallUpdates
+                            });
+                        }
 
                         sendingCat.lastInteractionTimestamp = Date.now();
                     } catch (e) {
-                        const isIncompleteHomepageReply = /^Homepage Chat 回复(?:缺少完整 \[REPLY\] 段。|在 \[USER_STATUS\] 前截断。)$/.test(String(e?.message || ''))
+                        const isIncompleteHomepageReply = String(e?.message || '').startsWith('Homepage Chat ')
                             || String(e?.message || '') === MECHANICAL_APPEARANCE_REPLY_ERROR;
                         if (!isIncompleteHomepageReply) {
                             sendingCat.chatHistory.push({ role: 'assistant', content: "(信号中断，详情请查看任务日志)", time: getCurrentTimeStr(), at: new Date().toISOString() });
@@ -15115,12 +15194,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     }
                 };
 
-                const validateStatusSyncResponse = (content, requestedIds) => {
-                    const updates = parseAIJSON(content);
-                    if (!Array.isArray(updates)) {
-                        return 'Status Sync contract validation failed: response is not a valid JSON array.';
-                    }
-
+                const validateStatusSyncUpdates = (updates, requestedIds) => {
+                    if (!Array.isArray(updates)) return 'Status Sync contract validation failed: response is not a valid JSON array.';
                     const expectedIds = requestedIds.map(id => String(id));
                     const expectedIdSet = new Set(expectedIds);
                     const receivedIds = [];
@@ -15168,6 +15243,128 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (isExactCoverage) return true;
                     return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
                 };
+                const validateStatusSyncResponse = (content, requestedIds) => validateStatusSyncUpdates(parseAIJSON(content), requestedIds);
+
+                const hasAwayActivityForOperationalDay = (cat, operationalDayKey) => (cat?.travelogues || []).some(record =>
+                    record && record.source === 'away' && record.kind === 'activity' && record.at &&
+                    getOperationalDayKey(record.at) === operationalDayKey
+                );
+
+                const validateAwayActivityResponse = (content, candidateIds) => {
+                    const entries = parseAIJSON(content);
+                    if (!Array.isArray(entries)) return 'Away activity validation failed: response is not a valid JSON array.';
+
+                    const expectedIds = candidateIds.map(id => String(id));
+                    const expectedIdSet = new Set(expectedIds);
+                    const seenIds = new Set();
+                    const receivedIds = [];
+                    const missingIds = [];
+                    const unexpectedIds = [];
+                    const duplicateIds = [];
+                    const entryErrors = [];
+
+                    entries.forEach((entry, index) => {
+                        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+                            entryErrors.push(`entry ${index} is not an object`);
+                            return;
+                        }
+                        const id = String(entry.id ?? '').trim();
+                        if (!id) {
+                            entryErrors.push(`entry ${index} has a missing id`);
+                        } else {
+                            receivedIds.push(id);
+                            if (seenIds.has(id)) duplicateIds.push(id);
+                            else seenIds.add(id);
+                            if (!expectedIdSet.has(id)) unexpectedIds.push(id);
+                        }
+                        ['activity', 'trace'].forEach(field => {
+                            if (typeof entry[field] !== 'string' || !entry[field].trim()) entryErrors.push(`entry ${index} has invalid ${field}`);
+                        });
+                    });
+
+                    expectedIds.forEach(id => {
+                        if (!seenIds.has(id)) missingIds.push(id);
+                    });
+                    const isExactCoverage =
+                        entries.length === expectedIds.length &&
+                        missingIds.length === 0 &&
+                        unexpectedIds.length === 0 &&
+                        duplicateIds.length === 0 &&
+                        entryErrors.length === 0;
+                    if (isExactCoverage) return true;
+                    return `Away activity validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${entries.length}.`;
+                };
+
+                const generateAwayActivities = async ({ requestHallId, requestHall, operationalDayKey, candidateIds }) => {
+                    if (getOperationalDayKey() !== operationalDayKey) return false;
+                    const getEligibleCats = () => candidateIds.map(id => cats.value.find(cat => String(cat.id) === String(id)))
+                        .filter(cat => cat &&
+                            (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId &&
+                            cat.isOut &&
+                            !isPermanentOutBuiltin(cat) &&
+                            !hasAwayActivityForOperationalDay(cat, operationalDayKey));
+                    const candidates = getEligibleCats();
+                    if (!candidates.length) return false;
+
+                    const expectedIds = candidates.map(cat => String(cat.id));
+                    const dedupeIds = [...expectedIds].sort().join('|');
+                    const prompt = `[MEEOW HOUSE · AWAY ACTIVITY CONTINUITY]
+Hall: ${requestHall.name}. Operational day: ${operationalDayKey}.
+Generate one grounded, canon-faithful off-site continuity event for every supplied resident. These residents remain away from Meeow House after a completed status sync.
+
+[RULES]
+- The resident is living independently outside the USER's immediate view. Never invent USER participation, a visit, exploration, a shared adventure, or direct communication.
+- Do not default to wandering, patrol, combat, superhero work, or a dramatic mission. Choose a specific activity that fits this resident's priorities, relationships, responsibilities, and current continuity.
+- activity is what actually happened to the resident. It may retain private context needed for later resident continuity or diary work, but it is not displayed now.
+- trace is the limited observable fragment available to the USER. It must not expose hidden identity, codename, private mission details, or omniscient information.
+- Both fields must be concise Simplified Chinese prose, not dialogue or a report heading.
+
+${candidates.map(cat => `--- RESIDENT ---\n${buildStatusSyncCatContext(cat, { now: new Date() })}`).join('\n')}
+
+[OUTPUT]
+Return JSON array only. Return exactly ${expectedIds.length} objects, one per supplied ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, or replace them.
+[{"id":"exact supplied character id","activity":"resident-private factual away experience","trace":"limited user-visible observable trace"}]`;
+
+                    try {
+                        const response = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1200, ThinkingLevel.LOW, {
+                            label: `AWAY ACTIVITY · ${requestHall.name}`,
+                            priority: 'background',
+                            maxAttempts: 1,
+                            dedupeKey: `away-activity-${requestHallId}-${operationalDayKey}-${encodeURIComponent(dedupeIds)}`,
+                            validateResponse: content => validateAwayActivityResponse(content, expectedIds)
+                        });
+                        if (getOperationalDayKey() !== operationalDayKey) return false;
+                        const entries = parseAIJSON(response);
+                        let written = 0;
+                        entries.forEach(entry => {
+                            const cat = cats.value.find(item => String(item.id) === String(entry.id));
+                            if (!cat ||
+                                (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) !== requestHallId ||
+                                !cat.isOut ||
+                                isPermanentOutBuiltin(cat) ||
+                                hasAwayActivityForOperationalDay(cat, operationalDayKey)) return;
+                            const activity = cleanText(entry.activity);
+                            const trace = cleanText(entry.trace);
+                            if (!activity || !trace) return;
+                            cat.travelogues.push({
+                                source: 'away',
+                                kind: 'activity',
+                                at: new Date().toISOString(),
+                                date: new Date().toLocaleString(),
+                                location: '馆外',
+                                content: trace,
+                                residentActivity: activity
+                            });
+                            written++;
+                        });
+                        if (written) addLog(`AWAY ACTIVITY WRITTEN: hall=${requestHallId}; cats=[${expectedIds.join(', ')}]; operationalDay=${operationalDayKey}`, 'sent');
+                        return written > 0;
+                    } catch (error) {
+                        const outcome = error?.code === 'AI_REQUEST_PREEMPTED' ? 'PREEMPTED' : 'FAILED';
+                        addLog(`AWAY ACTIVITY ${outcome}: hall=${requestHallId}; cats=[${expectedIds.join(', ')}]; ${getReadableAPIError(error)}`, 'warn');
+                        return false;
+                    }
+                };
 
                 const _refreshAllStatus = async (forceUpdate = false, additionalContext = "", activeCatIds = [], focusCatLastAction = "", isFocusEnd = false, isExploreEnd = false, requestOptions = {}) => {
                     const requestHallId = requestOptions.requestHallId || activeHallId.value;
@@ -15198,7 +15395,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         if (statusCompletion) statusCompletion.lastError = '自动状态同步当前未开启。';
                         return false;
                     }
-                    const catsToUpdate = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
+                    const catsToUpdate = Array.isArray(requestOptions.frozenCatsToUpdate)
+                        ? requestOptions.frozenCatsToUpdate
+                        : cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
                     if (catsToUpdate.length === 0) {
                         if (statusCompletion) statusCompletion.lastError = '当前馆舍没有可同步的小猫。';
                         return false;
@@ -15208,11 +15407,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     addLog(`STATUS SYNC: ${forceUpdate ? 'Manual' : 'Auto'} update initiated...`, "info");
                     if (!isBackgroundStatusSync) showToast(`正在扫描${requestHall.name}信号...`, "loading");
 
-                    const now = new Date();
+                    const now = requestOptions.frozenNow ? new Date(requestOptions.frozenNow) : new Date();
                     const timeStr = getCurrentTimeStr();
                     const h = now.getHours();
                     const isNight = (h >= 22 || h < 6);
-                    const operationalDayKey = getOperationalDayKey(now);
+                    const operationalDayKey = requestOptions.operationalDayKey || getOperationalDayKey(now);
                     let pendingStatusDayRefresh = false;
                     try {
                         pendingStatusDayRefresh = localStorage.getItem(STATUS_DAY_REFRESH_PENDING_KEY) === operationalDayKey;
@@ -15304,6 +15503,11 @@ ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
 - Form: affinity <50 => isHuman false; affinity >=50 decides by context; explore-return cats must be false.
 - Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic. At least two cats remain home.
+- [PRESENCE DECISION] isOut:false is never a default or safe fallback. The previous isOut value is evidence of a cat's previous location, never an instruction to copy the same boolean. Decide current presence independently from canon, status, [Δt RULE], time of day, duties, habits, relationships, ordinary obligations, and whether the prior activity plausibly continues. Work, errands, appointments, relationships, solitude, training, travel, and private matters are valid reasons to be away; the USER being in this hall is not a reason to keep someone home. Away is not Explore or Visit and never requires USER participation. Do not invent combat, patrols, emergencies, quests, missions, or dramatic plots merely to justify departure.
+- [HOME CONTINUITY] Home is a current location, not a permanent stay-home commitment. For very short Δt, usually preserve home unless context supports departure. With meaningful or long Δt, reconsider a natural false→true transition; ordinary independent-life obligations are sufficient. Home should have plausible duration, not permanent duration. Residents are not waiting indefinitely for the USER.
+- [AWAY CONTINUITY] Away is not indefinite by default. A recent or plausibly ongoing off-site activity may remain away over short Δt; with meaningful or long Δt, reconsider return when ordinary work, an appointment, training, travel, responsibility, or private activity plausibly ended, the time supports returning, or continuity no longer supports absence. Away should have plausible duration, not infinite duration.
+- [PRESENCE CONTINUITY] Do not mechanically preserve either isOut:true or isOut:false. Avoid rapid arbitrary home/away flapping over closely spaced syncs, but permit a transition when elapsed time and supplied continuity plausibly changed the resident's life. Prefer plausible continuity over arbitrary novelty; long Δt requires substantial reassessment rather than copying the previous boolean.
+- [HALL CALIBRATION] At least two cats home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
 
 [MAP]
 For every at-home cat use exactly one listed mapPoint. Status must naturally match its furniture/position; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
@@ -15311,6 +15515,7 @@ ${getCompactMapPointPromptGuide()}
 
 [OUTPUT]
 Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} objects, one for every supplied ID. Never stop after a partial list. Return JSON array only, one object per character:
+[The isOut:false value in the schema example is illustrative only. Independently decide true or false for every supplied cat.]
 [{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
@@ -15320,18 +15525,35 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                         addLog(`STATUS SYNC SCOPE: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
                         addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; prompt=${statusPromptChars} chars; prompt+system=${statusInputChars} chars${statusInputChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
 
-                        const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
-                            ...requestOptions,
-                            label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
-                            dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
-                            validateResponse: content => validateStatusSyncResponse(content, requestedIds)
-                        });
-                        const updates = parseAIJSON(res);
+                        let updates;
+                        if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
+                            const validation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
+                            if (validation !== true) {
+                                if (statusCompletion) {
+                                    statusCompletion.partial = true;
+                                    statusCompletion.lastError = validation;
+                                }
+                                addLog(`STATUS SYNC PREVALIDATED FAILED: ${validation}`, 'warn');
+                                return false;
+                            }
+                            updates = requestOptions.prevalidatedStatusUpdates;
+                        } else {
+                            const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
+                                ...requestOptions,
+                                label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
+                                dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
+                                validateResponse: content => validateStatusSyncResponse(content, requestedIds)
+                            });
+                            updates = parseAIJSON(res);
+                        }
 
                         if (Array.isArray(updates)) {
                             const responseEntries = updates.filter(update => update && typeof update === 'object');
                             const receivedIds = responseEntries.map(update => String(update.id ?? '')).filter(Boolean);
                             const requestedIdSet = new Set(requestedIds);
+                            const originalPresenceById = new Map(catsToUpdate
+                                .filter(cat => requestedIdSet.has(String(cat.id)))
+                                .map(cat => [String(cat.id), Boolean(cat.isOut)]));
                             const matchedIds = new Set();
                             let statusChanged = 0;
                             let innerVoiceChanged = 0;
@@ -15351,18 +15573,7 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                                     if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                     if (update.isOut !== undefined) {
-                                        const wasOut = cat.isOut;
                                         const nextIsOut = isPermanentOutBuiltin(cat) ? true : update.isOut;
-                                        if (!cat.isOut && nextIsOut) cat.hasHackedThisPatrol = false;
-                                        if (wasOut !== nextIsOut) {
-                                            appendMonitorEvent(cat, nextIsOut ? '离开馆舍，开始处理自己的行程。' : '结束外出，回到馆舍。', 'status-sync');
-                                            cat.travelogues.push({
-                                                source: 'away',
-                                                date: new Date().toLocaleString(),
-                                                location: 'Meeow House',
-                                                content: `${cat.name} ${nextIsOut ? '离开了' : '回到了'} Meeow House。`
-                                            });
-                                        }
                                         cat.isOut = nextIsOut;
                                     }
 
@@ -15408,6 +15619,22 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                                 }
                             }
 
+                            catsToUpdate.forEach(cat => {
+                                const catId = String(cat.id);
+                                if (!originalPresenceById.has(catId)) return;
+                                const wasOut = originalPresenceById.get(catId);
+                                const isOut = Boolean(cat.isOut);
+                                if (wasOut === isOut) return;
+                                if (!wasOut && isOut) cat.hasHackedThisPatrol = false;
+                                appendMonitorEvent(cat, isOut ? '离开馆舍，开始处理自己的行程。' : '结束外出，回到馆舍。', 'status-sync');
+                                cat.travelogues.push({
+                                    source: 'away',
+                                    date: new Date().toLocaleString(),
+                                    location: 'Meeow House',
+                                    content: `${cat.name} ${isOut ? '离开了' : '回到了'} Meeow House。`
+                                });
+                            });
+
                             const isComplete =
                                 matchedIds.size === requestedIds.length &&
                                 requestedIds.every(id => matchedIds.has(String(id)));
@@ -15433,6 +15660,20 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                             if (activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
+                            const awayActivityCandidateIds = catsToUpdate
+                                .filter(cat => originalPresenceById.get(String(cat.id)) === true &&
+                                    cat.isOut &&
+                                    !isPermanentOutBuiltin(cat) &&
+                                    !hasAwayActivityForOperationalDay(cat, operationalDayKey))
+                                .map(cat => String(cat.id));
+                            if (awayActivityCandidateIds.length) {
+                                void generateAwayActivities({
+                                    requestHallId,
+                                    requestHall,
+                                    operationalDayKey,
+                                    candidateIds: awayActivityCandidateIds
+                                });
+                            }
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
                             return true;
                         } else {
@@ -15454,10 +15695,60 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     finally { isUpdatingStatus.value = false; }
                 };
 
+                const settleHallStatusRefresh = ({ requestHallId, didRefresh, trackBackgroundPending, statusCompletion, backgroundFailureToast }) => {
+                    if (didRefresh) {
+                        if (hallStatusRefreshPending.delete(requestHallId)) {
+                            addLog(`STATUS SYNC BACKGROUND RECOVERED: hall=${requestHallId}`, 'sent');
+                        }
+                        return;
+                    }
+                    if (!trackBackgroundPending && !statusCompletion?.partial) return;
+                    const wasPending = hallStatusRefreshPending.has(requestHallId);
+                    hallStatusRefreshPending.set(requestHallId, true);
+                    if (!wasPending) addLog(`STATUS SYNC BACKGROUND PENDING: hall=${requestHallId}`, 'warn');
+                    if (backgroundFailureToast && activeHallId.value === requestHallId) {
+                        showToast(backgroundFailureToast, 'warning');
+                    }
+                };
+
+                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates }) => {
+                    if (!frozenBystanders.length) return true;
+                    const statusCompletion = {
+                        requestHallId,
+                        requestToken: `merged-homepage-status-${++statusRefreshTaskSequence}`,
+                        partial: false,
+                        expected: 0,
+                        matched: 0,
+                        unmatched: [],
+                        lastError: '',
+                        preempted: false,
+                        complete: false
+                    };
+                    const backgroundFailureToast = '这次互动已完成，但其他小猫的状态没有全部同步；下次刷新馆舍时会重试。';
+                    const didRefresh = await _refreshAllStatus(true, '', [], '', false, false, {
+                        requestHallId,
+                        requestHall,
+                        frozenCatsToUpdate: frozenBystanders,
+                        frozenNow,
+                        operationalDayKey,
+                        prevalidatedStatusUpdates: updates,
+                        priority: 'background',
+                        statusCompletion
+                    });
+                    settleHallStatusRefresh({
+                        requestHallId,
+                        didRefresh,
+                        trackBackgroundPending: true,
+                        statusCompletion,
+                        backgroundFailureToast
+                    });
+                    return didRefresh;
+                };
+
                 const refreshAllStatus = (...args) => {
                     const requestOptions = (args[6] && typeof args[6] === 'object') ? args[6] : {};
-                    const requestHallId = activeHallId.value;
-                    const requestHall = {
+                    const requestHallId = requestOptions.requestHallId || activeHallId.value;
+                    const requestHall = requestOptions.requestHall || {
                         ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                     };
                     const requestPriority = requestOptions.priority || 'normal';
@@ -15500,19 +15791,13 @@ Copy each supplied CHARACTER ID exactly. Return exactly ${requestedIds.length} o
                     const settle = (didRefresh) => {
                         if (statusRefreshInFlight.get(requestHallId) !== entry) return;
                         statusRefreshInFlight.delete(requestHallId);
-                        if (didRefresh) {
-                            if (hallStatusRefreshPending.delete(requestHallId)) {
-                                addLog(`STATUS SYNC BACKGROUND RECOVERED: hall=${requestHallId}`, 'sent');
-                            }
-                            return;
-                        }
-                        if (!trackBackgroundPending && !statusCompletion.partial) return;
-                        const wasPending = hallStatusRefreshPending.has(requestHallId);
-                        hallStatusRefreshPending.set(requestHallId, true);
-                        if (!wasPending) addLog(`STATUS SYNC BACKGROUND PENDING: hall=${requestHallId}`, 'warn');
-                        if (requestOptions.backgroundFailureToast && activeHallId.value === requestHallId) {
-                            showToast(requestOptions.backgroundFailureToast, 'warning');
-                        }
+                        settleHallStatusRefresh({
+                            requestHallId,
+                            didRefresh,
+                            trackBackgroundPending,
+                            statusCompletion,
+                            backgroundFailureToast: requestOptions.backgroundFailureToast
+                        });
                     };
 
                     task.then(
