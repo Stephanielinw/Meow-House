@@ -8564,6 +8564,9 @@
                 // Hall scenes are world events, not USER-owned records. They
                 // persist only so the current operational day can be reviewed.
                 const hallSceneRecords = ref([]);
+                // Away episodes are world-owned schedules. They keep a resident's
+                // planned absence independent from transient Status Sync output.
+                const awayEpisodes = ref([]);
                 let rosterMigrationPendingSave = false;
 
                 const migrateObsoleteIthacaCats = () => {
@@ -8669,6 +8672,7 @@
                             }
                         }
                         if (Array.isArray(parsed.hallSceneRecords)) hallSceneRecords.value = parsed.hallSceneRecords;
+                        if (Array.isArray(parsed.awayEpisodes)) awayEpisodes.value = parsed.awayEpisodes;
                         if (parsed.settings) {
                             // Keep a saved custom model. Older versions replaced
                             // any model containing "gpt" during migration, which
@@ -10018,7 +10022,7 @@ ${buildCatMemoryContext(cat)}`;
                 const isWishLoading = ref(false);
 
                 window.Meeow.storage.configure({
-                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings, hallSceneRecords: hallSceneRecords.value }),
+                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings, hallSceneRecords: hallSceneRecords.value, awayEpisodes: awayEpisodes.value }),
                     storageKey: STORAGE_KEY,
                     modelStorageKey: MODEL_STORAGE_KEY,
                     addLog: (...args) => addLog(...args),
@@ -10030,7 +10034,7 @@ ${buildCatMemoryContext(cat)}`;
                 const scheduleSave = window.Meeow.storage.scheduleSave;
                 // Coalesce legacy reactive changes into one write instead of
                 // serializing the whole archive for every intermediate field change.
-                watch([user, cats, halls, shopItems, settings, hallSceneRecords], scheduleSave, { deep: true, flush: 'post' });
+                watch([user, cats, halls, shopItems, settings, hallSceneRecords, awayEpisodes], scheduleSave, { deep: true, flush: 'post' });
                 if (rosterMigrationPendingSave) {
                     rosterMigrationPendingSave = false;
                     scheduleSave();
@@ -11368,6 +11372,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 
                 const enterHall = (hall) => {
                     if (!hall) return;
+                    reconcileAwayEpisodes(new Date());
                     if (activeHallId.value !== hall.id) clearHallSceneFocus();
                     const elapsedSinceLastEntry = Date.now() - getHallLastEnteredAt(hall);
                     if (getHallLastEnteredAt(hall) && elapsedSinceLastEntry < HALL_ENTRY_REFRESH_COOLDOWN_MS) {
@@ -13691,13 +13696,14 @@ ${buildCatMemoryContext(cat)}`;
                 // ===== DAILY RECORDS & CHARACTER MEMORY =====
                 // Legacy field names stay intact for old saves:
                 // diary = same-day monitoring timeline; logs = permanent cat diary.
-                const makeTimedRecord = (type, content, extra = {}) => {
-                    const now = new Date();
+                const makeTimedRecord = (type, content, extra = {}, logicalEventTime = new Date()) => {
+                    const reconciledNow = new Date();
+                    const now = parseLogicalDate(logicalEventTime) || reconciledNow;
                     return {
-                        id: `record-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+                        id: `record-${reconciledNow.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
                         at: now.toISOString(),
                         dateKey: getOperationalDayKey(now),
-                        time: getCurrentTimeStr(),
+                        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                         type,
                         content: cleanText(String(content || '')),
                         ...extra
@@ -13710,14 +13716,14 @@ ${buildCatMemoryContext(cat)}`;
                     cat.todayInteractions.push(event);
                     return event;
                 };
-                const appendMonitorEvent = (cat, content, source = 'status', extra = {}) => {
+                const appendMonitorEvent = (cat, content, source = 'status', extra = {}, logicalEventTime = new Date()) => {
                     if (!cat || !content) return null;
                     if (!Array.isArray(cat.diary)) cat.diary = [];
                     const clean = cleanText(String(content));
                     const last = cat.diary[cat.diary.length - 1];
                     // Avoid duplicate entries when a status setter and the same refresh resolve together.
                     if (last && cleanText(last.content) === clean && last.source === source) return last;
-                    const event = makeTimedRecord('monitor', clean, { source, ...extra });
+                    const event = makeTimedRecord('monitor', clean, { source, ...extra }, logicalEventTime);
                     cat.diary.push(event);
                     return event;
                 };
@@ -13742,8 +13748,113 @@ ${buildCatMemoryContext(cat)}`;
                         cat.mapSpot = options.mapSpot;
                     }
                     cat.lastStatusUpdateTime = Date.now();
-                    if (changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {});
+                    if (changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {}, options.eventAt || new Date());
                     return changed;
+                };
+                const appendAwayTransitionTravelogue = (cat, isOut, logicalEventTime = new Date(), extra = {}) => {
+                    if (!cat) return null;
+                    if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
+                    const eventAt = parseLogicalDate(logicalEventTime) || new Date();
+                    const content = `${cat.name} ${isOut ? '离开了' : '回到了'} Meeow House。`;
+                    const record = {
+                        source: 'away',
+                        at: eventAt.toISOString(),
+                        date: formatLogicalDisplayDate(eventAt),
+                        location: 'Meeow House',
+                        content,
+                        ...extra
+                    };
+                    cat.travelogues.push(record);
+                    return record;
+                };
+                const createAwayEpisode = (cat, plan, departedAt = new Date()) => {
+                    const departure = parseLogicalDate(departedAt) || new Date();
+                    const durationMs = Number(plan.plannedDurationMinutes) * 60 * 1000;
+                    const activityMs = Number(plan.activityAfterMinutes) * 60 * 1000;
+                    const episode = {
+                        id: `away-episode-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+                        residentId: String(cat.id),
+                        hallId: getCatHallId(cat),
+                        departedAt: departure.toISOString(),
+                        plannedReturnAt: new Date(departure.getTime() + durationMs).toISOString(),
+                        destination: cleanText(plan.destination || ''),
+                        activityPlan: plan.mode === 'departure' ? {
+                            activityAt: new Date(departure.getTime() + activityMs).toISOString(),
+                            plannedResidentActivity: cleanText(plan.plannedResidentActivity || ''),
+                            publicTrace: cleanText(plan.publicTrace || ''),
+                            state: 'planned',
+                            materializedAt: null
+                        } : null,
+                        mailPlan: [],
+                        status: 'active',
+                        returnedAt: null,
+                        settledAt: null,
+                        legacy: plan.mode === 'legacy-continuation'
+                    };
+                    awayEpisodes.value.push(episode);
+                    return episode;
+                };
+                const materializeAwayEpisodeActivity = (episode, eventAt, reconciledAt = new Date()) => {
+                    const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
+                    const plan = episode?.activityPlan;
+                    if (!cat || !plan || plan.state === 'materialized') return false;
+                    if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
+                    cat.travelogues.push({
+                        source: 'away',
+                        kind: 'activity',
+                        episodeId: episode.id,
+                        at: eventAt.toISOString(),
+                        date: formatLogicalDisplayDate(eventAt),
+                        location: '馆外',
+                        content: cleanText(plan.publicTrace),
+                        residentActivity: cleanText(plan.plannedResidentActivity)
+                    });
+                    plan.state = 'materialized';
+                    plan.materializedAt = reconciledAt.toISOString();
+                    addLog(`AWAY EPISODE ACTIVITY MATERIALIZED: episode=${episode.id}; resident=${episode.residentId}`, 'sent');
+                    return true;
+                };
+                const settleAwayEpisodeReturn = (episode, eventAt, reconciledAt = new Date()) => {
+                    const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
+                    if (!cat || episode.status !== 'active') return false;
+                    cat.isOut = false;
+                    const room = getMapRoomForCat(cat);
+                    const spot = getMapSpotForCat(cat, room);
+                    setCatStatus(cat, '结束外出，回到馆舍。', {
+                        source: 'away-episode-return',
+                        forceLog: true,
+                        mapRoom: room,
+                        mapSpot: spot,
+                        eventAt,
+                        extra: { episodeId: episode.id, settledAt: reconciledAt.toISOString() }
+                    });
+                    appendAwayTransitionTravelogue(cat, false, eventAt, { episodeId: episode.id });
+                    episode.status = 'completed';
+                    episode.returnedAt = eventAt.toISOString();
+                    episode.settledAt = reconciledAt.toISOString();
+                    addLog(`AWAY EPISODE RETURN SETTLED: episode=${episode.id}; resident=${episode.residentId}; returnedAt=${episode.returnedAt}`, 'sent');
+                    return true;
+                };
+                const reconcileAwayEpisodes = (reconciliationTime = new Date()) => {
+                    const now = parseLogicalDate(reconciliationTime) || new Date();
+                    awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
+                    const dueEvents = [];
+                    awayEpisodes.value.forEach(episode => {
+                        if (episode.status !== 'active') return;
+                        const activityAt = parseLogicalDate(episode.activityPlan?.activityAt);
+                        if (episode.activityPlan?.state === 'planned' && activityAt && activityAt <= now) {
+                            dueEvents.push({ type: 'activity', at: activityAt, episode });
+                        }
+                        const returnAt = parseLogicalDate(episode.plannedReturnAt);
+                        if (returnAt && returnAt <= now) dueEvents.push({ type: 'return', at: returnAt, episode });
+                    });
+                    const rank = { activity: 0, mail: 1, return: 2 };
+                    dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type]);
+                    dueEvents.forEach(event => {
+                        if (event.type === 'activity') materializeAwayEpisodeActivity(event.episode, event.at, now);
+                        else if (event.type === 'return') settleAwayEpisodeReturn(event.episode, event.at, now);
+                    });
+                    return dueEvents.length;
                 };
                 window.Meeow.memory.configure({
                     getUser: () => user,
@@ -14105,6 +14216,56 @@ ${buildCatMemoryContext(cat)}`;
                     hallId: '', dateKey: '', sceneId: '', participantIds: [], updatedAt: 0
                 });
                 const getCatHallId = (cat) => cat?.hallId || (cat?.isMarvel ? 'marvel' : 'gotham');
+                const parseLogicalDate = (value) => {
+                    const date = value instanceof Date ? new Date(value) : new Date(value);
+                    return Number.isNaN(date.getTime()) ? null : date;
+                };
+                const formatLogicalDisplayDate = (value) => {
+                    const date = parseLogicalDate(value);
+                    return date ? date.toLocaleString() : new Date().toLocaleString();
+                };
+                const normalizeAwayEpisodes = (episodes) => (Array.isArray(episodes) ? episodes : [])
+                    .filter(episode => episode && typeof episode === 'object')
+                    .map(episode => {
+                        const departedAt = parseLogicalDate(episode.departedAt)?.toISOString() || '';
+                        const plannedReturnAt = parseLogicalDate(episode.plannedReturnAt)?.toISOString() || '';
+                        const activityPlan = episode.activityPlan && typeof episode.activityPlan === 'object'
+                            ? episode.activityPlan
+                            : null;
+                        const activityAt = parseLogicalDate(activityPlan?.activityAt)?.toISOString() || '';
+                        const hasValidActivity = activityAt &&
+                            typeof activityPlan?.plannedResidentActivity === 'string' && activityPlan.plannedResidentActivity.trim() &&
+                            typeof activityPlan?.publicTrace === 'string' && activityPlan.publicTrace.trim();
+                        return {
+                            id: String(episode.id || `away-episode-${departedAt || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                            residentId: String(episode.residentId || ''),
+                            hallId: String(episode.hallId || ''),
+                            departedAt,
+                            plannedReturnAt,
+                            destination: typeof episode.destination === 'string' ? cleanText(episode.destination) : '',
+                            activityPlan: hasValidActivity ? {
+                                activityAt,
+                                plannedResidentActivity: cleanText(activityPlan.plannedResidentActivity),
+                                publicTrace: cleanText(activityPlan.publicTrace),
+                                state: activityPlan.state === 'materialized' ? 'materialized' : 'planned',
+                                materializedAt: parseLogicalDate(activityPlan.materializedAt)?.toISOString() || null
+                            } : null,
+                            mailPlan: Array.isArray(episode.mailPlan) ? episode.mailPlan : [],
+                            status: episode.status === 'completed' ? 'completed' : 'active',
+                            returnedAt: parseLogicalDate(episode.returnedAt)?.toISOString() || null,
+                            settledAt: parseLogicalDate(episode.settledAt)?.toISOString() || null,
+                            legacy: episode.legacy === true
+                        };
+                    })
+                    .filter(episode => episode.residentId && episode.hallId && episode.departedAt && episode.plannedReturnAt);
+                const getActiveAwayEpisode = (catOrId, now = new Date()) => {
+                    const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
+                    const timestamp = parseLogicalDate(now)?.getTime() || Date.now();
+                    return normalizeAwayEpisodes(awayEpisodes.value).find(episode =>
+                        episode.residentId === id && episode.status === 'active' &&
+                        (parseLogicalDate(episode.plannedReturnAt)?.getTime() || 0) > timestamp
+                    ) || null;
+                };
                 const normalizeHallSceneRecords = (records) => (Array.isArray(records) ? records : [])
                     .filter(record => record && typeof record === 'object')
                     .map(record => {
@@ -14217,6 +14378,7 @@ ${buildCatMemoryContext(cat)}`;
                     .map(id => cats.value.find(cat => String(cat.id) === String(id))?.name || String(id)).join(' / ');
                 const getHallSceneReactionName = (id) => cats.value.find(cat => String(cat.id) === String(id))?.name || String(id);
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
+                awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
                 const buildOwnerDailyContext = (profileName = 'standard') => {
                     const compact = profileName === 'compact' || profileName === 'reader';
                     const itemLimit = compact ? 4 : 7;
@@ -14568,6 +14730,7 @@ ${JSON.stringify(diaryContext)}
                 };
 
                 const checkDailyInitialization = (options = {}) => {
+                    reconcileAwayEpisodes(new Date());
                     if (dailyInitializationPromise) {
                         addLog('INITIALIZATION JOINED: Reusing the active startup sync.', 'info');
                         return dailyInitializationPromise;
@@ -14828,6 +14991,9 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     if (!['CAT', 'HUMAN'].includes(String(active.formDecision || '').trim().toUpperCase())) {
                         return 'Homepage Chat activeCat 缺少有效 formDecision。';
                     }
+                    if (!Array.isArray(payload.awayPlans)) {
+                        return 'Homepage Chat 回包缺少 awayPlans 数组。';
+                    }
                     if (hasMechanicalAppearanceRepetition(active.reply, currentMessage, recentUserMessages)) {
                         return MECHANICAL_APPEARANCE_REPLY_ERROR;
                     }
@@ -14897,11 +15063,15 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                         };
                         const frozenNow = new Date();
+                        reconcileAwayEpisodes(frozenNow);
                         const frozenOperationalDayKey = getOperationalDayKey(frozenNow);
                         const frozenHallResidents = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
-                        const frozenBystanders = frozenHallResidents.filter(cat => String(cat.id) !== String(sendingCat.id));
+                        const frozenBystanders = frozenHallResidents.filter(cat =>
+                            String(cat.id) !== String(sendingCat.id) && !getActiveAwayEpisode(cat, frozenNow)
+                        );
                         const frozenBystanderIds = frozenBystanders.map(cat => String(cat.id));
-                        const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。`;
+                        const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => cat.name);
+                        const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}`;
                         const hallUpdateContext = frozenBystanders.length
                             ? `[BYSTANDER HALL UPDATE]
 Time: ${frozenNow.toLocaleString()}; Operational day: ${frozenOperationalDayKey}; Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
@@ -14909,7 +15079,7 @@ The USER is interacting directly only with ${sendingCat.name}. Do not include ${
 Update exactly these frozen bystanders with independent current state. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
 
 [BYSTANDER CONTEXT]
-${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(cat, { now: frozenNow })}`).join('\n')}
+${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(cat, { now: frozenNow })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}`).join('\n')}
 
 [BYSTANDER RULES]
 - Return exactly one update for every supplied bystander ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, replace, duplicate, omit, or add IDs.
@@ -14920,6 +15090,7 @@ ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(ca
 - [AWAY CONTINUITY] Away is not indefinite by default. A recent or plausibly ongoing off-site activity may remain away over short Δt; with meaningful or long Δt, reconsider return when ordinary work, an appointment, training, travel, responsibility, or private activity plausibly ended, the time supports returning, or continuity no longer supports absence. Away should have plausible duration, not infinite duration.
 - [PRESENCE CONTINUITY] Do not mechanically preserve either isOut:true or isOut:false. Avoid rapid arbitrary home/away flapping over closely spaced syncs, but permit a transition when elapsed time and supplied continuity plausibly changed the resident's life. Prefer plausible continuity over arbitrary novelty; long Δt requires substantial reassessment rather than copying the previous boolean.
 - [HALL CALIBRATION] At least two residents home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
+- Residents listed as currently away in the hall context are context only. Do not return updates or Away plans for them; never invent their location, destination, activity, return time, or mail.
 - The isOut:false value in the output schema example is illustrative only. Independently decide true or false for every supplied bystander.
 - Every at-home resident needs one listed mapPoint matching the status. Never use stove/hearth/hot surfaces; sink-basin is safe-water scenes only.
 ${getCompactMapPointPromptGuide()}`
@@ -14972,7 +15143,8 @@ ${getCompactMapPointPromptGuide()}`
 
                         [OUTPUT]
                         Return exactly this JSON shape. All text values must be Simplified Chinese:
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]}
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[{"residentId":"exact final departure id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}]}
+                        A departure plan is required only for a bystander you set from isOut:false to isOut:true. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example booleans and minutes are illustrative only.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -15021,7 +15193,8 @@ ${getCompactMapPointPromptGuide()}`
                                 frozenBystanders,
                                 frozenNow,
                                 operationalDayKey: frozenOperationalDayKey,
-                                updates: payload.hallUpdates
+                                updates: payload.hallUpdates,
+                                awayPlans: payload.awayPlans
                             });
                         }
 
@@ -15411,12 +15584,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (isExactCoverage) return true;
                     return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
                 };
-                const validateStatusSyncResponse = (content, requestedIds) => validateStatusSyncUpdates(parseAIJSON(content), requestedIds);
-                const validateStatusSyncSceneEnvelope = (content, requestedIds) => {
+                const validateStatusSyncEnvelope = (content, requestedIds) => {
                     const payload = parseAIJSON(content);
                     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-                        return 'Hall Scene Status Sync response is not a valid JSON object.';
+                        return 'Status Sync response is not a valid JSON object.';
                     }
+                    if (!Array.isArray(payload.awayPlans)) return 'Status Sync response is missing awayPlans array.';
                     return validateStatusSyncUpdates(payload.updates, requestedIds);
                 };
                 const validateOptionalHallScene = ({ scene, sceneMode, sceneContext, updates, requestHallId }) => {
@@ -15480,126 +15653,31 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     };
                 };
 
-                const hasAwayActivityForOperationalDay = (cat, operationalDayKey) => (cat?.travelogues || []).some(record =>
-                    record && record.source === 'away' && record.kind === 'activity' && record.at &&
-                    getOperationalDayKey(record.at) === operationalDayKey
-                );
-
-                const validateAwayActivityResponse = (content, candidateIds) => {
-                    const entries = parseAIJSON(content);
-                    if (!Array.isArray(entries)) return 'Away activity validation failed: response is not a valid JSON array.';
-
-                    const expectedIds = candidateIds.map(id => String(id));
-                    const expectedIdSet = new Set(expectedIds);
-                    const seenIds = new Set();
-                    const receivedIds = [];
-                    const missingIds = [];
-                    const unexpectedIds = [];
-                    const duplicateIds = [];
-                    const entryErrors = [];
-
-                    entries.forEach((entry, index) => {
-                        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
-                            entryErrors.push(`entry ${index} is not an object`);
-                            return;
-                        }
-                        const id = String(entry.id ?? '').trim();
-                        if (!id) {
-                            entryErrors.push(`entry ${index} has a missing id`);
-                        } else {
-                            receivedIds.push(id);
-                            if (seenIds.has(id)) duplicateIds.push(id);
-                            else seenIds.add(id);
-                            if (!expectedIdSet.has(id)) unexpectedIds.push(id);
-                        }
-                        ['activity', 'trace'].forEach(field => {
-                            if (typeof entry[field] !== 'string' || !entry[field].trim()) entryErrors.push(`entry ${index} has invalid ${field}`);
-                        });
-                    });
-
-                    expectedIds.forEach(id => {
-                        if (!seenIds.has(id)) missingIds.push(id);
-                    });
-                    const isExactCoverage =
-                        entries.length === expectedIds.length &&
-                        missingIds.length === 0 &&
-                        unexpectedIds.length === 0 &&
-                        duplicateIds.length === 0 &&
-                        entryErrors.length === 0;
-                    if (isExactCoverage) return true;
-                    return `Away activity validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${entries.length}.`;
-                };
-
-                const generateAwayActivities = async ({ requestHallId, requestHall, operationalDayKey, candidateIds }) => {
-                    if (getOperationalDayKey() !== operationalDayKey) return false;
-                    const getEligibleCats = () => candidateIds.map(id => cats.value.find(cat => String(cat.id) === String(id)))
-                        .filter(cat => cat &&
-                            (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId &&
-                            cat.isOut &&
-                            !isPermanentOutBuiltin(cat) &&
-                            !hasAwayActivityForOperationalDay(cat, operationalDayKey));
-                    const candidates = getEligibleCats();
-                    if (!candidates.length) return false;
-
-                    const expectedIds = candidates.map(cat => String(cat.id));
-                    const dedupeIds = [...expectedIds].sort().join('|');
-                    const prompt = `[MEEOW HOUSE · AWAY ACTIVITY CONTINUITY]
-Hall: ${requestHall.name}. Operational day: ${operationalDayKey}.
-Generate one grounded, canon-faithful off-site continuity event for every supplied resident. These residents remain away from Meeow House after a completed status sync.
-
-[RULES]
-- The resident is living independently outside the USER's immediate view. Never invent USER participation, a visit, exploration, a shared adventure, or direct communication.
-- Do not default to wandering, patrol, combat, superhero work, or a dramatic mission. Choose a specific activity that fits this resident's priorities, relationships, responsibilities, and current continuity.
-- activity is what actually happened to the resident. It may retain private context needed for later resident continuity or diary work, but it is not displayed now.
-- trace is the limited observable fragment available to the USER. It must not expose hidden identity, codename, private mission details, or omniscient information.
-- Both fields must be concise Simplified Chinese prose, not dialogue or a report heading.
-
-${candidates.map(cat => `--- RESIDENT ---\n${buildStatusSyncCatContext(cat, { now: new Date() })}`).join('\n')}
-
-[OUTPUT]
-Return JSON array only. Return exactly ${expectedIds.length} objects, one per supplied ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, or replace them.
-[{"id":"exact supplied character id","activity":"resident-private factual away experience","trace":"limited user-visible observable trace"}]`;
-
-                    try {
-                        const response = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1200, ThinkingLevel.LOW, {
-                            label: `AWAY ACTIVITY · ${requestHall.name}`,
-                            priority: 'background',
-                            maxAttempts: 1,
-                            dedupeKey: `away-activity-${requestHallId}-${operationalDayKey}-${encodeURIComponent(dedupeIds)}`,
-                            validateResponse: content => validateAwayActivityResponse(content, expectedIds)
-                        });
-                        if (getOperationalDayKey() !== operationalDayKey) return false;
-                        const entries = parseAIJSON(response);
-                        let written = 0;
-                        entries.forEach(entry => {
-                            const cat = cats.value.find(item => String(item.id) === String(entry.id));
-                            if (!cat ||
-                                (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) !== requestHallId ||
-                                !cat.isOut ||
-                                isPermanentOutBuiltin(cat) ||
-                                hasAwayActivityForOperationalDay(cat, operationalDayKey)) return;
-                            const activity = cleanText(entry.activity);
-                            const trace = cleanText(entry.trace);
-                            if (!activity || !trace) return;
-                            cat.travelogues.push({
-                                source: 'away',
-                                kind: 'activity',
-                                at: new Date().toISOString(),
-                                date: new Date().toLocaleString(),
-                                location: '馆外',
-                                content: trace,
-                                residentActivity: activity
-                            });
-                            written++;
-                        });
-                        if (written) addLog(`AWAY ACTIVITY WRITTEN: hall=${requestHallId}; cats=[${expectedIds.join(', ')}]; operationalDay=${operationalDayKey}`, 'sent');
-                        return written > 0;
-                    } catch (error) {
-                        const outcome = error?.code === 'AI_REQUEST_PREEMPTED' ? 'PREEMPTED' : 'FAILED';
-                        addLog(`AWAY ACTIVITY ${outcome}: hall=${requestHallId}; cats=[${expectedIds.join(', ')}]; ${getReadableAPIError(error)}`, 'warn');
-                        return false;
+                const AWAY_EPISODE_MIN_DURATION_MINUTES = 30;
+                const AWAY_EPISODE_MAX_DURATION_MINUTES = 720;
+                const validateAwayEpisodePlan = (plan, expectedId, mode) => {
+                    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return null;
+                    if (String(plan.residentId || '') !== String(expectedId) || plan.mode !== mode) return null;
+                    const duration = Number(plan.plannedDurationMinutes);
+                    if (!Number.isInteger(duration) || duration < AWAY_EPISODE_MIN_DURATION_MINUTES || duration > AWAY_EPISODE_MAX_DURATION_MINUTES) return null;
+                    if (mode === 'legacy-continuation') {
+                        if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
+                        return { residentId: String(expectedId), mode, plannedDurationMinutes: duration };
                     }
+                    const activityAfter = Number(plan.activityAfterMinutes);
+                    const destination = cleanText(plan.destination || '');
+                    const plannedResidentActivity = cleanText(plan.plannedResidentActivity || '');
+                    const publicTrace = cleanText(plan.publicTrace || '');
+                    if (!Number.isInteger(activityAfter) || activityAfter < 10 || activityAfter > duration - 10 || !destination || !plannedResidentActivity || !publicTrace) return null;
+                    return { residentId: String(expectedId), mode, plannedDurationMinutes: duration, activityAfterMinutes: activityAfter, destination, plannedResidentActivity, publicTrace };
                 };
+                const indexAwayPlans = (awayPlans) => (Array.isArray(awayPlans) ? awayPlans : []).reduce((index, plan) => {
+                    const id = String(plan?.residentId || '');
+                    if (!id) return index;
+                    if (!index.has(id)) index.set(id, []);
+                    index.get(id).push(plan);
+                    return index;
+                }, new Map());
 
                 const _refreshAllStatus = async (forceUpdate = false, additionalContext = "", activeCatIds = [], focusCatLastAction = "", isFocusEnd = false, isExploreEnd = false, requestOptions = {}) => {
                     const requestHallId = requestOptions.requestHallId || activeHallId.value;
@@ -15630,19 +15708,26 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                         if (statusCompletion) statusCompletion.lastError = '自动状态同步当前未开启。';
                         return false;
                     }
-                    const catsToUpdate = Array.isArray(requestOptions.frozenCatsToUpdate)
+                    const now = requestOptions.frozenNow ? new Date(requestOptions.frozenNow) : new Date();
+                    reconcileAwayEpisodes(now);
+                    const fullHallCats = cats.value.filter(cat => getCatHallId(cat) === requestHallId);
+                    const frozenCandidateCats = Array.isArray(requestOptions.frozenCatsToUpdate)
                         ? requestOptions.frozenCatsToUpdate
-                        : cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
+                        : fullHallCats;
+                    // A scheduled absence is locally authoritative until its return time.
+                    // Keep the resident visible as away context, but never let this request
+                    // invent a contradictory home status or premature return.
+                    const catsToUpdate = frozenCandidateCats.filter(cat => !getActiveAwayEpisode(cat, now));
                     if (catsToUpdate.length === 0) {
-                        if (statusCompletion) statusCompletion.lastError = '当前馆舍没有可同步的小猫。';
-                        return false;
+                        if (statusCompletion) statusCompletion.complete = true;
+                        addLog(`STATUS SYNC SKIPPED: hall=${requestHallId}; all frozen residents are scheduled away.`, 'info');
+                        return true;
                     }
 
                     isUpdatingStatus.value = true;
                     addLog(`STATUS SYNC: ${forceUpdate ? 'Manual' : 'Auto'} update initiated...`, "info");
                     if (!isBackgroundStatusSync) showToast(`正在扫描${requestHall.name}信号...`, "loading");
 
-                    const now = requestOptions.frozenNow ? new Date(requestOptions.frozenNow) : new Date();
                     const timeStr = getCurrentTimeStr();
                     const h = now.getHours();
                     const isNight = (h >= 22 || h < 6);
@@ -15658,6 +15743,10 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                         addLog(`STATUS SYNC DAY MARKER READ FAILED: ${error.message}`, 'warn');
                     }
                     const userContext = buildStatusSyncUserContext(additionalContext);
+                    const scheduledAwaySummary = fullHallCats
+                        .filter(cat => getActiveAwayEpisode(cat, now))
+                        .map(cat => `${cat.name} — currently away from Meeow House`)
+                        .join('; ');
 
                     try {
                         let characterBlock = "";
@@ -15687,6 +15776,9 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                                 : '';
 
                             const memoryBlock = buildStatusSyncCatContext(c, { now });
+                            const legacyAwayContext = c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now)
+                                ? '\n[LEGACY AWAY]: This resident is currently away without a schedule from an older save. If you keep isOut:true, provide one finite mode:"legacy-continuation" plan for this exact ID. Do not invent historical destination, activity, trace, or mail.'
+                                : '';
 
                             let specificContext = "";
                             if (isActive && isFocusEnd) {
@@ -15703,7 +15795,7 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                                 gapContext = `\n[CRITICAL TIME GAP]: The user has been away for over an hour. THE PREVIOUS INTERACTION IS STRICTLY OVER. DO NOT mention previous interactions holding your paw or looking at you. You MUST be entertaining yourself, sleeping, or harassing other cats independently.`;
                             }
 
-                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${dayBoundaryContext}\n${specificContext}\n${gapContext}\n`;
+                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${dayBoundaryContext}\n${legacyAwayContext}\n${specificContext}\n${gapContext}\n`;
                         });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
@@ -15721,7 +15813,7 @@ Return JSON array only. Return exactly ${expectedIds.length} objects, one per su
                             }
                         }
 
-                        const homeCats = catsToUpdate.filter(cat => !cat.isOut);
+                        const homeCats = fullHallCats.filter(cat => !cat.isOut);
                         const hallSocialContext = homeCats.length >= 2
                             ? `\n[HALL SOCIAL]: At home: ${homeCats.map(cat => cat.name).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior.`
                             : `\n[HALL SOCIAL]: Fewer than two cats are home; do not invent cat-to-cat interaction.`;
@@ -15754,9 +15846,7 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const statusOutputContract = sceneMode
-                            ? `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"scene":null}\nIf a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}. The isOut:false example is illustrative only; decide each resident independently.`
-                            : `Return JSON array only, one object per character:\n[The isOut:false value in the schema example is illustrative only. Independently decide true or false for every supplied cat.]\n[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}]`;
+                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[],"scene":null}\nThe isOut:false value is illustrative only; decide each resident independently. awayPlans contains one plan only for each supplied resident who either newly changes false→true (mode:"departure") or is a legacy unmanaged true→true resident (mode:"legacy-continuation"). A departure plan must be {"residentId":"exact id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}; duration must be 30–720 minutes and activityAfterMinutes must be at least 10 minutes after departure and at least 10 minutes before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, or mail. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -15773,6 +15863,7 @@ ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 - [AWAY CONTINUITY] Away is not indefinite by default. A recent or plausibly ongoing off-site activity may remain away over short Δt; with meaningful or long Δt, reconsider return when ordinary work, an appointment, training, travel, responsibility, or private activity plausibly ended, the time supports returning, or continuity no longer supports absence. Away should have plausible duration, not infinite duration.
 - [PRESENCE CONTINUITY] Do not mechanically preserve either isOut:true or isOut:false. Avoid rapid arbitrary home/away flapping over closely spaced syncs, but permit a transition when elapsed time and supplied continuity plausibly changed the resident's life. Prefer plausible continuity over arbitrary novelty; long Δt requires substantial reassessment rather than copying the previous boolean.
 - [HALL CALIBRATION] At least two cats home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
+- [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. These residents are outside Meeow House for a locally scheduled absence. They are context only: do not output updates for them, do not invent their destination or activity, and do not place them in hall scenes.
 ${scenePrompt}
 
 [MAP]
@@ -15792,6 +15883,7 @@ ${statusOutputContract}`;
 
                         let updates;
                         let optionalScene;
+                        let awayPlans = [];
                         if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
                             const validation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
                             if (validation !== true) {
@@ -15803,17 +15895,17 @@ ${statusOutputContract}`;
                                 return false;
                             }
                             updates = requestOptions.prevalidatedStatusUpdates;
+                            awayPlans = Array.isArray(requestOptions.prevalidatedAwayPlans) ? requestOptions.prevalidatedAwayPlans : [];
                         } else {
                             const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                                 ...requestOptions,
                                 label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
                                 dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
-                                validateResponse: content => sceneMode
-                                    ? validateStatusSyncSceneEnvelope(content, requestedIds)
-                                    : validateStatusSyncResponse(content, requestedIds)
+                                validateResponse: content => validateStatusSyncEnvelope(content, requestedIds)
                             });
                             const parsedResponse = parseAIJSON(res);
-                            updates = sceneMode ? parsedResponse?.updates : parsedResponse;
+                            updates = parsedResponse?.updates;
+                            awayPlans = parsedResponse?.awayPlans;
                             optionalScene = sceneMode ? parsedResponse?.scene : undefined;
                         }
 
@@ -15876,18 +15968,58 @@ ${statusOutputContract}`;
                                 return false;
                             }
 
-                            // Base Defense Rule: At least 2 cats must remain at home
-                            let outCats = catsToUpdate.filter(c => c.isOut && !isPermanentOutBuiltin(c));
-                            let homeCats = catsToUpdate.filter(c => !c.isOut);
-                            if (catsToUpdate.length >= 2 && homeCats.length < 2) {
+                            // Base Defense Rule: at least two residents remain home.
+                            // Scheduled-away residents already count as away, but are never
+                            // forcibly returned: only this sync's prospective departures are
+                            // cancellable.
+                            let outCats = catsToUpdate.filter(c => c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now));
+                            let homeCats = fullHallCats.filter(c => !c.isOut);
+                            if (fullHallCats.length >= 2 && homeCats.length < 2) {
                                 let needed = 2 - homeCats.length;
                                 for (let i = 0; i < needed && outCats.length > 0; i++) {
-                                    let c = outCats.pop();
+                                    const c = outCats.pop();
                                     c.isOut = false;
                                     c.hasHackedThisPatrol = false;
                                     setCatStatus(c, '因馆舍需要留守，被临时召回巡视领地', { source: 'status-sync', forceLog: true });
                                 }
                             }
+
+                            // A final new departure is valid only with its own plan. A bad
+                            // plan cancels that resident alone; it never rerolls the hall.
+                            const plansByResident = indexAwayPlans(awayPlans);
+                            catsToUpdate.forEach(cat => {
+                                const catId = String(cat.id);
+                                const wasOut = originalPresenceById.get(catId);
+                                if (wasOut !== false || cat.isOut !== true || isPermanentOutBuiltin(cat)) return;
+                                const candidates = (plansByResident.get(catId) || []).filter(plan => plan?.mode === 'departure');
+                                const plan = candidates.length === 1 ? validateAwayEpisodePlan(candidates[0], catId, 'departure') : null;
+                                if (plan) return;
+                                cat.isOut = false;
+                                cat.hasHackedThisPatrol = false;
+                                setCatStatus(cat, '因外出计划未能确认，暂时留在馆舍。', { source: 'status-sync', forceLog: true });
+                                addLog(`AWAY EPISODE DEPARTURE CANCELLED: resident=${catId}; invalid or missing plan.`, 'warn');
+                            });
+
+                            catsToUpdate.forEach(cat => {
+                                const catId = String(cat.id);
+                                const wasOut = originalPresenceById.get(catId);
+                                if (wasOut !== true || cat.isOut !== true || getActiveAwayEpisode(cat, now)) return;
+                                const candidates = (plansByResident.get(catId) || []).filter(plan => plan?.mode === 'legacy-continuation');
+                                const plan = candidates.length === 1 ? validateAwayEpisodePlan(candidates[0], catId, 'legacy-continuation') : null;
+                                if (plan) {
+                                    createAwayEpisode(cat, plan, now);
+                                    addLog(`AWAY EPISODE LEGACY CONTINUATION: resident=${catId}`, 'info');
+                                    return;
+                                }
+                                // An old save can be safely brought home rather than becoming
+                                // an unmanaged permanent absence. This is a real return from an
+                                // unknown legacy period, not a fabricated historical departure.
+                                cat.isOut = false;
+                                setCatStatus(cat, '结束外出，回到馆舍。', { source: 'status-sync', forceLog: true });
+                                appendMonitorEvent(cat, '结束外出，回到馆舍。', 'status-sync');
+                                appendAwayTransitionTravelogue(cat, false, now);
+                                addLog(`AWAY EPISODE LEGACY RETURN: resident=${catId}; invalid or missing continuation plan.`, 'warn');
+                            });
 
                             catsToUpdate.forEach(cat => {
                                 const catId = String(cat.id);
@@ -15895,14 +16027,27 @@ ${statusOutputContract}`;
                                 const wasOut = originalPresenceById.get(catId);
                                 const isOut = Boolean(cat.isOut);
                                 if (wasOut === isOut) return;
-                                if (!wasOut && isOut) cat.hasHackedThisPatrol = false;
-                                appendMonitorEvent(cat, isOut ? '离开馆舍，开始处理自己的行程。' : '结束外出，回到馆舍。', 'status-sync');
-                                cat.travelogues.push({
-                                    source: 'away',
-                                    date: new Date().toLocaleString(),
-                                    location: 'Meeow House',
-                                    content: `${cat.name} ${isOut ? '离开了' : '回到了'} Meeow House。`
-                                });
+                                if (!wasOut && isOut) {
+                                    const candidates = (plansByResident.get(catId) || []).filter(plan => plan?.mode === 'departure');
+                                    const plan = candidates.length === 1 ? validateAwayEpisodePlan(candidates[0], catId, 'departure') : null;
+                                    if (!plan) return;
+                                    cat.hasHackedThisPatrol = false;
+                                    const episode = createAwayEpisode(cat, plan, now);
+                                    appendMonitorEvent(cat, '离开馆舍，开始处理自己的行程。', 'status-sync', { episodeId: episode.id }, now);
+                                    appendAwayTransitionTravelogue(cat, true, now, { episodeId: episode.id });
+                                    return;
+                                }
+                                appendMonitorEvent(cat, '结束外出，回到馆舍。', 'status-sync', {}, now);
+                                appendAwayTransitionTravelogue(cat, false, now);
+                            });
+
+                            (Array.isArray(awayPlans) ? awayPlans : []).forEach(plan => {
+                                const id = String(plan?.residentId || '');
+                                const cat = catsToUpdate.find(item => String(item.id) === id);
+                                const wasOut = originalPresenceById.get(id);
+                                if (!cat || !((wasOut === false && cat.isOut === true) || (wasOut === true && cat.isOut === true && !getActiveAwayEpisode(cat, now)))) {
+                                    addLog(`AWAY EPISODE PLAN DISCARDED: resident=${id || 'unknown'}; no final eligible departure.`, 'warn');
+                                }
                             });
 
                             const isComplete =
@@ -15958,20 +16103,6 @@ ${statusOutputContract}`;
                             if (activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
-                            const awayActivityCandidateIds = catsToUpdate
-                                .filter(cat => originalPresenceById.get(String(cat.id)) === true &&
-                                    cat.isOut &&
-                                    !isPermanentOutBuiltin(cat) &&
-                                    !hasAwayActivityForOperationalDay(cat, operationalDayKey))
-                                .map(cat => String(cat.id));
-                            if (awayActivityCandidateIds.length) {
-                                void generateAwayActivities({
-                                    requestHallId,
-                                    requestHall,
-                                    operationalDayKey,
-                                    candidateIds: awayActivityCandidateIds
-                                });
-                            }
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
                             return true;
                         } else {
@@ -16009,7 +16140,7 @@ ${statusOutputContract}`;
                     }
                 };
 
-                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates }) => {
+                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [] }) => {
                     if (!frozenBystanders.length) return true;
                     const statusCompletion = {
                         requestHallId,
@@ -16030,6 +16161,7 @@ ${statusOutputContract}`;
                         frozenNow,
                         operationalDayKey,
                         prevalidatedStatusUpdates: updates,
+                        prevalidatedAwayPlans: awayPlans,
                         priority: 'background',
                         statusCompletion
                     });
@@ -16215,6 +16347,7 @@ ${statusOutputContract}`;
                             const data = JSON.parse(e.target.result);
                             if (data.user) Object.assign(user, data.user);
                             hallSceneRecords.value = normalizeHallSceneRecords(data.hallSceneRecords);
+                            awayEpisodes.value = normalizeAwayEpisodes(data.awayEpisodes);
                             if (data.cats) cats.value = data.cats.map(normalizeCatHall);
                             if (data.halls) halls.value = data.halls;
                             mergeBuiltInCats();
@@ -16737,12 +16870,13 @@ ${buildCatMemoryContext(targetCat)}`;
 
                     tempUserStatus.value = user.currentStatus;
                     checkSpecialEvent();
+                    reconcileAwayEpisodes(new Date());
                     checkDailyInitialization();
                     applyUISettings();
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
-                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { currentTime.value = new Date(); }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkDailyInitialization(); currentTime.value = new Date(); } });
+                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); currentTime.value = now; }, 30000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });
@@ -16844,3 +16978,4 @@ ${buildCatMemoryContext(targetCat)}`;
 </body>
 
 </html>
+++ b/index.html
