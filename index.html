@@ -4977,7 +4977,7 @@
                         <div class="relative w-full aspect-square mb-2.5 overflow-hidden rounded-2xl border border-white/10 shadow-inner group-hover:scale-[1.02] transition-transform" :class="{'pixel-cat-frame': isUsingPixelAvatar(cat)}">
                             <img :src="getCatAvatarSource(cat)"
                                 class="w-full h-full object-contain rounded-2xl">
-                            <span v-if="cat.isHuman"
+                            <span v-if="isResidentHuman(cat)"
                                 class="absolute top-1.5 right-1.5 bg-gradient-to-r from-pink-600 to-purple-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-md backdrop-blur-sm border border-white/20">猫耳模式</span>
                             <span v-if="cat.origin && currentHall.id !== 'gotham'"
                                 class="absolute bottom-1.5 right-1.5 bg-red-600/90 border border-red-400 font-black tracking-wider text-white text-[8px] px-1.5 py-0.5 rounded-full shadow-md z-10">{{ currentHall.catLabel }}</span>
@@ -5273,7 +5273,7 @@
                         </div>
                         <div class="flex items-center gap-4">
                             <div class="flex items-center gap-1">
-                                <img :src="getCatAvatarSource(exploreState.companion)"
+                                <img :src="getCatAvatarSource(exploreState.companion, exploreState.sessionForm)"
                                     class="w-5 h-5 rounded-full border border-zinc-700 object-contain">
                                 <span class="text-[10px] font-bold text-gray-400">{{ exploreState.companion.name
                                     }}</span>
@@ -5395,7 +5395,7 @@
                         <div class="flex-1 min-w-0">
                             <h2 class="text-base font-extrabold text-white flex items-center gap-1.5 truncate">
                                 <span>{{ selectedCat.name }}</span>
-                                <i v-if="selectedCat.isHuman" class="fas fa-user-astronaut text-pink-400 text-xs"></i>
+                                <i v-if="isResidentHuman(selectedCat)" class="fas fa-user-astronaut text-pink-400 text-xs"></i>
                             </h2>
                             <div class="flex gap-1.5 mt-1">
                                 <span class="text-[9px] bg-black/50 text-yellow-500/90 px-2 py-0.5 rounded-full border border-yellow-500/20 font-mono">
@@ -5441,7 +5441,7 @@
                     <button @click="toggleHumanMode" v-if="selectedCat.affinity >= 50" :disabled="isResidentAway(selectedCat)"
                         class="sully-btn bg-gradient-to-r from-pink-900 to-purple-900 border border-pink-500/30 p-2.5 rounded-2xl text-xs hover:brightness-110 transition flex flex-col items-center gap-1 text-pink-200 shadow-md"
                         :class="{'btn-disabled opacity-50': isResidentAway(selectedCat)}">
-                        <i class="fas fa-magic text-sm text-pink-400"></i>{{ selectedCat.isHuman ? '变回原形' : '拟人模式' }}
+                        <i class="fas fa-magic text-sm text-pink-400"></i>{{ isResidentHuman(selectedCat) ? '变回原形' : '拟人模式' }}
                     </button>
                     <button @click="openBag" :disabled="isResidentAway(selectedCat)"
                         class="sully-btn col-span-3 bg-black/40 border border-white/10 p-3 rounded-2xl text-xs hover:bg-black/60 flex justify-center items-center gap-2 text-gray-200 font-bold shadow-md"
@@ -9556,6 +9556,7 @@
                     module: null,
                     isGeneratingModule: false,
                     isReturning: false,
+                    sessionForm: null,
                     returnMessage: '',
                     returnPhase: '',
                     returnProgress: 8,
@@ -9708,6 +9709,7 @@
                 // Focus Refs
                 const isFocusing = ref(false);
                 const focusCats = ref([]);
+                const focusSessionForms = reactive({});
                 const focusAction = ref('');
                 const focusTime = ref(0);
                 const focusTotalTime = ref(0);
@@ -10219,6 +10221,145 @@ ${buildCatMemoryContext(cat)}`;
 
                 const sameCatId = (left, right) => String(left) === String(right);
                 const getCanonicalCatId = (id) => cats.value.find(cat => sameCatId(cat.id, id))?.id ?? id;
+
+                // Form is a resident life state. `isHuman` remains a synchronized
+                // compatibility mirror for older saves and narrow legacy surfaces.
+                const FORM_RECONSIDER_MIN_MS = 3 * 60 * 60 * 1000;
+                const FORM_RECONSIDER_MAX_MS = 12 * 60 * 60 * 1000;
+                const FORM_VALUES = new Set(['CAT', 'HUMAN']);
+                const firstHumanRevealInFlight = new Set();
+                const parseFormTimestamp = (value) => {
+                    if (typeof value !== 'string') return null;
+                    const timestamp = new Date(value);
+                    return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+                };
+                const normalizeFormValue = (value) => {
+                    const form = String(value || '').trim().toUpperCase();
+                    return FORM_VALUES.has(form) ? form : null;
+                };
+                const getResidentForm = (cat) => (
+                    cat?.hasRevealedHumanForm === true && cat?.currentForm === 'HUMAN'
+                        ? 'HUMAN'
+                        : 'CAT'
+                );
+                const isResidentHuman = (cat) => getResidentForm(cat) === 'HUMAN';
+                const scheduleNextFormReconsideration = (cat, now = new Date()) => {
+                    if (!cat?.hasRevealedHumanForm) {
+                        if (cat) cat.nextFormReconsiderAt = null;
+                        return null;
+                    }
+                    const base = now instanceof Date ? now : new Date(now);
+                    if (Number.isNaN(base.getTime())) return null;
+                    const delay = FORM_RECONSIDER_MIN_MS + Math.floor(Math.random() * (FORM_RECONSIDER_MAX_MS - FORM_RECONSIDER_MIN_MS + 1));
+                    const scheduled = new Date(base.getTime() + delay).toISOString();
+                    cat.nextFormReconsiderAt = scheduled;
+                    return scheduled;
+                };
+                const normalizeResidentFormState = (cat, options = {}) => {
+                    if (!cat || typeof cat !== 'object') return 'CAT';
+                    const legacyHuman = cat.isHuman === true;
+                    const requestedForm = normalizeFormValue(cat.currentForm);
+                    const unlocked = Boolean(cat.hasRevealedHumanForm || legacyHuman || requestedForm === 'HUMAN');
+                    cat.hasRevealedHumanForm = unlocked;
+                    cat.currentForm = unlocked && (requestedForm === 'HUMAN' || legacyHuman) ? 'HUMAN' : 'CAT';
+                    cat.isHuman = cat.currentForm === 'HUMAN';
+                    cat.lastFormChangeAt = parseFormTimestamp(cat.lastFormChangeAt) ? cat.lastFormChangeAt : null;
+                    const reconsiderAt = parseFormTimestamp(cat.nextFormReconsiderAt);
+                    cat.nextFormReconsiderAt = reconsiderAt ? reconsiderAt.toISOString() : null;
+                    if (!unlocked) cat.nextFormReconsiderAt = null;
+                    if (unlocked && options.ensureSchedule && !cat.nextFormReconsiderAt) {
+                        scheduleNextFormReconsideration(cat, options.now || new Date());
+                    }
+                    return cat.currentForm;
+                };
+                const ensureResidentFormSchedule = (cat, now = new Date()) => {
+                    normalizeResidentFormState(cat);
+                    if (!cat?.hasRevealedHumanForm) return null;
+                    if (parseFormTimestamp(cat.nextFormReconsiderAt)) return cat.nextFormReconsiderAt;
+                    return scheduleNextFormReconsideration(cat, now);
+                };
+                const isFormReconsiderationDue = (cat, now = new Date()) => {
+                    if (!cat?.hasRevealedHumanForm) return false;
+                    const scheduled = parseFormTimestamp(cat.nextFormReconsiderAt);
+                    return Boolean(scheduled && scheduled.getTime() <= now.getTime());
+                };
+                const setResidentForm = (cat, nextForm, options = {}) => {
+                    const form = normalizeFormValue(nextForm);
+                    if (!cat || !form || (form === 'HUMAN' && !cat.hasRevealedHumanForm)) return false;
+                    normalizeResidentFormState(cat);
+                    const previous = getResidentForm(cat);
+                    const changed = previous !== form;
+                    cat.currentForm = form;
+                    cat.isHuman = form === 'HUMAN';
+                    if (changed) cat.lastFormChangeAt = (options.now instanceof Date ? options.now : new Date(options.now || Date.now())).toISOString();
+                    if (options.scheduleNext !== false) scheduleNextFormReconsideration(cat, options.now || new Date());
+                    return changed;
+                };
+                const unlockResidentHumanForm = (cat, options = {}) => {
+                    if (!cat) return false;
+                    const wasUnlocked = Boolean(cat.hasRevealedHumanForm);
+                    cat.hasRevealedHumanForm = true;
+                    const changed = setResidentForm(cat, 'HUMAN', { now: options.now || new Date(), scheduleNext: true });
+                    return !wasUnlocked || changed;
+                };
+                const parseCanonicalFormDecision = (payload) => {
+                    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+                        return { valid: false, error: 'form decision is not an object.' };
+                    }
+                    const decisions = [];
+                    if (Object.prototype.hasOwnProperty.call(payload, 'formDecision')) {
+                        const form = normalizeFormValue(payload.formDecision);
+                        if (!form) return { valid: false, error: 'formDecision must be CAT or HUMAN.' };
+                        decisions.push(form);
+                    }
+                    if (Object.prototype.hasOwnProperty.call(payload, 'isHuman')) {
+                        if (typeof payload.isHuman !== 'boolean') return { valid: false, error: 'isHuman must be boolean.' };
+                        decisions.push(payload.isHuman ? 'HUMAN' : 'CAT');
+                    }
+                    if (!decisions.length) return { valid: false, error: 'missing form decision.' };
+                    if (new Set(decisions).size !== 1) return { valid: false, error: 'formDecision and isHuman disagree.' };
+                    return { valid: true, form: decisions[0] };
+                };
+                const buildFormDirectives = (residents, now = new Date(), lockedIds = []) => {
+                    const locked = new Set((lockedIds || []).map(id => String(id)));
+                    return (residents || []).reduce((directives, cat) => {
+                        if (!cat) return directives;
+                        normalizeResidentFormState(cat);
+                        const id = String(cat.id);
+                        const currentForm = getResidentForm(cat);
+                        const due = !locked.has(id) && isFormReconsiderationDue(cat, now);
+                        if (cat.hasRevealedHumanForm && !cat.nextFormReconsiderAt) ensureResidentFormSchedule(cat, now);
+                        directives[id] = {
+                            currentForm,
+                            reconsideration: due ? 'ALLOWED' : 'LOCKED',
+                            requiredForm: due ? null : currentForm
+                        };
+                        return directives;
+                    }, {});
+                };
+                const formatFormLifecycleAuthority = (directives) => `[FORM LIFECYCLE AUTHORITY]\n${Object.entries(directives || {}).map(([id, directive]) => `${id} → current=${directive.currentForm}; reconsideration=${directive.reconsideration}${directive.requiredForm ? `; required=${directive.requiredForm}` : ''}`).join('\n') || 'None'}\nForm is local lifecycle authority. When reconsideration is LOCKED, copy the required current form exactly. When ALLOWED, choose CAT or HUMAN from character, mood, current circumstances, and ordinary preference. HUMAN is not an upgrade and CAT is not a downgrade. Never use form to change canon personality.`;
+                const validateFormDirectives = (entries, directives = {}) => {
+                    for (const [id, directive] of Object.entries(directives || {})) {
+                        const entry = (entries || []).find(item => String(item?.id ?? '') === String(id));
+                        const parsed = parseCanonicalFormDecision(entry);
+                        if (!parsed.valid) return `Form directive failed: id=${id}; ${parsed.error}`;
+                        if (directive?.requiredForm && parsed.form !== directive.requiredForm) {
+                            return `Form directive failed: id=${id}; required=${directive.requiredForm}; received=${parsed.form}.`;
+                        }
+                    }
+                    return true;
+                };
+                const applyFormDecision = (cat, decision, directive, now = new Date(), source = 'status-sync') => {
+                    const parsed = typeof decision === 'string' ? { valid: true, form: normalizeFormValue(decision) } : parseCanonicalFormDecision(decision);
+                    if (!parsed.valid || !parsed.form || !cat) return false;
+                    const current = getResidentForm(cat);
+                    if (directive?.requiredForm && parsed.form !== directive.requiredForm) return false;
+                    if (directive?.reconsideration !== 'ALLOWED') return parsed.form === current;
+                    const changed = setResidentForm(cat, parsed.form, { now, scheduleNext: true });
+                    addLog(`FORM RECONSIDERATION: resident=${String(cat.id)}; current=${current}; result=${parsed.form}; changed=${changed}`, 'info');
+                    return true;
+                };
+                cats.value.forEach(cat => normalizeResidentFormState(cat));
 
                 const friendsList = computed(() => {
                     if (!user.phoneData || !user.phoneData.friends) return [];
@@ -10809,7 +10950,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (descriptor.mode === 'sheet' && Number(descriptor.frames) > 1) return `${descriptor.frames} 帧横向精灵图`;
                     return descriptor.fileName || '已保存';
                 };
-                const isUsingUploadedSprite = (cat) => Boolean(cat && !cat.isHuman && cat.avatarMode === 'sprite' && cat.spriteAssets?.stand?.assetId && getSpriteAssetSource(cat, 'stand'));
+                const isUsingUploadedSprite = (cat) => Boolean(cat && !isResidentHuman(cat) && cat.avatarMode === 'sprite' && cat.spriteAssets?.stand?.assetId && getSpriteAssetSource(cat, 'stand'));
                 const getCatActionSpriteSource = (cat, action = 'stand') => getSpriteAssetSource(cat, action) || getSpriteAssetSource(cat, 'stand') || (cat?.image || makeStableCatAvatar(cat?.name, cat?.color));
                 const getSpriteActionDescriptor = (cat, action = 'stand') => cat?.spriteAssets?.[action] || cat?.spriteAssets?.stand || null;
                 const isSpriteSheetAction = (cat, action = 'stand') => {
@@ -11044,7 +11185,7 @@ ${buildCatMemoryContext(cat)}`;
                     spriteAssetRevision.value += 1;
                     showToast(`${actionLabel}素材已移除`, 'info');
                 };
-                const isUsingPixelAvatar = (cat) => Boolean(pixelAvatarWorkshopEnabled.value && cat && cat.avatarMode === 'pixel' && cat.pixelAvatar && !cat.isHuman);
+                const isUsingPixelAvatar = (cat) => Boolean(pixelAvatarWorkshopEnabled.value && cat && cat.avatarMode === 'pixel' && cat.pixelAvatar && !isResidentHuman(cat));
                 const makePixelCatAvatar = (raw, name = 'Meeow') => {
                     const config = normalizePixelAvatarConfig(raw);
                     const c = config.colors;
@@ -11099,9 +11240,9 @@ ${buildCatMemoryContext(cat)}`;
                     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 220" role="img" aria-label="' + escapeSvgText(name) + ' 的全身像素猫" shape-rendering="crispEdges"><g stroke="' + outline + '" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">' + tail + '<g fill="' + c.body + '">' + body + '<path d="M' + dimensions.headX + ' 78q0-28 ' + (dimensions.headW / 2) + '-28t' + (dimensions.headW / 2) + ' 28v29q0 24-' + (dimensions.headW / 2) + ' 24t-' + (dimensions.headW / 2) + ' 24z"/>' + ear + '</g><g fill="none">' + legs + '</g></g>' + marking + '<g><ellipse cx="65" cy="95" rx="7" ry="10" fill="' + c.eyeLeft + '" stroke="' + outline + '" stroke-width="4"/><ellipse cx="95" cy="95" rx="7" ry="10" fill="' + c.eyeRight + '" stroke="' + outline + '" stroke-width="4"/><path d="M78 104h4l-2 3z" fill="' + c.marking + '"/></g>' + faceDetail + accessory + '</svg>';
                     return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
                 };
-                const getCatAvatarSource = (cat) => {
+                const getCatAvatarSource = (cat, formOverride = null) => {
                     if (!cat) return makeStableCatAvatar('Cat');
-                    if (cat.isHuman) return cat.image_human || cat.image || makeStableCatAvatar(cat.name, cat.color);
+                    if ((formOverride || getResidentForm(cat)) === 'HUMAN') return cat.image_human || cat.image || makeStableCatAvatar(cat.name, cat.color);
                     return cat.image || makeStableCatAvatar(cat.name, cat.color);
                 };
                 const handleMapAvatarError = (event, cat) => {
@@ -11541,23 +11682,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     } catch (e) { selectedCat.value.affinity += 10; }
                 };
 
-                const triggerHumanRevealEvent = async (cat) => {
-                    const prompt = `[FIRST HUMAN FORM REVEAL] Character: ${cat.name}. Affinity reached 50. 
-                    Task: Generate a 50-word story about the cat first revealing its human form (with ears/tail) to the user. 
-                    Tone: Surprising, slightly embarrassed or cool. 
-                    Output: A short narrative bubble. 
-                    Language: Simplified Chinese.
-                    ${buildCatMemoryContext(cat)}`;
-                    try {
-                        const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1500);
-                        const content = cleanText(res);
-                        cat.innerVoice = content;
-                        appendInteractionEvent(cat, 'human-reveal', `[首次拟人化] ${content}`, { source: 'human-reveal' });
-                        appendMonitorEvent(cat, `[首次拟人化] ${content}`, 'human-reveal');
-                        currentSpecialEventContent.value = `【特殊事件：形态觉醒】\n\n${content}`;
-                        showSpecialEventModal.value = true;
-                    } catch (e) { }
-                };
+                const triggerHumanRevealEvent = async (cat) => checkAffinityThreshold(cat);
 
                 const pendingSpecialEvent = ref(null);
 
@@ -12053,7 +12178,11 @@ JSON 格式：
                             explicitMentionIds: resolveExplicitHallSceneMentionIds(rawUserText, requestHallId),
                             previousFocusIds,
                             candidateIds: selectedIds,
-                            requiredParticipantIds: selectedIds
+                            requiredParticipantIds: selectedIds,
+                            participantForms: Object.fromEntries(selectedIds.map(id => {
+                                const cat = cats.value.find(item => String(item.id) === String(id));
+                                return [String(id), getResidentForm(cat)];
+                            }))
                         }
                     });
                     if (success) {
@@ -12139,7 +12268,7 @@ JSON 格式：
 当前馆舍：${hall?.name || '喵喵馆'}。
 地点：${exploreState.location?.name || '未知地点'}；地点氛围：${exploreState.location?.atmosphere || '未提供'}；常驻 NPC：${exploreState.location?.npcs || '无'}。
 ${profile}
-同行猫：${companion?.name || '无'}；外貌/品种：${companion?.breed || '未提供'}；好感度：${companion?.affinity ?? 0}；人格：${companion?.personality || '以原作设定为准'}。
+同行居民：${companion?.name || '无'}；冻结可见形态：${exploreState.sessionForm || (companion ? getResidentForm(companion) : 'CAT')}；外貌/品种：${companion?.breed || '未提供'}；好感度：${companion?.affinity ?? 0}；人格：${companion?.personality || '以原作设定为准'}。
 表面出行目的：${exploreState.goal || '未设定'}。
 本次馆舍化 CoC 模组：
 ${compact ? '正在设计模组，暂不提供既有正文。' : (exploreState.module || '未生成')}
@@ -12455,8 +12584,8 @@ ${buildExploreModuleBrief()}
                 const startExploration = async () => {
                     if (!exploreState.location || !exploreState.companion || !exploreState.goal || !exploreState.module) return;
 
-                    // Force cat form during exploration
-                    exploreState.companion.isHuman = false;
+                    // A continuous Explore session keeps the form it began with.
+                    exploreState.sessionForm = getResidentForm(exploreState.companion);
                     const companionFirstInteraction = !(exploreState.companion.todayInteractions || []).length;
                     appendInteractionEvent(exploreState.companion, 'explore-start', `与馆长前往 ${exploreState.location.name}`, { source: 'explore' });
                     appendMonitorEvent(exploreState.companion, `与馆长一同出发前往${exploreState.location.name}。`, 'explore');
@@ -12470,7 +12599,7 @@ ${buildExploreModuleBrief()}
                     exploreState.isProcessing = true;
 
                     const prompt = `[OPENING SCENE]
-从表面日常目的开始，不要立刻揭开阴谋或制造突兀危机。描写地点、同行猫和一处细微而可被玩家留意的异常；同行猫只做符合原作性格的普通猫咪动作，不抢走馆长的选择。
+从表面日常目的开始，不要立刻揭开阴谋或制造突兀危机。描写地点、同行居民和一处细微而可被玩家留意的异常；同行居民保持本次会话冻结形态，做符合原作性格的行动，不抢走馆长的选择。
 正文 120–160 字，以一个可行动的感官钩子收尾。简体中文。
 ${buildExploreKPContext({ phase: 'opening' })}`;
 
@@ -12525,13 +12654,13 @@ ${buildExploreKPContext({ phase: 'opening' })}`;
                     let pacingGuide = '';
                     if (round <= 3) {
                         pacingGuide = `[EARLY GAME – 沈浸与发现阶段]
-Focus on atmosphere and discovery. Let the user explore freely. Introduce at most ONE subtle clue or curious detail from the Module. ${exploreState.companion.name} should display alert, curious cat behaviors (sniffing the air, tracking something with their eyes) that hint at hidden knowledge without breaking cover.`;
+Focus on atmosphere and discovery. Let the user explore freely. Introduce at most ONE subtle clue or curious detail from the Module. ${exploreState.companion.name} should act in a way consistent with their frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form, character, and cover without taking over the USER's choices.`;
                     } else if (round <= 7) {
                         pacingGuide = `[MID GAME – 升温与障碍阶段]
-The situation should grow more complex or tense. Introduce a meaningful obstacle or NPC from the Module. ${exploreState.companion.name}'s feline instincts should seem increasingly “too good” for a regular cat — bristling in exactly the right place, blocking an ominous door with their body. Do NOT let them speak.`;
+The situation should grow more complex or tense. Introduce a meaningful obstacle or NPC from the Module. ${exploreState.companion.name} may respond according to their frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form and character, but never expose Meeow House secrets or take over the USER's choices.`;
                     } else {
                         pacingGuide = `[DEEP EXPLORATION – 社事自然展开]
-The story has been running for many rounds — do NOT force a resolution. Keep the world vivid and alive. Introduce new textures: a deeper NPC motivation, a new area, a sensory detail that wasn't there before. ${exploreState.companion.name} may now display a slightly more pronounced "suspiciously capable" behavior, but never breaks cover. Let the story breathe. An ending will come when the MODULE or the user naturally reaches one.`;
+The story has been running for many rounds — do NOT force a resolution. Keep the world vivid and alive. Introduce new textures: a deeper NPC motivation, a new area, a sensory detail that wasn't there before. ${exploreState.companion.name} remains in the frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form for this session and never breaks cover. Let the story breathe. An ending will come when the MODULE or the user naturally reaches one.`;
                     }
 
                     const prompt = `[SCENE CONTINUES · ROUND ${round}]
@@ -12616,7 +12745,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                             Requirements:
                             - Strictly follow this character's original personality, values, habits, and voice. Never use a generic cute-cat tone or import another hall's setting.
                             - Mention specific events from the Adventure Log and the companion's own choices.
-                            - The character remains an intelligent cat-form resident of Meeow House, without exposing the house premise to ordinary people in the story.
+                            - The character remains in this Explore session's frozen visible form, without exposing the Meeow House premise or hidden identity to ordinary people in the story.
                             - Language: Simplified Chinese.
                             ${buildCatMemoryContext(exploreState.companion)}`;
 
@@ -12675,6 +12804,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     exploreState.active = false;
                     exploreState.location = null;
                     exploreState.companion = null;
+                    exploreState.sessionForm = null;
                     exploreState.destinationHallId = activeHallId.value;
                     exploreState.history = [];
                     exploreState.currentCheck = null;
@@ -12690,9 +12820,14 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 };
 
                 const checkAffinityThreshold = async (cat) => {
-                    if (cat.affinity >= 50 && !cat.hasRevealedHumanForm) {
-                        cat.hasRevealedHumanForm = true;
-                        await triggerHumanFormEvent(cat);
+                    const id = String(cat?.id ?? '');
+                    if (!cat || cat.affinity < 50 || cat.hasRevealedHumanForm || firstHumanRevealInFlight.has(id)) return false;
+                    if (!settings.apiKey) return false;
+                    firstHumanRevealInFlight.add(id);
+                    try {
+                        return await triggerHumanFormEvent(cat);
+                    } finally {
+                        firstHumanRevealInFlight.delete(id);
                     }
                 };
 
@@ -12711,13 +12846,16 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     `;
 
                     try {
-                        const content = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000, ThinkingLevel.HIGH);
-                        currentSpecialEventContent.value = cleanText(content);
-                        pendingSpecialEvent.value = { cat: cat, content: cleanText(content), type: 'human-reveal' };
+                        const content = cleanText(await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000, ThinkingLevel.HIGH));
+                        if (!content) throw new Error('首次拟人化内容为空。');
+                        unlockResidentHumanForm(cat, { now: new Date() });
+                        currentSpecialEventContent.value = content;
+                        pendingSpecialEvent.value = { cat: cat, content, type: 'human-reveal' };
                         showSpecialEventModal.value = true;
+                        return true;
                     } catch (e) {
                         console.error(e);
-                        cat.hasRevealedHumanForm = false;
+                        return false;
                     }
                 };
 
@@ -14221,6 +14359,7 @@ ${buildCatMemoryContext(cat)}`;
                     getOperationalDayKey: (...args) => getOperationalDayKey(...args),
                     getPreviousOperationalDayKey: (...args) => getPreviousOperationalDayKey(...args),
                     buildOwnerDailyContext: (...args) => buildOwnerDailyContext(...args),
+                    getResidentForm: (cat) => getResidentForm(cat),
                     cleanText
                 });
                 const CAT_MEMORY_PROFILES = window.Meeow.memory.CAT_MEMORY_PROFILES;
@@ -14275,7 +14414,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (options.crossedOperationalDay) {
                         continuityLines.push('Operational-day boundary: this prior presence and indoor observation are weak historical continuity, not proof of the current location.');
                     }
-                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${cat?.name || '未命名角色'}; Form: ${cat?.isHuman ? 'HUMAN' : 'CAT'}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
+                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${cat?.name || '未命名角色'}; Form: ${getResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
                 };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
@@ -14761,7 +14900,8 @@ ${buildCatMemoryContext(cat)}`;
                             participantIds,
                             userText: typeof record.userText === 'string' ? record.userText : null,
                             content: cleanText(record.content || ''),
-                            reactions
+                            reactions,
+                            participantForms: Object.fromEntries(participantIds.map(id => [String(id), normalizeFormValue(record.participantForms?.[String(id)]) || 'CAT']))
                         };
                     })
                     .filter(record => record.hallId && record.dateKey && record.at && record.participantIds.length && record.reactions.length);
@@ -14877,7 +15017,7 @@ ${buildCatMemoryContext(cat)}`;
                         candidateIds: [...new Set([...previousFocusIds, ...explicitMentionIds])]
                     };
                 };
-                const appendHallSceneRecord = ({ hallId, operationalDayKey, type, participantIds, userText = null, content = '', reactions }) => {
+                const appendHallSceneRecord = ({ hallId, operationalDayKey, type, participantIds, userText = null, content = '', reactions, participantForms = {} }) => {
                     const now = new Date();
                     if (getOperationalDayKey(now) !== operationalDayKey) return null;
                     pruneHallSceneRecords(operationalDayKey);
@@ -14890,7 +15030,8 @@ ${buildCatMemoryContext(cat)}`;
                         participantIds,
                         userText,
                         content,
-                        reactions
+                        reactions,
+                        participantForms
                     }])[0] || null;
                     if (!record) return null;
                     hallSceneRecords.value.push(record);
@@ -15236,6 +15377,10 @@ ${buildCatMemoryContext(cat)}`;
                         innerVoice: cat.innerVoice,
                         isOut: cat.isOut,
                         isHuman: cat.isHuman,
+                        hasRevealedHumanForm: cat.hasRevealedHumanForm,
+                        currentForm: cat.currentForm,
+                        lastFormChangeAt: cat.lastFormChangeAt,
+                        nextFormReconsiderAt: cat.nextFormReconsiderAt,
                         lastStatusUpdateTime: cat.lastStatusUpdateTime,
                         chatHistory: (cat.chatHistory || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
                         todayInteractions: (cat.todayInteractions || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
@@ -15301,6 +15446,11 @@ ${buildCatMemoryContext(cat)}`;
                         cat.innerVoice = savedCat.innerVoice;
                         cat.isOut = isPermanentOutBuiltin(cat) || Boolean(savedCat.isOut);
                         cat.isHuman = Boolean(savedCat.isHuman);
+                        cat.hasRevealedHumanForm = Boolean(savedCat.hasRevealedHumanForm || savedCat.isHuman || savedCat.currentForm === 'HUMAN');
+                        cat.currentForm = savedCat.currentForm;
+                        cat.lastFormChangeAt = savedCat.lastFormChangeAt || null;
+                        cat.nextFormReconsiderAt = savedCat.nextFormReconsiderAt || null;
+                        normalizeResidentFormState(cat);
                         cat.lastStatusUpdateTime = savedCat.lastStatusUpdateTime || 0;
                     });
                     if (snapshot.todos) user.todos = [...snapshot.todos];
@@ -15845,7 +15995,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     await sendMessageInternal(arg1, arg2, false);
                 };
 
-                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = []) => {
+                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = [], activeFormDirective = null) => {
                     const payload = parseAIJSON(content);
                     if (!payload || Array.isArray(payload) || typeof payload !== 'object') {
                         return 'Homepage Chat 回包不是有效 JSON 对象。';
@@ -15862,8 +16012,10 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             return `Homepage Chat activeCat 缺少有效 ${field}。`;
                         }
                     }
-                    if (!['CAT', 'HUMAN'].includes(String(active.formDecision || '').trim().toUpperCase())) {
-                        return 'Homepage Chat activeCat 缺少有效 formDecision。';
+                    const formDecision = parseCanonicalFormDecision(active);
+                    if (!formDecision.valid) return `Homepage Chat activeCat ${formDecision.error}`;
+                    if (activeFormDirective?.requiredForm && formDecision.form !== activeFormDirective.requiredForm) {
+                        return `Homepage Chat activeCat form is locked to ${activeFormDirective.requiredForm}.`;
                     }
                     if (!Array.isArray(payload.awayPlans)) {
                         return 'Homepage Chat 回包缺少 awayPlans 数组。';
@@ -15886,6 +16038,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     if (!overrideContent) chatInput.value = '';
                     const isFirstInteraction = !isReRoll && !(sendingCat.todayInteractions || []).length;
                     const shouldSendFriendRequest = isFirstInteraction;
+                    const directFormNow = new Date();
+                    const activeFormDirective = buildFormDirectives([sendingCat], directFormNow)[String(sendingCat.id)];
 
                     if (!isReRoll) {
                         const time = getCurrentTimeStr();
@@ -15959,6 +16113,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             ]
                         });
                         const frozenPresenceDirectives = Object.freeze({ ...frozenDepartureSchedule.directives });
+                        const frozenFormDirectives = Object.freeze(buildFormDirectives(frozenBystanders, frozenNow));
                         addLog(`AWAY LOCAL SCHEDULE: hall=${requestHall.name}; due=[${frozenDepartureSchedule.dueIds.join(', ')}]; selected=[${frozenDepartureSchedule.selectedIds.join(', ')}]; blocked=[${frozenDepartureSchedule.blocked.join(', ')}]`, 'info');
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => cat.name);
                         const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}`;
@@ -15974,6 +16129,7 @@ The USER is interacting directly only with ${sendingCat.name}. Do not include ${
 Update exactly these frozen bystanders with current state consistent with local presence authority. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
 
 ${formatLocalPresenceAuthority(frozenPresenceDirectives)}
+${formatFormLifecycleAuthority(frozenFormDirectives)}
 
 [BYSTANDER CONTEXT]
 ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
@@ -15981,7 +16137,7 @@ ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContex
 [BYSTANDER RULES]
 - Return exactly one update for every supplied bystander ID.
 - Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
-- Form: affinity <50 means isHuman false; otherwise decide from context. Keep physical time logic.
+- Form: follow [FORM LIFECYCLE AUTHORITY]. Only residents marked ALLOWED may choose CAT or HUMAN; LOCKED residents must copy their required current form.
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the resident is still in that exact place or activity at this Status Sync time.
 - [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with the local directive, not a new presence decision.
 - Residents listed as currently away in the hall context are context only. Do not return updates or Away plans for them; never invent their location, destination, activity, return time, or mail.
@@ -16007,7 +16163,8 @@ ${getCompactMapPointPromptGuide()}`
                         
                         Specific Character Traits: ${sendingCat.personality}.
                         Specific Instructions: ${sendingCat.prompt}
-                        Current Form: ${sendingCat.isHuman ? 'HUMAN (Can speak)' : 'CAT (Meow/Hiss/Purr ONLY)'}.
+                        Current Form: ${getResidentForm(sendingCat)} (${isResidentHuman(sendingCat) ? 'Can speak' : 'Meow/Hiss/Purr ONLY'}).
+                        [FORM LIFECYCLE AUTHORITY] current=${activeFormDirective.currentForm}; reconsideration=${activeFormDirective.reconsideration}${activeFormDirective.requiredForm ? `; required=${activeFormDirective.requiredForm}` : ''}. If LOCKED, formDecision MUST copy the required form. If ALLOWED, choose CAT or HUMAN from this resident's current preference and circumstances; neither form is superior.
                         
                         NEGATIVE PROMPT: DO NOT ACT LIKE OTHER CHARACTERS. YOU ARE ${sendingCat.name}.
                         DO NOT BE OOC (Out Of Character). Stay true to this exact character's original-work personality, values, relationships, and voice.
@@ -16024,7 +16181,7 @@ ${getCompactMapPointPromptGuide()}`
 
                         NOW RESPOND with one JSON object only. No markdown, tags, code fences, or commentary.
                         [ACTIVE CAT RULES]
-                        - formDecision: Affinity ${sendingCat.affinity}/100. If < 50 use CAT; otherwise decide from context.
+                        - formDecision: Follow [FORM LIFECYCLE AUTHORITY]. Never switch form merely for novelty.
                         - status: third-person current action, about 10 Chinese characters. innerVoice: first-person inner monologue using 我, never meows, wrapped in 【】. userStatus: a short summary of what the USER is doing within 15 Chinese characters; ordinary chat may use "正在和${sendingCat.name}聊天".
                         - reply: 80-140 Chinese characters when natural. It must directly continue the user's turn through specific, continuous, in-character action, current status, nearby objects/space, and recent interaction.
                         - CAT form: any direct sound may only be feline sounds such as "喵。", "呜。", or "嘶。"; never human speech. Use ordinary double quotes for an optional feline sound, never 「」. HUMAN form may speak naturally.
@@ -16053,23 +16210,16 @@ ${getCompactMapPointPromptGuide()}`
                             label: `HOMEPAGE CHAT + HALL UPDATE · ${sendingCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
-                            validateResponse: content => validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext)
+                            validateResponse: content => validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext, activeFormDirective)
                         });
 
                         const payload = parseAIJSON(responseRaw);
-                        const activeValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext);
+                        const activeValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext, activeFormDirective);
                         if (activeValidation !== true) throw new Error(activeValidation);
                         const activeResponse = payload.activeCat;
                         const reply = cleanText(activeResponse.reply);
 
-                        const formDecision = String(activeResponse.formDecision).trim().toUpperCase();
-                        if (formDecision === 'HUMAN') {
-                            if (!sendingCat.isHuman) appendMonitorEvent(sendingCat, '在与馆长互动时暂时显露了拟人形态。', 'detail-chat');
-                            sendingCat.isHuman = true;
-                        } else if (formDecision === 'CAT') {
-                            if (sendingCat.isHuman) appendMonitorEvent(sendingCat, '在与馆长互动后恢复了猫咪形态。', 'detail-chat');
-                            sendingCat.isHuman = false;
-                        }
+                        applyFormDecision(sendingCat, activeResponse, activeFormDirective, directFormNow, 'detail-chat');
 
                         const status = cleanText(activeResponse.status);
                         const voice = cleanText(activeResponse.innerVoice);
@@ -16078,7 +16228,7 @@ ${getCompactMapPointPromptGuide()}`
                         applySuccessfulInteractionUserStatus(userStatus);
                         const replyTime = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
-                        appendInteractionEvent(sendingCat, 'chat-reply', `[${sendingCat.isHuman ? 'HUMAN' : 'CAT'}][REPLY]: ${reply}`, { source: 'detail-chat' });
+                        appendInteractionEvent(sendingCat, 'chat-reply', `[${getResidentForm(sendingCat)}][REPLY]: ${reply}`, { source: 'detail-chat' });
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
                         if (frozenBystanderIds.length) {
@@ -16165,7 +16315,7 @@ ${getCompactMapPointPromptGuide()}`
 ID: ${cat.id}
 Name: ${cat.name} (${cat.breed || '未知品种'})
 Traits: ${cat.personality || '未记录'}
-Current form: ${cat.isHuman ? 'Human Form' : 'Cat Form'}
+Frozen session form: ${focusSessionForms[String(cat.id)] || getResidentForm(cat)}
 ${buildCatMemoryContext(cat)}`).join('\n');
                     const peerRule = participants.length > 1
                         ? `There are ${participants.length} cats supervising together: ${participants.map(cat => cat.name).join(', ')}.
@@ -16199,7 +16349,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             const voice = cleanText(update?.innerVoice || update?.voice || '先把这一段时间守住。');
                             logParts.push(`${cat.name}：${action}`);
                             setCatStatus(cat, action, { innerVoice: voice, source: 'focus', forceLog: true });
-                            nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat) });
+                            nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
                         });
                         if (logParts.length) currentFocusLog.value.unshift(`${timeStr}｜${logParts.join('；')}`);
 
@@ -16218,7 +16368,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             logParts.push(`${cat.name}：${fallback}`);
                             const voice = cleanText(cat.innerVoice || '先守住这一小段时间。');
                             setCatStatus(cat, fallback, { innerVoice: voice, source: 'focus-fallback', forceLog: true });
-                            nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat) });
+                            nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
                         });
                         if (logParts.length) currentFocusLog.value.unshift(`${timeStr}｜${logParts.join('；')}`);
                         focusVoiceEntries.value = nextVoiceEntries;
@@ -16231,6 +16381,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 const startFocus = () => {
                     if (!canStartFocus.value) return;
                     focusCats.value = roomCats.value.filter(c => focusSetupData.selectedCatIds.includes(c.id));
+                    Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
+                    focusCats.value.forEach(cat => { focusSessionForms[String(cat.id)] = getResidentForm(cat); });
                     focusAction.value = focusSetupData.action;
                     focusCats.value.forEach(cat => {
                         const firstInteraction = !(cat.todayInteractions || []).length;
@@ -16395,6 +16547,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     focusSettlementLoading.indeterminate = false;
                     focusSettlementLoading.progress = 88;
                     archiveFocusReport(participants, success, minutes, affinityDelta);
+                    Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
                     focusSettlementLoading.progress = 100;
                     showMissionSettlementModal.value = true;
                     isFinishingFocus.value = false;
@@ -16417,7 +16570,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const targetCat = isFocusing.value ? focusCats.value[Math.floor(Math.random() * focusCats.value.length)] : selectedCat.value;
                     if (!targetCat) return;
                     if (settings.apiKey) {
-                        const formStr = targetCat.isHuman ? "Human Form" : "Cat Form";
+                        const formStr = isFocusing.value ? (focusSessionForms[String(targetCat.id)] || getResidentForm(targetCat)) : getResidentForm(targetCat);
                         const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${targetCat.name} (${formStr}). Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildCatMemoryContext(targetCat, { compact: true })}`;
                         try {
                             const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, { label: `LIGHT INTERACTION · ${targetCat.name}`, priority: 'foreground' });
@@ -16492,7 +16645,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     }
                     return true;
                 };
-                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}, sceneOptions = null) => {
+                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}, formDirectives = {}, sceneOptions = null) => {
                     const payload = parseAIJSON(content);
                     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
                         return 'Status Sync response is not a valid JSON object.';
@@ -16503,6 +16656,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         ? validateLocalPresenceDirectives(payload.updates, presenceDirectives)
                         : updateValidation;
                     if (directiveValidation !== true) return directiveValidation;
+                    const formValidation = validateFormDirectives(payload.updates, formDirectives);
+                    if (formValidation !== true) return formValidation;
                     if (!sceneOptions?.sceneMode) return true;
                     const sceneValidation = validateOptionalHallScene({
                         scene: payload.scene,
@@ -16578,7 +16733,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             return { valid: false, error: 'scene participants must share one map room.' };
                         }
                         sharedRoomId = mapPoint.roomId;
-                        if (hasCatReactionHumanDialogue(reactionById.get(id), cat.isHuman ? 'HUMAN' : 'CAT')) {
+                        const frozenForm = normalizeFormValue(sceneContext?.participantForms?.[id]) || getResidentForm(cat);
+                        if (hasCatReactionHumanDialogue(reactionById.get(id), frozenForm)) {
                             return { valid: false, error: `CAT-form participant ${id} has quoted human dialogue.` };
                         }
                     }
@@ -16589,6 +16745,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             participantIds,
                             content,
                             userStatus,
+                            participantForms: Object.fromEntries(participantIds.map(id => [id, normalizeFormValue(sceneContext?.participantForms?.[id]) || getResidentForm(cats.value.find(cat => String(cat.id) === id))])),
                             reactions: participantIds.map(id => ({ id, content: reactionById.get(id) }))
                         }
                     };
@@ -16713,7 +16870,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 specificContext = `[CRITICAL]: This cat just finished focusing with the user. Last action in log: "${focusCatLastAction}". Their new status MUST continue from this action.`;
                             }
                             if (isActive && isExploreEnd) {
-                                specificContext = `[CRITICAL]: This cat just returned from an adventure. Action MUST show "just returned" traits (dusty, tired, etc.). Inner voice MUST recall adventure events: "${focusCatLastAction}". [ISHUMAN] MUST be false for this update.`;
+                                specificContext = `[CRITICAL]: This cat just returned from an adventure. Action MUST show "just returned" traits (dusty, tired, etc.). Inner voice MUST recall adventure events: "${focusCatLastAction}". Preserve the resident's frozen visible form for this return handoff.`;
                             }
 
                             const lastInteraction = c.lastInteractionTimestamp || 0;
@@ -16725,6 +16882,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
 
                             characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${legacyAwayContext}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
                         });
+
+                        const formLockedIds = new Set([
+                            ...protectedSceneParticipantIds,
+                            ...((isFocusEnd || isExploreEnd) ? (activeCatIds || []).map(id => String(id)) : [])
+                        ]);
+                        const formDirectives = buildFormDirectives(requestedCats, now, [...formLockedIds]);
 
                         const activeIdSet = new Set((activeCatIds || []).map(id => String(id)));
                         const localDepartureSchedule = requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
@@ -16811,12 +16974,13 @@ GNN: ${gnnTrendsGlobal}
 ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 
 ${formatLocalPresenceAuthority(presenceDirectives)}
+${formatFormLifecycleAuthority(formDirectives)}
 
 [RULES]
 - Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.
 - Stored canon and [STATUS SYNC CONTEXT] are binding. Cat form never changes personality. Low affinity means boundaries/independent rhythm, never default fear, hostility, or contempt toward the safe owner.
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
-- Form: affinity <50 => isHuman false; affinity >=50 decides by context; explore-return cats must be false.
+- Form: follow [FORM LIFECYCLE AUTHORITY]. A locked resident must preserve the required form; only ALLOWED residents may choose CAT or HUMAN. Do not invent a form switch merely for novelty.
 - Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic.
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the cat is still in that exact place or activity at this Status Sync time.
 - [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with [LOCAL PRESENCE AUTHORITY], not a new presence decision.
@@ -16846,7 +17010,12 @@ ${enrichedStatusOutputContract}`;
                         if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
                             const updateValidation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
                             const validation = updateValidation === true
-                                ? validateLocalPresenceDirectives(requestOptions.prevalidatedStatusUpdates, presenceDirectives)
+                                ? (() => {
+                                    const presenceValidation = validateLocalPresenceDirectives(requestOptions.prevalidatedStatusUpdates, presenceDirectives);
+                                    return presenceValidation === true
+                                        ? validateFormDirectives(requestOptions.prevalidatedStatusUpdates, formDirectives)
+                                        : presenceValidation;
+                                })()
                                 : updateValidation;
                             if (validation !== true) {
                                 if (statusCompletion) {
@@ -16863,7 +17032,7 @@ ${enrichedStatusOutputContract}`;
                                 ...requestOptions,
                                 label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
                                 dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
-                                validateResponse: content => validateStatusSyncEnvelope(content, requestedIds, presenceDirectives, sceneMode ? {
+                                validateResponse: content => validateStatusSyncEnvelope(content, requestedIds, presenceDirectives, formDirectives, sceneMode ? {
                                     sceneMode,
                                     sceneContext,
                                     requestHallId,
@@ -16925,6 +17094,7 @@ ${enrichedStatusOutputContract}`;
                             let innerVoiceChanged = 0;
                             const staleStatusIds = [];
                             const staleVoiceIds = [];
+                            const pendingFormApplications = [];
 
                             addLog(`STATUS SYNC RESPONSE: expected=${requestedIds.length}; received=${responseEntries.length}; ids=[${receivedIds.join(', ')}]`, "info");
 
@@ -16943,11 +17113,7 @@ ${enrichedStatusOutputContract}`;
                                         cat.isOut = nextIsOut;
                                     }
 
-                                    if (cat.affinity < 50) {
-                                        cat.isHuman = false;
-                                    } else if (update.isHuman !== undefined) {
-                                        cat.isHuman = update.isHuman;
-                                    }
+                                    pendingFormApplications.push({ cat, decision: update, directive: formDirectives[updateId] });
 
                                     cat.lastStatusUpdateTime = Date.now();
                                     if (cat.status !== oldStatus) statusChanged++;
@@ -17121,7 +17287,8 @@ ${enrichedStatusOutputContract}`;
                                         participantIds: sceneValidation.scene.participantIds,
                                         userText: sceneMode === 'user-directed' ? String(sceneContext?.rawUserText || '') : null,
                                         content: sceneValidation.scene.content,
-                                        reactions: sceneValidation.scene.reactions
+                                        reactions: sceneValidation.scene.reactions,
+                                        participantForms: sceneValidation.scene.participantForms
                                     });
                                     if (record) {
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
@@ -17135,6 +17302,10 @@ ${enrichedStatusOutputContract}`;
                                     clearHallSceneFocus();
                                 }
                             }
+
+                            pendingFormApplications.forEach(({ cat, decision, directive }) => {
+                                applyFormDecision(cat, decision, directive, now, 'status-sync');
+                            });
 
                             if (pendingStatusDayRefresh) {
                                 try {
@@ -17515,6 +17686,9 @@ ${enrichedStatusOutputContract}`;
                                 affinity: 10,
                                 isHuman: false,
                                 hasRevealedHumanForm: false,
+                                currentForm: 'CAT',
+                                lastFormChangeAt: null,
+                                nextFormReconsiderAt: null,
                                 image: imgUrl,
                                 image_human: '',
                                 chatHistory: [],
@@ -17544,7 +17718,7 @@ ${enrichedStatusOutputContract}`;
                     const existingNames = roomCats.value.map(c => c.name).join(', ');
                     const systemPrompt = `You are ${newCat.name} (${newCat.codename || newCat.name}). Personality traits: ${newCat.personality || 'unknown'}. Breed: ${newCat.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality at all times. Do NOT act tsundere or like a generic anime cat. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Your tone, humor, emotional expression, moral boundaries and important relationships must match your established character. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}.`;
                     const id = Date.now();
-                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住', isOut: false, affinity: 10, isHuman: false, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false });
+                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住', isOut: false, affinity: 10, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false });
                     currentTab.value = 'lounge';
                 };
 
@@ -17553,7 +17727,7 @@ ${enrichedStatusOutputContract}`;
                         const existingNames = roomCats.value.map(c => c.name).join(', ');
                         const systemPrompt = `You are ${gachaResult.value.name}. Personality: ${gachaResult.value.personality || 'unknown'}. Breed: ${gachaResult.value.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality. Do NOT default to tsundere or generic cute-cat behavior. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Express your character\'s unique voice, emotional range, worldview, moral boundaries and important relationships authentically. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}. ${gachaResult.value.prompt}`;
                         const id = Date.now();
-                        cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: 10, isHuman: false, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
+                        cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: 10, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
                         currentTab.value = 'lounge';
                     }
                     gachaResult.value = null;
@@ -17711,7 +17885,16 @@ ${enrichedStatusOutputContract}`;
                         focusMusic.isSearching = false;
                     }
                 };
-                const toggleHumanMode = () => { if (selectedCat.value) selectedCat.value.isHuman = !selectedCat.value.isHuman; };
+                const toggleHumanMode = () => {
+                    const cat = selectedCat.value;
+                    if (!cat) return;
+                    normalizeResidentFormState(cat);
+                    if (!cat.hasRevealedHumanForm) {
+                        showToast('该居民尚未完成首次拟人化觉醒。', 'info');
+                        return;
+                    }
+                    setResidentForm(cat, isResidentHuman(cat) ? 'CAT' : 'HUMAN', { now: new Date(), scheduleNext: true });
+                };
 
                 const buyItem = (item) => {
                     if (user.coins >= item.price) {
@@ -17745,7 +17928,7 @@ ${enrichedStatusOutputContract}`;
                     }
 
                     const targetCatId = targetCat.id;
-                    const itemForm = targetCat.isHuman ? 'HUMAN' : 'CAT';
+                    const itemForm = getResidentForm(targetCat);
                     const targetItem = item;
                     const itemKey = getInventoryItemKey(targetItem);
 
@@ -17879,8 +18062,7 @@ ${buildCatMemoryContext(targetCat)}`;
                     newCats.forEach(cat => {
                         // Check for reveal
                         if (cat.affinity >= 50 && !cat.hasRevealedHumanForm) {
-                            cat.hasRevealedHumanForm = true;
-                            triggerHumanRevealEvent(cat);
+                            void triggerHumanRevealEvent(cat);
                         }
                     });
                 }, { deep: true });
@@ -17948,7 +18130,7 @@ ${buildCatMemoryContext(targetCat)}`;
                 };
 
                 return {
-                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, getResidentPresenceLabel,
+                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
                     hallSceneRecords, hallSceneFeedRecords, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,

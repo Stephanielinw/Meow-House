@@ -10,6 +10,12 @@ const defaultCats = [
     { id: 5, name: '达米安·韦恩', humanName: '达米安·韦恩', trickArchetype: '傲慢的错拨电话者', breed: '黑色东方短毛猫', eyeColor: '祖母绿', personality: '傲慢、暴力、贵族气派', status: '正在磨爪子准备战斗', isOut: false, affinity: 10, isHuman: false, hasRevealedHumanForm: false, image: 'https://placehold.co/200x200/006400/white?text=Robin(Cat)', image_human: 'https://placehold.co/200x200/006400/white?text=Damian(Human)', chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], innerVoice: 'Tt. 愚蠢的家具。', lastFocusTime: 0, lastInteractionTimestamp: 0, lastLogDate: null, prompt: "You are Damian Wayne (Robin). Heir to the Demon. Trained since birth by the League of Assassins. Your arrogance is real, disciplined, and competitive, but it is not a requirement to insult a safe caretaker in every exchange. 'Tt.' may appear occasionally as reflexive disdain, never as filler. You do NOT do cute tsundere acts. Your criticism is clinical and specific when there is something worth correcting. You have strong opinions about combat, discipline, animal husbandry, and the failings of everyone around you. You are comfortable with animals in a way you will never explain or acknowledge. When someone demonstrates real competence, discipline, or preparation, you can acknowledge that fact briefly and without warmth; you do not need to immediately catalogue their other deficiencies. Your seriousness about household order, animals, and responsibility can drive ordinary interactions. You never beg, never pout, and never act shy or embarrassed.", birthday: "08-01", isMarvel: false }
 ];
 
+defaultCats.forEach(cat => {
+    cat.currentForm = 'CAT';
+    cat.lastFormChangeAt = null;
+    cat.nextFormReconsiderAt = null;
+});
+
 const DEFAULT_HALLS = [
     { id: 'gotham', name: '哥谭馆', eyebrow: 'DC 猫猫分馆', guardian: '阿尔弗雷德', guardianTitle: '哥谭馆管家', icon: 'fa-mask', description: '雨夜、屋顶和一群不肯承认自己需要陪伴的英雄猫。', atmosphere: '冷峻、克制、藏着一盏始终亮着的灯。', catLabel: '哥谭本地猫', source: 'DC Comics · Batman / Gotham' },
     { id: 'marvel', name: '漫威馆', eyebrow: 'MARVEL CAT WING', guardian: 'JARVIS', guardianTitle: '漫威馆管家', icon: 'fa-atom', description: '高科技、嘴炮和一群随时可能把天花板打穿的猫。', atmosphere: '明亮、喧闹、充满能量核心的嗡鸣。', catLabel: '漫威来客', source: 'Marvel Cinematic Universe · selected comic continuities' },
@@ -21,7 +27,8 @@ const DEFAULT_HALLS = [
 
 const makeHallCat = (id, hallId, data) => ({
     id, hallId, ...data, isOut: false, affinity: 10, isHuman: false,
-    hasRevealedHumanForm: false, chatHistory: [], diary: [], logs: [],
+    hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null,
+    nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [],
     travelogues: [], todayInteractions: [], lastFocusTime: 0,
     lastInteractionTimestamp: 0, lastLogDate: null, lastStatusUpdateTime: Date.now()
 });
@@ -187,11 +194,22 @@ const normalizeCatHall = (cat) => {
         avatarMode: cat.avatarMode === 'sprite' && cat.spriteAssets?.stand?.assetId ? 'sprite' : 'image',
         pixelAvatar: cat.pixelAvatar && typeof cat.pixelAvatar === 'object' ? cat.pixelAvatar : null,
         catPaint: cat.catPaint && typeof cat.catPaint === 'object' ? cat.catPaint : null,
+        hasRevealedHumanForm: Boolean(cat.hasRevealedHumanForm || cat.isHuman || cat.currentForm === 'HUMAN'),
+        currentForm: (cat.currentForm === 'HUMAN' || cat.isHuman === true) ? 'HUMAN' : 'CAT',
+        lastFormChangeAt: typeof cat.lastFormChangeAt === 'string' && !Number.isNaN(new Date(cat.lastFormChangeAt).getTime()) ? cat.lastFormChangeAt : null,
+        nextFormReconsiderAt: typeof cat.nextFormReconsiderAt === 'string' && !Number.isNaN(new Date(cat.nextFormReconsiderAt).getTime()) ? cat.nextFormReconsiderAt : null,
         lastStatusUpdateTime: cat.lastStatusUpdateTime || 0,
         isVisiting: Boolean(cat.isVisiting),
         visitOriginHallId: cat.visitOriginHallId || null,
         visitStartedAt: cat.visitStartedAt || null
     };
+    if (normalized.currentForm === 'HUMAN') normalized.hasRevealedHumanForm = true;
+    normalized.isHuman = normalized.currentForm === 'HUMAN';
+    if (!normalized.hasRevealedHumanForm) {
+        normalized.currentForm = 'CAT';
+        normalized.isHuman = false;
+        normalized.nextFormReconsiderAt = null;
+    }
     if (isPermanentOutBuiltin(cat)) normalized.isOut = true;
     return normalized;
 };
@@ -257,7 +275,7 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
     merged.affinity = Math.max(Number(canonicalCat.affinity || 0), Number(legacyCat.affinity || 0));
     merged.hasRevealedHumanForm = Boolean(canonicalCat.hasRevealedHumanForm || legacyCat.hasRevealedHumanForm);
 
-    ['status', 'innerVoice', 'isOut', 'isHuman', 'mapRoom', 'mapSpot', 'mapFurniture', 'mapPoint', 'mapPositionLabel', 'lastStatusUpdateTime', 'lastInteractionTimestamp', 'lastInteractionDate', 'lastFocusTime', 'lastStatusSyncAt', 'lastLogDate', 'isVisiting', 'visitOriginHallId', 'visitStartedAt'].forEach(field => {
+    ['status', 'innerVoice', 'isOut', 'isHuman', 'currentForm', 'lastFormChangeAt', 'nextFormReconsiderAt', 'mapRoom', 'mapSpot', 'mapFurniture', 'mapPoint', 'mapPositionLabel', 'lastStatusUpdateTime', 'lastInteractionTimestamp', 'lastInteractionDate', 'lastFocusTime', 'lastStatusSyncAt', 'lastLogDate', 'isVisiting', 'visitOriginHallId', 'visitStartedAt'].forEach(field => {
         if (latest[field] !== undefined) merged[field] = latest[field];
     });
 

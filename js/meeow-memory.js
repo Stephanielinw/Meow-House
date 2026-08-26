@@ -9,6 +9,9 @@
     };
 
     const cleanText = (...args) => dependencies.cleanText(...args);
+    const getResidentForm = (cat) => dependencies.getResidentForm
+        ? dependencies.getResidentForm(cat)
+        : (cat?.isHuman ? 'HUMAN' : 'CAT');
 
     const getPermanentDiaryEntries = (cat, limit = 5) => (cat?.logs || []).slice(-limit)
         .map(entry => `[${entry.date || entry.time || '历史'}] ${cleanText(entry.content || '')}`);
@@ -49,7 +52,7 @@
 - Name: ${cat?.name || '未命名角色'}; Hall: ${hall?.name || 'Meeow House'}
 - Canon personality / stored prompt: ${cat?.prompt || cat?.personality || '以原作设定为准'}
 - Fixed cat breed: ${cat?.breed || '未设定'}; fixed eye color: ${cat?.eyeColor || '未设定'}.
-- Current form: ${cat?.isHuman ? 'human form' : 'cat form'}; closeness (affinity): ${cat?.affinity ?? 0}/100.
+- Current form: ${getResidentForm(cat) === 'HUMAN' ? 'human form' : 'cat form'}; closeness (affinity): ${cat?.affinity ?? 0}/100.
 - The USER is already a trusted and accepted caretaker. Affinity controls intimacy and disclosure, never basic safety or permission to be nearby.
 - Fixed breed and eye color are immutable reference facts: never change, contradict, omit, or substitute them. Reference only; do not narrate unless explicitly relevant under the appearance rule. Never change original personality, relationships, or hall boundary.`;
     };
@@ -126,7 +129,7 @@ Name: ${cat?.name || '未命名角色'}
 Breed: ${truncateMemoryText(cat?.breed || '未设定', 32)}; Eyes: ${truncateMemoryText(cat?.eyeColor || '未设定', 22)}
 Traits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}
 Canon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}
-Affinity: ${cat?.affinity ?? 0}/100; Form: ${cat?.isHuman ? 'HUMAN' : 'CAT'}; Out: ${Boolean(cat?.isOut)}
+Affinity: ${cat?.affinity ?? 0}/100; Form: ${getResidentForm(cat)}; Out: ${Boolean(cat?.isOut)}
 Current status: ${truncateMemoryText(cat?.status || '未知', 35)}
 Current inner voice: ${truncateMemoryText(cat?.innerVoice || '无记录', 24)}
 Updated: ${lastStatusLabel}; [Δt RULE]: ${diffMinutes}m
