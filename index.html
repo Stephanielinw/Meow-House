@@ -5057,7 +5057,7 @@
                     </h3>
                     <div class="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
                         <template v-for="cat in roomCats" :key="'travel-cat-' + cat.id">
-                            <div v-for="(t, i) in (cat.travelogues || []).slice().reverse()" :key="cat.id + '-t-' + i"
+                            <div v-for="(t, i) in getExploreArchiveRecords(cat).slice().reverse()" :key="cat.id + '-t-' + i"
                                 @click="openTravelogue(cat, t)"
                                 class="w-56 shrink-0 bg-zinc-900 p-3 rounded-lg border border-zinc-700 hover:border-yellow-600 transition-all cursor-pointer group relative overflow-hidden">
                                 <div
@@ -5084,7 +5084,7 @@
                                     Read More →</div>
                             </div>
                         </template>
-                        <div v-if="roomCats.every(c => !c.travelogues || c.travelogues.length === 0)"
+                        <div v-if="roomCats.every(cat => getExploreArchiveRecords(cat).length === 0)"
                             class="w-full py-8 text-center text-zinc-600 text-xs italic flex flex-col items-center gap-2">
                             <i class="fas fa-feather-alt text-2xl opacity-20"></i>
                             目前还没有猫猫留下游记... 带着他们出去走走吧。
@@ -5320,13 +5320,9 @@
                         class="sully-btn bg-black/40 border border-white/10 p-2.5 rounded-2xl text-xs hover:bg-black/60 transition text-gray-300 flex flex-col items-center gap-1 shadow-md">
                         <i class="fas fa-video text-sm text-blue-400"></i>监控日志
                     </button>
-                    <button @click="openLogModal"
+                    <button @click="openCatArchive(selectedCat)"
                         class="sully-btn bg-black/40 border border-white/10 p-2.5 rounded-2xl text-xs hover:bg-black/60 transition text-yellow-500 flex flex-col items-center gap-1 shadow-md">
-                        <i class="fas fa-book text-sm text-yellow-400"></i>秘密日记
-                    </button>
-                    <button v-if="getCompletedAwayEpisodes(selectedCat).length" @click="openCompletedAwayArchive(selectedCat)"
-                        class="sully-btn bg-black/40 border border-white/10 p-2.5 rounded-2xl text-xs hover:bg-black/60 transition text-violet-200 flex flex-col items-center gap-1 shadow-md">
-                        <i class="fas fa-suitcase-rolling text-sm text-violet-300"></i>离馆档案
+                        <i class="fas fa-book-atlas text-sm text-yellow-400"></i>小猫档案
                     </button>
                     <button @click="toggleHumanMode" v-if="selectedCat.affinity >= 50" :disabled="isResidentAway(selectedCat)"
                         class="sully-btn bg-gradient-to-r from-pink-900 to-purple-900 border border-pink-500/30 p-2.5 rounded-2xl text-xs hover:brightness-110 transition flex flex-col items-center gap-1 text-pink-200 shadow-md"
@@ -7707,51 +7703,75 @@
             </section>
         </div>
 
-        <!-- Completed Away Archive -->
-        <div v-if="showCompletedAwayArchiveModal && completedAwayArchiveCat" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="closeCompletedAwayArchive">
-            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="`${completedAwayArchiveCat.name} 的离馆档案`">
+        <!-- Cat Archive -->
+        <div v-if="showCatArchiveModal && catArchiveCat" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="closeCatArchive">
+            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="`${catArchiveCat.name} 的小猫档案`">
                 <div class="meeow-reader-header flex justify-between items-center mb-3 pb-3">
                     <div class="flex items-center gap-2.5 min-w-0">
-                        <img :src="getCatAvatarSource(completedAwayArchiveCat)" class="w-9 h-9 rounded-xl object-contain border border-white/10">
+                        <img :src="getCatAvatarSource(catArchiveCat)" class="w-9 h-9 rounded-xl object-contain border border-white/10">
                         <div class="min-w-0">
-                            <h2 class="text-base font-bold truncate">{{ completedAwayArchiveCat.name }}</h2>
-                            <p class="text-[10px] font-mono" style="color: var(--ui-text-muted);">小猫离馆档案</p>
+                            <h2 class="text-base font-bold truncate">{{ catArchiveCat.name }}</h2>
+                            <p class="text-[10px] font-mono" style="color: var(--ui-text-muted);">小猫档案</p>
                         </div>
                     </div>
-                    <button @click="closeCompletedAwayArchive" class="meeow-reader-close p-1" aria-label="关闭离馆档案"><i class="fas fa-times text-xl"></i></button>
+                    <button @click="closeCatArchive" class="meeow-reader-close p-1" aria-label="关闭小猫档案"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="grid grid-cols-4 gap-1 mb-3 text-[10px]" role="tablist" aria-label="档案分类">
+                    <button @click="selectCatArchiveTab('daily')" :class="catArchiveTab === 'daily' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'daily' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'daily'">每日日记</button>
+                    <button @click="selectCatArchiveTab('away')" :class="catArchiveTab === 'away' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'away' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'away'">离馆档案</button>
+                    <button @click="selectCatArchiveTab('explore')" :class="catArchiveTab === 'explore' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'explore' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'explore'">探索档案</button>
+                    <button @click="selectCatArchiveTab('visit')" :class="catArchiveTab === 'visit' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'visit' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'visit'">跨馆档案</button>
+                </div>
+                <div v-if="getCatArchiveDateKeys(catArchiveCat, catArchiveTab).length" class="flex justify-end mb-3">
+                    <select :value="catArchiveDateKey" @change="selectCatArchiveDate($event.target.value)" class="rounded-lg border px-2 py-1 text-[10px]" style="border-color: var(--ui-border); background: var(--ui-surface-soft); color: var(--ui-text);" aria-label="选择归档日">
+                        <option v-for="dateKey in getCatArchiveDateKeys(catArchiveCat, catArchiveTab)" :key="dateKey" :value="dateKey">{{ dateKey }}</option>
+                    </select>
                 </div>
                 <div class="meeow-reader-body flex-1 custom-scrollbar p-1 space-y-4">
-                    <article v-for="episode in getCompletedAwayEpisodes(completedAwayArchiveCat)" :key="episode.id" class="log-paper relative">
-                        <div class="border-b border-gray-400 pb-2 mb-3 flex flex-wrap justify-between gap-x-3 gap-y-1">
-                            <span class="font-bold text-sm">离馆记录</span>
-                            <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(episode.returnedAt || episode.plannedReturnAt) }}</span>
-                        </div>
-                        <dl class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
-                            <dt style="color: var(--ui-text-muted);">地点</dt>
-                            <dd class="break-words">{{ cleanText(episode.destination) || '未留下地点记录' }}</dd>
-                            <dt style="color: var(--ui-text-muted);">离馆时间</dt>
-                            <dd>{{ formatAwayArchiveTime(episode.departedAt) }}</dd>
-                            <dt style="color: var(--ui-text-muted);">回馆时间</dt>
-                            <dd>{{ formatAwayArchiveTime(episode.returnedAt || episode.plannedReturnAt) }}</dd>
-                            <dt style="color: var(--ui-text-muted);">总时长</dt>
-                            <dd>{{ formatAwayArchiveDuration(episode) }}</dd>
-                        </dl>
-                        <section v-if="getUsablePlannedArchiveNarrative(episode)" class="mt-4 rounded-xl border p-3" style="border-color: var(--ui-border); background: var(--ui-surface-soft);">
-                            <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">它的回忆</h3>
-                            <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ getUsablePlannedArchiveNarrative(episode) }}</p>
-                        </section>
-                        <section class="mt-4">
-                            <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">外出时间线</h3>
-                            <div v-if="getAwayArchiveTimeline(completedAwayArchiveCat, episode).length" class="space-y-3">
-                                <div v-for="event in getAwayArchiveTimeline(completedAwayArchiveCat, episode)" :key="event.id" class="border-l-2 pl-3" style="border-color: var(--ui-border);">
-                                    <div class="text-[10px] font-mono" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(event.at) }}</div>
-                                    <p class="text-sm leading-relaxed whitespace-pre-wrap break-words mt-1">{{ event.content }}</p>
+                    <template v-if="getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey).length">
+                        <template v-if="catArchiveTab === 'daily'">
+                            <article v-for="record in getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey)" :key="record.id" class="log-paper relative">
+                                <div class="border-b border-gray-400 pb-1 mb-2 flex justify-between gap-3"><span class="font-bold text-xs">每日日记</span><span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(record.item.at || record.item.date) }}</span></div>
+                                <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ cleanText(record.item.content) }}</p>
+                            </article>
+                        </template>
+                        <template v-else-if="catArchiveTab === 'away'">
+                            <article v-for="record in getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey)" :key="record.id" class="log-paper relative">
+                                <div class="border-b border-gray-400 pb-2 mb-3 flex flex-wrap justify-between gap-x-3 gap-y-1">
+                                    <span class="font-bold text-sm">离馆记录</span>
+                                    <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(record.item.returnedAt || record.item.plannedReturnAt) }}</span>
                                 </div>
-                            </div>
-                            <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">这趟外出没有留下可归档的时间线记录。</p>
-                        </section>
-                    </article>
-                    <p v-if="!getCompletedAwayEpisodes(completedAwayArchiveCat).length" class="text-center py-10 text-xs italic" style="color: var(--ui-text-muted);">暂时没有已完成的离馆档案。</p>
+                                <dl class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
+                                    <dt style="color: var(--ui-text-muted);">地点</dt><dd class="break-words">{{ cleanText(record.item.destination) || '未留下地点记录' }}</dd>
+                                    <dt style="color: var(--ui-text-muted);">离馆时间</dt><dd>{{ formatAwayArchiveTime(record.item.departedAt) }}</dd>
+                                    <dt style="color: var(--ui-text-muted);">回馆时间</dt><dd>{{ formatAwayArchiveTime(record.item.returnedAt || record.item.plannedReturnAt) }}</dd>
+                                    <dt style="color: var(--ui-text-muted);">总时长</dt><dd>{{ formatAwayArchiveDuration(record.item) }}</dd>
+                                </dl>
+                                <section v-if="getUsablePlannedArchiveNarrative(record.item)" class="mt-4 rounded-xl border p-3" style="border-color: var(--ui-border); background: var(--ui-surface-soft);">
+                                    <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">它的回忆</h3>
+                                    <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ getUsablePlannedArchiveNarrative(record.item) }}</p>
+                                </section>
+                                <section class="mt-4">
+                                    <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">外出时间线</h3>
+                                    <div v-if="getAwayArchiveTimeline(catArchiveCat, record.item).length" class="space-y-3">
+                                        <div v-for="event in getAwayArchiveTimeline(catArchiveCat, record.item)" :key="event.id" class="border-l-2 pl-3" style="border-color: var(--ui-border);">
+                                            <div class="text-[10px] font-mono" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(event.at) }}</div>
+                                            <p class="text-sm leading-relaxed whitespace-pre-wrap break-words mt-1">{{ event.content }}</p>
+                                        </div>
+                                    </div>
+                                    <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">这趟外出没有留下可归档的时间线记录。</p>
+                                </section>
+                            </article>
+                        </template>
+                        <template v-else>
+                            <article v-for="record in getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey)" :key="record.id" class="log-paper relative">
+                                <div class="border-b border-gray-400 pb-1 mb-2 flex flex-wrap justify-between gap-x-3 gap-y-1"><span class="font-bold text-xs">{{ catArchiveTab === 'explore' ? '探索记录' : '跨馆记录' }}</span><span class="text-[10px]" style="color: var(--ui-text-muted);">{{ cleanText(record.item.date) || formatAwayArchiveTime(record.item.at) }}</span></div>
+                                <p v-if="record.item.location" class="text-[10px] mb-2" style="color: var(--ui-text-muted);"><i class="fas fa-map-marker-alt mr-1"></i>{{ cleanText(record.item.location) }}</p>
+                                <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ cleanText(record.item.content) }}</p>
+                            </article>
+                        </template>
+                    </template>
+                    <p v-else class="text-center py-10 text-xs italic" style="color: var(--ui-text-muted);">这个分类暂时没有可查看的记录。</p>
                 </div>
             </section>
         </div>
@@ -9462,8 +9482,10 @@
                 const showLogModal = ref(false);
                 const showAwayRecordModal = ref(false);
                 const awayRecordCat = ref(null);
-                const showCompletedAwayArchiveModal = ref(false);
-                const completedAwayArchiveCat = ref(null);
+                const showCatArchiveModal = ref(false);
+                const catArchiveCat = ref(null);
+                const catArchiveTab = ref('daily');
+                const catArchiveDateKey = ref('');
                 const showEditCatModal = ref(false);
                 const currentShopCategory = ref('food');
                 const isReleasing = ref(false);
@@ -9984,15 +10006,6 @@
                 const closeAwayRecordViewer = () => {
                     showAwayRecordModal.value = false;
                     awayRecordCat.value = null;
-                };
-                const openCompletedAwayArchive = (cat) => {
-                    if (!cat || !getCompletedAwayEpisodes(cat).length) return;
-                    completedAwayArchiveCat.value = cat;
-                    showCompletedAwayArchiveModal.value = true;
-                };
-                const closeCompletedAwayArchive = () => {
-                    showCompletedAwayArchiveModal.value = false;
-                    completedAwayArchiveCat.value = null;
                 };
 
                 // ===== GROUP CHAT + CAUGHT IN THE ACT =====
@@ -14619,6 +14632,80 @@ ${buildCatMemoryContext(cat)}`;
                     });
                     return timeline.sort((a, b) => new Date(a.at) - new Date(b.at) || a.id.localeCompare(b.id));
                 };
+                const CAT_ARCHIVE_TABS = ['daily', 'away', 'explore', 'visit'];
+                const isOperationalDayKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+                const getArchiveOperationalDayKey = (record, { allowLegacyDate = false } = {}) => {
+                    const logicalAt = parseLogicalDate(record?.at);
+                    if (logicalAt) return getOperationalDayKey(logicalAt);
+                    if (isOperationalDayKey(record?.dateKey)) return String(record.dateKey);
+                    if (!allowLegacyDate) return '';
+                    const legacyDate = parseLogicalDate(record?.date);
+                    return legacyDate ? getOperationalDayKey(legacyDate) : '';
+                };
+                const getExploreArchiveRecords = (cat) => Array.isArray(cat?.travelogues)
+                    ? cat.travelogues.filter(record => record && typeof record === 'object' && record.source === 'explore')
+                    : [];
+                const getCatArchiveRecords = (cat, tab) => {
+                    if (!cat) return [];
+                    if (tab === 'away') {
+                        return getCompletedAwayEpisodes(cat)
+                            .map(episode => ({
+                                id: String(episode.id),
+                                dateKey: getOperationalDayKey(episode.departedAt),
+                                item: episode
+                            }))
+                            .filter(record => record.dateKey);
+                    }
+                    if (tab === 'daily') {
+                        return (Array.isArray(cat.logs) ? cat.logs : [])
+                            .filter(record => record && record.type === 'daily-diary')
+                            .map((record, index) => ({
+                                id: `daily-${String(record.id || index)}-${String(record.at || record.date || '')}`,
+                                dateKey: getArchiveOperationalDayKey(record, { allowLegacyDate: true }),
+                                item: record
+                            }))
+                            .filter(record => record.dateKey);
+                    }
+                    const source = tab === 'explore' ? 'explore' : tab === 'visit' ? 'visit' : '';
+                    if (!source) return [];
+                    return (Array.isArray(cat.travelogues) ? cat.travelogues : [])
+                        .filter(record => record && typeof record === 'object' && record.source === source)
+                        .map((record, index) => ({
+                            id: `${source}-${String(record.id || index)}-${String(record.at || record.date || '')}`,
+                            dateKey: getArchiveOperationalDayKey(record, { allowLegacyDate: true }),
+                            item: record
+                        }))
+                        .filter(record => record.dateKey);
+                };
+                const getCatArchiveDateKeys = (cat, tab) => [...new Set(
+                    getCatArchiveRecords(cat, tab).map(record => record.dateKey)
+                )].sort((a, b) => b.localeCompare(a));
+                const getCatArchiveRecordsForDate = (cat, tab, dateKey) => getCatArchiveRecords(cat, tab)
+                    .filter(record => record.dateKey === dateKey);
+                const openCatArchive = (cat, tab = 'daily', preferredDateKey = '') => {
+                    if (!cat) return;
+                    const nextTab = CAT_ARCHIVE_TABS.includes(tab) ? tab : 'daily';
+                    const dateKeys = getCatArchiveDateKeys(cat, nextTab);
+                    catArchiveCat.value = cat;
+                    catArchiveTab.value = nextTab;
+                    catArchiveDateKey.value = dateKeys.includes(preferredDateKey) ? preferredDateKey : (dateKeys[0] || '');
+                    showCatArchiveModal.value = true;
+                };
+                const closeCatArchive = () => {
+                    showCatArchiveModal.value = false;
+                    catArchiveCat.value = null;
+                    catArchiveTab.value = 'daily';
+                    catArchiveDateKey.value = '';
+                };
+                const selectCatArchiveTab = (tab) => {
+                    if (!CAT_ARCHIVE_TABS.includes(tab)) return;
+                    catArchiveTab.value = tab;
+                    catArchiveDateKey.value = getCatArchiveDateKeys(catArchiveCat.value, tab)[0] || '';
+                };
+                const selectCatArchiveDate = (dateKey) => {
+                    const dateKeys = getCatArchiveDateKeys(catArchiveCat.value, catArchiveTab.value);
+                    if (dateKeys.includes(dateKey)) catArchiveDateKey.value = dateKey;
+                };
                 const getRecentAwayReturn = (catOrId, now = new Date()) => {
                     const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
                     const timestamp = parseLogicalDate(now)?.getTime() || Date.now();
@@ -16797,12 +16884,8 @@ ${statusOutputContract}`;
                 const openLogModal = () => showLogModal.value = true;
 
                 const openTravelogue = (cat, t) => {
-                    selectedCat.value = cat;
-                    // We can reuse the log modal by temporarily injecting the travelogue as the main content or just opening the log modal
-                    // But for a better experience, let's just open the log modal and the user can find it there, 
-                    // OR we can highlight it.
-                    // Actually, let's just use the log modal and ensure it's scrolled to or visible.
-                    showLogModal.value = true;
+                    if (!cat || !t || t.source !== 'explore') return;
+                    openCatArchive(cat, 'explore', getArchiveOperationalDayKey(t, { allowLegacyDate: true }));
                 };
                 const stopFocus = () => { if (confirm("确定中止任务？")) { const plannedMinutes = focusTotalTime.value / 60; finishFocus(plannedMinutes, false); } };
                 const playLogSound = () => { const audio = new Audio('https://files.catbox.moe/mz99nm.mp3'); audio.volume = 0.5; audio.play().catch(() => { }); };
@@ -17328,7 +17411,7 @@ ${buildCatMemoryContext(targetCat)}`;
                     hallSceneRecords, hallSceneFeedRecords, getHallSceneParticipantNames, getHallSceneReactionName,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCompletedAwayArchiveModal, completedAwayArchiveCat, openCompletedAwayArchive, closeCompletedAwayArchive, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
