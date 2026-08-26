@@ -7687,7 +7687,7 @@
                         <p class="text-xs leading-relaxed break-words" style="color: var(--ui-text);">{{ cleanText(awayRecordCat.status || '暂无状态') }}</p>
                     </div>
                     <div v-if="getAwayTraceRecords(awayRecordCat).length" class="space-y-3">
-                        <article v-for="(record, index) in getAwayTraceRecords(awayRecordCat).slice().reverse()" :key="record.id || `${record.date || 'travelogue'}-${index}`" class="log-paper relative">
+                        <article v-for="(record, index) in getAwayTraceRecords(awayRecordCat)" :key="record.id || `${record.date || 'travelogue'}-${index}`" class="log-paper relative">
                             <div class="border-b border-gray-400 pb-1 mb-2 flex flex-wrap justify-between gap-x-3 gap-y-1">
                                 <span class="font-bold text-xs">{{ record.date }}</span>
                                 <span v-if="record.location" class="text-[10px]" style="color: var(--ui-text-muted);">{{ record.location }}</span>
@@ -7748,7 +7748,7 @@
                                     <dt style="color: var(--ui-text-muted);">总时长</dt><dd>{{ formatAwayArchiveDuration(record.item) }}</dd>
                                 </dl>
                                 <section v-if="getUsablePlannedArchiveNarrative(record.item)" class="mt-4 rounded-xl border p-3" style="border-color: var(--ui-border); background: var(--ui-surface-soft);">
-                                    <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">它的回忆</h3>
+                                    <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">离馆手记</h3>
                                     <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ getUsablePlannedArchiveNarrative(record.item) }}</p>
                                 </section>
                                 <section class="mt-4">
@@ -10001,6 +10001,7 @@
                     return activeEpisode && Array.isArray(cat?.travelogues)
                         ? cat.travelogues.filter(record => record && typeof record === 'object' &&
                             record.source === 'away' && String(record.episodeId || '') === activeEpisode.id)
+                            .sort((a, b) => (parseLogicalDate(a.at)?.getTime() || 0) - (parseLogicalDate(b.at)?.getTime() || 0))
                         : [];
                 };
                 const closeAwayRecordViewer = () => {
@@ -14108,10 +14109,43 @@ ${buildCatMemoryContext(cat)}`;
                     if (!entries.length) return '[LOCAL PRESENCE AUTHORITY]\nNo HOME residents require a local presence directive in this response.';
                     return `[LOCAL PRESENCE AUTHORITY]\n${entries.map(([id, directive]) => `${id} → ${directive}`).join('\n')}\nThese directives are binding local world logic. Do not independently infer or choose HOME/AWAY. Use [CURRENT-LIFE CONTEXT] and [LAST-KNOWN CONTINUITY EVIDENCE] only to write content consistent with the assigned directive: HOME means isOut:false and a plausible in-hall status; DEPARTING_NOW means isOut:true plus one matching core mode:"departure" plan.`;
                 };
+                const getAwayActivityBeatCount = (durationMinutes) => {
+                    const duration = Number(durationMinutes) || 0;
+                    if (duration < 90) return 1;
+                    if (duration < 180) return 2;
+                    if (duration < 360) return 3;
+                    return 4;
+                };
+                const getAwayActivityTimingRules = (durationMinutes, beatCount = getAwayActivityBeatCount(durationMinutes)) => {
+                    const duration = Math.max(1, Number(durationMinutes) || 0);
+                    const gaps = Math.max(0, beatCount - 1);
+                    const preferredMargin = 10;
+                    const preferredSpacing = 10;
+                    const margin = Math.max(1, Math.min(preferredMargin, Math.floor((duration - gaps * preferredSpacing) / 2)));
+                    const spacing = gaps
+                        ? Math.max(1, Math.min(preferredSpacing, Math.floor((duration - margin * 2) / gaps)))
+                        : preferredSpacing;
+                    return { margin, spacing };
+                };
+                const getValidAwayArchiveNarrative = (value) => {
+                    if (typeof value !== 'string') return '';
+                    const narrative = cleanText(value);
+                    if (narrative.length < 80 || narrative.length > 360) return '';
+                    const chineseCharacters = (narrative.match(/[\u3400-\u9fff]/g) || []).length;
+                    if (chineseCharacters < 50) return '';
+                    const compact = narrative.replace(/[\s，。！？、；：,.!?;:'"“”‘’—-]/g, '').toLowerCase();
+                    if (/^(无|暂无|未知|空|none|null|n\/a|test|测试|占位|placeholder)(内容|记录|叙事|手记)?$/.test(compact)) return '';
+                    return narrative;
+                };
+                const AWAY_ACTIVITY_PLANNING_RULES = `[AWAY LIFE PLAN]
+- AWAY means the resident has left Meeow House and resumed a meaningful part of their independent life elsewhere: work, study, training, a social commitment, an errand, a relationship, a personal project, unfinished business, or private time. They are not normally wandering the courtyard, a nearby wall, or an alley like a stray cat. Avoid vague phrases such as “处理一些事情”, “出去转转”, or “随便走走” unless concrete character-specific context makes them meaningful.
+- The resident may use HUMAN form offscreen when appropriate, even if the USER has not witnessed it. Never describe a transformation, unlock visible HUMAN form, expose a hidden identity/name, or imply that the USER witnessed it. This boundary also applies to publicTrace and the completed archive narrative.
+- plannedActivities is required. Use exactly 1 activity for duration under 90 minutes, 2 for 90–179 minutes, 3 for 180–359 minutes, or 4 for 360 minutes or longer. Each item is {"afterMinutes":number,"plannedResidentActivity":"private fact that will only become true at that time","publicTrace":"limited public trace"}. Make the beats distinct moments in chronological order, not paraphrases of one task. plannedResidentActivity remains private resident truth; publicTrace remains limited USER-visible evidence.
+- plannedArchiveNarrative is required for every new departure: approximately 100–200 Chinese characters, first-person, personal, reflective, character-specific prose about this outing. It may be intimate, but must not expose unrevealed HUMAN-form or hidden-identity facts, and must not turn into a system report or bullet summary.
+- plannedReturnStatus and mailPlan remain optional. Their omission never makes the required activity plan or archive narrative incomplete.`;
                 const createAwayEpisode = (cat, plan, departedAt = new Date()) => {
                     const departure = parseLogicalDate(departedAt) || new Date();
                     const durationMs = Number(plan.plannedDurationMinutes) * 60 * 1000;
-                    const activityMs = Number(plan.activityAfterMinutes) * 60 * 1000;
                     const episode = {
                         id: `away-episode-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
                         residentId: String(cat.id),
@@ -14121,15 +14155,15 @@ ${buildCatMemoryContext(cat)}`;
                         destination: cleanText(plan.destination || ''),
                         // Optional display enrichment; lifecycle validity never depends on it.
                         plannedReturnStatus: cleanText(plan.plannedReturnStatus || ''),
-                        // Private archive enrichment, hidden until this Episode completes.
+                        // Required for new departures, but always hidden until completion.
                         plannedArchiveNarrative: cleanText(plan.plannedArchiveNarrative || ''),
-                        activityPlan: plan.mode === 'departure' ? {
-                            activityAt: new Date(departure.getTime() + activityMs).toISOString(),
-                            plannedResidentActivity: cleanText(plan.plannedResidentActivity || ''),
-                            publicTrace: cleanText(plan.publicTrace || ''),
+                        activityPlans: plan.mode === 'departure' ? (plan.plannedActivities || []).map(activity => ({
+                            activityAt: new Date(departure.getTime() + Number(activity.afterMinutes) * 60 * 1000).toISOString(),
+                            plannedResidentActivity: cleanText(activity.plannedResidentActivity || ''),
+                            publicTrace: cleanText(activity.publicTrace || ''),
                             state: 'planned',
                             materializedAt: null
-                        } : null,
+                        })) : [],
                         mailPlan: (plan.mailPlan || []).map(mail => ({
                             id: `away-mail-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
                             sendAt: new Date(departure.getTime() + Number(mail.sendAfterMinutes) * 60 * 1000).toISOString(),
@@ -14146,9 +14180,8 @@ ${buildCatMemoryContext(cat)}`;
                     awayEpisodes.value.push(episode);
                     return episode;
                 };
-                const materializeAwayEpisodeActivity = (episode, eventAt, reconciledAt = new Date()) => {
+                const materializeAwayEpisodeActivity = (episode, plan, eventAt, reconciledAt = new Date(), beatIndex = 0, beatCount = 1) => {
                     const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
-                    const plan = episode?.activityPlan;
                     if (!cat || !plan || plan.state === 'materialized') return false;
                     if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
                     cat.travelogues.push({
@@ -14164,7 +14197,7 @@ ${buildCatMemoryContext(cat)}`;
                     });
                     plan.state = 'materialized';
                     plan.materializedAt = reconciledAt.toISOString();
-                    addLog(`AWAY EPISODE ACTIVITY MATERIALIZED: episode=${episode.id}; resident=${episode.residentId}`, 'sent');
+                    addLog(`AWAY EPISODE ACTIVITY MATERIALIZED: episode=${episode.id}; resident=${episode.residentId}; beat=${beatIndex + 1}/${beatCount}; logicalAt=${eventAt.toISOString()}`, 'sent');
                     return true;
                 };
                 const settleAwayEpisodeReturn = (episode, eventAt, reconciledAt = new Date()) => {
@@ -14208,10 +14241,12 @@ ${buildCatMemoryContext(cat)}`;
                     const returnedResidentIds = [];
                     awayEpisodes.value.forEach(episode => {
                         if (episode.status !== 'active') return;
-                        const activityAt = parseLogicalDate(episode.activityPlan?.activityAt);
-                        if (episode.activityPlan?.state === 'planned' && activityAt && activityAt <= now) {
-                            dueEvents.push({ type: 'activity', at: activityAt, episode });
-                        }
+                        (episode.activityPlans || []).forEach((plan, beatIndex, allPlans) => {
+                            const activityAt = parseLogicalDate(plan?.activityAt);
+                            if (plan?.state === 'planned' && activityAt && activityAt <= now) {
+                                dueEvents.push({ type: 'activity', at: activityAt, episode, plan, beatIndex, beatCount: allPlans.length });
+                            }
+                        });
                         (episode.mailPlan || []).forEach(mail => {
                             const sendAt = parseLogicalDate(mail.sendAt);
                             if (mail.state === 'planned' && sendAt && sendAt <= now) {
@@ -14224,7 +14259,7 @@ ${buildCatMemoryContext(cat)}`;
                     const rank = { activity: 0, mail: 1, return: 2 };
                     dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type]);
                     dueEvents.forEach(event => {
-                        if (event.type === 'activity') materializeAwayEpisodeActivity(event.episode, event.at, now);
+                        if (event.type === 'activity') materializeAwayEpisodeActivity(event.episode, event.plan, event.at, now, event.beatIndex, event.beatCount);
                         else if (event.type === 'mail') deliverPlannedAwayMail(event.episode, event.mail, event.at, now);
                         else if (event.type === 'return' && settleAwayEpisodeReturn(event.episode, event.at, now)) {
                             returnedResidentIds.push(String(event.episode.residentId));
@@ -14647,13 +14682,22 @@ ${buildCatMemoryContext(cat)}`;
                     .map(episode => {
                         const departedAt = parseLogicalDate(episode.departedAt)?.toISOString() || '';
                         const plannedReturnAt = parseLogicalDate(episode.plannedReturnAt)?.toISOString() || '';
-                        const activityPlan = episode.activityPlan && typeof episode.activityPlan === 'object'
-                            ? episode.activityPlan
-                            : null;
-                        const activityAt = parseLogicalDate(activityPlan?.activityAt)?.toISOString() || '';
-                        const hasValidActivity = activityAt &&
-                            typeof activityPlan?.plannedResidentActivity === 'string' && activityPlan.plannedResidentActivity.trim() &&
-                            typeof activityPlan?.publicTrace === 'string' && activityPlan.publicTrace.trim();
+                        const rawActivityPlans = Array.isArray(episode.activityPlans)
+                            ? episode.activityPlans
+                            : (episode.activityPlan && typeof episode.activityPlan === 'object' ? [episode.activityPlan] : []);
+                        const activityPlans = rawActivityPlans.map(activityPlan => {
+                            const activityAt = parseLogicalDate(activityPlan?.activityAt)?.toISOString() || '';
+                            const hasValidActivity = activityAt &&
+                                typeof activityPlan?.plannedResidentActivity === 'string' && activityPlan.plannedResidentActivity.trim() &&
+                                typeof activityPlan?.publicTrace === 'string' && activityPlan.publicTrace.trim();
+                            return hasValidActivity ? {
+                                activityAt,
+                                plannedResidentActivity: cleanText(activityPlan.plannedResidentActivity),
+                                publicTrace: cleanText(activityPlan.publicTrace),
+                                state: activityPlan.state === 'materialized' ? 'materialized' : 'planned',
+                                materializedAt: parseLogicalDate(activityPlan.materializedAt)?.toISOString() || null
+                            } : null;
+                        }).filter(Boolean).sort((a, b) => new Date(a.activityAt) - new Date(b.activityAt));
                         return {
                             id: String(episode.id || `away-episode-${departedAt || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
                             residentId: String(episode.residentId || ''),
@@ -14667,13 +14711,7 @@ ${buildCatMemoryContext(cat)}`;
                             plannedArchiveNarrative: typeof episode.plannedArchiveNarrative === 'string'
                                 ? cleanText(episode.plannedArchiveNarrative)
                                 : '',
-                            activityPlan: hasValidActivity ? {
-                                activityAt,
-                                plannedResidentActivity: cleanText(activityPlan.plannedResidentActivity),
-                                publicTrace: cleanText(activityPlan.publicTrace),
-                                state: activityPlan.state === 'materialized' ? 'materialized' : 'planned',
-                                materializedAt: parseLogicalDate(activityPlan.materializedAt)?.toISOString() || null
-                            } : null,
+                            activityPlans,
                             mailPlan: (Array.isArray(episode.mailPlan) ? episode.mailPlan : [])
                                 .filter(mail => mail && typeof mail === 'object')
                                 .map(mail => ({
@@ -15737,9 +15775,10 @@ ${getCompactMapPointPromptGuide()}`
                         [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
                         [${frozenBystanderIds.join(', ')}]
                         Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching hallUpdates[].id machine key.
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}]}
-                        This HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" core plan with the fields shown above. Core timing still requires a 30–720 minute duration, with activityAfterMinutes at least 10 minutes after departure and at least 10 minutes before return.
-                        [OPTIONAL AWAY ENRICHMENT] plannedReturnStatus, plannedArchiveNarrative, and mailPlan may all be omitted. The core plan above is already a complete valid departure. Add an optional field only when naturally suitable, never because it is expected, and never let its absence influence the local presence directive. When supplied, plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. plannedArchiveNarrative is roughly 100-200 Chinese characters in this resident's first person about this exact planned absence; keep it canon-faithful and hide it until Episode completion. mailPlan may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example minutes are illustrative only.
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]}
+                        This HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.
+                        ${AWAY_ACTIVITY_PLANNING_RULES}
+                        [OPTIONAL AWAY ENRICHMENT] plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be after the first planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -16272,31 +16311,38 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const duration = Number(plan.plannedDurationMinutes);
                     if (!Number.isInteger(duration) || duration < AWAY_EPISODE_MIN_DURATION_MINUTES || duration > AWAY_EPISODE_MAX_DURATION_MINUTES) return null;
                     if (mode === 'legacy-continuation') {
-                        if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || plan.plannedReturnStatus || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
+                        if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || plan.plannedActivities || plan.plannedArchiveNarrative || plan.plannedReturnStatus || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
                         return { residentId: String(expectedId), mode, plannedDurationMinutes: duration };
                     }
-                    const activityAfter = Number(plan.activityAfterMinutes);
                     const destination = cleanText(plan.destination || '');
-                    const plannedResidentActivity = cleanText(plan.plannedResidentActivity || '');
-                    const publicTrace = cleanText(plan.publicTrace || '');
-                    // This is deliberately optional: presentation text must not decide
-                    // whether a resident can begin an otherwise valid Away Episode.
                     const plannedReturnStatus = typeof plan.plannedReturnStatus === 'string'
                         ? cleanText(plan.plannedReturnStatus)
                         : '';
-                    // Archive prose is optional UX enrichment. Keep only a display-safe
-                    // value; never let it become departure lifecycle authority.
-                    const plannedArchiveNarrative = typeof plan.plannedArchiveNarrative === 'string'
-                        ? cleanText(plan.plannedArchiveNarrative)
-                        : '';
-                    if (!Number.isInteger(activityAfter) || activityAfter < 10 || activityAfter > duration - 10 || !destination || !plannedResidentActivity || !publicTrace) return null;
+                    const plannedArchiveNarrative = getValidAwayArchiveNarrative(plan.plannedArchiveNarrative);
+                    const expectedBeatCount = getAwayActivityBeatCount(duration);
+                    const timing = getAwayActivityTimingRules(duration, expectedBeatCount);
+                    if (!destination || !plannedArchiveNarrative || !Array.isArray(plan.plannedActivities) || plan.plannedActivities.length !== expectedBeatCount) return null;
+                    const plannedActivities = plan.plannedActivities.map(activity => {
+                        if (!activity || typeof activity !== 'object' || Array.isArray(activity)) return null;
+                        const afterMinutes = Number(activity.afterMinutes);
+                        const plannedResidentActivity = cleanText(activity.plannedResidentActivity || '');
+                        const publicTrace = cleanText(activity.publicTrace || '');
+                        if (!Number.isInteger(afterMinutes) || !plannedResidentActivity || !publicTrace) return null;
+                        return { afterMinutes, plannedResidentActivity, publicTrace };
+                    });
+                    if (plannedActivities.some(activity => !activity)) return null;
+                    for (let index = 0; index < plannedActivities.length; index++) {
+                        const activity = plannedActivities[index];
+                        if (activity.afterMinutes < timing.margin || activity.afterMinutes > duration - timing.margin) return null;
+                        if (index > 0 && activity.afterMinutes - plannedActivities[index - 1].afterMinutes < timing.spacing) return null;
+                    }
                     const rawMailPlan = plan.mailPlan === undefined ? [] : plan.mailPlan;
                     if (!Array.isArray(rawMailPlan) || rawMailPlan.length > 1) return null;
                     const mailPlan = rawMailPlan.map(mail => {
                         if (!mail || typeof mail !== 'object' || Array.isArray(mail)) return null;
                         const sendAfterMinutes = Number(mail.sendAfterMinutes);
                         const content = cleanText(mail.content || '');
-                        if (!Number.isInteger(sendAfterMinutes) || sendAfterMinutes <= activityAfter || sendAfterMinutes >= duration || !content) return null;
+                        if (!Number.isInteger(sendAfterMinutes) || sendAfterMinutes <= plannedActivities[0].afterMinutes || sendAfterMinutes >= duration || !content) return null;
                         const attachment = mail.attachment === null || mail.attachment === undefined ? null : mail.attachment;
                         if (attachment !== null && (typeof attachment !== 'object' || Array.isArray(attachment) || !cleanText(attachment.name || '') || !cleanText(attachment.icon || '') || !cleanText(attachment.desc || ''))) return null;
                         return {
@@ -16308,11 +16354,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (mailPlan.some(mail => !mail)) return null;
                     return {
                         residentId: String(expectedId), mode, plannedDurationMinutes: duration,
-                        activityAfterMinutes: activityAfter, destination, plannedResidentActivity, publicTrace,
+                        destination, plannedActivities,
                         plannedReturnStatus: plannedReturnStatus.length <= 80 ? plannedReturnStatus : '',
-                        plannedArchiveNarrative: plannedArchiveNarrative.length >= 20 && plannedArchiveNarrative.length <= 600
-                            ? plannedArchiveNarrative
-                            : '',
+                        plannedArchiveNarrative,
                         mailPlan
                     };
                 };
@@ -16540,7 +16584,7 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" core plan with the fields shown above. Core timing still requires a 30–720 minute duration, with activityAfterMinutes at least 10 minutes after departure and at least 10 minutes before return.\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus, plannedArchiveNarrative, and mailPlan may all be omitted. The core plan above is already a complete valid departure. Add an optional field only when naturally suitable, never because it is expected, and never let its absence influence the local presence directive. When supplied, plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. plannedArchiveNarrative is roughly 100-200 Chinese characters in this resident's first person about this exact planned absence; keep it canon-faithful and hide it until Episode completion. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -16567,7 +16611,7 @@ ${getCompactMapPointPromptGuide()}
 [ALLOWED MACHINE IDS FOR THIS RESPONSE]
 [${requestedIds.join(', ')}]
 Use these opaque machine keys exactly as shown. Every updates[].id MUST exactly equal one allowed key above; return each requested key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching updates[].id machine key. Return exactly ${requestedIds.length} status updates and never stop after a partial list.
-${statusOutputContract}`;
+${enrichedStatusOutputContract}`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
                         const statusPromptChars = statusRequestPrompt.length;
