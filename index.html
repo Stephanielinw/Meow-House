@@ -14180,10 +14180,50 @@ ${buildCatMemoryContext(cat)}`;
                 const getLatestHouseBriefing = window.Meeow.memory.getLatestHouseBriefing;
                 const buildCatIdentityBlock = window.Meeow.memory.buildCatIdentityBlock;
                 const buildCatMemoryContext = window.Meeow.memory.buildCatMemoryContext;
-                const buildStatusSyncCatContext = window.Meeow.memory.buildStatusSyncCatContext;
                 const buildStatusSyncUserContext = (additionalContext = '') => {
                     const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
                     return `[STATUS USER]\nName: ${truncateMemoryText(user.nickname || '馆长', 48)}\nCurrent status: ${truncateMemoryText(user.currentStatus || '未知', 90)}\nRecent event: ${recentEvent || 'None'}`;
+                };
+                const getStatusSyncDeltaTier = (diffMinutes) => diffMinutes < 30 ? 'short' : (diffMinutes > 60 ? 'long' : 'meaningful');
+                const buildPresenceInferenceContext = (cat, options = {}) => {
+                    const now = options.now instanceof Date ? options.now : new Date();
+                    const lastUpdateMs = Number(cat?.lastStatusUpdateTime) || (now.getTime() - 60 * 60 * 1000);
+                    const observationAgeMinutes = Math.max(0, Math.floor((now.getTime() - lastUpdateMs) / 60000));
+                    const tier = getStatusSyncDeltaTier(observationAgeMinutes);
+                    const lastObservedAt = cat?.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime) : null;
+                    const lastObservationLabel = lastObservedAt && !Number.isNaN(lastObservedAt.getTime())
+                        ? lastObservedAt.toLocaleString()
+                        : '无记录';
+                    const interactions = (cat?.todayInteractions || []).map(entry =>
+                        `[${entry.time || '近期'}·${entry.type || '互动'}] ${cleanText(entry.content || '')}`
+                    );
+                    const monitoring = getRecentMonitorEntries(cat, 1);
+                    const travel = (cat?.travelogues || []).slice(-1).map(entry =>
+                        `[${entry.date || '近期'}·${entry.location || '外出'}] ${cleanText(entry.content || '')}`
+                    );
+                    const focus = getCatFocusReports(cat, 1);
+                    const permanent = getPermanentDiaryEntries(cat, 1);
+                    const continuity = cat?.isOut ? travel[0] : (focus[0] || permanent[0] || travel[0]);
+                    const observedStatusLimit = tier === 'short' ? 35 : (tier === 'meaningful' ? 22 : 14);
+                    const historicalMonitoring = formatMemoryEntries(monitoring, 1, 28);
+                    const relevantEvents = [
+                        formatMemoryEntries(interactions, 2, 25),
+                        continuity ? truncateMemoryText(continuity, 40) : ''
+                    ].filter(Boolean).join(' | ') || 'None';
+                    const continuityLines = [
+                        `Last known presence: ${cat?.isOut ? 'AWAY' : 'HOME'}`,
+                        `Last observation: ${lastObservationLabel}; Observation age / Δt: ${observationAgeMinutes}m (${tier})`,
+                        `Last observed status: ${truncateMemoryText(cat?.status || '未知', observedStatusLimit)}`
+                    ];
+                    if (tier === 'short') {
+                        continuityLines.push(`Last observed inner voice: ${truncateMemoryText(cat?.innerVoice || '无记录', 24)}`);
+                    }
+                    continuityLines.push(`Historical monitoring / recent observations: ${historicalMonitoring}`);
+                    continuityLines.push(`Continuity evidence: ${truncateMemoryText(continuity || 'None', tier === 'short' ? 34 : 22)}`);
+                    if (options.crossedOperationalDay) {
+                        continuityLines.push('Operational-day boundary: this prior presence and indoor observation are weak historical continuity, not proof of the current location.');
+                    }
+                    return `[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${cat?.name || '未命名角色'}; Form: ${cat?.isHuman ? 'HUMAN' : 'CAT'}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
                 };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
@@ -15535,13 +15575,10 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const frozenBystanderIds = frozenBystanders.map(cat => String(cat.id));
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => cat.name);
                         const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}`;
-                        const getFrozenBystanderDayBoundaryContext = (cat) => {
+                        const hasFrozenBystanderCrossedOperationalDay = (cat) => {
                             const lastStatusDate = cat?.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime) : null;
-                            const crossedOperationalDay = lastStatusDate && !Number.isNaN(lastStatusDate.getTime()) &&
-                                getOperationalDayKey(lastStatusDate) !== frozenOperationalDayKey;
-                            return crossedOperationalDay
-                                ? '\n[DAY BOUNDARY]: This resident\'s prior presence and indoor state belong to an earlier operational day. Keep them only as weak historical continuity; they are not proof of the current location. Make a fresh current-presence inference now instead of merely inventing a new indoor activity while copying isOut.'
-                                : '';
+                            return Boolean(lastStatusDate && !Number.isNaN(lastStatusDate.getTime()) &&
+                                getOperationalDayKey(lastStatusDate) !== frozenOperationalDayKey);
                         };
                         const hallUpdateContext = frozenBystanders.length
                             ? `[BYSTANDER HALL UPDATE]
@@ -15550,14 +15587,14 @@ The USER is interacting directly only with ${sendingCat.name}. Do not include ${
 Update exactly these frozen bystanders with independent current state. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
 
 [BYSTANDER CONTEXT]
-${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildStatusSyncCatContext(cat, { now: frozenNow })}${getFrozenBystanderDayBoundaryContext(cat)}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
+${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
 
 [BYSTANDER RULES]
 - Return exactly one update for every supplied bystander ID. IDs are opaque immutable identifiers; never renumber, normalize, infer, replace, duplicate, omit, or add IDs.
 - Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
 - Form: affinity <50 means isHuman false; otherwise decide from context. Keep physical time logic and at least two supplied residents home after the full hall layer is applied.
-- [LAST-KNOWN STATE] Supplied isOut, indoor status, map position, monitoring, and continuity describe this resident's last persisted state. They remain useful continuity evidence, but never prove the resident is still in that exact place or activity at this Status Sync time.
-- [PRESENCE DECISION] First ask: given this resident's canon, current time, elapsed time, recent context, duties, habits, relationships, ordinary independent life, and believable everyday behavior, where are they most plausibly NOW? HOME and AWAY are both normal valid answers; isOut:false is never a default or safe fallback. Work, errands, training, social contact, relationships, routines, private time, travel, and ordinary obligations may support Away without USER participation. Do not fabricate named employers, appointments, organizations, missions, relationships, or plot events; a mundane non-canon-breaking reason is enough. Away is not Explore or Visit.
+- [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the resident is still in that exact place or activity at this Status Sync time.
+- [PRESENCE DECISION] First ask: given this resident's current-life context—current time, elapsed time, canon, recent meaningful events, duties, habits, relationships, ordinary independent life, and believable everyday behavior—where are they most plausibly NOW? HOME and AWAY are both normal valid answers; isOut:false is never a default or safe fallback. Work, errands, training, social contact, relationships, routines, private time, travel, and ordinary obligations may support Away without USER participation. Do not fabricate named employers, appointments, organizations, missions, relationships, or plot events; a mundane non-canon-breaking reason is enough. Away is not Explore or Visit.
 - [CONTINUITY WEIGHT] For very short Δt, prior HOME/AWAY is strong evidence and usually persists unless a transition naturally fits. With meaningful elapsed time, freshly reassess current presence: a prior HOME state does not require a new explicit external event before a fresh inference may conclude AWAY. With long Δt, prior HOME/AWAY is only weak historical continuity, not evidence of current location; do not copy the boolean by default. Away likewise has plausible, not infinite, duration. Reject rapid arbitrary flapping, but preserve the previous state only when continuity makes it the most plausible current result.
 - [HALL CALIBRATION] At least two residents home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
 - [AWAY DECISION ORDER] STEP 1: Infer each bystander's most plausible CURRENT HOME/AWAY presence before using last-known state as continuity evidence. Do not consider the amount of output needed for an Away plan. Never choose HOME merely because it is simpler to output, and never choose AWAY merely to create variety. STEP 2: After that fresh inference, use prior presence only to reject implausible rapid flapping; it is never permission required for a HOME→AWAY transition. STEP 3: Only if the current result is AWAY, provide that resident's required core departure plan. The plan is a consequence of the presence decision, never a reason to prefer HOME. STEP 4: Only after a valid core plan exists, optionally add enrichment when naturally suitable; optional enrichment must never influence the HOME/AWAY decision.
@@ -16299,11 +16336,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                     getOperationalDayKey(lastStatusDate) !== operationalDayKey;
                             }
                             crossedDayBoundary.push(`${String(c.id)}:${crossedOperationalDay}`);
-                            const dayBoundaryContext = crossedOperationalDay
-                                ? `\n[DAY BOUNDARY]: This cat's prior presence and indoor state belong to an earlier operational day. Keep them only as weak historical continuity; they are not proof of the current location. Make a fresh current-presence inference for ${operationalDayKey} instead of merely inventing a new indoor activity while copying isOut.`
-                                : '';
-
-                            const memoryBlock = buildStatusSyncCatContext(c, { now });
+                            const memoryBlock = buildPresenceInferenceContext(c, { now, crossedOperationalDay });
                             const legacyAwayContext = c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now)
                                 ? '\n[LEGACY AWAY]: This resident is currently away without a schedule from an older save. If you keep isOut:true, provide one finite mode:"legacy-continuation" plan for this exact ID. Do not invent historical destination, activity, trace, or mail.'
                                 : '';
@@ -16326,7 +16359,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 gapContext = `\n[CRITICAL TIME GAP]: The user has been away for over an hour. THE PREVIOUS INTERACTION IS STRICTLY OVER. DO NOT mention previous interactions holding your paw or looking at you. You MUST be entertaining yourself, sleeping, or harassing other cats independently.`;
                             }
 
-                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${dayBoundaryContext}\n${legacyAwayContext}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
+                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${legacyAwayContext}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
                         });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
@@ -16389,8 +16422,8 @@ ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
 - Form: affinity <50 => isHuman false; affinity >=50 decides by context; explore-return cats must be false.
 - Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic. At least two cats remain home.
-- [LAST-KNOWN STATE] Supplied isOut, indoor status, map position, monitoring, and continuity describe this cat's last persisted state. They remain useful continuity evidence, but never prove the cat is still in that exact place or activity at this Status Sync time.
-- [PRESENCE DECISION] First ask: given this cat's canon, current time, elapsed time, recent context, duties, habits, relationships, ordinary independent life, and believable everyday behavior, where are they most plausibly NOW? HOME and AWAY are both normal valid answers; isOut:false is never a default or safe fallback. Work, errands, training, social contact, relationships, routines, private time, travel, and ordinary obligations may support Away without USER participation. Do not fabricate named employers, appointments, organizations, missions, relationships, or plot events; a mundane non-canon-breaking reason is enough. Away is not Explore or Visit.
+- [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the cat is still in that exact place or activity at this Status Sync time.
+- [PRESENCE DECISION] First ask: given this cat's current-life context—current time, elapsed time, canon, recent meaningful events, duties, habits, relationships, ordinary independent life, and believable everyday behavior—where are they most plausibly NOW? HOME and AWAY are both normal valid answers; isOut:false is never a default or safe fallback. Work, errands, training, social contact, relationships, routines, private time, travel, and ordinary obligations may support Away without USER participation. Do not fabricate named employers, appointments, organizations, missions, relationships, or plot events; a mundane non-canon-breaking reason is enough. Away is not Explore or Visit.
 - [CONTINUITY WEIGHT] For very short Δt, prior HOME/AWAY is strong evidence and usually persists unless a transition naturally fits. With meaningful elapsed time, freshly reassess current presence: a prior HOME state does not require a new explicit external event before a fresh inference may conclude AWAY. With long Δt, prior HOME/AWAY is only weak historical continuity, not evidence of current location; do not copy the boolean by default. Away likewise has plausible, not infinite, duration. Reject rapid arbitrary flapping, but preserve the previous state only when continuity makes it the most plausible current result.
 - [HALL CALIBRATION] At least two cats home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
 - [AWAY DECISION ORDER] STEP 1: Infer each cat's most plausible CURRENT HOME/AWAY presence before using last-known state as continuity evidence. Do not consider the amount of output needed for an Away plan. Never choose HOME merely because it is simpler to output, and never choose AWAY merely to create variety. STEP 2: After that fresh inference, use prior presence only to reject implausible rapid flapping; it is never permission required for a HOME→AWAY transition. STEP 3: Only if the current result is AWAY, provide that cat's required core departure plan. The plan is a consequence of the presence decision, never a reason to prefer HOME. STEP 4: Only after a valid core plan exists, optionally add enrichment when naturally suitable; optional enrichment must never influence the HOME/AWAY decision.
