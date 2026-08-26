@@ -8628,6 +8628,11 @@
                     lastReportDate: '',
                     lastLoginDate: '',
                     lastLogin: Date.now(),
+                    // Compact per-resident historical-day diary work. This is
+                    // deliberately not a second diary/chat archive: it only
+                    // retains the small amount of owner context needed after a
+                    // still-active Away Episode crosses the 03:00 boundary.
+                    pendingAwayDiaryDays: [],
                     phoneData: {
                         chats: [],
                         chatArchives: {},
@@ -14231,6 +14236,10 @@ ${buildCatMemoryContext(cat)}`;
                     episode.returnedAt = logicalReturnAt.toISOString();
                     episode.settledAt = actualReconciliationAt.toISOString();
                     schedulePostReturnAwayOpportunity(cat, logicalReturnAt);
+                    // A crossed-day Away diary becomes ready now, but remains on
+                    // the original departure operational day until the next
+                    // existing Daily Archive Package can write it.
+                    markAwayEpisodeDiaryReady(episode);
                     addLog(`AWAY EPISODE RETURN SETTLED: episode=${episode.id}; resident=${episode.residentId}; returnedAt=${episode.returnedAt}`, 'sent');
                     return true;
                 };
@@ -15064,9 +15073,165 @@ ${buildCatMemoryContext(cat)}`;
                     });
                     return keys.filter(key => key && key < operationalKey).sort().pop() || '';
                 };
+                const getArchiveDateLabel = (dateKey) => {
+                    if (!isOperationalDayKey(dateKey)) return String(dateKey || '未知日期');
+                    const [year, month, day] = String(dateKey).split('-').map(Number);
+                    return new Date(year, month - 1, day, 12, 0, 0).toLocaleDateString();
+                };
+                const compactAwayDiaryText = (value, limit = 180) => truncateMemoryText(cleanText(value || ''), limit);
+                const compactAwayDiaryRecords = (records, fields = []) => (Array.isArray(records) ? records : [])
+                    .slice(-4)
+                    .map(record => {
+                        const content = compactAwayDiaryText(record?.content || record?.text || '', 180);
+                        if (!content) return null;
+                        const compact = { at: record?.at || '', content };
+                        fields.forEach(field => {
+                            if (record?.[field]) compact[field] = compactAwayDiaryText(record[field], 48);
+                        });
+                        return compact;
+                    })
+                    .filter(Boolean);
+                const normalizePendingAwayDiaryDays = (entries) => {
+                    const seen = new Set();
+                    return (Array.isArray(entries) ? entries : []).map(entry => {
+                        const residentId = entry?.residentId === undefined || entry?.residentId === null ? '' : String(entry.residentId);
+                        const dateKey = isOperationalDayKey(entry?.dateKey) ? String(entry.dateKey) : '';
+                        const key = `${residentId}::${dateKey}`;
+                        if (!residentId || !dateKey || seen.has(key)) return null;
+                        seen.add(key);
+                        const context = entry?.context && typeof entry.context === 'object' ? entry.context : {};
+                        return {
+                            residentId,
+                            dateKey,
+                            episodeIds: [...new Set((Array.isArray(entry?.episodeIds) ? entry.episodeIds : []).map(String).filter(Boolean))],
+                            state: entry?.state === 'ready' ? 'ready' : 'waiting',
+                            context: {
+                                interactions: compactAwayDiaryRecords(context.interactions, ['type']),
+                                chat: compactAwayDiaryRecords(context.chat, ['role']),
+                                monitor: compactAwayDiaryRecords(context.monitor, ['type'])
+                            }
+                        };
+                    }).filter(Boolean);
+                };
+                const ensurePendingAwayDiaryDays = () => {
+                    user.pendingAwayDiaryDays = normalizePendingAwayDiaryDays(user.pendingAwayDiaryDays);
+                    return user.pendingAwayDiaryDays;
+                };
+                const getAwayDiaryPendingKey = (residentId, dateKey) => `${String(residentId)}::${String(dateKey)}`;
+                const getEpisodeDepartureDayKey = (episode) => {
+                    const departedAt = parseLogicalDate(episode?.departedAt);
+                    return departedAt ? getOperationalDayKey(departedAt) : '';
+                };
+                const getCompletedAwayDiaryEpisodes = (residentId, dateKey) => normalizeAwayEpisodes(awayEpisodes.value)
+                    .filter(episode => String(episode.residentId) === String(residentId) && episode.status === 'completed' && getEpisodeDepartureDayKey(episode) === dateKey);
+                const serializeCompletedAwayDiaryEpisode = (episode) => ({
+                    id: episode.id,
+                    residentId: String(episode.residentId),
+                    destination: cleanText(episode.destination || ''),
+                    departedAt: episode.departedAt,
+                    plannedReturnAt: episode.plannedReturnAt,
+                    returnedAt: episode.returnedAt || episode.plannedReturnAt,
+                    returnStatus: cleanText(episode.plannedReturnStatus || ''),
+                    plannedArchiveNarrative: cleanText(episode.plannedArchiveNarrative || ''),
+                    activityPlans: (episode.activityPlans || []).filter(plan => plan?.state === 'materialized').map(plan => ({
+                        activityAt: plan.activityAt,
+                        plannedResidentActivity: cleanText(plan.plannedResidentActivity || '')
+                    }))
+                });
+                const buildCompactAwayDiaryContext = (snapshotCat) => ({
+                    interactions: compactAwayDiaryRecords(snapshotCat?.todayInteractions, ['type']),
+                    chat: compactAwayDiaryRecords(snapshotCat?.chatHistory, ['role']),
+                    monitor: compactAwayDiaryRecords(snapshotCat?.monitor, ['type'])
+                });
+                const hasDailyDiaryForOperationalDay = (cat, dateKey) => (cat?.logs || []).some(record => {
+                    if (record?.type !== 'daily-diary') return false;
+                    if (isOperationalDayKey(record?.dateKey)) return record.dateKey === dateKey;
+                    const timestamp = parseLogicalDate(record?.at);
+                    return Boolean(timestamp && getOperationalDayKey(timestamp) === dateKey);
+                });
+                const upsertAwayDiaryPending = (snapshotCat, episode) => {
+                    const dateKey = getEpisodeDepartureDayKey(episode);
+                    if (!snapshotCat || !dateKey) return null;
+                    const liveCat = cats.value.find(cat => String(cat.id) === String(snapshotCat.id));
+                    if (hasDailyDiaryForOperationalDay(liveCat, dateKey)) return null;
+                    const entries = ensurePendingAwayDiaryDays();
+                    const key = getAwayDiaryPendingKey(snapshotCat.id, dateKey);
+                    let entry = entries.find(item => getAwayDiaryPendingKey(item.residentId, item.dateKey) === key);
+                    const context = buildCompactAwayDiaryContext(snapshotCat);
+                    if (!entry) {
+                        entry = { residentId: String(snapshotCat.id), dateKey, episodeIds: [String(episode.id)], state: 'waiting', context };
+                        entries.push(entry);
+                        addLog(`AWAY DIARY PENDING: resident=${snapshotCat.id}; day=${dateKey}; reason=episode-active`, 'info');
+                    } else {
+                        const episodeIds = new Set(entry.episodeIds || []);
+                        episodeIds.add(String(episode.id));
+                        entry.episodeIds = [...episodeIds];
+                        entry.context = context;
+                    }
+                    return entry;
+                };
+                const markAwayEpisodeDiaryReady = (episode) => {
+                    const dateKey = getEpisodeDepartureDayKey(episode);
+                    if (!dateKey) return false;
+                    const entry = ensurePendingAwayDiaryDays().find(item =>
+                        String(item.residentId) === String(episode.residentId) && item.dateKey === dateKey
+                    );
+                    if (!entry) return false;
+                    if (!entry.episodeIds.includes(String(episode.id))) entry.episodeIds.push(String(episode.id));
+                    entry.state = 'ready';
+                    addLog(`AWAY DIARY READY: resident=${episode.residentId}; day=${dateKey}; episode=${episode.id}`, 'info');
+                    return true;
+                };
+                const getPendingAwayBackfillTasks = () => {
+                    const tasks = [];
+                    ensurePendingAwayDiaryDays().forEach(entry => {
+                        if (entry.state !== 'ready') return;
+                        const cat = cats.value.find(item => String(item.id) === String(entry.residentId));
+                        if (!cat) return;
+                        if (hasDailyDiaryForOperationalDay(cat, entry.dateKey)) {
+                            addLog(`DAILY DIARY BACKFILL: resident=${entry.residentId}; day=${entry.dateKey}; result=already-exists`, 'info');
+                            user.pendingAwayDiaryDays = user.pendingAwayDiaryDays.filter(item => item !== entry);
+                            return;
+                        }
+                        const episodes = getCompletedAwayDiaryEpisodes(entry.residentId, entry.dateKey)
+                            .filter(episode => !entry.episodeIds.length || entry.episodeIds.includes(String(episode.id)));
+                        if (!episodes.length) return;
+                        tasks.push({
+                            catId: String(cat.id),
+                            dateKey: entry.dateKey,
+                            kind: 'backfill',
+                            pendingKey: getAwayDiaryPendingKey(entry.residentId, entry.dateKey),
+                            cat: {
+                                id: cat.id, name: cat.name, hallId: cat.hallId, affinity: cat.affinity, prompt: cat.prompt,
+                                personality: cat.personality, breed: cat.breed, eyeColor: cat.eyeColor,
+                                todayInteractions: entry.context?.interactions || [], chatHistory: entry.context?.chat || [],
+                                monitor: entry.context?.monitor || [], travelogues: [...(cat.travelogues || [])],
+                                completedAwayEpisodes: episodes.map(serializeCompletedAwayDiaryEpisode)
+                            }
+                        });
+                    });
+                    return tasks;
+                };
+                const prepareAwayDiaryTasks = (snapshot) => {
+                    const blocked = new Set();
+                    normalizeAwayEpisodes(awayEpisodes.value).forEach(episode => {
+                        if (episode.status !== 'active' || getEpisodeDepartureDayKey(episode) !== snapshot.dateKey) return;
+                        const snapshotCat = snapshot.cats.find(cat => String(cat.id) === String(episode.residentId));
+                        if (!snapshotCat) return;
+                        upsertAwayDiaryPending(snapshotCat, episode);
+                        blocked.add(String(episode.residentId));
+                    });
+                    snapshot.awayDiaryBlockedResidentIds = [...blocked];
+                    snapshot.backfillDiaryTasks = getPendingAwayBackfillTasks();
+                    return snapshot;
+                };
+                // Saved user data is loaded before these helpers are declared.
+                // Normalize once here; later imports normalize at their own apply
+                // point as well, without rewriting historical diary entries.
+                ensurePendingAwayDiaryDays();
                 const captureDailySnapshot = (archiveDateKey = getPreviousOperationalDayKey()) => ({
                     capturedAt: new Date().toISOString(),
-                    date: getPreviousOperationalDate().toLocaleDateString(),
+                    date: getArchiveDateLabel(archiveDateKey),
                     dateKey: archiveDateKey,
                     cats: cats.value.map(cat => ({
                         id: cat.id,
@@ -15075,6 +15240,8 @@ ${buildCatMemoryContext(cat)}`;
                         affinity: cat.affinity,
                         prompt: cat.prompt,
                         personality: cat.personality,
+                        breed: cat.breed,
+                        eyeColor: cat.eyeColor,
                         status: cat.status,
                         innerVoice: cat.innerVoice,
                         isOut: cat.isOut,
@@ -15083,7 +15250,8 @@ ${buildCatMemoryContext(cat)}`;
                         chatHistory: (cat.chatHistory || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
                         todayInteractions: (cat.todayInteractions || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
                         monitor: (cat.diary || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
-                        travelogues: [...(cat.travelogues || [])]
+                        travelogues: [...(cat.travelogues || [])],
+                        completedAwayEpisodes: getCompletedAwayDiaryEpisodes(cat.id, archiveDateKey).map(serializeCompletedAwayDiaryEpisode)
                     })),
                     missionReports: [...(user.missionReports || [])],
                     todos: [...(user.todos || [])],
@@ -15110,7 +15278,8 @@ ${buildCatMemoryContext(cat)}`;
                     const triggerTypes = new Set(['chat-user', 'chat-reply', 'phone-message-user', 'phone-message-cat', 'item', 'special', 'human-reveal', 'focus-start', 'focus-end', 'explore-start', 'explore-end', 'visit-start', 'visit-end']);
                     return (snapshotCat.todayInteractions || []).some(event => triggerTypes.has(event.type)) ||
                         (snapshotCat.chatHistory || []).length > 0 || // compatibility for a save made before typed events
-                        getPrivateAwayExperiences(snapshotCat, archiveDateKey).length > 0;
+                        getPrivateAwayExperiences(snapshotCat, archiveDateKey).length > 0 ||
+                        (snapshotCat.completedAwayEpisodes || []).length > 0;
                 };
                 const clearDailyCatRecords = (dateKey = getOperationalDayKey(), archivedBefore = null) => {
                     const cutoff = archivedBefore ? new Date(archivedBefore).getTime() : Number.POSITIVE_INFINITY;
@@ -15155,28 +15324,63 @@ ${buildCatMemoryContext(cat)}`;
                     if (start < 0 || end <= start) return null;
                     try { return JSON.parse(text.slice(start, end + 1)); } catch (_) { return null; }
                 };
-                const getDailyArchiveTargets = (snapshot) => (snapshot.cats || []).filter(cat => hasDailyDiaryTrigger(cat, snapshot.dateKey));
+                const getDailyArchiveTargets = (snapshot) => {
+                    const blocked = new Set((snapshot?.awayDiaryBlockedResidentIds || []).map(String));
+                    return (snapshot.cats || []).filter(cat =>
+                        !blocked.has(String(cat.id)) && hasDailyDiaryTrigger(cat, snapshot.dateKey)
+                    );
+                };
+                const getDailyDiaryTaskKey = (catId, dateKey) => `${String(catId)}::${String(dateKey)}`;
+                const getDailyDiaryTasks = (snapshot) => {
+                    const keys = new Set();
+                    const tasks = [];
+                    getDailyArchiveTargets(snapshot).forEach(cat => {
+                        const liveCat = cats.value.find(item => String(item.id) === String(cat.id));
+                        if (hasDailyDiaryForOperationalDay(liveCat, snapshot.dateKey)) return;
+                        const key = getDailyDiaryTaskKey(cat.id, snapshot.dateKey);
+                        keys.add(key);
+                        tasks.push({ catId: String(cat.id), dateKey: snapshot.dateKey, kind: 'current', cat });
+                    });
+                    (snapshot.backfillDiaryTasks || []).forEach(task => {
+                        const key = getDailyDiaryTaskKey(task.catId, task.dateKey);
+                        if (keys.has(key)) return;
+                        keys.add(key);
+                        tasks.push(task);
+                    });
+                    return tasks;
+                };
                 const validateDailyArchivePackage = (payload, snapshot) => {
                     if (!payload || typeof payload !== 'object') return '归档包不是有效 JSON 对象。';
                     if (!cleanText(payload.summary || '')) return '归档包缺少奈恩昨日总结。';
-                    const expectedIds = getDailyArchiveTargets(snapshot).map(cat => String(cat.id));
+                    const expectedTasks = getDailyDiaryTasks(snapshot);
+                    const expectedKeys = new Set(expectedTasks.map(task => getDailyDiaryTaskKey(task.catId, task.dateKey)));
                     const diaryRows = Array.isArray(payload.diaries) ? payload.diaries : [];
-                    const actualIds = new Set(diaryRows.filter(item => cleanText(item?.content || '')).map(item => String(item.catId)));
-                    if (expectedIds.some(id => !actualIds.has(id))) return '归档包缺少应生成的小猫日记。';
+                    const actualKeys = new Set();
+                    for (const row of diaryRows) {
+                        if (!cleanText(row?.content || '') || row?.catId === undefined || !isOperationalDayKey(row?.dateKey)) return '归档包的小猫日记缺少有效归档日或内容。';
+                        const key = getDailyDiaryTaskKey(row.catId, row.dateKey);
+                        if (actualKeys.has(key)) return '归档包包含重复的小猫日记任务。';
+                        actualKeys.add(key);
+                    }
+                    if (actualKeys.size !== expectedKeys.size || [...expectedKeys].some(key => !actualKeys.has(key))) return '归档包的小猫日记任务覆盖不完整。';
                     const newsRows = Array.isArray(payload.news) ? payload.news : [];
                     if (newsRows.length < 3 || newsRows.some(item => !cleanText(item?.title || '') || !cleanText(item?.summary || ''))) return '归档包的馆舍热讯不完整。';
                     if (!payload.moment || !cleanText(payload.moment.content || '') || !cleanText(payload.moment.authorName || '')) return '归档包缺少朋友圈内容。';
                     return true;
                 };
                 const buildDailyArchivePrompt = (snapshot) => {
-                    const diaryTargets = getDailyArchiveTargets(snapshot);
+                    const diaryTasks = getDailyDiaryTasks(snapshot);
                     const hallOverview = halls.value.map(hall => `${hall.name}：${snapshot.cats.filter(cat => cat.hallId === hall.id).map(cat => cat.name).join('、') || '暂无成员'}`).join('；');
                     const archiveFocusReports = (snapshot.missionReports || []).filter(report => {
                         const timestamp = report?.archivedAt || report?.at || report?.date;
                         return report.duration > 0 && timestamp && getOperationalDayKey(timestamp) === snapshot.dateKey;
                     });
-                    const diaryContext = diaryTargets.map(cat => ({
+                    const diaryContext = diaryTasks.map(task => {
+                        const cat = task.cat;
+                        return {
                         catId: cat.id,
+                        dateKey: task.dateKey,
+                        taskKind: task.kind,
                         name: cat.name,
                         hall: halls.value.find(h => h.id === cat.hallId)?.name || 'Meeow House',
                         personality: cat.personality || '',
@@ -15187,9 +15391,25 @@ ${buildCatMemoryContext(cat)}`;
                         interactions: cat.todayInteractions || [],
                         chat: cat.chatHistory || [],
                         monitoring: cat.monitor || [],
-                        focus: archiveFocusReports.filter(report => String(report.executor || '').includes(cat.name)).slice(-5),
-                        privateAwayExperiences: getPrivateAwayExperiences(cat, snapshot.dateKey),
-                        travelogues: (cat.travelogues || []).slice(-3).map(record => ({
+                        focus: task.kind === 'current'
+                            ? archiveFocusReports.filter(report => String(report.executor || '').includes(cat.name)).slice(-5)
+                            : [],
+                        privateAwayExperiences: getPrivateAwayExperiences(cat, task.dateKey),
+                        completedAwayEpisodes: (cat.completedAwayEpisodes || []).map(episode => ({
+                            episodeId: episode.id,
+                            destination: episode.destination,
+                            departedAt: episode.departedAt,
+                            plannedReturnAt: episode.plannedReturnAt,
+                            returnedAt: episode.returnedAt,
+                            returnStatus: episode.returnStatus,
+                            materializedPrivateActivities: episode.activityPlans || [],
+                            archiveNarrativeReference: episode.plannedArchiveNarrative || ''
+                        })),
+                        travelogues: (cat.travelogues || []).filter(record => {
+                            if (task.kind !== 'backfill') return true;
+                            const episodeIds = new Set((cat.completedAwayEpisodes || []).map(episode => String(episode.id)));
+                            return record?.source === 'away' && episodeIds.has(String(record?.episodeId || ''));
+                        }).slice(-3).map(record => ({
                             date: record?.date,
                             at: record?.at,
                             location: record?.location,
@@ -15197,13 +15417,14 @@ ${buildCatMemoryContext(cat)}`;
                             source: record?.source,
                             kind: record?.kind
                         }))
-                    }));
+                    };
+                    });
                     const doneTasks = (snapshot.todos || []).filter(todo => todo.done).map(todo => todo.text);
                     const pendingTasks = (snapshot.todos || []).filter(todo => !todo.done).map(todo => todo.text);
                     const deadlines = (snapshot.deadlines || []).map(item => `${item.title || item.text || '未命名 DDL'}${item.time ? `（${item.time}）` : ''}`);
                     const schedule = (snapshot.schedule || []).map(item => `${item.time || ''} ${item.event || item.title || ''}`.trim()).filter(Boolean);
                     const focusRecords = archiveFocusReports.slice(-12).map(report => `${report.missionName || '专注'} · ${Math.floor((report.duration || 0) / 60)} 分钟 · ${report.isSuccess === false || report.status === 'FAILED' ? '中止' : '完成'} · ${report.coinsDelta || 0}G`);
-                    return `你正在为 Meeow House 生成“昨日归档包”。馆长：${user.nickname}。昨天日期：${snapshot.date}。日期/节日信息：${getDateContext(`${snapshot.dateKey}T12:00:00`)}。
+                    return `你正在为 Meeow House 生成“昨日归档包”，并可同时补写已经准备好的历史离馆日记。馆长：${user.nickname}。当前归档日期：${snapshot.date}。日期/节日信息：${getDateContext(`${snapshot.dateKey}T12:00:00`)}。
 
 馆舍概览：${hallOverview}
 昨日已完成任务：${doneTasks.join('、') || '无'}
@@ -15217,10 +15438,17 @@ ${JSON.stringify(diaryContext)}
 
 [PRIVATE RESIDENT AWAY CONTEXT]
 - Each cat's privateAwayExperiences belongs only to that exact catId and may be used ONLY when writing that same cat's diary row.
+- Each completedAwayEpisodes entry belongs only to that exact catId/dateKey. It is an already completed episode whose logical departure day owns this diary task, even if its return occurred later.
 - Never use it in Nain's house summary, house news, the social moment, another cat's diary, or another resident's knowledge or reaction.
 - Do not imply that the USER or another resident knew these private events unless separate supplied records explicitly establish that knowledge.
 - A diary may reveal or reflect its owner's private experience with natural discretion and character voice, but must remain grounded in the supplied residentActivity and must not invent a different off-site event.
+- plannedArchiveNarrative is a separate episode memory. Use it only as private grounding; do not copy it verbatim into the daily diary. Synthesize the resident's whole operational day instead.
 - Diary prose is a resident-perspective narrative surface, not CAT-form spoken dialogue. Preserve canon identity, worldview, relationships, priorities, and private knowledge without automatically exposing hidden identity.
+
+[HISTORICAL DIARY TASKS]
+- Every diary task's dateKey is authoritative. taskKind:"backfill" means an earlier operational day became diary-ready only after an Away Episode later completed.
+- Write each diary only from that row's own supplied context and dateKey. Do not let the current archive day's house overview, tasks, schedule, focus records, summary, news, or social moment leak into a historical backfill.
+- Summary, news, and moment describe only the current archive date ${snapshot.dateKey}; they must never reveal a historical backfill's private Away context.
 
 [TEMPORAL INTEGRITY]
 - Only summarize events explicitly present in the provided archive-day records.
@@ -15231,11 +15459,30 @@ ${JSON.stringify(diaryContext)}
 请只输出一个严格 JSON 对象，不要 Markdown、不要解释、不要代码围栏：
 {
   "summary":"奈恩以活泼、幽默、略带调侃但可靠的合伙人口吻写 100-160 字昨日全馆总结；优先总结待办、DDL、日程、专注完成/中止和奖励，猫咪只在确有重要事件时一句带过。",
-  "diaries":[{"catId":"必须使用上方对应 catId","content":"该角色第一人称、180-300 字昨日小猫日记"}],
+  "diaries":[{"catId":"必须使用上方对应 catId","dateKey":"必须逐字复制上方该任务的 dateKey","content":"该角色第一人称、180-300 字小猫日记"}],
   "news":[{"type":"HOUSE","title":"馆舍热讯标题","summary":"30-80 字中性馆舍热讯","source":"Meeow House Gazette"},{"type":"HOUSE","title":"...","summary":"...","source":"..."},{"type":"HOUSE","title":"...","summary":"...","source":"..."}],
   "moment":{"authorName":"一位当前存档中存在的猫或馆舍账号","authorAvatar":"","content":"40-100 字朋友圈","time":"刚刚","image":""}
 }
-硬性要求：diaries 必须恰好覆盖每一只列出的猫，不能虚构未记录事件，也不得改写其固定猫种或瞳色；summary、news、moment 均不得带 Gotham/Batman/Wayne 等默认 DC 前提，除非引用的数据明确属于哥谭馆。`;
+硬性要求：diaries 必须以 (catId,dateKey) 恰好覆盖每一项列出的日记任务，不能虚构未记录事件，也不得改写其固定猫种或瞳色；summary、news、moment 均不得带 Gotham/Batman/Wayne 等默认 DC 前提，除非引用的数据明确属于哥谭馆。`;
+                };
+                const getDeterministicDiaryTaskTime = (task) => {
+                    const timestamps = [];
+                    const addTimestamp = (value) => {
+                        const parsed = parseLogicalDate(value);
+                        if (parsed) timestamps.push(parsed.getTime());
+                    };
+                    const cat = task?.cat || {};
+                    [...(cat.todayInteractions || []), ...(cat.chatHistory || []), ...(cat.monitor || [])].forEach(record => addTimestamp(record?.at));
+                    (cat.completedAwayEpisodes || []).forEach(episode => addTimestamp(episode?.departedAt));
+                    const episodeIds = new Set((cat.completedAwayEpisodes || []).map(episode => String(episode.id)));
+                    (cat.travelogues || []).forEach(record => {
+                        const timestamp = parseLogicalDate(record?.at);
+                        if (!timestamp) return;
+                        if (getOperationalDayKey(timestamp) === task.dateKey || episodeIds.has(String(record?.episodeId || ''))) addTimestamp(timestamp);
+                    });
+                    if (timestamps.length) return new Date(Math.min(...timestamps));
+                    const [year, month, day] = String(task?.dateKey || '').split('-').map(Number);
+                    return new Date(year || 1970, (month || 1) - 1, day || 1, 12, 0, 0);
                 };
                 const applyDailyArchivePackage = (payload, snapshot, todayStr, todayKey) => {
                     const validation = validateDailyArchivePackage(payload, snapshot);
@@ -15252,19 +15499,34 @@ ${JSON.stringify(diaryContext)}
                         status: 'COMPLETED',
                         archivedAt: new Date().toISOString()
                     };
-                    const diaryWrites = (payload.diaries || []).map(row => ({
-                        cat: cats.value.find(cat => String(cat.id) === String(row.catId)),
-                        content: cleanText(row.content)
-                    }));
-                    if (diaryWrites.some(row => !row.cat || !row.content)) throw new Error('归档包的小猫日记无法对应当前猫咪。');
+                    const diaryTasks = new Map(getDailyDiaryTasks(snapshot).map(task => [getDailyDiaryTaskKey(task.catId, task.dateKey), task]));
+                    const diaryWrites = (payload.diaries || []).map(row => {
+                        const task = diaryTasks.get(getDailyDiaryTaskKey(row.catId, row.dateKey));
+                        return {
+                            task,
+                            cat: cats.value.find(cat => String(cat.id) === String(row.catId)),
+                            content: cleanText(row.content),
+                            at: task ? getDeterministicDiaryTaskTime(task) : null
+                        };
+                    });
+                    if (diaryWrites.some(row => !row.task || !row.cat || !row.content || !row.at || Number.isNaN(row.at.getTime()))) throw new Error('归档包的小猫日记无法对应当前猫咪。');
 
                     // All validation happens above. The following is the single
                     // commit point: no partial archive and no premature clearing.
                     user.missionReports.push(report);
-                    diaryWrites.forEach(({ cat, content }) => {
+                    diaryWrites.forEach(({ cat, content, task, at }) => {
                         if (!Array.isArray(cat.logs)) cat.logs = [];
-                        cat.logs.push({ date: snapshot.date, at: new Date().toISOString(), type: 'daily-diary', content });
+                        cat.logs.push({
+                            date: getArchiveDateLabel(task.dateKey),
+                            dateKey: task.dateKey,
+                            at: at.toISOString(),
+                            type: 'daily-diary',
+                            content
+                        });
                     });
+                    const completedBackfillKeys = new Set(diaryWrites
+                        .filter(row => row.task.kind === 'backfill')
+                        .map(row => row.task.pendingKey));
                     if (!user.phoneData) user.phoneData = {};
                     user.phoneData.news = payload.news.map((item, index) => ({
                         id: item.id || `daily-news-${Date.now()}-${index}`,
@@ -15299,6 +15561,14 @@ ${JSON.stringify(diaryContext)}
                     localStorage.setItem('last_login_date', todayStr);
                     localStorage.setItem(OPERATIONAL_DAY_KEY, todayKey);
                     localStorage.setItem(STATUS_DAY_REFRESH_PENDING_KEY, todayKey);
+                    if (completedBackfillKeys.size) {
+                        user.pendingAwayDiaryDays = ensurePendingAwayDiaryDays().filter(entry => {
+                            const key = getAwayDiaryPendingKey(entry.residentId, entry.dateKey);
+                            if (!completedBackfillKeys.has(key)) return true;
+                            addLog(`DAILY DIARY BACKFILL: resident=${entry.residentId}; day=${entry.dateKey}; result=generated`, 'info');
+                            return false;
+                        });
+                    }
                     clearDailyArchivePending();
                 };
                 const generateDailyArchivePackage = async (snapshot, requestOptions = {}) => {
@@ -15403,11 +15673,12 @@ ${JSON.stringify(diaryContext)}
                                 awaitingUser: false,
                                 lastError: ''
                             });
+                            let dailySnapshot = null;
                             try {
                                 loadingMessage.value = '正在冻结上一运营日记录，准备生成完整归档包…';
                                 loadingOperation.phase = '冻结昨日记录';
                                 loadingOperation.stepText = '步骤 1/3 · 读取互动、监控与档案';
-                                const dailySnapshot = captureDailySnapshot(archiveDateKey);
+                                dailySnapshot = prepareAwayDiaryTasks(captureDailySnapshot(archiveDateKey));
                                 const payload = await generateDailyArchivePackage(dailySnapshot, {
                                     batchId: initializationBatchId,
                                     cancelBatchOnAbort: true,
@@ -15423,6 +15694,9 @@ ${JSON.stringify(diaryContext)}
                                 loadingOperation.stepText = '步骤 3/3 · 已清空仅限昨日的临时记录';
                                 loadingProgress.value = 98;
                             } catch (e) {
+                                (dailySnapshot?.backfillDiaryTasks || []).forEach(task => {
+                                    addLog(`DAILY DIARY BACKFILL: resident=${task.catId}; day=${task.dateKey}; result=pending`, 'warn');
+                                });
                                 console.error('Operational-day archive error:', e);
                                 dailyInitializationPausedDate = operationalKey;
                                 saveDailyArchivePending({
@@ -17160,7 +17434,10 @@ ${enrichedStatusOutputContract}`;
                     reader.onload = async (e) => {
                         try {
                             const data = JSON.parse(e.target.result);
-                            if (data.user) Object.assign(user, data.user);
+                            if (data.user) {
+                                Object.assign(user, data.user);
+                                ensurePendingAwayDiaryDays();
+                            }
                             hallSceneRecords.value = normalizeHallSceneRecords(data.hallSceneRecords);
                             awayEpisodes.value = normalizeAwayEpisodes(data.awayEpisodes);
                             if (data.cats) cats.value = data.cats.map(normalizeCatHall);
