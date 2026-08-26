@@ -4896,7 +4896,7 @@
                             </button>
                         </div>
 
-                        <button v-if="isResidentAway(cat)" @click.stop="openAwayRecordViewer(cat)"
+                        <button v-if="getActiveAwayEpisode(cat)" @click.stop="openAwayRecordViewer(cat)"
                             class="sully-btn bg-red-950/80 border border-red-500/50 text-red-300 text-[9px] w-full mt-1.5 py-1 rounded-xl shadow hover:bg-red-900 transition flex items-center justify-center gap-1">
                             <i class="fas fa-video text-xs"></i> 查看外出记录
                         </button>
@@ -5323,6 +5323,10 @@
                     <button @click="openLogModal"
                         class="sully-btn bg-black/40 border border-white/10 p-2.5 rounded-2xl text-xs hover:bg-black/60 transition text-yellow-500 flex flex-col items-center gap-1 shadow-md">
                         <i class="fas fa-book text-sm text-yellow-400"></i>秘密日记
+                    </button>
+                    <button v-if="getCompletedAwayEpisodes(selectedCat).length" @click="openCompletedAwayArchive(selectedCat)"
+                        class="sully-btn bg-black/40 border border-white/10 p-2.5 rounded-2xl text-xs hover:bg-black/60 transition text-violet-200 flex flex-col items-center gap-1 shadow-md">
+                        <i class="fas fa-suitcase-rolling text-sm text-violet-300"></i>离馆档案
                     </button>
                     <button @click="toggleHumanMode" v-if="selectedCat.affinity >= 50" :disabled="isResidentAway(selectedCat)"
                         class="sully-btn bg-gradient-to-r from-pink-900 to-purple-900 border border-pink-500/30 p-2.5 rounded-2xl text-xs hover:brightness-110 transition flex flex-col items-center gap-1 text-pink-200 shadow-md"
@@ -7703,6 +7707,55 @@
             </section>
         </div>
 
+        <!-- Completed Away Archive -->
+        <div v-if="showCompletedAwayArchiveModal && completedAwayArchiveCat" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="closeCompletedAwayArchive">
+            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="`${completedAwayArchiveCat.name} 的离馆档案`">
+                <div class="meeow-reader-header flex justify-between items-center mb-3 pb-3">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <img :src="getCatAvatarSource(completedAwayArchiveCat)" class="w-9 h-9 rounded-xl object-contain border border-white/10">
+                        <div class="min-w-0">
+                            <h2 class="text-base font-bold truncate">{{ completedAwayArchiveCat.name }}</h2>
+                            <p class="text-[10px] font-mono" style="color: var(--ui-text-muted);">小猫离馆档案</p>
+                        </div>
+                    </div>
+                    <button @click="closeCompletedAwayArchive" class="meeow-reader-close p-1" aria-label="关闭离馆档案"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="meeow-reader-body flex-1 custom-scrollbar p-1 space-y-4">
+                    <article v-for="episode in getCompletedAwayEpisodes(completedAwayArchiveCat)" :key="episode.id" class="log-paper relative">
+                        <div class="border-b border-gray-400 pb-2 mb-3 flex flex-wrap justify-between gap-x-3 gap-y-1">
+                            <span class="font-bold text-sm">离馆记录</span>
+                            <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(episode.returnedAt || episode.plannedReturnAt) }}</span>
+                        </div>
+                        <dl class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
+                            <dt style="color: var(--ui-text-muted);">地点</dt>
+                            <dd class="break-words">{{ cleanText(episode.destination) || '未留下地点记录' }}</dd>
+                            <dt style="color: var(--ui-text-muted);">离馆时间</dt>
+                            <dd>{{ formatAwayArchiveTime(episode.departedAt) }}</dd>
+                            <dt style="color: var(--ui-text-muted);">回馆时间</dt>
+                            <dd>{{ formatAwayArchiveTime(episode.returnedAt || episode.plannedReturnAt) }}</dd>
+                            <dt style="color: var(--ui-text-muted);">总时长</dt>
+                            <dd>{{ formatAwayArchiveDuration(episode) }}</dd>
+                        </dl>
+                        <section v-if="getUsablePlannedArchiveNarrative(episode)" class="mt-4 rounded-xl border p-3" style="border-color: var(--ui-border); background: var(--ui-surface-soft);">
+                            <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">它的回忆</h3>
+                            <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ getUsablePlannedArchiveNarrative(episode) }}</p>
+                        </section>
+                        <section class="mt-4">
+                            <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">外出时间线</h3>
+                            <div v-if="getAwayArchiveTimeline(completedAwayArchiveCat, episode).length" class="space-y-3">
+                                <div v-for="event in getAwayArchiveTimeline(completedAwayArchiveCat, episode)" :key="event.id" class="border-l-2 pl-3" style="border-color: var(--ui-border);">
+                                    <div class="text-[10px] font-mono" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(event.at) }}</div>
+                                    <p class="text-sm leading-relaxed whitespace-pre-wrap break-words mt-1">{{ event.content }}</p>
+                                </div>
+                            </div>
+                            <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">这趟外出没有留下可归档的时间线记录。</p>
+                        </section>
+                    </article>
+                    <p v-if="!getCompletedAwayEpisodes(completedAwayArchiveCat).length" class="text-center py-10 text-xs italic" style="color: var(--ui-text-muted);">暂时没有已完成的离馆档案。</p>
+                </div>
+            </section>
+        </div>
+
         <!-- Diary/Logs Modal -->
         <div v-if="showDiaryModal || showLogModal" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center">
             <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="showDiaryModal ? '实时监控记录' : '过往日记'">
@@ -9409,6 +9462,8 @@
                 const showLogModal = ref(false);
                 const showAwayRecordModal = ref(false);
                 const awayRecordCat = ref(null);
+                const showCompletedAwayArchiveModal = ref(false);
+                const completedAwayArchiveCat = ref(null);
                 const showEditCatModal = ref(false);
                 const currentShopCategory = ref('food');
                 const isReleasing = ref(false);
@@ -9915,16 +9970,29 @@
                 };
 
                 const openAwayRecordViewer = (cat) => {
-                    if (!cat || !isResidentAway(cat)) return;
+                    if (!cat || !getActiveAwayEpisode(cat)) return;
                     awayRecordCat.value = cat;
                     showAwayRecordModal.value = true;
                 };
-                const getAwayTraceRecords = (cat) => Array.isArray(cat?.travelogues)
-                    ? cat.travelogues.filter(record => record && typeof record === 'object' && record.source === 'away')
-                    : [];
+                const getAwayTraceRecords = (cat) => {
+                    const activeEpisode = getActiveAwayEpisode(cat);
+                    return activeEpisode && Array.isArray(cat?.travelogues)
+                        ? cat.travelogues.filter(record => record && typeof record === 'object' &&
+                            record.source === 'away' && String(record.episodeId || '') === activeEpisode.id)
+                        : [];
+                };
                 const closeAwayRecordViewer = () => {
                     showAwayRecordModal.value = false;
                     awayRecordCat.value = null;
+                };
+                const openCompletedAwayArchive = (cat) => {
+                    if (!cat || !getCompletedAwayEpisodes(cat).length) return;
+                    completedAwayArchiveCat.value = cat;
+                    showCompletedAwayArchiveModal.value = true;
+                };
+                const closeCompletedAwayArchive = () => {
+                    showCompletedAwayArchiveModal.value = false;
+                    completedAwayArchiveCat.value = null;
                 };
 
                 // ===== GROUP CHAT + CAUGHT IN THE ACT =====
@@ -13970,6 +14038,8 @@ ${buildCatMemoryContext(cat)}`;
                         destination: cleanText(plan.destination || ''),
                         // Optional display enrichment; lifecycle validity never depends on it.
                         plannedReturnStatus: cleanText(plan.plannedReturnStatus || ''),
+                        // Private archive enrichment, hidden until this Episode completes.
+                        plannedArchiveNarrative: cleanText(plan.plannedArchiveNarrative || ''),
                         activityPlan: plan.mode === 'departure' ? {
                             activityAt: new Date(departure.getTime() + activityMs).toISOString(),
                             plannedResidentActivity: cleanText(plan.plannedResidentActivity || ''),
@@ -14469,6 +14539,9 @@ ${buildCatMemoryContext(cat)}`;
                             plannedReturnStatus: typeof episode.plannedReturnStatus === 'string'
                                 ? cleanText(episode.plannedReturnStatus)
                                 : '',
+                            plannedArchiveNarrative: typeof episode.plannedArchiveNarrative === 'string'
+                                ? cleanText(episode.plannedArchiveNarrative)
+                                : '',
                             activityPlan: hasValidActivity ? {
                                 activityAt,
                                 plannedResidentActivity: cleanText(activityPlan.plannedResidentActivity),
@@ -14497,6 +14570,54 @@ ${buildCatMemoryContext(cat)}`;
                 const getUsablePlannedReturnStatus = (episode) => {
                     const status = cleanText(episode?.plannedReturnStatus || '');
                     return status && status.length <= 80 ? status : '';
+                };
+                const getUsablePlannedArchiveNarrative = (episode) => {
+                    const narrative = cleanText(episode?.plannedArchiveNarrative || '');
+                    return narrative.length >= 20 && narrative.length <= 600 ? narrative : '';
+                };
+                const getCompletedAwayEpisodes = (catOrId) => {
+                    const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
+                    return normalizeAwayEpisodes(awayEpisodes.value)
+                        .filter(episode => episode.residentId === id && episode.status === 'completed')
+                        .sort((a, b) => {
+                            const aTime = parseLogicalDate(a.returnedAt || a.plannedReturnAt)?.getTime() || 0;
+                            const bTime = parseLogicalDate(b.returnedAt || b.plannedReturnAt)?.getTime() || 0;
+                            return bTime - aTime;
+                        });
+                };
+                const formatAwayArchiveTime = (value) => formatLogicalDisplayDate(value);
+                const formatAwayArchiveDuration = (episode) => {
+                    const departedAt = parseLogicalDate(episode?.departedAt);
+                    const returnedAt = parseLogicalDate(episode?.returnedAt || episode?.plannedReturnAt);
+                    if (!departedAt || !returnedAt) return '未留下时长记录';
+                    const totalMinutes = Math.max(0, Math.round((returnedAt.getTime() - departedAt.getTime()) / 60000));
+                    const hours = Math.floor(totalMinutes / 60);
+                    const minutes = totalMinutes % 60;
+                    return hours ? `${hours} 小时${minutes ? ` ${minutes} 分钟` : ''}` : `${minutes} 分钟`;
+                };
+                const getAwayArchiveTimeline = (cat, episode) => {
+                    if (!cat || !episode || String(episode.residentId) !== String(cat.id)) return [];
+                    const records = Array.isArray(cat.travelogues) ? cat.travelogues : [];
+                    const timeline = records
+                        .filter(record => record && typeof record === 'object' && record.source === 'away' &&
+                            String(record.episodeId || '') === String(episode.id) && parseLogicalDate(record.at))
+                        .map((record, index) => ({
+                            id: `trace-${String(episode.id)}-${index}-${record.at}`,
+                            at: parseLogicalDate(record.at).toISOString(),
+                            content: cleanText(record.content || '')
+                        }))
+                        .filter(event => event.content);
+                    (episode.mailPlan || []).forEach(mail => {
+                        const sentAt = parseLogicalDate(mail?.sendAt);
+                        if (mail?.state === 'delivered' && sentAt) {
+                            timeline.push({
+                                id: `mail-${String(episode.id)}-${String(mail.id || sentAt.toISOString())}`,
+                                at: sentAt.toISOString(),
+                                content: '寄出了一封信。'
+                            });
+                        }
+                    });
+                    return timeline.sort((a, b) => new Date(a.at) - new Date(b.at) || a.id.localeCompare(b.id));
                 };
                 const getRecentAwayReturn = (catOrId, now = new Date()) => {
                     const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
@@ -15398,8 +15519,8 @@ ${getCompactMapPointPromptGuide()}`
 
                         [OUTPUT]
                         Return exactly this JSON shape. All text values must be Simplified Chinese:
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[{"residentId":"exact final departure id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","plannedReturnStatus":"concise visible status for the moment this resident returns home","mailPlan":[]}]}
-                        A departure plan is required only for a bystander you set from isOut:false to isOut:true. plannedReturnStatus is optional UX enrichment: when supplied, write one concise, character-appropriate third-person status for the resident's immediate return home without private destination/activity details. Its absence or invalidity never cancels a valid departure. mailPlan is optional and may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be scheduled after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example booleans and minutes are illustrative only.
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact frozen bystander id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[{"residentId":"exact final departure id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","plannedReturnStatus":"concise visible status for the moment this resident returns home","plannedArchiveNarrative":"optional 100-200 Chinese-character first-person private retrospective","mailPlan":[]}]}
+                        A departure plan is required only for a bystander you set from isOut:false to isOut:true. plannedReturnStatus is optional UX enrichment: when supplied, write one concise, character-appropriate third-person status for the resident's immediate return home without private destination/activity details. plannedArchiveNarrative is separate optional private archive enrichment: write roughly 100-200 Chinese characters in this resident's first person about this exact planned absence—what they did, saw, noticed, or encountered. Keep it canon-faithful and consistent with the destination/activity; never reveal a hidden human identity unless legitimately established. It remains hidden until the Episode completes. Its absence, malformed value, or unsuitable length never cancels a valid departure. mailPlan is optional and may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be scheduled after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example booleans and minutes are illustrative only.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -15928,6 +16049,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const plannedReturnStatus = typeof plan.plannedReturnStatus === 'string'
                         ? cleanText(plan.plannedReturnStatus)
                         : '';
+                    // Archive prose is optional UX enrichment. Keep only a display-safe
+                    // value; never let it become departure lifecycle authority.
+                    const plannedArchiveNarrative = typeof plan.plannedArchiveNarrative === 'string'
+                        ? cleanText(plan.plannedArchiveNarrative)
+                        : '';
                     if (!Number.isInteger(activityAfter) || activityAfter < 10 || activityAfter > duration - 10 || !destination || !plannedResidentActivity || !publicTrace) return null;
                     const rawMailPlan = plan.mailPlan === undefined ? [] : plan.mailPlan;
                     if (!Array.isArray(rawMailPlan) || rawMailPlan.length > 1) return null;
@@ -15949,6 +16075,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         residentId: String(expectedId), mode, plannedDurationMinutes: duration,
                         activityAfterMinutes: activityAfter, destination, plannedResidentActivity, publicTrace,
                         plannedReturnStatus: plannedReturnStatus.length <= 80 ? plannedReturnStatus : '',
+                        plannedArchiveNarrative: plannedArchiveNarrative.length >= 20 && plannedArchiveNarrative.length <= 600
+                            ? plannedArchiveNarrative
+                            : '',
                         mailPlan
                     };
                 };
@@ -16133,7 +16262,7 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[],"scene":null}\nThe isOut:false value is illustrative only; decide each resident independently. awayPlans contains one plan only for each supplied resident who either newly changes false→true (mode:"departure") or is a legacy unmanaged true→true resident (mode:"legacy-continuation"). A departure plan must be {"residentId":"exact id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","plannedReturnStatus":"concise visible status for the moment this resident returns home","mailPlan":[]}; plannedReturnStatus is optional UX enrichment: when supplied, write one concise, character-appropriate third-person status for the resident's immediate return home without private destination/activity details. Its absence or invalidity never cancels a valid departure. Duration must be 30–720 minutes and activityAfterMinutes must be at least 10 minutes after departure and at least 10 minutes before return. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; a planned mail must occur after the activity and before return. Mail is optional: do not force it and never expose private destination/activity details in it. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, or plannedReturnStatus. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact supplied character id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining; omit if out","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"}],"awayPlans":[],"scene":null}\nThe isOut:false value is illustrative only; decide each resident independently. awayPlans contains one plan only for each supplied resident who either newly changes false→true (mode:"departure") or is a legacy unmanaged true→true resident (mode:"legacy-continuation"). A departure plan must be {"residentId":"exact id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace","plannedReturnStatus":"concise visible status for the moment this resident returns home","plannedArchiveNarrative":"optional 100-200 Chinese-character first-person private retrospective","mailPlan":[]}; plannedReturnStatus is optional UX enrichment: when supplied, write one concise, character-appropriate third-person status for the resident's immediate return home without private destination/activity details. plannedArchiveNarrative is separate optional private archive enrichment: write roughly 100-200 Chinese characters in this resident's first person about this exact planned absence—what they did, saw, noticed, or encountered. Keep it canon-faithful and consistent with the destination/activity; never reveal a hidden human identity unless legitimately established. It will remain hidden until the Episode completes. Its absence, malformed value, or unsuitable length never cancels a valid departure. Duration must be 30–720 minutes and activityAfterMinutes must be at least 10 minutes after departure and at least 10 minutes before return. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; a planned mail must occur after the activity and before return. Mail is optional: do not force it and never expose private destination/activity details in it. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -17199,7 +17328,7 @@ ${buildCatMemoryContext(targetCat)}`;
                     hallSceneRecords, hallSceneFeedRecords, getHallSceneParticipantNames, getHallSceneReactionName,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCompletedAwayArchiveModal, completedAwayArchiveCat, openCompletedAwayArchive, closeCompletedAwayArchive, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
