@@ -3723,6 +3723,79 @@
             background: var(--ui-card-background) !important;
             border-color: var(--ui-border-strong) !important;
             color: var(--ui-text) !important;
+            display: flex;
+            flex-direction: column;
+            min-height: 15rem;
+            max-height: min(56dvh, 38rem);
+        }
+
+        #app .meeow-hall-scene-list {
+            min-height: 0;
+            flex: 1 1 auto;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+
+        #app .meeow-hall-scene-composer {
+            flex: 0 0 auto;
+            border-top: 1px solid var(--ui-border);
+        }
+
+        #app .meeow-hall-scene-chips {
+            max-height: 5.75rem;
+            overflow-y: auto;
+        }
+
+        #app .meeow-hall-scene-chip,
+        #app .meeow-hall-scene-add,
+        #app .meeow-hall-scene-picker-item,
+        #app .meeow-hall-scene-send {
+            border: 1px solid var(--ui-border);
+            background: var(--ui-surface-soft);
+            color: var(--ui-text);
+        }
+
+        #app .meeow-hall-scene-chip button,
+        #app .meeow-hall-scene-add {
+            color: var(--ui-text-muted);
+        }
+
+        #app .meeow-hall-scene-add,
+        #app .meeow-hall-scene-send {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--accent-readable-text, #fff);
+        }
+
+        #app .meeow-hall-scene-picker {
+            background: var(--ui-surface-strong);
+            border: 1px solid var(--ui-border-strong);
+            box-shadow: var(--ui-shadow);
+        }
+
+        #app .meeow-hall-scene-picker-item:disabled {
+            opacity: .52;
+        }
+
+        #app .meeow-hall-scene-content {
+            color: var(--ui-text);
+        }
+
+        @media (max-width: 640px) {
+            #app .meeow-hall-scene-feed {
+                min-height: 16rem;
+                max-height: 58dvh;
+            }
+            #app .meeow-hall-scene-chips {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                overflow-y: hidden;
+                padding-bottom: .15rem;
+            }
+            #app .meeow-hall-scene-chip {
+                flex: 0 0 auto;
+            }
         }
 
         #app .meeow-hall-scene-title,
@@ -4812,31 +4885,48 @@
                     </div>
                 </div>
 
-                <section v-if="hallSceneFeedRecords.length" class="meeow-hall-scene-feed sully-card p-4 space-y-3" aria-label="馆内共享片段">
+                <section class="meeow-hall-scene-feed sully-card p-4 gap-3" aria-label="馆内共享片段">
                     <div class="flex items-center justify-between gap-3">
                         <div class="meeow-hall-scene-title text-xs font-black tracking-wide"><i class="fas fa-wand-sparkles mr-1.5"></i>馆内片段</div>
                         <span class="meeow-hall-scene-meta text-[9px]">当前运营日</span>
                     </div>
-                    <article v-for="scene in hallSceneFeedRecords.slice(0, 3)" :key="scene.id" class="meeow-hall-scene-card rounded-2xl border p-3 space-y-2">
-                        <div class="flex items-center justify-between gap-3 text-[10px]">
-                            <strong class="meeow-hall-scene-participants truncate">{{ scene.type === 'user-directed' ? '馆长 / ' : '' }}{{ getHallSceneParticipantNames(scene) }}</strong>
-                            <time class="meeow-hall-scene-time shrink-0">{{ new Date(scene.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</time>
+                    <div class="meeow-hall-scene-list pr-1 space-y-3" aria-live="polite">
+                        <article v-for="scene in hallSceneFeedRecords" :key="scene.id" class="meeow-hall-scene-card rounded-2xl border p-3 space-y-2">
+                            <div class="flex items-center justify-between gap-3 text-[10px]">
+                                <strong class="meeow-hall-scene-participants truncate">{{ scene.type === 'user-directed' ? '馆长 / ' : '' }}{{ getHallSceneParticipantNames(scene) }}</strong>
+                                <time class="meeow-hall-scene-time shrink-0">{{ new Date(scene.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</time>
+                            </div>
+                            <p v-if="scene.userText !== null" class="meeow-hall-scene-user-text whitespace-pre-wrap text-[11px] leading-relaxed">{{ scene.userText }}</p>
+                            <p v-if="scene.content" class="meeow-hall-scene-content whitespace-pre-wrap text-[11px] leading-relaxed">{{ scene.content }}</p>
+                            <div v-else class="space-y-1.5">
+                                <p v-for="reaction in scene.reactions" :key="scene.id + '-' + reaction.id" class="meeow-hall-scene-reaction text-[11px] leading-relaxed"><span class="meeow-hall-scene-reaction-name font-bold">{{ getHallSceneReactionName(reaction.id) }}</span>：{{ cleanText(reaction.content) }}</p>
+                            </div>
+                        </article>
+                        <p v-if="!hallSceneFeedRecords.length" class="meeow-hall-scene-meta px-1 py-4 text-center text-[11px]">还没有馆内片段。选一只或几只居民，写下你想发生的事吧。</p>
+                    </div>
+                    <div class="meeow-hall-scene-composer pt-3 space-y-2.5">
+                        <div class="relative">
+                            <div id="meeow-shared-scene-chips" class="meeow-hall-scene-chips flex items-center gap-1.5 flex-wrap" aria-label="已选场景参与者">
+                                <span v-for="cat in sharedSceneSelectedResidents" :key="cat.id" class="meeow-hall-scene-chip inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold">
+                                    <span class="truncate">{{ getSharedSceneResidentDisplayName(cat) }}</span>
+                                    <button type="button" class="min-h-5 min-w-5 rounded-full text-xs leading-none" :aria-label="`移除 ${getSharedSceneResidentDisplayName(cat)}`" @click="removeSharedSceneResident(cat.id)">×</button>
+                                </span>
+                                <button type="button" class="meeow-hall-scene-add min-h-8 min-w-8 rounded-full text-sm font-black" aria-label="添加场景参与者" :aria-expanded="sharedSceneComposer.pickerOpen" @click="toggleSharedScenePicker">+</button>
+                            </div>
+                            <div v-if="sharedSceneComposer.pickerOpen" class="meeow-hall-scene-picker absolute z-30 left-0 right-0 mt-2 max-h-48 overflow-y-auto rounded-2xl p-2 space-y-1" role="listbox" aria-label="选择馆内居民">
+                                <button v-for="cat in sharedSceneEligibleResidents" :key="cat.id" type="button" class="meeow-hall-scene-picker-item w-full min-h-10 rounded-xl px-2 text-left text-[11px] flex items-center gap-2" :disabled="isSharedSceneResidentSelected(cat.id)" @click="addSharedSceneResident(cat.id)">
+                                    <img :src="getCatAvatarSource(cat)" class="h-6 w-6 rounded-full object-cover" alt="">
+                                    <span class="flex-1 truncate">{{ getSharedSceneResidentDisplayName(cat) }}</span>
+                                    <i v-if="isSharedSceneResidentSelected(cat.id)" class="fas fa-check" aria-hidden="true"></i>
+                                </button>
+                                <p v-if="!sharedSceneEligibleResidents.length" class="meeow-hall-scene-meta p-3 text-center text-[11px]">当前没有可加入的馆内居民。</p>
+                            </div>
                         </div>
-                        <p v-if="scene.userText !== null" class="meeow-hall-scene-user-text whitespace-pre-wrap text-[11px] leading-relaxed">{{ scene.userText }}</p>
-                        <div class="space-y-1.5">
-                            <p v-for="reaction in scene.reactions" :key="scene.id + '-' + reaction.id" class="meeow-hall-scene-reaction text-[11px] leading-relaxed"><span class="meeow-hall-scene-reaction-name font-bold">{{ getHallSceneReactionName(reaction.id) }}</span>：{{ cleanText(reaction.content) }}</p>
+                        <div class="flex items-end gap-2">
+                            <textarea v-model="sharedSceneComposer.text" rows="2" class="flex-1 rounded-2xl border px-3 py-2 text-xs leading-relaxed focus:ring-0" style="background: var(--ui-surface-soft); color: var(--ui-text); border-color: var(--ui-border);" placeholder="写下一段动作、台词或邀请…"></textarea>
+                            <button type="button" class="meeow-hall-scene-send min-h-10 rounded-xl px-3 text-xs font-bold" :disabled="isUpdatingStatus" @click="submitSharedScene"><i class="fas fa-paper-plane mr-1"></i>发送</button>
                         </div>
-                    </article>
-                    <details v-if="hallSceneFeedRecords.length > 3" class="meeow-hall-scene-more rounded-xl px-3 py-2 text-[10px]">
-                        <summary class="meeow-hall-scene-title cursor-pointer font-bold">查看更早的今日片段（{{ hallSceneFeedRecords.length - 3 }}）</summary>
-                        <div class="mt-3 space-y-3">
-                            <article v-for="scene in hallSceneFeedRecords.slice(3)" :key="scene.id" class="border-t pt-3 space-y-1.5" style="border-color: var(--ui-border)">
-                                <div class="flex items-center justify-between gap-3"><strong class="meeow-hall-scene-participants truncate">{{ scene.type === 'user-directed' ? '馆长 / ' : '' }}{{ getHallSceneParticipantNames(scene) }}</strong><time class="meeow-hall-scene-time shrink-0">{{ new Date(scene.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</time></div>
-                                <p v-if="scene.userText !== null" class="meeow-hall-scene-user-text whitespace-pre-wrap leading-relaxed">{{ scene.userText }}</p>
-                                <p v-for="reaction in scene.reactions" :key="scene.id + '-' + reaction.id" class="meeow-hall-scene-reaction leading-relaxed"><span class="meeow-hall-scene-reaction-name font-bold">{{ getHallSceneReactionName(reaction.id) }}</span>：{{ cleanText(reaction.content) }}</p>
-                            </article>
-                        </div>
-                    </details>
+                    </div>
                 </section>
 
                 <!-- Alfred Voice Card -->
@@ -11881,7 +11971,6 @@ JSON 格式：
                     const requestHallId = activeHallId.value;
                     const requestHall = { ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value) };
                     const frozenNow = new Date();
-                    const sceneCandidates = buildHallSceneCandidateContext(rawUserText, requestHallId, frozenNow);
                     user.currentStatus = rawUserText;
                     addLog(`USER STATUS UPDATED: ${user.currentStatus || '(Empty)'}`, "info");
                     showToast(`正在同步${currentHall.value.name}状态...`, "loading");
@@ -11891,20 +11980,57 @@ JSON 格式：
                         requestHallId,
                         requestHall,
                         frozenNow,
-                        operationalDayKey: getOperationalDayKey(frozenNow),
-                        sceneMode: 'user-directed',
-                        sceneContext: {
-                            rawUserText,
-                            explicitMentionIds: sceneCandidates.explicitMentionIds,
-                            previousFocusIds: sceneCandidates.previousFocusIds,
-                            candidateIds: sceneCandidates.candidateIds
-                        }
+                        operationalDayKey: getOperationalDayKey(frozenNow)
                     });
                     if (success) {
                         showToast("状态已同步", "success");
                     } else {
                         showToast("同步失败，请检查日志", "error");
                     }
+                };
+
+                const submitSharedScene = async () => {
+                    syncSharedSceneComposerHall();
+                    const rawUserText = String(sharedSceneComposer.text || '').trim();
+                    const requestHallId = activeHallId.value;
+                    const selectedIds = getSharedSceneSelectedResidentIds(requestHallId);
+                    if (!selectedIds.length) {
+                        showToast('请先选择至少一只馆内居民。', 'info');
+                        return false;
+                    }
+                    if (!rawUserText) {
+                        showToast('写下这一刻想发生的动作或话语，再发送吧。', 'info');
+                        return false;
+                    }
+                    const requestHall = { ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value) };
+                    const frozenNow = new Date();
+                    const previousFocusIds = getValidHallSceneFocusIds(requestHallId, frozenNow);
+                    showToast(`正在编织${requestHall.name}的馆内片段...`, 'loading');
+                    const success = await refreshAllStatus(true, `USER shared scene action: ${rawUserText}`, [], '', false, false, {
+                        priority: 'foreground',
+                        maxAttempts: 2,
+                        requestHallId,
+                        requestHall,
+                        frozenNow,
+                        operationalDayKey: getOperationalDayKey(frozenNow),
+                        sceneMode: 'user-directed',
+                        sceneRequired: true,
+                        protectedSceneParticipantIds: selectedIds,
+                        sceneContext: {
+                            rawUserText,
+                            explicitMentionIds: resolveExplicitHallSceneMentionIds(rawUserText, requestHallId),
+                            previousFocusIds,
+                            candidateIds: selectedIds,
+                            requiredParticipantIds: selectedIds
+                        }
+                    });
+                    if (success) {
+                        sharedSceneComposer.text = '';
+                        showToast('馆内片段已写下。', 'success');
+                    } else {
+                        showToast('这段馆内片段没有完整写成，请稍后重试。', 'error');
+                    }
+                    return success;
                 };
 
                 // --- EXPLORE SYSTEM METHODS ---
@@ -14677,6 +14803,11 @@ ${buildCatMemoryContext(cat)}`;
                 const hallSceneFocus = reactive({
                     hallId: '', dateKey: '', sceneId: '', participantIds: [], updatedAt: 0
                 });
+                // Composer state is intentionally local UI state. It never changes
+                // the USER's ordinary hall status or any resident's world presence.
+                const sharedSceneComposer = reactive({
+                    hallId: '', selectedResidentIds: [], text: '', pickerOpen: false
+                });
                 const getCatHallId = (cat) => cat?.hallId || (cat?.isMarvel ? 'marvel' : 'gotham');
                 const parseLogicalDate = (value) => {
                     const date = value instanceof Date ? new Date(value) : new Date(value);
@@ -14891,11 +15022,13 @@ ${buildCatMemoryContext(cat)}`;
                         const at = typeof record.at === 'string' && !Number.isNaN(new Date(record.at).getTime())
                             ? record.at
                             : '';
-                        const participantIds = [...new Set((Array.isArray(record.participantIds) ? record.participantIds : [])
-                            .map(id => String(id || '').trim()).filter(Boolean))];
                         const reactions = (Array.isArray(record.reactions) ? record.reactions : [])
                             .map(reaction => ({ id: String(reaction?.id || '').trim(), content: cleanText(reaction?.content || '') }))
                             .filter(reaction => reaction.id && reaction.content);
+                        const participantIds = [...new Set((Array.isArray(record.participantIds) && record.participantIds.length
+                            ? record.participantIds
+                            : reactions.map(reaction => reaction.id))
+                            .map(id => String(id || '').trim()).filter(Boolean))];
                         const type = record.type === 'ambient' ? 'ambient' : 'user-directed';
                         return {
                             id: String(record.id || `hall-scene-${at || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
@@ -14905,6 +15038,7 @@ ${buildCatMemoryContext(cat)}`;
                             type,
                             participantIds,
                             userText: typeof record.userText === 'string' ? record.userText : null,
+                            content: cleanText(record.content || ''),
                             reactions
                         };
                     })
@@ -14940,17 +15074,77 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     return validIds;
                 };
+                const getSharedSceneResidentDisplayName = (cat) => cleanText(cat?.name || '') || '馆内居民';
+                const isSharedSceneResidentEligible = (cat, hallId = activeHallId.value) => {
+                    if (!cat || getCatHallId(cat) !== hallId || !isResidentInHall(cat) || cat.isVisiting || getActiveAwayEpisode(cat)) return false;
+                    if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
+                    if (isFocusing.value && focusCats.value.some(item => String(item?.id) === String(cat.id))) return false;
+                    if (isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id)) return false;
+                    return true;
+                };
+                const syncSharedSceneComposerHall = () => {
+                    const hallId = activeHallId.value;
+                    if (sharedSceneComposer.hallId !== hallId) {
+                        sharedSceneComposer.hallId = hallId;
+                        sharedSceneComposer.selectedResidentIds = [];
+                        sharedSceneComposer.text = '';
+                        sharedSceneComposer.pickerOpen = false;
+                    }
+                    sharedSceneComposer.selectedResidentIds = [...new Set(sharedSceneComposer.selectedResidentIds
+                        .map(id => String(id || '').trim())
+                        .filter(id => isSharedSceneResidentEligible(cats.value.find(cat => String(cat.id) === id), hallId)))];
+                };
+                const sharedSceneEligibleResidents = computed(() => {
+                    syncSharedSceneComposerHall();
+                    return cats.value.filter(cat => isSharedSceneResidentEligible(cat, activeHallId.value));
+                });
+                const isSharedSceneResidentSelected = (id) => sharedSceneComposer.selectedResidentIds
+                    .some(selectedId => String(selectedId) === String(id));
+                const sharedSceneSelectedResidents = computed(() => {
+                    syncSharedSceneComposerHall();
+                    return sharedSceneComposer.selectedResidentIds.map(id =>
+                        cats.value.find(cat => String(cat.id) === String(id))
+                    ).filter(Boolean);
+                });
+                const getSharedSceneSelectedResidentIds = (hallId = activeHallId.value) => {
+                    syncSharedSceneComposerHall();
+                    return sharedSceneComposer.selectedResidentIds.filter(id =>
+                        isSharedSceneResidentEligible(cats.value.find(cat => String(cat.id) === String(id)), hallId)
+                    );
+                };
+                const addSharedSceneResident = (id) => {
+                    syncSharedSceneComposerHall();
+                    const cat = cats.value.find(item => String(item.id) === String(id));
+                    if (!isSharedSceneResidentEligible(cat)) return false;
+                    if (!isSharedSceneResidentSelected(cat.id)) sharedSceneComposer.selectedResidentIds.push(String(cat.id));
+                    sharedSceneComposer.pickerOpen = false;
+                    return true;
+                };
+                const removeSharedSceneResident = (id) => {
+                    sharedSceneComposer.selectedResidentIds = sharedSceneComposer.selectedResidentIds
+                        .filter(selectedId => String(selectedId) !== String(id));
+                };
+                const toggleSharedScenePicker = () => {
+                    syncSharedSceneComposerHall();
+                    sharedSceneComposer.pickerOpen = !sharedSceneComposer.pickerOpen;
+                };
                 const resolveExplicitHallSceneMentionIds = (rawText, hallId = activeHallId.value) => {
                     const haystack = String(rawText || '').toLocaleLowerCase();
                     if (!haystack) return [];
-                    const matches = [];
-                    cats.value.filter(cat => getCatHallId(cat) === hallId && isResidentInHall(cat)).forEach(cat => {
-                        const aliases = [cat.name, cat.humanName, cat.codename]
-                            .map(value => String(value || '').trim()).filter(value => value.length >= 2)
-                            .sort((a, b) => b.length - a.length);
-                        if (aliases.some(alias => haystack.includes(alias.toLocaleLowerCase()))) matches.push(String(cat.id));
-                    });
-                    return [...new Set(matches)];
+                    const namedCandidates = cats.value
+                        .filter(cat => isSharedSceneResidentEligible(cat, hallId))
+                        .map(cat => ({ cat, name: getSharedSceneResidentDisplayName(cat) }))
+                        .filter(entry => entry.name.length >= 2);
+                    const nameCounts = namedCandidates.reduce((counts, entry) => {
+                        const key = entry.name.toLocaleLowerCase();
+                        counts.set(key, (counts.get(key) || 0) + 1);
+                        return counts;
+                    }, new Map());
+                    return namedCandidates
+                        .filter(entry => nameCounts.get(entry.name.toLocaleLowerCase()) === 1)
+                        .sort((a, b) => b.name.length - a.name.length)
+                        .filter(entry => haystack.includes(entry.name.toLocaleLowerCase()))
+                        .map(entry => String(entry.cat.id));
                 };
                 const buildHallSceneCandidateContext = (rawText, hallId = activeHallId.value, now = new Date()) => {
                     const explicitMentionIds = resolveExplicitHallSceneMentionIds(rawText, hallId);
@@ -14961,7 +15155,7 @@ ${buildCatMemoryContext(cat)}`;
                         candidateIds: [...new Set([...previousFocusIds, ...explicitMentionIds])]
                     };
                 };
-                const appendHallSceneRecord = ({ hallId, operationalDayKey, type, participantIds, userText = null, reactions }) => {
+                const appendHallSceneRecord = ({ hallId, operationalDayKey, type, participantIds, userText = null, content = '', reactions }) => {
                     const now = new Date();
                     if (getOperationalDayKey(now) !== operationalDayKey) return null;
                     pruneHallSceneRecords(operationalDayKey);
@@ -14973,6 +15167,7 @@ ${buildCatMemoryContext(cat)}`;
                         type,
                         participantIds,
                         userText,
+                        content,
                         reactions
                     }])[0] || null;
                     if (!record) return null;
@@ -14994,8 +15189,16 @@ ${buildCatMemoryContext(cat)}`;
                         .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
                 });
                 const getHallSceneParticipantNames = (record) => (record?.participantIds || [])
-                    .map(id => cats.value.find(cat => String(cat.id) === String(id))?.name || String(id)).join(' / ');
-                const getHallSceneReactionName = (id) => cats.value.find(cat => String(cat.id) === String(id))?.name || String(id);
+                    .map(id => getSharedSceneResidentDisplayName(cats.value.find(cat => String(cat.id) === String(id)))).join(' / ');
+                const getHallSceneReactionName = (id) => getSharedSceneResidentDisplayName(cats.value.find(cat => String(cat.id) === String(id)));
+                watch(() => sharedSceneComposer.text, (rawText) => {
+                    if (sharedSceneComposer.hallId !== activeHallId.value) return;
+                    resolveExplicitHallSceneMentionIds(rawText).forEach(id => addSharedSceneResident(id));
+                });
+                watch(activeHallId, () => {
+                    sharedSceneComposer.hallId = '';
+                    syncSharedSceneComposerHall();
+                });
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
                 awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
                 const buildOwnerDailyContext = (profileName = 'standard') => {
@@ -16505,19 +16708,34 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     }
                     return true;
                 };
-                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}) => {
+                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}, sceneOptions = null) => {
                     const payload = parseAIJSON(content);
                     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
                         return 'Status Sync response is not a valid JSON object.';
                     }
                     if (!Array.isArray(payload.awayPlans)) return 'Status Sync response is missing awayPlans array.';
                     const updateValidation = validateStatusSyncUpdates(payload.updates, requestedIds);
-                    return updateValidation === true
+                    const directiveValidation = updateValidation === true
                         ? validateLocalPresenceDirectives(payload.updates, presenceDirectives)
                         : updateValidation;
+                    if (directiveValidation !== true) return directiveValidation;
+                    if (!sceneOptions?.sceneMode) return true;
+                    const sceneValidation = validateOptionalHallScene({
+                        scene: payload.scene,
+                        sceneMode: sceneOptions.sceneMode,
+                        sceneContext: sceneOptions.sceneContext || {},
+                        updates: payload.updates,
+                        requestHallId: sceneOptions.requestHallId,
+                        sceneRequired: Boolean(sceneOptions.sceneRequired)
+                    });
+                    return sceneValidation.valid ? true : `Status Sync shared scene invalid: ${sceneValidation.error}`;
                 };
-                const validateOptionalHallScene = ({ scene, sceneMode, sceneContext, updates, requestHallId }) => {
-                    if (scene === null) return { valid: true, scene: null };
+                const validateOptionalHallScene = ({ scene, sceneMode, sceneContext, updates, requestHallId, sceneRequired = false }) => {
+                    if (scene === null) {
+                        return sceneRequired
+                            ? { valid: false, error: 'a composer request requires a non-null scene.' }
+                            : { valid: true, scene: null };
+                    }
                     if (!scene || typeof scene !== 'object' || Array.isArray(scene)) {
                         return { valid: false, error: 'scene is not null or a valid object.' };
                     }
@@ -16535,6 +16753,15 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         : (updates || []).map(update => String(update?.id || '')).filter(Boolean));
                     if (participantIds.some(id => !allowedIds.has(id))) {
                         return { valid: false, error: 'scene includes an ID outside its allowed participant pool.' };
+                    }
+                    const requiredIds = [...new Set((sceneContext?.requiredParticipantIds || []).map(id => String(id)).filter(Boolean))];
+                    if (requiredIds.length && (participantIds.length !== requiredIds.length || participantIds.some(id => !requiredIds.includes(id)))) {
+                        return { valid: false, error: 'scene participants must exactly match the frozen composer selection.' };
+                    }
+                    const content = cleanText(scene.content || '');
+                    const chineseCharacters = (content.match(/[\u3400-\u9fff]/g) || []).length;
+                    if (!content || content.length > 600 || chineseCharacters < 12) {
+                        return { valid: false, error: 'scene requires concise Chinese shared presentation prose.' };
                     }
                     const reactions = Array.isArray(scene.reactions) ? scene.reactions : [];
                     const reactionById = new Map();
@@ -16572,6 +16799,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         scene: {
                             type: expectedType,
                             participantIds,
+                            content,
                             reactions: participantIds.map(id => ({ id, content: reactionById.get(id) }))
                         }
                     };
@@ -16722,6 +16950,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         ? requestOptions.sceneMode
                         : '';
                     const sceneContext = sceneMode ? (requestOptions.sceneContext || {}) : null;
+                    const protectedSceneParticipantIds = new Set((requestOptions.protectedSceneParticipantIds || [])
+                        .map(id => String(id || '')).filter(Boolean));
                     let pendingStatusDayRefresh = false;
                     try {
                         pendingStatusDayRefresh = localStorage.getItem(STATUS_DAY_REFRESH_PENDING_KEY) === operationalDayKey;
@@ -16793,12 +17023,13 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 hallCats: fullHallCats,
                                 requestedCats,
                                 departureCandidateIds: requestedCats
-                                    .filter(cat => !activeIdSet.has(String(cat.id)))
+                                    .filter(cat => !activeIdSet.has(String(cat.id)) && !protectedSceneParticipantIds.has(String(cat.id)))
                                     .map(cat => String(cat.id)),
                                 now,
                                 excluded: [
                                     ...fullHallCats.filter(cat => getActiveAwayEpisode(cat, now)).map(cat => `${String(cat.id)}:active-episode`),
-                                    ...fullHallCats.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`)
+                                    ...fullHallCats.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`),
+                                    ...requestedCats.filter(cat => protectedSceneParticipantIds.has(String(cat.id))).map(cat => `${String(cat.id)}:shared-scene`)
                                 ]
                             });
                         const presenceDirectives = Object.freeze({
@@ -16844,9 +17075,11 @@ Raw USER input: ${JSON.stringify(String(sceneContext.rawUserText || ''))}
 Explicitly mentioned resident IDs: [${(sceneContext.explicitMentionIds || []).map(String).join(', ')}]
 Previous valid scene-focus IDs: [${(sceneContext.previousFocusIds || []).map(String).join(', ')}]
 Allowed scene candidate IDs: [${(sceneContext.candidateIds || []).map(String).join(', ')}]
-Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).join(', ') || 'None'}
-- Return scene:null unless the USER input clearly creates or continues a shared physical moment with one or more allowed residents. Ordinary USER status must remain scene:null.
-- If scene is non-null, select participantIds only from Allowed scene candidate IDs. The raw USER input plus every participant reaction and status must describe one same physical moment; participants may notice and react to each other, never generate unrelated simultaneous activities.
+Frozen required participant IDs: [${(sceneContext.requiredParticipantIds || []).map(String).join(', ')}]
+Candidates: ${sceneCandidateCats.map(cat => `${getSharedSceneResidentDisplayName(cat)} (${String(cat.id)})`).join(', ') || 'None'}
+- This is an explicit composer action. You MUST return one non-null user-directed scene whose participantIds exactly equal Frozen required participant IDs: no additions, omissions, substitutions, or reordering-based duplicates.
+- scene.content is required: write one cohesive, short, third-person Simplified Chinese prose fragment. It must hold the USER action, participant-to-participant reactions, movement or pause, and causal continuity inside the same physical moment. Do not write separate “Name: reply” rows, unrelated individual reactions, or a chat transcript.
+- Structured reactions remain required validation evidence for every selected resident, but they are not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
 - CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks. innerVoice remains that resident's private perspective.
 - USER text is already stored verbatim by code. Do not rewrite or repeat it as a scene field.`
@@ -16854,11 +17087,12 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
                                 ? `\n[AMBIENT HALL SOCIAL SCENE]
 - scene:null is the normal valid outcome. Return a non-null scene only when two or more supplied, in-hall residents are plausibly sharing one small physical moment right now.
 - Draw the moment from canon relationships, temperament, current status, location, and continuity. Residents may sleep together, groom, watch, ignore, follow, play, compete over food or toys, or show brief territorial friction; never force affection, conflict, romance, reconciliation, generic cute behavior, or any quota of social scenes.
+- If non-null, scene.content is required: one cohesive, short, third-person Simplified Chinese prose fragment rather than “Name: reply” rows. It should present the shared action chain while structured reactions remain required validation evidence.
 - Every participant reaction and status must describe the same shared physical moment. reaction is the visible shared-event behavior, status is the resulting observable state, and innerVoice is that resident's private perspective. Nonparticipants continue with independent updates.
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose","reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -16917,7 +17151,12 @@ ${enrichedStatusOutputContract}`;
                                 ...requestOptions,
                                 label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
                                 dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
-                                validateResponse: content => validateStatusSyncEnvelope(content, requestedIds, presenceDirectives)
+                                validateResponse: content => validateStatusSyncEnvelope(content, requestedIds, presenceDirectives, sceneMode ? {
+                                    sceneMode,
+                                    sceneContext,
+                                    requestHallId,
+                                    sceneRequired: Boolean(requestOptions.sceneRequired)
+                                } : null)
                             });
                             const parsedResponse = parseAIJSON(res);
                             updates = parsedResponse?.updates;
@@ -17156,10 +17395,12 @@ ${enrichedStatusOutputContract}`;
                                     sceneMode,
                                     sceneContext,
                                     updates,
-                                    requestHallId
+                                    requestHallId,
+                                    sceneRequired: Boolean(requestOptions.sceneRequired)
                                 });
                                 if (!sceneValidation.valid) {
-                                    addLog(`HALL SCENE DROPPED: hall=${requestHallId}; ${sceneValidation.error}`, 'warn');
+                                    addLog(`HALL SCENE INVALID: hall=${requestHallId}; ${sceneValidation.error}`, 'warn');
+                                    if (requestOptions.sceneRequired) return false;
                                 } else if (sceneValidation.scene) {
                                     const record = appendHallSceneRecord({
                                         hallId: requestHallId,
@@ -17167,6 +17408,7 @@ ${enrichedStatusOutputContract}`;
                                         type: sceneValidation.scene.type,
                                         participantIds: sceneValidation.scene.participantIds,
                                         userText: sceneMode === 'user-directed' ? String(sceneContext?.rawUserText || '') : null,
+                                        content: sceneValidation.scene.content,
                                         reactions: sceneValidation.scene.reactions
                                     });
                                     if (record) {
@@ -17992,12 +18234,14 @@ ${buildCatMemoryContext(targetCat)}`;
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, getResidentPresenceLabel,
                     hallSceneRecords, hallSceneFeedRecords, getHallSceneParticipantNames, getHallSceneReactionName,
+                    sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
+                    isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
-                    handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
+                    handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
                     showCatVisitModal, visitCat, visitTargetHallId, visitMessage, visitIsProcessing, openCatVisit, sendCatVisiting, returnVisitingCat,
                     handleImageUpload, adoptCat, wishAdoptCat, isWishLoading,
                     friendsList, sendFriendRequest, acceptFriendRequest,
