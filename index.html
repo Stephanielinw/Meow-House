@@ -8679,6 +8679,7 @@
     <script src="./js/meeow-core.js"></script>
     <script src="./js/meeow-data.js"></script>
     <script src="./js/meeow-presence.js"></script>
+    <script src="./js/meeow-away.js"></script>
     <script src="./js/meeow-map.js"></script>
     <script src="./js/meeow-storage.js"></script>
     <script src="./js/meeow-ai.js"></script>
@@ -14201,103 +14202,10 @@ ${buildCatMemoryContext(cat)}`;
                     cat.travelogues.push(record);
                     return record;
                 };
-                const INITIAL_AWAY_OPPORTUNITY_MAX_MS = 12 * 60 * 60 * 1000;
-                const RETURN_AWAY_OPPORTUNITY_MIN_MS = 6 * 60 * 60 * 1000;
-                const RETURN_AWAY_OPPORTUNITY_MAX_MS = 24 * 60 * 60 * 1000;
-                const getAwayOpportunityAt = (cat) => parseLogicalDate(cat?.nextAwayOpportunityAt);
-                const scheduleAwayOpportunity = (cat, baseTime = new Date(), minDelayMs = 0, maxDelayMs = INITIAL_AWAY_OPPORTUNITY_MAX_MS) => {
-                    if (!cat || cat.isOut || isPermanentOutBuiltin(cat)) return null;
-                    const base = parseLogicalDate(baseTime) || new Date();
-                    const minDelay = Math.max(0, Number(minDelayMs) || 0);
-                    const maxDelay = Math.max(minDelay, Number(maxDelayMs) || minDelay);
-                    const offset = minDelay + Math.floor(Math.random() * (maxDelay - minDelay + 1));
-                    const opportunityAt = new Date(base.getTime() + offset);
-                    cat.nextAwayOpportunityAt = opportunityAt.toISOString();
-                    return opportunityAt;
-                };
-                const ensureAwayOpportunity = (cat, now = new Date()) => {
-                    if (!cat || isPermanentOutBuiltin(cat)) return null;
-                    if (cat.isOut || getActiveAwayEpisode(cat, now)) {
-                        cat.nextAwayOpportunityAt = null;
-                        return null;
-                    }
-                    return getAwayOpportunityAt(cat) || scheduleAwayOpportunity(cat, now);
-                };
-                const ensureHomeAwayOpportunities = (now = new Date()) => {
-                    cats.value.forEach(cat => ensureAwayOpportunity(cat, now));
-                };
-                const schedulePostReturnAwayOpportunity = (cat, logicalReturnAt) =>
-                    scheduleAwayOpportunity(cat, logicalReturnAt, RETURN_AWAY_OPPORTUNITY_MIN_MS, RETURN_AWAY_OPPORTUNITY_MAX_MS);
-                const buildLocalAwayDepartureSchedule = ({ hallId, hallCats, requestedCats, departureCandidateIds = [], now = new Date(), excluded = [] }) => {
-                    const candidateIds = new Set((departureCandidateIds || []).map(id => String(id)));
-                    const directives = {};
-                    const due = [];
-                    const blocked = [...excluded];
-                    const homeCount = hallCats.filter(cat => !cat.isOut && !isPermanentOutBuiltin(cat)).length;
-                    (requestedCats || []).forEach(cat => {
-                        if (!cat || cat.isOut || isPermanentOutBuiltin(cat)) return;
-                        const id = String(cat.id);
-                        directives[id] = 'HOME';
-                        const opportunityAt = ensureAwayOpportunity(cat, now);
-                        if (!opportunityAt || opportunityAt > now) return;
-                        due.push({ cat, id, opportunityAt });
-                        if (!candidateIds.has(id)) blocked.push(`${id}:active-interaction`);
-                        else if (getRecentAwayReturn(cat, now)) blocked.push(`${id}:recent-return`);
-                    });
-                    const eligibleDue = due.filter(entry =>
-                        candidateIds.has(entry.id) && !getRecentAwayReturn(entry.cat, now)
-                    );
-                    let selected = null;
-                    if (eligibleDue.length) {
-                        if (homeCount < 3) {
-                            eligibleDue.forEach(entry => blocked.push(`${entry.id}:minimum-two-at-home`));
-                        } else {
-                            selected = [...eligibleDue].sort((a, b) =>
-                                a.opportunityAt.getTime() - b.opportunityAt.getTime() || a.id.localeCompare(b.id)
-                            )[0];
-                            directives[selected.id] = 'DEPARTING_NOW';
-                        }
-                    }
-                    return {
-                        hallId,
-                        directives,
-                        dueIds: due.map(entry => entry.id),
-                        selectedIds: selected ? [selected.id] : [],
-                        blocked
-                    };
-                };
                 const formatLocalPresenceAuthority = (directives) => {
                     const entries = Object.entries(directives || {});
                     if (!entries.length) return '[LOCAL PRESENCE AUTHORITY]\nNo HOME residents require a local presence directive in this response.';
                     return `[LOCAL PRESENCE AUTHORITY]\n${entries.map(([id, directive]) => `${id} → ${directive}`).join('\n')}\nThese directives are binding local world logic. Do not independently infer or choose HOME/AWAY. Use [CURRENT-LIFE CONTEXT] and [LAST-KNOWN CONTINUITY EVIDENCE] only to write content consistent with the assigned directive: HOME means isOut:false and a plausible in-hall status; DEPARTING_NOW means isOut:true plus one matching core mode:"departure" plan.`;
-                };
-                const getAwayActivityBeatCount = (durationMinutes) => {
-                    const duration = Number(durationMinutes) || 0;
-                    if (duration < 90) return 1;
-                    if (duration < 180) return 2;
-                    if (duration < 360) return 3;
-                    return 4;
-                };
-                const getAwayActivityTimingRules = (durationMinutes, beatCount = getAwayActivityBeatCount(durationMinutes)) => {
-                    const duration = Math.max(1, Number(durationMinutes) || 0);
-                    const gaps = Math.max(0, beatCount - 1);
-                    const preferredMargin = 10;
-                    const preferredSpacing = 10;
-                    const margin = Math.max(1, Math.min(preferredMargin, Math.floor((duration - gaps * preferredSpacing) / 2)));
-                    const spacing = gaps
-                        ? Math.max(1, Math.min(preferredSpacing, Math.floor((duration - margin * 2) / gaps)))
-                        : preferredSpacing;
-                    return { margin, spacing };
-                };
-                const getValidAwayArchiveNarrative = (value) => {
-                    if (typeof value !== 'string') return '';
-                    const narrative = cleanText(value);
-                    if (narrative.length < 80 || narrative.length > 360) return '';
-                    const chineseCharacters = (narrative.match(/[\u3400-\u9fff]/g) || []).length;
-                    if (chineseCharacters < 50) return '';
-                    const compact = narrative.replace(/[\s，。！？、；：,.!?;:'"“”‘’—-]/g, '').toLowerCase();
-                    if (/^(无|暂无|未知|空|none|null|n\/a|test|测试|占位|placeholder)(内容|记录|叙事|手记)?$/.test(compact)) return '';
-                    return narrative;
                 };
                 const AWAY_ACTIVITY_PLANNING_RULES = `[AWAY LIFE PLAN]
 - AWAY means the resident has left Meeow House and resumed a meaningful part of their independent life elsewhere: work, study, training, a social commitment, an errand, a relationship, a personal project, unfinished business, or private time. They are not normally wandering the courtyard, a nearby wall, or an alley like a stray cat. Avoid vague phrases such as “处理一些事情”, “出去转转”, or “随便走走” unless concrete character-specific context makes them meaningful.
@@ -14305,135 +14213,6 @@ ${buildCatMemoryContext(cat)}`;
 - plannedActivities is required. Use exactly 1 activity for duration under 90 minutes, 2 for 90–179 minutes, 3 for 180–359 minutes, or 4 for 360 minutes or longer. Each item is {"afterMinutes":number,"plannedResidentActivity":"private fact that will only become true at that time","publicTrace":"limited public trace"}. Make the beats distinct moments in chronological order, not paraphrases of one task. plannedResidentActivity remains private resident truth; publicTrace remains limited USER-visible evidence.
 - plannedArchiveNarrative is required for every new departure: approximately 100–200 Chinese characters, first-person, personal, reflective, character-specific prose about this outing. It may be intimate, but must not expose unrevealed HUMAN-form or hidden-identity facts, and must not turn into a system report or bullet summary.
 - plannedReturnStatus and mailPlan remain optional. Their omission never makes the required activity plan or archive narrative incomplete.`;
-                const createAwayEpisode = (cat, plan, departedAt = new Date()) => {
-                    const departure = parseLogicalDate(departedAt) || new Date();
-                    const durationMs = Number(plan.plannedDurationMinutes) * 60 * 1000;
-                    const episode = {
-                        id: `away-episode-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
-                        residentId: String(cat.id),
-                        hallId: getCatHallId(cat),
-                        departedAt: departure.toISOString(),
-                        plannedReturnAt: new Date(departure.getTime() + durationMs).toISOString(),
-                        destination: cleanText(plan.destination || ''),
-                        // Optional display enrichment; lifecycle validity never depends on it.
-                        plannedReturnStatus: cleanText(plan.plannedReturnStatus || ''),
-                        // Required for new departures, but always hidden until completion.
-                        plannedArchiveNarrative: cleanText(plan.plannedArchiveNarrative || ''),
-                        activityPlans: plan.mode === 'departure' ? (plan.plannedActivities || []).map(activity => ({
-                            activityAt: new Date(departure.getTime() + Number(activity.afterMinutes) * 60 * 1000).toISOString(),
-                            plannedResidentActivity: cleanText(activity.plannedResidentActivity || ''),
-                            publicTrace: cleanText(activity.publicTrace || ''),
-                            state: 'planned',
-                            materializedAt: null
-                        })) : [],
-                        mailPlan: (plan.mailPlan || []).map(mail => ({
-                            id: `away-mail-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
-                            sendAt: new Date(departure.getTime() + Number(mail.sendAfterMinutes) * 60 * 1000).toISOString(),
-                            content: cleanText(mail.content),
-                            attachment: mail.attachment ? { ...mail.attachment } : null,
-                            state: 'planned',
-                            deliveredAt: null
-                        })),
-                        status: 'active',
-                        returnedAt: null,
-                        settledAt: null,
-                        legacy: plan.mode === 'legacy-continuation'
-                    };
-                    awayEpisodes.value.push(episode);
-                    return episode;
-                };
-                const materializeAwayEpisodeActivity = (episode, plan, eventAt, reconciledAt = new Date(), beatIndex = 0, beatCount = 1) => {
-                    const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
-                    if (!cat || !plan || plan.state === 'materialized') return false;
-                    if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
-                    cat.travelogues.push({
-                        source: 'away',
-                        kind: 'activity',
-                        episodeId: episode.id,
-                        at: eventAt.toISOString(),
-                        date: formatLogicalDisplayDate(eventAt),
-                        dateKey: getOperationalDayKey(eventAt),
-                        location: '馆外',
-                        content: cleanText(plan.publicTrace),
-                        residentActivity: cleanText(plan.plannedResidentActivity)
-                    });
-                    plan.state = 'materialized';
-                    plan.materializedAt = reconciledAt.toISOString();
-                    addLog(`AWAY EPISODE ACTIVITY MATERIALIZED: episode=${episode.id}; resident=${episode.residentId}; beat=${beatIndex + 1}/${beatCount}; logicalAt=${eventAt.toISOString()}`, 'sent');
-                    return true;
-                };
-                const settleAwayEpisodeReturn = (episode, eventAt, reconciledAt = new Date()) => {
-                    const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
-                    if (!cat || episode.status !== 'active') return false;
-                    const logicalReturnAt = parseLogicalDate(eventAt) || new Date();
-                    const actualReconciliationAt = parseLogicalDate(reconciledAt) || new Date();
-                    const settledPromptly = actualReconciliationAt.getTime() - logicalReturnAt.getTime() <= RECENT_RETURN_CONTINUITY_MS;
-                    const plannedStatus = getUsablePlannedReturnStatus(episode);
-                    // Catch-up must describe present in-hall life, not pretend a return
-                    // happened just as the browser reopened.
-                    const returnStatus = settledPromptly
-                        ? (plannedStatus || '刚回到馆内，正在门边安静整理前爪。')
-                        : '正在馆内安静休息，偶尔整理前爪。';
-                    cat.isOut = false;
-                    const room = getMapRoomForCat(cat);
-                    const spot = getMapSpotForCat(cat, room);
-                    setCatStatus(cat, returnStatus, {
-                        source: 'away-episode-return',
-                        forceLog: true,
-                        mapRoom: room,
-                        mapSpot: spot,
-                        eventAt: logicalReturnAt,
-                        extra: { episodeId: episode.id, settledAt: actualReconciliationAt.toISOString() }
-                    });
-                    appendAwayTransitionTravelogue(cat, false, logicalReturnAt, { episodeId: episode.id });
-                    (episode.mailPlan || []).forEach(mail => {
-                        if (mail.state === 'planned') mail.state = 'cancelled';
-                    });
-                    episode.status = 'completed';
-                    episode.returnedAt = logicalReturnAt.toISOString();
-                    episode.settledAt = actualReconciliationAt.toISOString();
-                    schedulePostReturnAwayOpportunity(cat, logicalReturnAt);
-                    // A crossed-day Away diary becomes ready now, but remains on
-                    // the original departure operational day until the next
-                    // existing Daily Archive Package can write it.
-                    markAwayEpisodeDiaryReady(episode);
-                    addLog(`AWAY EPISODE RETURN SETTLED: episode=${episode.id}; resident=${episode.residentId}; returnedAt=${episode.returnedAt}`, 'sent');
-                    return true;
-                };
-                const reconcileAwayEpisodes = (reconciliationTime = new Date()) => {
-                    const now = parseLogicalDate(reconciliationTime) || new Date();
-                    awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
-                    const dueEvents = [];
-                    const returnedResidentIds = [];
-                    awayEpisodes.value.forEach(episode => {
-                        if (episode.status !== 'active') return;
-                        (episode.activityPlans || []).forEach((plan, beatIndex, allPlans) => {
-                            const activityAt = parseLogicalDate(plan?.activityAt);
-                            if (plan?.state === 'planned' && activityAt && activityAt <= now) {
-                                dueEvents.push({ type: 'activity', at: activityAt, episode, plan, beatIndex, beatCount: allPlans.length });
-                            }
-                        });
-                        (episode.mailPlan || []).forEach(mail => {
-                            const sendAt = parseLogicalDate(mail.sendAt);
-                            if (mail.state === 'planned' && sendAt && sendAt <= now) {
-                                dueEvents.push({ type: 'mail', at: sendAt, episode, mail });
-                            }
-                        });
-                        const returnAt = parseLogicalDate(episode.plannedReturnAt);
-                        if (returnAt && returnAt <= now) dueEvents.push({ type: 'return', at: returnAt, episode });
-                    });
-                    const rank = { activity: 0, mail: 1, return: 2 };
-                    dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type]);
-                    dueEvents.forEach(event => {
-                        if (event.type === 'activity') materializeAwayEpisodeActivity(event.episode, event.plan, event.at, now, event.beatIndex, event.beatCount);
-                        else if (event.type === 'mail') deliverPlannedAwayMail(event.episode, event.mail, event.at, now);
-                        else if (event.type === 'return' && settleAwayEpisodeReturn(event.episode, event.at, now)) {
-                            returnedResidentIds.push(String(event.episode.residentId));
-                        }
-                    });
-                    ensureHomeAwayOpportunities(now);
-                    return { count: dueEvents.length, returnedResidentIds };
-                };
                 window.Meeow.memory.configure({
                     getUser: () => user,
                     getHalls: () => halls.value,
@@ -14830,7 +14609,6 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const getPreviousOperationalDayKey = (value = new Date()) => getLocalDateKey(getPreviousOperationalDate(value));
                 const HALL_SCENE_FOCUS_IDLE_MS = 20 * 60 * 1000;
-                const RECENT_RETURN_CONTINUITY_MS = 30 * 60 * 1000;
                 const hallSceneFocus = reactive({
                     hallId: '', dateKey: '', sceneId: '', participantIds: [], updatedAt: 0
                 });
@@ -14848,76 +14626,9 @@ ${buildCatMemoryContext(cat)}`;
                     const date = parseLogicalDate(value);
                     return date ? date.toLocaleString() : new Date().toLocaleString();
                 };
-                const normalizeAwayEpisodes = (episodes) => (Array.isArray(episodes) ? episodes : [])
-                    .filter(episode => episode && typeof episode === 'object')
-                    .map(episode => {
-                        const departedAt = parseLogicalDate(episode.departedAt)?.toISOString() || '';
-                        const plannedReturnAt = parseLogicalDate(episode.plannedReturnAt)?.toISOString() || '';
-                        const rawActivityPlans = Array.isArray(episode.activityPlans)
-                            ? episode.activityPlans
-                            : (episode.activityPlan && typeof episode.activityPlan === 'object' ? [episode.activityPlan] : []);
-                        const activityPlans = rawActivityPlans.map(activityPlan => {
-                            const activityAt = parseLogicalDate(activityPlan?.activityAt)?.toISOString() || '';
-                            const hasValidActivity = activityAt &&
-                                typeof activityPlan?.plannedResidentActivity === 'string' && activityPlan.plannedResidentActivity.trim() &&
-                                typeof activityPlan?.publicTrace === 'string' && activityPlan.publicTrace.trim();
-                            return hasValidActivity ? {
-                                activityAt,
-                                plannedResidentActivity: cleanText(activityPlan.plannedResidentActivity),
-                                publicTrace: cleanText(activityPlan.publicTrace),
-                                state: activityPlan.state === 'materialized' ? 'materialized' : 'planned',
-                                materializedAt: parseLogicalDate(activityPlan.materializedAt)?.toISOString() || null
-                            } : null;
-                        }).filter(Boolean).sort((a, b) => new Date(a.activityAt) - new Date(b.activityAt));
-                        return {
-                            id: String(episode.id || `away-episode-${departedAt || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                            residentId: String(episode.residentId || ''),
-                            hallId: String(episode.hallId || ''),
-                            departedAt,
-                            plannedReturnAt,
-                            destination: typeof episode.destination === 'string' ? cleanText(episode.destination) : '',
-                            plannedReturnStatus: typeof episode.plannedReturnStatus === 'string'
-                                ? cleanText(episode.plannedReturnStatus)
-                                : '',
-                            plannedArchiveNarrative: typeof episode.plannedArchiveNarrative === 'string'
-                                ? cleanText(episode.plannedArchiveNarrative)
-                                : '',
-                            activityPlans,
-                            mailPlan: (Array.isArray(episode.mailPlan) ? episode.mailPlan : [])
-                                .filter(mail => mail && typeof mail === 'object')
-                                .map(mail => ({
-                                    id: String(mail.id || `away-mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-                                    sendAt: parseLogicalDate(mail.sendAt)?.toISOString() || '',
-                                    content: cleanText(mail.content || ''),
-                                    attachment: mail.attachment && typeof mail.attachment === 'object' ? { ...mail.attachment } : null,
-                                    state: mail.state === 'delivered' || mail.state === 'cancelled' ? mail.state : 'planned',
-                                    deliveredAt: parseLogicalDate(mail.deliveredAt)?.toISOString() || null
-                                }))
-                                .filter(mail => mail.sendAt && mail.content),
-                            status: episode.status === 'completed' ? 'completed' : 'active',
-                            returnedAt: parseLogicalDate(episode.returnedAt)?.toISOString() || null,
-                            settledAt: parseLogicalDate(episode.settledAt)?.toISOString() || null,
-                            legacy: episode.legacy === true
-                        };
-                    })
-                    .filter(episode => episode.residentId && episode.hallId && episode.departedAt && episode.plannedReturnAt);
-                const getUsablePlannedReturnStatus = (episode) => {
-                    const status = cleanText(episode?.plannedReturnStatus || '');
-                    return status && status.length <= 80 ? status : '';
-                };
                 const getUsablePlannedArchiveNarrative = (episode) => {
                     const narrative = cleanText(episode?.plannedArchiveNarrative || '');
                     return narrative.length >= 20 && narrative.length <= 600 ? narrative : '';
-                };
-                const getCompletedAwayEpisodes = (catOrId) => {
-                    const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
-                    return normalizeAwayEpisodes(awayEpisodes.value)
-                        .filter(episode => episode.residentId === id && episode.status === 'completed')
-                        .sort((a, b) => {
-                            const aTime = parseLogicalDate(a.returnedAt || a.plannedReturnAt)?.getTime() || 0;
-                            const bTime = parseLogicalDate(b.returnedAt || b.plannedReturnAt)?.getTime() || 0;
-                            return bTime - aTime;
-                        });
                 };
                 const formatAwayArchiveTime = (value) => formatLogicalDisplayDate(value);
                 const formatAwayArchiveDuration = (episode) => {
@@ -15026,26 +14737,6 @@ ${buildCatMemoryContext(cat)}`;
                 const selectCatArchiveDate = (dateKey) => {
                     const dateKeys = getCatArchiveDateKeys(catArchiveCat.value, catArchiveTab.value);
                     if (dateKeys.includes(dateKey)) catArchiveDateKey.value = dateKey;
-                };
-                const getRecentAwayReturn = (catOrId, now = new Date()) => {
-                    const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
-                    const timestamp = parseLogicalDate(now)?.getTime() || Date.now();
-                    return normalizeAwayEpisodes(awayEpisodes.value)
-                        .filter(episode => episode.residentId === id && episode.status === 'completed')
-                        .sort((a, b) => (parseLogicalDate(b.returnedAt)?.getTime() || 0) - (parseLogicalDate(a.returnedAt)?.getTime() || 0))
-                        .find(episode => {
-                            const returnedAt = parseLogicalDate(episode.returnedAt)?.getTime() || 0;
-                            const elapsed = timestamp - returnedAt;
-                            return elapsed >= 0 && elapsed <= RECENT_RETURN_CONTINUITY_MS;
-                        }) || null;
-                };
-                const getActiveAwayEpisode = (catOrId, now = new Date()) => {
-                    const id = String(typeof catOrId === 'object' ? catOrId?.id : catOrId || '');
-                    const timestamp = parseLogicalDate(now)?.getTime() || Date.now();
-                    return normalizeAwayEpisodes(awayEpisodes.value).find(episode =>
-                        episode.residentId === id && episode.status === 'active' &&
-                        (parseLogicalDate(episode.plannedReturnAt)?.getTime() || 0) > timestamp
-                    ) || null;
                 };
                 const normalizeHallSceneRecords = (records) => (Array.isArray(records) ? records : [])
                     .filter(record => record && typeof record === 'object')
@@ -15230,6 +14921,71 @@ ${buildCatMemoryContext(cat)}`;
                     sharedSceneComposer.hallId = '';
                     syncSharedSceneComposerHall();
                 });
+                const awayLifecycle = window.Meeow.away;
+                awayLifecycle.configure({
+                    cleanText,
+                    parseLogicalDate,
+                    getCatHallId,
+                    isPermanentOut: isPermanentOutBuiltin,
+                    addLog
+                });
+                const normalizeAwayEpisodes = awayLifecycle.normalizeEpisodes;
+                const getCompletedAwayEpisodes = (catOrId) => awayLifecycle.getCompletedEpisodes(awayEpisodes.value, catOrId);
+                const getRecentAwayReturn = (catOrId, now = new Date()) => awayLifecycle.getRecentReturn(awayEpisodes.value, catOrId, now);
+                const getActiveAwayEpisode = (catOrId, now = new Date()) => awayLifecycle.getActiveEpisode(awayEpisodes.value, catOrId, now);
+                const buildLocalAwayDepartureSchedule = (options) => awayLifecycle.buildDepartureSchedule({
+                    ...options,
+                    episodes: awayEpisodes.value
+                });
+                const validateAwayEpisodePlan = awayLifecycle.validatePlan;
+                const indexAwayPlans = awayLifecycle.indexPlans;
+                const classifyAwayPlanDiagnostic = awayLifecycle.classifyPlan;
+                const createAwayEpisode = (cat, plan, departedAt = new Date()) => {
+                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt);
+                    awayEpisodes.value.push(episode);
+                    return episode;
+                };
+                const reconcileAwayEpisodes = (reconciliationTime = new Date()) => {
+                    const result = awayLifecycle.reconcileEpisodes({
+                        episodes: awayEpisodes.value,
+                        cats: cats.value,
+                        reconciliationTime,
+                        onMaterializeActivity: ({ cat, episode, plan, logicalAt }) => {
+                            if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
+                            cat.travelogues.push({
+                                source: 'away',
+                                kind: 'activity',
+                                episodeId: episode.id,
+                                at: logicalAt.toISOString(),
+                                date: formatLogicalDisplayDate(logicalAt),
+                                dateKey: getOperationalDayKey(logicalAt),
+                                location: '馆外',
+                                content: cleanText(plan.publicTrace),
+                                residentActivity: cleanText(plan.plannedResidentActivity)
+                            });
+                            return true;
+                        },
+                        onDeliverMail: (episode, mail, logicalAt, reconciledAt) =>
+                            deliverPlannedAwayMail(episode, mail, logicalAt, reconciledAt),
+                        onSettleReturn: ({ cat, episode, logicalReturnAt, reconciledAt, returnStatus }) => {
+                            const room = getMapRoomForCat(cat);
+                            const spot = getMapSpotForCat(cat, room);
+                            setCatStatus(cat, returnStatus, {
+                                source: 'away-episode-return',
+                                forceLog: true,
+                                mapRoom: room,
+                                mapSpot: spot,
+                                eventAt: logicalReturnAt,
+                                extra: { episodeId: episode.id, settledAt: reconciledAt.toISOString() }
+                            });
+                            appendAwayTransitionTravelogue(cat, false, logicalReturnAt, { episodeId: episode.id });
+                            return true;
+                        },
+                        onDiaryReady: (episode) => markAwayEpisodeDiaryReady(episode)
+                    });
+                    awayEpisodes.value = result.episodes;
+                    return { count: result.count, returnedResidentIds: result.returnedResidentIds };
+                };
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
                 awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
                 const buildOwnerDailyContext = (profileName = 'standard') => {
@@ -16838,84 +16594,6 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     };
                 };
 
-                const AWAY_EPISODE_MIN_DURATION_MINUTES = 30;
-                const AWAY_EPISODE_MAX_DURATION_MINUTES = 720;
-                const validateAwayEpisodePlan = (plan, expectedId, mode) => {
-                    if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return null;
-                    if (String(plan.residentId || '') !== String(expectedId) || plan.mode !== mode) return null;
-                    const duration = Number(plan.plannedDurationMinutes);
-                    if (!Number.isInteger(duration) || duration < AWAY_EPISODE_MIN_DURATION_MINUTES || duration > AWAY_EPISODE_MAX_DURATION_MINUTES) return null;
-                    if (mode === 'legacy-continuation') {
-                        if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || plan.plannedActivities || plan.plannedArchiveNarrative || plan.plannedReturnStatus || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
-                        return { residentId: String(expectedId), mode, plannedDurationMinutes: duration };
-                    }
-                    const destination = cleanText(plan.destination || '');
-                    const plannedReturnStatus = typeof plan.plannedReturnStatus === 'string'
-                        ? cleanText(plan.plannedReturnStatus)
-                        : '';
-                    const plannedArchiveNarrative = getValidAwayArchiveNarrative(plan.plannedArchiveNarrative);
-                    const expectedBeatCount = getAwayActivityBeatCount(duration);
-                    const timing = getAwayActivityTimingRules(duration, expectedBeatCount);
-                    if (!destination || !plannedArchiveNarrative || !Array.isArray(plan.plannedActivities) || plan.plannedActivities.length !== expectedBeatCount) return null;
-                    const plannedActivities = plan.plannedActivities.map(activity => {
-                        if (!activity || typeof activity !== 'object' || Array.isArray(activity)) return null;
-                        const afterMinutes = Number(activity.afterMinutes);
-                        const plannedResidentActivity = cleanText(activity.plannedResidentActivity || '');
-                        const publicTrace = cleanText(activity.publicTrace || '');
-                        if (!Number.isInteger(afterMinutes) || !plannedResidentActivity || !publicTrace) return null;
-                        return { afterMinutes, plannedResidentActivity, publicTrace };
-                    });
-                    if (plannedActivities.some(activity => !activity)) return null;
-                    for (let index = 0; index < plannedActivities.length; index++) {
-                        const activity = plannedActivities[index];
-                        if (activity.afterMinutes < timing.margin || activity.afterMinutes > duration - timing.margin) return null;
-                        if (index > 0 && activity.afterMinutes - plannedActivities[index - 1].afterMinutes < timing.spacing) return null;
-                    }
-                    const rawMailPlan = plan.mailPlan === undefined ? [] : plan.mailPlan;
-                    if (!Array.isArray(rawMailPlan) || rawMailPlan.length > 1) return null;
-                    const mailPlan = rawMailPlan.map(mail => {
-                        if (!mail || typeof mail !== 'object' || Array.isArray(mail)) return null;
-                        const sendAfterMinutes = Number(mail.sendAfterMinutes);
-                        const content = cleanText(mail.content || '');
-                        if (!Number.isInteger(sendAfterMinutes) || sendAfterMinutes <= plannedActivities[0].afterMinutes || sendAfterMinutes >= duration || !content) return null;
-                        const attachment = mail.attachment === null || mail.attachment === undefined ? null : mail.attachment;
-                        if (attachment !== null && (typeof attachment !== 'object' || Array.isArray(attachment) || !cleanText(attachment.name || '') || !cleanText(attachment.icon || '') || !cleanText(attachment.desc || ''))) return null;
-                        return {
-                            sendAfterMinutes,
-                            content,
-                            attachment: attachment ? { name: cleanText(attachment.name), icon: cleanText(attachment.icon), desc: cleanText(attachment.desc) } : null
-                        };
-                    });
-                    if (mailPlan.some(mail => !mail)) return null;
-                    return {
-                        residentId: String(expectedId), mode, plannedDurationMinutes: duration,
-                        destination, plannedActivities,
-                        plannedReturnStatus: plannedReturnStatus.length <= 80 ? plannedReturnStatus : '',
-                        plannedArchiveNarrative,
-                        mailPlan
-                    };
-                };
-                const indexAwayPlans = (awayPlans) => (Array.isArray(awayPlans) ? awayPlans : []).reduce((index, plan) => {
-                    const id = String(plan?.residentId || '');
-                    if (!id) return index;
-                    if (!index.has(id)) index.set(id, []);
-                    index.get(id).push(plan);
-                    return index;
-                }, new Map());
-                const classifyAwayPlanDiagnostic = (plansByResident, residentId, mode) => {
-                    const candidates = (plansByResident.get(String(residentId)) || [])
-                        .filter(plan => plan?.mode === mode);
-                    if (!candidates.length) {
-                        return { candidates, plan: null, valid: false, reason: `missing ${mode} plan` };
-                    }
-                    if (candidates.length !== 1) {
-                        return { candidates, plan: null, valid: false, reason: `duplicate ${mode} plans` };
-                    }
-                    const plan = validateAwayEpisodePlan(candidates[0], residentId, mode);
-                    return plan
-                        ? { candidates, plan, valid: true, reason: '' }
-                        : { candidates, plan: null, valid: false, reason: 'existing validator rejected plan' };
-                };
                 const formatAwayDecisionSummary = ({ hall, requested, activeEpisodeExcluded, recentlySettledExcluded, stayedHome, proposedAway, plansPresent, plansValid, departed, discarded, legacyContinued, legacyReturned }) =>
                     `STATUS SYNC AWAY SUMMARY: hall=${hall}; requested=${requested}; activeEpisodeExcluded=${activeEpisodeExcluded}; recentlySettledExcluded=${recentlySettledExcluded}; stayedHome=${stayedHome}; proposedAway=${proposedAway}; plansPresent=${plansPresent}; plansValid=${plansValid}; departed=${departed}; discarded=${discarded}; legacyContinued=${legacyContinued}; legacyReturned=${legacyReturned}`;
 
