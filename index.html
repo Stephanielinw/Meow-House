@@ -3723,6 +3723,9 @@
             background: var(--ui-card-background) !important;
             border-color: var(--ui-border-strong) !important;
             color: var(--ui-text) !important;
+            position: relative;
+            z-index: 1;
+            isolation: isolate;
             display: flex;
             flex-direction: column;
             min-height: 15rem;
@@ -3738,6 +3741,8 @@
         }
 
         #app .meeow-hall-scene-composer {
+            position: relative;
+            z-index: 2;
             flex: 0 0 auto;
             border-top: 1px solid var(--ui-border);
         }
@@ -3769,6 +3774,10 @@
         }
 
         #app .meeow-hall-scene-picker {
+            z-index: 3;
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
             background: var(--ui-surface-strong);
             border: 1px solid var(--ui-border-strong);
             box-shadow: var(--ui-shadow);
@@ -3795,6 +3804,21 @@
             }
             #app .meeow-hall-scene-chip {
                 flex: 0 0 auto;
+            }
+            #app .meeow-hall-scene-picker {
+                top: auto;
+                bottom: calc(100% + .5rem);
+                margin-top: 0;
+                max-height: min(42dvh, 22rem);
+            }
+        }
+
+        @media (max-height: 740px) {
+            #app .meeow-hall-scene-picker {
+                top: auto;
+                bottom: calc(100% + .5rem);
+                margin-top: 0;
+                max-height: min(42dvh, 22rem);
             }
         }
 
@@ -11537,6 +11561,13 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const pendingSpecialEvent = ref(null);
 
                 const tempUserStatus = ref('');
+                const applySuccessfulInteractionUserStatus = (value) => {
+                    const userStatus = cleanText(value || '');
+                    if (!userStatus) return false;
+                    user.currentStatus = userStatus.substring(0, 15);
+                    tempUserStatus.value = user.currentStatus;
+                    return true;
+                };
 
                 const setContentScrollTop = (top = 0) => {
                     nextTick(() => {
@@ -16288,10 +16319,7 @@ ${getCompactMapPointPromptGuide()}`
                         const voice = cleanText(activeResponse.innerVoice);
                         const userStatus = cleanText(activeResponse.userStatus);
                         setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
-                        if (userStatus) {
-                            user.currentStatus = userStatus.substring(0, 15);
-                            tempUserStatus.value = user.currentStatus;
-                        }
+                        applySuccessfulInteractionUserStatus(userStatus);
                         const replyTime = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, 'chat-reply', `[${sendingCat.isHuman ? 'HUMAN' : 'CAT'}][REPLY]: ${reply}`, { source: 'detail-chat' });
@@ -16763,6 +16791,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (!content || content.length > 600 || chineseCharacters < 12) {
                         return { valid: false, error: 'scene requires concise Chinese shared presentation prose.' };
                     }
+                    const userStatus = expectedType === 'user-directed' ? cleanText(scene.userStatus || '') : '';
+                    if (expectedType === 'user-directed' && (typeof scene.userStatus !== 'string' || !userStatus)) {
+                        return { valid: false, error: 'user-directed scene requires a concise USER status.' };
+                    }
                     const reactions = Array.isArray(scene.reactions) ? scene.reactions : [];
                     const reactionById = new Map();
                     for (const reaction of reactions) {
@@ -16800,6 +16832,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             type: expectedType,
                             participantIds,
                             content,
+                            userStatus,
                             reactions: participantIds.map(id => ({ id, content: reactionById.get(id) }))
                         }
                     };
@@ -17079,6 +17112,7 @@ Frozen required participant IDs: [${(sceneContext.requiredParticipantIds || []).
 Candidates: ${sceneCandidateCats.map(cat => `${getSharedSceneResidentDisplayName(cat)} (${String(cat.id)})`).join(', ') || 'None'}
 - This is an explicit composer action. You MUST return one non-null user-directed scene whose participantIds exactly equal Frozen required participant IDs: no additions, omissions, substitutions, or reordering-based duplicates.
 - scene.content is required: write one cohesive, short, third-person Simplified Chinese prose fragment. It must hold the USER action, participant-to-participant reactions, movement or pause, and causal continuity inside the same physical moment. Do not write separate “Name: reply” rows, unrelated individual reactions, or a chat transcript.
+- scene.userStatus is required: a concise Simplified Chinese summary of what the USER is now doing in this shared moment, using the same short current-status convention as direct homepage interaction (15 Chinese characters or fewer).
 - Structured reactions remain required validation evidence for every selected resident, but they are not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
 - CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks. innerVoice remains that resident's private perspective.
@@ -17092,7 +17126,7 @@ Candidates: ${sceneCandidateCats.map(cat => `${getSharedSceneResidentDisplayName
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose","reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -17413,7 +17447,11 @@ ${enrichedStatusOutputContract}`;
                                     });
                                     if (record) {
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
+                                        if (sceneMode === 'user-directed') applySuccessfulInteractionUserStatus(sceneValidation.scene.userStatus);
                                         addLog(`HALL SCENE WRITTEN: hall=${requestHallId}; type=${sceneValidation.scene.type}; participants=[${record.participantIds.join(', ')}]`, 'sent');
+                                    } else if (requestOptions.sceneRequired) {
+                                        addLog(`HALL SCENE WRITE FAILED: hall=${requestHallId}; required scene was not persisted.`, 'warn');
+                                        return false;
                                     }
                                 } else if (sceneMode === 'user-directed' && activeHallId.value === requestHallId) {
                                     clearHallSceneFocus();
