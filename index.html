@@ -14038,6 +14038,76 @@ ${buildCatMemoryContext(cat)}`;
                     cat.travelogues.push(record);
                     return record;
                 };
+                const INITIAL_AWAY_OPPORTUNITY_MAX_MS = 12 * 60 * 60 * 1000;
+                const RETURN_AWAY_OPPORTUNITY_MIN_MS = 6 * 60 * 60 * 1000;
+                const RETURN_AWAY_OPPORTUNITY_MAX_MS = 24 * 60 * 60 * 1000;
+                const getAwayOpportunityAt = (cat) => parseLogicalDate(cat?.nextAwayOpportunityAt);
+                const scheduleAwayOpportunity = (cat, baseTime = new Date(), minDelayMs = 0, maxDelayMs = INITIAL_AWAY_OPPORTUNITY_MAX_MS) => {
+                    if (!cat || cat.isOut || isPermanentOutBuiltin(cat)) return null;
+                    const base = parseLogicalDate(baseTime) || new Date();
+                    const minDelay = Math.max(0, Number(minDelayMs) || 0);
+                    const maxDelay = Math.max(minDelay, Number(maxDelayMs) || minDelay);
+                    const offset = minDelay + Math.floor(Math.random() * (maxDelay - minDelay + 1));
+                    const opportunityAt = new Date(base.getTime() + offset);
+                    cat.nextAwayOpportunityAt = opportunityAt.toISOString();
+                    return opportunityAt;
+                };
+                const ensureAwayOpportunity = (cat, now = new Date()) => {
+                    if (!cat || isPermanentOutBuiltin(cat)) return null;
+                    if (cat.isOut || getActiveAwayEpisode(cat, now)) {
+                        cat.nextAwayOpportunityAt = null;
+                        return null;
+                    }
+                    return getAwayOpportunityAt(cat) || scheduleAwayOpportunity(cat, now);
+                };
+                const ensureHomeAwayOpportunities = (now = new Date()) => {
+                    cats.value.forEach(cat => ensureAwayOpportunity(cat, now));
+                };
+                const schedulePostReturnAwayOpportunity = (cat, logicalReturnAt) =>
+                    scheduleAwayOpportunity(cat, logicalReturnAt, RETURN_AWAY_OPPORTUNITY_MIN_MS, RETURN_AWAY_OPPORTUNITY_MAX_MS);
+                const buildLocalAwayDepartureSchedule = ({ hallId, hallCats, requestedCats, departureCandidateIds = [], now = new Date(), excluded = [] }) => {
+                    const candidateIds = new Set((departureCandidateIds || []).map(id => String(id)));
+                    const directives = {};
+                    const due = [];
+                    const blocked = [...excluded];
+                    const homeCount = hallCats.filter(cat => !cat.isOut && !isPermanentOutBuiltin(cat)).length;
+                    (requestedCats || []).forEach(cat => {
+                        if (!cat || cat.isOut || isPermanentOutBuiltin(cat)) return;
+                        const id = String(cat.id);
+                        directives[id] = 'HOME';
+                        const opportunityAt = ensureAwayOpportunity(cat, now);
+                        if (!opportunityAt || opportunityAt > now) return;
+                        due.push({ cat, id, opportunityAt });
+                        if (!candidateIds.has(id)) blocked.push(`${id}:active-interaction`);
+                        else if (getRecentAwayReturn(cat, now)) blocked.push(`${id}:recent-return`);
+                    });
+                    const eligibleDue = due.filter(entry =>
+                        candidateIds.has(entry.id) && !getRecentAwayReturn(entry.cat, now)
+                    );
+                    let selected = null;
+                    if (eligibleDue.length) {
+                        if (homeCount < 3) {
+                            eligibleDue.forEach(entry => blocked.push(`${entry.id}:minimum-two-at-home`));
+                        } else {
+                            selected = [...eligibleDue].sort((a, b) =>
+                                a.opportunityAt.getTime() - b.opportunityAt.getTime() || a.id.localeCompare(b.id)
+                            )[0];
+                            directives[selected.id] = 'DEPARTING_NOW';
+                        }
+                    }
+                    return {
+                        hallId,
+                        directives,
+                        dueIds: due.map(entry => entry.id),
+                        selectedIds: selected ? [selected.id] : [],
+                        blocked
+                    };
+                };
+                const formatLocalPresenceAuthority = (directives) => {
+                    const entries = Object.entries(directives || {});
+                    if (!entries.length) return '[LOCAL PRESENCE AUTHORITY]\nNo HOME residents require a local presence directive in this response.';
+                    return `[LOCAL PRESENCE AUTHORITY]\n${entries.map(([id, directive]) => `${id} → ${directive}`).join('\n')}\nThese directives are binding local world logic. Do not independently infer or choose HOME/AWAY. Use [CURRENT-LIFE CONTEXT] and [LAST-KNOWN CONTINUITY EVIDENCE] only to write content consistent with the assigned directive: HOME means isOut:false and a plausible in-hall status; DEPARTING_NOW means isOut:true plus one matching core mode:"departure" plan.`;
+                };
                 const createAwayEpisode = (cat, plan, departedAt = new Date()) => {
                     const departure = parseLogicalDate(departedAt) || new Date();
                     const durationMs = Number(plan.plannedDurationMinutes) * 60 * 1000;
@@ -14127,6 +14197,7 @@ ${buildCatMemoryContext(cat)}`;
                     episode.status = 'completed';
                     episode.returnedAt = logicalReturnAt.toISOString();
                     episode.settledAt = actualReconciliationAt.toISOString();
+                    schedulePostReturnAwayOpportunity(cat, logicalReturnAt);
                     addLog(`AWAY EPISODE RETURN SETTLED: episode=${episode.id}; resident=${episode.residentId}; returnedAt=${episode.returnedAt}`, 'sent');
                     return true;
                 };
@@ -14159,6 +14230,7 @@ ${buildCatMemoryContext(cat)}`;
                             returnedResidentIds.push(String(event.episode.residentId));
                         }
                     });
+                    ensureHomeAwayOpportunities(now);
                     return { count: dueEvents.length, returnedResidentIds };
                 };
                 window.Meeow.memory.configure({
@@ -15573,6 +15645,19 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             !justSettledReturnIds.has(String(cat.id))
                         );
                         const frozenBystanderIds = frozenBystanders.map(cat => String(cat.id));
+                        const frozenDepartureSchedule = buildLocalAwayDepartureSchedule({
+                            hallId: requestHallId,
+                            hallCats: frozenHallResidents,
+                            requestedCats: frozenBystanders,
+                            departureCandidateIds: frozenBystanderIds,
+                            now: frozenNow,
+                            excluded: [
+                                ...frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => `${String(cat.id)}:active-episode`),
+                                ...frozenHallResidents.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`)
+                            ]
+                        });
+                        const frozenPresenceDirectives = Object.freeze({ ...frozenDepartureSchedule.directives });
+                        addLog(`AWAY LOCAL SCHEDULE: hall=${requestHall.name}; due=[${frozenDepartureSchedule.dueIds.join(', ')}]; selected=[${frozenDepartureSchedule.selectedIds.join(', ')}]; blocked=[${frozenDepartureSchedule.blocked.join(', ')}]`, 'info');
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => cat.name);
                         const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}`;
                         const hasFrozenBystanderCrossedOperationalDay = (cat) => {
@@ -15584,7 +15669,9 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             ? `[BYSTANDER HALL UPDATE]
 Time: ${frozenNow.toLocaleString()}; Operational day: ${frozenOperationalDayKey}; Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 The USER is interacting directly only with ${sendingCat.name}. Do not include ${sendingCat.name} in hallUpdates and do not write a second status, inner voice, form, map, or presence decision for that resident.
-Update exactly these frozen bystanders with independent current state. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
+Update exactly these frozen bystanders with current state consistent with local presence authority. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
+
+${formatLocalPresenceAuthority(frozenPresenceDirectives)}
 
 [BYSTANDER CONTEXT]
 ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
@@ -15592,12 +15679,9 @@ ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContex
 [BYSTANDER RULES]
 - Return exactly one update for every supplied bystander ID.
 - Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
-- Form: affinity <50 means isHuman false; otherwise decide from context. Keep physical time logic and at least two supplied residents home after the full hall layer is applied.
+- Form: affinity <50 means isHuman false; otherwise decide from context. Keep physical time logic.
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the resident is still in that exact place or activity at this Status Sync time.
-- [PRESENCE DECISION] First ask: given this resident's current-life context—current time, elapsed time, canon, recent meaningful events, duties, habits, relationships, ordinary independent life, and believable everyday behavior—where are they most plausibly NOW? HOME and AWAY are both normal valid answers; isOut:false is never a default or safe fallback. Work, errands, training, social contact, relationships, routines, private time, travel, and ordinary obligations may support Away without USER participation. Do not fabricate named employers, appointments, organizations, missions, relationships, or plot events; a mundane non-canon-breaking reason is enough. Away is not Explore or Visit.
-- [CONTINUITY WEIGHT] For very short Δt, prior HOME/AWAY is strong evidence and usually persists unless a transition naturally fits. With meaningful elapsed time, freshly reassess current presence: a prior HOME state does not require a new explicit external event before a fresh inference may conclude AWAY. With long Δt, prior HOME/AWAY is only weak historical continuity, not evidence of current location; do not copy the boolean by default. Away likewise has plausible, not infinite, duration. Reject rapid arbitrary flapping, but preserve the previous state only when continuity makes it the most plausible current result.
-- [HALL CALIBRATION] At least two residents home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
-- [AWAY DECISION ORDER] STEP 1: Infer each bystander's most plausible CURRENT HOME/AWAY presence before using last-known state as continuity evidence. Do not consider the amount of output needed for an Away plan. Never choose HOME merely because it is simpler to output, and never choose AWAY merely to create variety. STEP 2: After that fresh inference, use prior presence only to reject implausible rapid flapping; it is never permission required for a HOME→AWAY transition. STEP 3: Only if the current result is AWAY, provide that resident's required core departure plan. The plan is a consequence of the presence decision, never a reason to prefer HOME. STEP 4: Only after a valid core plan exists, optionally add enrichment when naturally suitable; optional enrichment must never influence the HOME/AWAY decision.
+- [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with the local directive, not a new presence decision.
 - Residents listed as currently away in the hall context are context only. Do not return updates or Away plans for them; never invent their location, destination, activity, return time, or mail.
 - Every at-home resident needs one listed mapPoint matching the status. Never use stove/hearth/hot surfaces; sink-basin is safe-water scenes only.
 ${getCompactMapPointPromptGuide()}`
@@ -15653,9 +15737,9 @@ ${getCompactMapPointPromptGuide()}`
                         [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
                         [${frozenBystanderIds.join(', ')}]
                         Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching hallUpdates[].id machine key.
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact AWAY bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact AWAY bystander machine id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}]}
-                        This HOME/AWAY pair is schema illustration only: it never implies a quota, target ratio, rotation, random selection, or required departure. In a real response, return exactly the frozen bystander IDs. A HOME resident has isOut:false and no departure plan. Every bystander independently set to isOut:true needs exactly one matching mode:"departure" core plan with the fields shown above. Core timing still requires a 30–720 minute duration, with activityAfterMinutes at least 10 minutes after departure and at least 10 minutes before return.
-                        [OPTIONAL AWAY ENRICHMENT] plannedReturnStatus, plannedArchiveNarrative, and mailPlan may all be omitted. The core plan above is already a complete valid departure. Add an optional field only when naturally suitable, never because it is expected, and never let its absence influence the prior HOME/AWAY decision. When supplied, plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. plannedArchiveNarrative is roughly 100-200 Chinese characters in this resident's first person about this exact planned absence; keep it canon-faithful and hide it until Episode completion. mailPlan may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example minutes are illustrative only.
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}]}
+                        This HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" core plan with the fields shown above. Core timing still requires a 30–720 minute duration, with activityAfterMinutes at least 10 minutes after departure and at least 10 minutes before return.
+                        [OPTIONAL AWAY ENRICHMENT] plannedReturnStatus, plannedArchiveNarrative, and mailPlan may all be omitted. The core plan above is already a complete valid departure. Add an optional field only when naturally suitable, never because it is expected, and never let its absence influence the local presence directive. When supplied, plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. plannedArchiveNarrative is roughly 100-200 Chinese characters in this resident's first person about this exact planned absence; keep it canon-faithful and hide it until Episode completion. mailPlan may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be after the planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans. Example minutes are illustrative only.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -15705,7 +15789,8 @@ ${getCompactMapPointPromptGuide()}`
                                 frozenNow,
                                 operationalDayKey: frozenOperationalDayKey,
                                 updates: payload.hallUpdates,
-                                awayPlans: payload.awayPlans
+                                awayPlans: payload.awayPlans,
+                                presenceDirectives: frozenPresenceDirectives
                             });
                         }
 
@@ -16095,13 +16180,28 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (isExactCoverage) return true;
                     return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
                 };
-                const validateStatusSyncEnvelope = (content, requestedIds) => {
+                const validateLocalPresenceDirectives = (updates, presenceDirectives = {}) => {
+                    const directives = presenceDirectives && typeof presenceDirectives === 'object' ? presenceDirectives : {};
+                    for (const [id, directive] of Object.entries(directives)) {
+                        if (directive !== 'HOME' && directive !== 'DEPARTING_NOW') continue;
+                        const update = (updates || []).find(entry => String(entry?.id ?? '') === String(id));
+                        const expectedIsOut = directive === 'DEPARTING_NOW';
+                        if (!update || update.isOut !== expectedIsOut) {
+                            return `Status Sync local presence directive failed: id=${id}; directive=${directive}; expected isOut=${expectedIsOut}.`;
+                        }
+                    }
+                    return true;
+                };
+                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}) => {
                     const payload = parseAIJSON(content);
                     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
                         return 'Status Sync response is not a valid JSON object.';
                     }
                     if (!Array.isArray(payload.awayPlans)) return 'Status Sync response is missing awayPlans array.';
-                    return validateStatusSyncUpdates(payload.updates, requestedIds);
+                    const updateValidation = validateStatusSyncUpdates(payload.updates, requestedIds);
+                    return updateValidation === true
+                        ? validateLocalPresenceDirectives(payload.updates, presenceDirectives)
+                        : updateValidation;
                 };
                 const validateOptionalHallScene = ({ scene, sceneMode, sceneContext, updates, requestHallId }) => {
                     if (scene === null) return { valid: true, scene: null };
@@ -16320,6 +16420,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         let characterBlock = "";
                         let activeCatNames = [];
                         const requestedIds = [];
+                        const requestedCats = [];
                         const crossedDayBoundary = [];
                         catsToUpdate.forEach(c => {
                             const isActive = activeCatIds && activeCatIds.includes(c.id);
@@ -16331,6 +16432,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 activeCatNames.push(c.name);
                             }
                             requestedIds.push(String(c.id));
+                            requestedCats.push(c);
 
                             let crossedOperationalDay = false;
                             if (c.lastStatusUpdateTime) {
@@ -16365,6 +16467,31 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${legacyAwayContext}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
                         });
 
+                        const activeIdSet = new Set((activeCatIds || []).map(id => String(id)));
+                        const localDepartureSchedule = requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
+                            ? null
+                            : buildLocalAwayDepartureSchedule({
+                                hallId: requestHallId,
+                                hallCats: fullHallCats,
+                                requestedCats,
+                                departureCandidateIds: requestedCats
+                                    .filter(cat => !activeIdSet.has(String(cat.id)))
+                                    .map(cat => String(cat.id)),
+                                now,
+                                excluded: [
+                                    ...fullHallCats.filter(cat => getActiveAwayEpisode(cat, now)).map(cat => `${String(cat.id)}:active-episode`),
+                                    ...fullHallCats.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`)
+                                ]
+                            });
+                        const presenceDirectives = Object.freeze({
+                            ...(requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
+                                ? requestOptions.presenceDirectives
+                                : localDepartureSchedule.directives)
+                        });
+                        if (localDepartureSchedule) {
+                            addLog(`AWAY LOCAL SCHEDULE: hall=${requestHall.name}; due=[${localDepartureSchedule.dueIds.join(', ')}]; selected=[${localDepartureSchedule.selectedIds.join(', ')}]; blocked=[${localDepartureSchedule.blocked.join(', ')}]`, 'info');
+                        }
+
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
                         if (statusCompletion) statusCompletion.expected = requestedIds.length;
 
@@ -16388,7 +16515,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const gnnTrendsGlobal = user.phoneData.gnn?.trending?.slice(0, 3)
                             .map(t => `#${truncateMemoryText(t.topic || '', 28)}`).filter(Boolean).join(', ') || 'None';
                         const newOperationalDayContext = pendingStatusDayRefresh
-                            ? `\n[NEW OPERATIONAL DAY]: Previous-day presence and status are historical continuity, not proof of current location. Do not copy isOut by default or merely paraphrase an indoor activity; unless travel/visit/focus/explore is ongoing, make a fresh current-presence inference and generate a genuinely current activity for ${operationalDayKey}.`
+                            ? `\n[NEW OPERATIONAL DAY]: Previous-day presence and status are historical continuity, not proof of a current activity. Do not merely paraphrase an old indoor action; generate a genuinely current activity for ${operationalDayKey} that remains consistent with [LOCAL PRESENCE AUTHORITY].`
                             : '';
                         const sceneCandidateCats = (sceneContext?.candidateIds || []).map(id =>
                             catsToUpdate.find(cat => String(cat.id) === String(id))
@@ -16413,23 +16540,22 @@ Candidates: ${sceneCandidateCats.map(cat => `${cat.name} (${String(cat.id)})`).j
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
                                 : '';
-                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact AWAY supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact AWAY supplied machine id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}],"scene":null}\nThis HOME/AWAY pair is schema illustration only: it never implies a quota, target ratio, rotation, random selection, or required departure. In a real response return exactly the supplied IDs. A HOME resident has isOut:false and no departure plan. Every supplied resident independently set to isOut:true needs exactly one matching mode:"departure" core plan with the fields shown above. Core timing still requires a 30–720 minute duration, with activityAfterMinutes at least 10 minutes after departure and at least 10 minutes before return.\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus, plannedArchiveNarrative, and mailPlan may all be omitted. The core plan above is already a complete valid departure. Add an optional field only when naturally suitable, never because it is expected, and never let its absence influence the prior HOME/AWAY decision. When supplied, plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. plannedArchiveNarrative is roughly 100-200 Chinese characters in this resident's first person about this exact planned absence; keep it canon-faithful and hide it until Episode completion. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const statusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"activityAfterMinutes":60,"destination":"private planning context","plannedResidentActivity":"future private activity","publicTrace":"limited user-visible future trace"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" core plan with the fields shown above. Core timing still requires a 30–720 minute duration, with activityAfterMinutes at least 10 minutes after departure and at least 10 minutes before return.\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus, plannedArchiveNarrative, and mailPlan may all be omitted. The core plan above is already a complete valid departure. Add an optional field only when naturally suitable, never because it is expected, and never let its absence influence the local presence directive. When supplied, plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. plannedArchiveNarrative is roughly 100-200 Chinese characters in this resident's first person about this exact planned absence; keep it canon-faithful and hide it until Episode completion. mailPlan may be empty or one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is warranted, scene must instead be {"type":"${sceneMode}","participantIds":["exact allowed id"],"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
 ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
+
+${formatLocalPresenceAuthority(presenceDirectives)}
 
 [RULES]
 - Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.
 - Stored canon and [STATUS SYNC CONTEXT] are binding. Cat form never changes personality. Low affinity means boundaries/independent rhythm, never default fear, hostility, or contempt toward the safe owner.
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
 - Form: affinity <50 => isHuman false; affinity >=50 decides by context; explore-return cats must be false.
-- Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic. At least two cats remain home.
+- Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic.
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the cat is still in that exact place or activity at this Status Sync time.
-- [PRESENCE DECISION] First ask: given this cat's current-life context—current time, elapsed time, canon, recent meaningful events, duties, habits, relationships, ordinary independent life, and believable everyday behavior—where are they most plausibly NOW? HOME and AWAY are both normal valid answers; isOut:false is never a default or safe fallback. Work, errands, training, social contact, relationships, routines, private time, travel, and ordinary obligations may support Away without USER participation. Do not fabricate named employers, appointments, organizations, missions, relationships, or plot events; a mundane non-canon-breaking reason is enough. Away is not Explore or Visit.
-- [CONTINUITY WEIGHT] For very short Δt, prior HOME/AWAY is strong evidence and usually persists unless a transition naturally fits. With meaningful elapsed time, freshly reassess current presence: a prior HOME state does not require a new explicit external event before a fresh inference may conclude AWAY. With long Δt, prior HOME/AWAY is only weak historical continuity, not evidence of current location; do not copy the boolean by default. Away likewise has plausible, not infinite, duration. Reject rapid arbitrary flapping, but preserve the previous state only when continuity makes it the most plausible current result.
-- [HALL CALIBRATION] At least two cats home is a minimum companionship safeguard, not a preferred population target. All-home and multiple-away results are both valid only when individually justified. Do not create quotas, random departures, target distributions, maximize departures, maximize staying home, or maximize persistence. Choose the most plausible current state for each resident independently.
-- [AWAY DECISION ORDER] STEP 1: Infer each cat's most plausible CURRENT HOME/AWAY presence before using last-known state as continuity evidence. Do not consider the amount of output needed for an Away plan. Never choose HOME merely because it is simpler to output, and never choose AWAY merely to create variety. STEP 2: After that fresh inference, use prior presence only to reject implausible rapid flapping; it is never permission required for a HOME→AWAY transition. STEP 3: Only if the current result is AWAY, provide that cat's required core departure plan. The plan is a consequence of the presence decision, never a reason to prefer HOME. STEP 4: Only after a valid core plan exists, optionally add enrichment when naturally suitable; optional enrichment must never influence the HOME/AWAY decision.
+- [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with [LOCAL PRESENCE AUTHORITY], not a new presence decision.
 - [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. These residents are outside Meeow House for a locally scheduled absence. They are context only: do not output updates for them, do not invent their destination or activity, and do not place them in hall scenes.
 ${scenePrompt}
 
@@ -16454,7 +16580,10 @@ ${statusOutputContract}`;
                         let optionalScene;
                         let awayPlans = [];
                         if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
-                            const validation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
+                            const updateValidation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
+                            const validation = updateValidation === true
+                                ? validateLocalPresenceDirectives(requestOptions.prevalidatedStatusUpdates, presenceDirectives)
+                                : updateValidation;
                             if (validation !== true) {
                                 if (statusCompletion) {
                                     statusCompletion.partial = true;
@@ -16470,7 +16599,7 @@ ${statusOutputContract}`;
                                 ...requestOptions,
                                 label: requestOptions.label || `STATUS SYNC · ${requestHall.name}`,
                                 dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${isBackgroundStatusSync ? 'background' : 'foreground'}`,
-                                validateResponse: content => validateStatusSyncEnvelope(content, requestedIds)
+                                validateResponse: content => validateStatusSyncEnvelope(content, requestedIds, presenceDirectives)
                             });
                             const parsedResponse = parseAIJSON(res);
                             updates = parsedResponse?.updates;
@@ -16660,6 +16789,7 @@ ${statusOutputContract}`;
                                         addLog(`AWAY PLANNED MAIL OMITTED: resident=${catId}; capacity or spacing reserved by existing mail.`, 'warn');
                                     }
                                     const episode = createAwayEpisode(cat, episodePlan, now);
+                                    cat.nextAwayOpportunityAt = null;
                                     awayDecisionDiagnostics.departed++;
                                     addLog(`AWAY EPISODE CREATED: resident=${catId}; episode=${episode.id}; destination=${truncateMemoryText(episode.destination || '未留下地点记录', 60)}`, 'sent');
                                     appendMonitorEvent(cat, '离开馆舍，开始处理自己的行程。', 'status-sync', { episodeId: episode.id }, now);
@@ -16780,7 +16910,7 @@ ${statusOutputContract}`;
                     }
                 };
 
-                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [] }) => {
+                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [], presenceDirectives = {} }) => {
                     if (!frozenBystanders.length) return true;
                     const statusCompletion = {
                         requestHallId,
@@ -16802,6 +16932,7 @@ ${statusOutputContract}`;
                         operationalDayKey,
                         prevalidatedStatusUpdates: updates,
                         prevalidatedAwayPlans: awayPlans,
+                        presenceDirectives,
                         priority: 'background',
                         statusCompletion
                     });
