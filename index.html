@@ -3586,6 +3586,32 @@
         }
         #app .meeow-archive-item .archive-live-log { color: var(--accent) !important; }
 
+        #app .meeow-relationship-card,
+        #app .meeow-relationship-direction,
+        #app .meeow-relationship-history-item {
+            min-width: 0;
+            border: 1px solid var(--ui-border) !important;
+            border-radius: 18px;
+            background: var(--ui-surface-soft) !important;
+            color: var(--ui-text) !important;
+        }
+
+        #app .meeow-relationship-card { width: 100%; text-align: left; }
+        #app .meeow-relationship-state,
+        #app .meeow-relationship-evidence { overflow-wrap: anywhere; }
+        #app .meeow-relationship-chip {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            border: 1px solid var(--ui-border) !important;
+            border-radius: 999px;
+            background: var(--ui-surface-hover) !important;
+            color: var(--ui-text-muted) !important;
+            padding: 2px 8px;
+            font-size: 10px;
+            line-height: 1.35;
+        }
+
         /* ===== SHARED MODAL SURFACE =====
            Fixed dialogs sit outside .gotham-content, so they cannot rely on
            page-only light-theme overrides.  Give every ordinary dialog one
@@ -7834,19 +7860,80 @@
                     </div>
                     <button @click="closeCatArchive" class="meeow-reader-close p-1" aria-label="关闭小猫档案"><i class="fas fa-times text-xl"></i></button>
                 </div>
-                <div class="grid grid-cols-4 gap-1 mb-3 text-[10px]" role="tablist" aria-label="档案分类">
-                    <button @click="selectCatArchiveTab('daily')" :class="catArchiveTab === 'daily' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'daily' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'daily'">每日日记</button>
-                    <button @click="selectCatArchiveTab('away')" :class="catArchiveTab === 'away' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'away' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'away'">离馆档案</button>
-                    <button @click="selectCatArchiveTab('explore')" :class="catArchiveTab === 'explore' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'explore' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'explore'">探索档案</button>
-                    <button @click="selectCatArchiveTab('visit')" :class="catArchiveTab === 'visit' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'visit' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'visit'">跨馆档案</button>
+                <div class="grid grid-cols-5 gap-1 mb-3 text-[10px]" role="tablist" aria-label="档案分类">
+                    <button @click="selectCatArchiveTab('relationship')" :class="catArchiveTab === 'relationship' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'relationship' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'relationship'">关系</button>
+                    <button @click="selectCatArchiveTab('daily')" :class="catArchiveTab === 'daily' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'daily' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'daily'">日记</button>
+                    <button @click="selectCatArchiveTab('away')" :class="catArchiveTab === 'away' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'away' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'away'">外出</button>
+                    <button @click="selectCatArchiveTab('explore')" :class="catArchiveTab === 'explore' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'explore' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'explore'">离馆</button>
+                    <button @click="selectCatArchiveTab('visit')" :class="catArchiveTab === 'visit' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'visit' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'visit'">跨馆</button>
                 </div>
-                <div v-if="getCatArchiveDateKeys(catArchiveCat, catArchiveTab).length" class="flex justify-end mb-3">
+                <div v-if="catArchiveTab !== 'relationship' && getCatArchiveDateKeys(catArchiveCat, catArchiveTab).length" class="flex justify-end mb-3">
                     <select :value="catArchiveDateKey" @change="selectCatArchiveDate($event.target.value)" class="rounded-lg border px-2 py-1 text-[10px]" style="border-color: var(--ui-border); background: var(--ui-surface-soft); color: var(--ui-text);" aria-label="选择归档日">
                         <option v-for="dateKey in getCatArchiveDateKeys(catArchiveCat, catArchiveTab)" :key="dateKey" :value="dateKey">{{ dateKey }}</option>
                     </select>
                 </div>
                 <div class="meeow-reader-body flex-1 custom-scrollbar p-1 space-y-4">
-                    <template v-if="getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey).length">
+                    <template v-if="catArchiveTab === 'relationship'">
+                        <template v-if="!catArchiveRelationshipTarget">
+                            <div v-if="getCatArchiveRelationshipEntries(catArchiveCat).length" class="space-y-3">
+                                <button v-for="entry in getCatArchiveRelationshipEntries(catArchiveCat)" :key="String(entry.target.id)" type="button" class="meeow-relationship-card p-3 sully-btn" @click="openCatArchiveRelationship(entry.target)">
+                                    <div class="flex items-start justify-between gap-3 min-w-0">
+                                        <div class="min-w-0 flex-1">
+                                            <h3 class="text-sm font-bold truncate">{{ getResidentPublicName(entry.target) }}</h3>
+                                            <p class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">
+                                                {{ entry.ownerLink ? formatRelationshipCurrentState(entry.ownerLink) : 'TA 尚未形成明确的关系倾向' }}
+                                            </p>
+                                            <p v-if="!entry.ownerLink && entry.reverseLink" class="mt-1 text-[10px]" style="color: var(--ui-text-muted);">对方已有关系变化</p>
+                                            <div v-if="getRelationshipTagLabels(entry.ownerLink).length" class="flex flex-wrap gap-1.5 mt-2">
+                                                <span v-for="tag in getRelationshipTagLabels(entry.ownerLink)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
+                                            </div>
+                                        </div>
+                                        <i class="fas fa-chevron-right text-xs mt-1 shrink-0" style="color: var(--ui-text-muted);"></i>
+                                    </div>
+                                    <div class="mt-2 text-[10px]" style="color: var(--ui-text-muted);">
+                                        {{ entry.latestAt ? `最近变化：${formatRelationshipArchiveDate(entry.latestAt)}` : '尚无关系历程记录' }}
+                                    </div>
+                                </button>
+                            </div>
+                            <div v-else class="text-center py-10 text-xs italic" style="color: var(--ui-text-muted);">还没有形成值得记录的居民关系。</div>
+                        </template>
+                        <template v-else>
+                            <div class="space-y-4">
+                                <button type="button" class="sully-btn text-xs flex items-center gap-2" style="color: var(--accent);" @click="backToCatArchiveRelationships">
+                                    <i class="fas fa-arrow-left"></i> 返回关系列表
+                                </button>
+                                <h3 class="text-base font-bold break-words">{{ getResidentPublicName(catArchiveCat) }} ↔ {{ getResidentPublicName(catArchiveRelationshipTarget) }}</h3>
+                                <div class="space-y-3">
+                                    <section v-for="direction in getCatArchiveRelationshipDirections(catArchiveCat, catArchiveRelationshipTarget)" :key="`${direction.from.id}->${direction.to.id}`" class="meeow-relationship-direction p-3">
+                                        <h4 class="text-xs font-bold break-words">{{ getResidentPublicName(direction.from) }} → {{ getResidentPublicName(direction.to) }}</h4>
+                                        <p class="meeow-relationship-state mt-2 text-xs leading-relaxed">{{ formatRelationshipCurrentState(direction.link) }}</p>
+                                        <div v-if="getRelationshipTagLabels(direction.link).length" class="flex flex-wrap gap-1.5 mt-2">
+                                            <span v-for="tag in getRelationshipTagLabels(direction.link)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
+                                        </div>
+                                    </section>
+                                </div>
+                                <section class="space-y-3">
+                                    <h4 class="text-sm font-bold">关系历程</h4>
+                                    <div v-if="getRelationshipHistoryGroups(catArchiveCat, catArchiveRelationshipTarget).length" class="space-y-3">
+                                        <article v-for="group in getRelationshipHistoryGroups(catArchiveCat, catArchiveRelationshipTarget)" :key="group.key" class="meeow-relationship-history-item p-3">
+                                            <div class="flex flex-wrap justify-between gap-2 text-[10px]" style="color: var(--ui-text-muted);">
+                                                <span>{{ formatRelationshipArchiveDate(group.latestAt) }} · 馆内片段</span>
+                                            </div>
+                                            <div class="space-y-2 mt-3">
+                                                <div v-for="direction in group.directions" :key="`${group.key}-${direction.from.id}->${direction.to.id}`" class="min-w-0">
+                                                    <div class="text-xs font-bold break-words">{{ getResidentPublicName(direction.from) }} → {{ getResidentPublicName(direction.to) }}</div>
+                                                    <p v-for="(event, eventIndex) in direction.events" :key="`${group.key}-${event.at || 'event'}-${eventIndex}`" class="mt-1 text-xs leading-relaxed break-words" style="color: var(--ui-text-muted);">{{ formatRelationshipEventChanges(event).join(' · ') || '关系变化' }}</p>
+                                                </div>
+                                            </div>
+                                            <p v-if="group.evidenceExcerpt" class="meeow-relationship-evidence mt-3 pt-2 border-t text-xs leading-relaxed" style="border-color: var(--ui-border); color: var(--ui-text-muted);">当时：{{ group.evidenceExcerpt }}</p>
+                                        </article>
+                                    </div>
+                                    <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">还没有可查看的关系变化。</p>
+                                </section>
+                            </div>
+                        </template>
+                    </template>
+                    <template v-else-if="getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey).length">
                         <template v-if="catArchiveTab === 'daily'">
                             <article v-for="record in getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey)" :key="record.id" class="log-paper relative">
                                 <div class="border-b border-gray-400 pb-1 mb-2 flex justify-between gap-3"><span class="font-bold text-xs">每日日记</span><span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(record.item.at || record.item.date) }}</span></div>
@@ -9624,6 +9711,7 @@
                 const catArchiveCat = ref(null);
                 const catArchiveTab = ref('daily');
                 const catArchiveDateKey = ref('');
+                const catArchiveRelationshipTarget = ref(null);
                 const showEditCatModal = ref(false);
                 const currentShopCategory = ref('food');
                 const isReleasing = ref(false);
@@ -15286,7 +15374,7 @@ ${buildCatMemoryContext(cat)}`;
                     });
                     return timeline.sort((a, b) => new Date(a.at) - new Date(b.at) || a.id.localeCompare(b.id));
                 };
-                const CAT_ARCHIVE_TABS = ['daily', 'away', 'explore', 'visit'];
+                const CAT_ARCHIVE_TABS = ['relationship', 'daily', 'away', 'explore', 'visit'];
                 const isOperationalDayKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
                 const getArchiveOperationalDayKey = (record, { allowLegacyDate = false } = {}) => {
                     const logicalAt = parseLogicalDate(record?.at);
@@ -15336,11 +15424,154 @@ ${buildCatMemoryContext(cat)}`;
                 )].sort((a, b) => b.localeCompare(a));
                 const getCatArchiveRecordsForDate = (cat, tab, dateKey) => getCatArchiveRecords(cat, tab)
                     .filter(record => record.dateKey === dateKey);
+                const RELATIONSHIP_TAG_LABELS = Object.freeze({
+                    protective: '保护',
+                    competitive: '竞争',
+                    wary: '戒备',
+                    affectionate: '亲昵',
+                    amused: '逗趣',
+                    resentful: '怨气',
+                    fascinated: '着迷',
+                    awkward: '尴尬',
+                    deferential: '敬让'
+                });
+                const RELATIONSHIP_FAMILIARITY_LABELS = ['几乎没有共同经历', '略有熟悉', '逐渐熟悉', '相当熟悉', '十分熟悉', '有很深的共同经历'];
+                const getRelationshipNumber = (value, minimum, maximum) => {
+                    const numeric = Number(value);
+                    return Number.isFinite(numeric) ? Math.max(minimum, Math.min(maximum, Math.trunc(numeric))) : 0;
+                };
+                const getArchiveRelationshipLink = (owner, target) => {
+                    const link = owner?.residentRelationships?.[String(target?.id)];
+                    return link && typeof link === 'object' && !Array.isArray(link) ? link : null;
+                };
+                const getRelationshipEventTime = event => {
+                    const date = parseLogicalDate(event?.at);
+                    return date ? date.getTime() : 0;
+                };
+                const getCatArchiveRelationshipEntries = (owner) => {
+                    if (!owner) return [];
+                    return cats.value
+                        .filter(target => target && String(target.id) !== String(owner.id))
+                        .map(target => {
+                            const ownerLink = getArchiveRelationshipLink(owner, target);
+                            const reverseLink = getArchiveRelationshipLink(target, owner);
+                            const latestEvent = [...(Array.isArray(ownerLink?.events) ? ownerLink.events : []), ...(Array.isArray(reverseLink?.events) ? reverseLink.events : [])]
+                                .reduce((latest, event) => getRelationshipEventTime(event) > getRelationshipEventTime(latest) ? event : latest, null);
+                            return {
+                                target,
+                                ownerLink,
+                                reverseLink,
+                                latestAt: latestEvent?.at || '',
+                                latestTime: getRelationshipEventTime(latestEvent)
+                            };
+                        })
+                        .filter(entry => entry.ownerLink || entry.reverseLink)
+                        .sort((a, b) => b.latestTime - a.latestTime ||
+                            getResidentPublicName(a.target).localeCompare(getResidentPublicName(b.target)) ||
+                            String(a.target.id).localeCompare(String(b.target.id)));
+                };
+                const getCatArchiveRelationshipDirections = (owner, target) => owner && target
+                    ? [
+                        { from: owner, to: target, link: getArchiveRelationshipLink(owner, target) },
+                        { from: target, to: owner, link: getArchiveRelationshipLink(target, owner) }
+                    ]
+                    : [];
+                const getRelationshipTagLabels = link => (Array.isArray(link?.tags) ? link.tags : [])
+                    .map(tag => RELATIONSHIP_TAG_LABELS[String(tag)])
+                    .filter(Boolean);
+                const formatRelationshipCurrentState = link => {
+                    if (!link) return '尚未形成明确的关系记录';
+                    const familiarity = RELATIONSHIP_FAMILIARITY_LABELS[getRelationshipNumber(link.familiarity, 0, 5)];
+                    const warmthValue = getRelationshipNumber(link.warmth, -5, 5);
+                    const warmth = warmthValue <= -3 ? '明显冷淡' : warmthValue < 0 ? '有些疏离' : warmthValue === 0 ? '关系温度中性' : warmthValue <= 2 ? '有些亲近' : '非常亲近';
+                    const trustValue = getRelationshipNumber(link.trust, -5, 5);
+                    const trust = trustValue <= -3 ? '明显不信任' : trustValue < 0 ? '仍有戒心' : trustValue === 0 ? '尚未形成明显信任倾向' : trustValue <= 2 ? '有一定信任' : '十分信任';
+                    const tensionValue = getRelationshipNumber(link.tension, 0, 5);
+                    const tension = tensionValue === 0 ? '没有明显紧张' : tensionValue === 1 ? '略有紧张' : tensionValue <= 3 ? '存在明显紧张' : '关系十分紧绷';
+                    return [familiarity, warmth, trust, tension].join(' · ');
+                };
+                const formatRelationshipArchiveDate = at => {
+                    const date = parseLogicalDate(at);
+                    return date ? `${date.getMonth() + 1}月${date.getDate()}日` : '时间未知';
+                };
+                const formatRelationshipEventChanges = event => {
+                    const changes = event?.changes && typeof event.changes === 'object' && !Array.isArray(event.changes) ? event.changes : {};
+                    const labels = [];
+                    const familiarity = Number(changes.familiarity);
+                    const warmth = Number(changes.warmth);
+                    const trust = Number(changes.trust);
+                    const tension = Number(changes.tension);
+                    if (Number.isFinite(familiarity) && familiarity > 0) labels.push('更加熟悉');
+                    if (Number.isFinite(familiarity) && familiarity < 0) labels.push('熟悉度下降');
+                    if (Number.isFinite(warmth) && warmth > 0) labels.push('亲近感增加');
+                    if (Number.isFinite(warmth) && warmth < 0) labels.push('亲近感下降');
+                    if (Number.isFinite(trust) && trust > 0) labels.push('信任增加');
+                    if (Number.isFinite(trust) && trust < 0) labels.push('信任下降');
+                    if (Number.isFinite(tension) && tension > 0) labels.push('紧张增加');
+                    if (Number.isFinite(tension) && tension < 0) labels.push('紧张有所缓和');
+                    (Array.isArray(event?.addedTags) ? event.addedTags : [])
+                        .map(tag => RELATIONSHIP_TAG_LABELS[String(tag)])
+                        .filter(Boolean)
+                        .forEach(tag => labels.push(`新增「${tag}」`));
+                    (Array.isArray(event?.removedTags) ? event.removedTags : [])
+                        .map(tag => RELATIONSHIP_TAG_LABELS[String(tag)])
+                        .filter(Boolean)
+                        .forEach(tag => labels.push(`「${tag}」逐渐淡去`));
+                    return labels;
+                };
+                const getRelationshipHistoryGroups = (owner, target) => {
+                    if (!owner || !target) return [];
+                    const directions = [
+                        { from: owner, to: target, link: getArchiveRelationshipLink(owner, target) },
+                        { from: target, to: owner, link: getArchiveRelationshipLink(target, owner) }
+                    ];
+                    const groups = new Map();
+                    directions.forEach((direction, directionIndex) => {
+                        (Array.isArray(direction.link?.events) ? direction.link.events : []).forEach((event, eventIndex) => {
+                            if (!event || typeof event !== 'object' || Array.isArray(event)) return;
+                            const sourceKey = typeof event.sourceKey === 'string' && /^shared-scene:.+/.test(event.sourceKey.trim()) ? event.sourceKey.trim() : '';
+                            const sceneId = typeof event.sceneId === 'string' && event.sceneId.trim() && !/^(undefined|null)$/.test(event.sceneId.trim()) ? event.sceneId.trim() : '';
+                            const key = sourceKey || sceneId || `legacy:${directionIndex}:${eventIndex}:${String(event.at || '').trim()}:${String(event.evidenceExcerpt || '').trim().slice(0, 40)}`;
+                            if (!groups.has(key)) groups.set(key, { key, latestAt: '', latestTime: 0, events: [] });
+                            const group = groups.get(key);
+                            const eventTime = getRelationshipEventTime(event);
+                            if (eventTime > group.latestTime) {
+                                group.latestTime = eventTime;
+                                group.latestAt = event.at || '';
+                            }
+                            group.events.push({ directionIndex, direction, event });
+                        });
+                    });
+                    return [...groups.values()]
+                        .map(group => ({
+                            ...group,
+                            directions: directions
+                                .map((direction, directionIndex) => ({
+                                    ...direction,
+                                    events: group.events.filter(item => item.directionIndex === directionIndex).map(item => item.event)
+                                }))
+                                .filter(direction => direction.events.length),
+                            evidenceExcerpt: group.events
+                                .map(item => typeof item.event.evidenceExcerpt === 'string' ? item.event.evidenceExcerpt.trim().slice(0, 160) : '')
+                                .find(Boolean) || ''
+                        }))
+                        .sort((a, b) => b.latestTime - a.latestTime || String(b.latestAt).localeCompare(String(a.latestAt)) || a.key.localeCompare(b.key));
+                };
+                const openCatArchiveRelationship = (target) => {
+                    if (!catArchiveCat.value || !target || String(target.id) === String(catArchiveCat.value.id)) return;
+                    const entry = getCatArchiveRelationshipEntries(catArchiveCat.value).find(item => String(item.target.id) === String(target.id));
+                    if (!entry) return;
+                    catArchiveRelationshipTarget.value = target;
+                };
+                const backToCatArchiveRelationships = () => {
+                    catArchiveRelationshipTarget.value = null;
+                };
                 const openCatArchive = (cat, tab = 'daily', preferredDateKey = '') => {
                     if (!cat) return;
                     const nextTab = CAT_ARCHIVE_TABS.includes(tab) ? tab : 'daily';
                     const dateKeys = getCatArchiveDateKeys(cat, nextTab);
                     catArchiveCat.value = cat;
+                    catArchiveRelationshipTarget.value = null;
                     catArchiveTab.value = nextTab;
                     catArchiveDateKey.value = dateKeys.includes(preferredDateKey) ? preferredDateKey : (dateKeys[0] || '');
                     showCatArchiveModal.value = true;
@@ -15348,11 +15579,13 @@ ${buildCatMemoryContext(cat)}`;
                 const closeCatArchive = () => {
                     showCatArchiveModal.value = false;
                     catArchiveCat.value = null;
+                    catArchiveRelationshipTarget.value = null;
                     catArchiveTab.value = 'daily';
                     catArchiveDateKey.value = '';
                 };
                 const selectCatArchiveTab = (tab) => {
                     if (!CAT_ARCHIVE_TABS.includes(tab)) return;
+                    catArchiveRelationshipTarget.value = null;
                     catArchiveTab.value = tab;
                     catArchiveDateKey.value = getCatArchiveDateKeys(catArchiveCat.value, tab)[0] || '';
                 };
@@ -18976,7 +19209,7 @@ ${episodicMemory}`;
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
