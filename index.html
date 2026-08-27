@@ -4884,10 +4884,6 @@
                     </div>
                     <button @click="openHallDirectory" class="sully-btn px-3 py-1.5 text-[10px]" style="background: var(--ui-surface-soft); color: var(--ui-text-muted); border: 1px solid var(--ui-border);"><i class="fas fa-building-columns mr-1"></i>换馆</button>
                 </div>
-                <div class="meeow-hall-view-toggle" role="tablist" aria-label="馆内展示方式">
-                    <button type="button" role="tab" :aria-selected="hallDisplayMode === 'text'" :class="{ 'is-active': hallDisplayMode === 'text' }" @click="setHallDisplayMode('text')"><i class="fas fa-list-ul mr-1"></i>文字模式</button>
-                    <button type="button" role="tab" :aria-selected="hallDisplayMode === 'map'" :class="{ 'is-active': hallDisplayMode === 'map' }" @click="setHallDisplayMode('map')"><i class="fas fa-map-location-dot mr-1"></i>地图模式</button>
-                </div>
                 <!-- Action Header Widget -->
                 <div class="sully-widget p-4 flex flex-col gap-3">
                     <div class="flex space-x-2">
@@ -4966,6 +4962,11 @@
                         class="sully-btn flex-1 bg-gradient-to-r from-yellow-600 via-amber-600 to-yellow-700 hover:brightness-110 text-black py-3 rounded-2xl text-xs font-black shadow-lg shadow-yellow-600/20 flex items-center justify-center uppercase tracking-wider">
                         <i class="fas fa-hourglass-half mr-2 text-sm"></i> 开始专注任务 · {{ currentHall.name }}
                     </button>
+                </div>
+
+                <div class="meeow-hall-view-toggle" role="tablist" aria-label="馆内展示方式">
+                    <button type="button" role="tab" :aria-selected="hallDisplayMode === 'text'" :class="{ 'is-active': hallDisplayMode === 'text' }" @click="setHallDisplayMode('text')"><i class="fas fa-list-ul mr-1"></i>文字模式</button>
+                    <button type="button" role="tab" :aria-selected="hallDisplayMode === 'map'" :class="{ 'is-active': hallDisplayMode === 'map' }" @click="setHallDisplayMode('map')"><i class="fas fa-map-location-dot mr-1"></i>地图模式</button>
                 </div>
 
                 <!-- Cat / Hero Cards Grid -->
