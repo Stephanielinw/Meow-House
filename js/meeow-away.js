@@ -232,14 +232,55 @@
         };
     };
 
-    const validatePlan = (plan, expectedId, mode) => {
+    const normalizeOptionalMailPlan = (rawMailPlan, plannedActivities, duration) => {
+        if (rawMailPlan === undefined || (Array.isArray(rawMailPlan) && rawMailPlan.length === 0)) {
+            return { mailPlan: [], mailResult: 'none', mailReason: '' };
+        }
+        if (!Array.isArray(rawMailPlan)) {
+            return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'mailPlan must be an array' };
+        }
+        if (rawMailPlan.length > 1) {
+            return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'mailPlan allows at most one entry' };
+        }
+        const mail = rawMailPlan[0];
+        if (!mail || typeof mail !== 'object' || Array.isArray(mail)) {
+            return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'mail entry must be an object' };
+        }
+        const sendAfterMinutes = Number(mail.sendAfterMinutes);
+        const content = cleanText(mail.content || '');
+        if (!Number.isInteger(sendAfterMinutes) || sendAfterMinutes <= plannedActivities[0].afterMinutes || sendAfterMinutes >= duration) {
+            return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'sendAfterMinutes must be after the first activity and before return' };
+        }
+        if (!content) {
+            return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'mail content is required' };
+        }
+        const attachment = mail.attachment === null || mail.attachment === undefined ? null : mail.attachment;
+        if (attachment !== null && (typeof attachment !== 'object' || Array.isArray(attachment) || !cleanText(attachment.name || '') || !cleanText(attachment.icon || '') || !cleanText(attachment.desc || ''))) {
+            return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'attachment requires name, icon, and desc' };
+        }
+        return {
+            mailPlan: [{
+                sendAfterMinutes,
+                content,
+                attachment: attachment ? { name: cleanText(attachment.name), icon: cleanText(attachment.icon), desc: cleanText(attachment.desc) } : null
+            }],
+            mailResult: 'accepted',
+            mailReason: ''
+        };
+    };
+
+    const validatePlanDetails = (plan, expectedId, mode) => {
         if (!plan || typeof plan !== 'object' || Array.isArray(plan)) return null;
         if (String(plan.residentId || '') !== String(expectedId) || plan.mode !== mode) return null;
         const duration = Number(plan.plannedDurationMinutes);
         if (!Number.isInteger(duration) || duration < AWAY_EPISODE_MIN_DURATION_MINUTES || duration > AWAY_EPISODE_MAX_DURATION_MINUTES) return null;
         if (mode === 'legacy-continuation') {
             if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || plan.plannedActivities || plan.plannedArchiveNarrative || plan.plannedReturnStatus || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
-            return { residentId: String(expectedId), mode, plannedDurationMinutes: duration };
+            return {
+                plan: { residentId: String(expectedId), mode, plannedDurationMinutes: duration },
+                mailResult: 'not-applicable',
+                mailReason: ''
+            };
         }
         const destination = cleanText(plan.destination || '');
         const plannedReturnStatus = typeof plan.plannedReturnStatus === 'string' ? cleanText(plan.plannedReturnStatus) : '';
@@ -261,30 +302,21 @@
             if (activity.afterMinutes < timing.margin || activity.afterMinutes > duration - timing.margin) return null;
             if (index > 0 && activity.afterMinutes - plannedActivities[index - 1].afterMinutes < timing.spacing) return null;
         }
-        const rawMailPlan = plan.mailPlan === undefined ? [] : plan.mailPlan;
-        if (!Array.isArray(rawMailPlan) || rawMailPlan.length > 1) return null;
-        const mailPlan = rawMailPlan.map(mail => {
-            if (!mail || typeof mail !== 'object' || Array.isArray(mail)) return null;
-            const sendAfterMinutes = Number(mail.sendAfterMinutes);
-            const content = cleanText(mail.content || '');
-            if (!Number.isInteger(sendAfterMinutes) || sendAfterMinutes <= plannedActivities[0].afterMinutes || sendAfterMinutes >= duration || !content) return null;
-            const attachment = mail.attachment === null || mail.attachment === undefined ? null : mail.attachment;
-            if (attachment !== null && (typeof attachment !== 'object' || Array.isArray(attachment) || !cleanText(attachment.name || '') || !cleanText(attachment.icon || '') || !cleanText(attachment.desc || ''))) return null;
-            return {
-                sendAfterMinutes,
-                content,
-                attachment: attachment ? { name: cleanText(attachment.name), icon: cleanText(attachment.icon), desc: cleanText(attachment.desc) } : null
-            };
-        });
-        if (mailPlan.some(mail => !mail)) return null;
+        const optionalMail = normalizeOptionalMailPlan(plan.mailPlan, plannedActivities, duration);
         return {
-            residentId: String(expectedId), mode, plannedDurationMinutes: duration,
-            destination, plannedActivities,
-            plannedReturnStatus: plannedReturnStatus.length <= 80 ? plannedReturnStatus : '',
-            plannedArchiveNarrative,
-            mailPlan
+            plan: {
+                residentId: String(expectedId), mode, plannedDurationMinutes: duration,
+                destination, plannedActivities,
+                plannedReturnStatus: plannedReturnStatus.length <= 80 ? plannedReturnStatus : '',
+                plannedArchiveNarrative,
+                mailPlan: optionalMail.mailPlan
+            },
+            mailResult: optionalMail.mailResult,
+            mailReason: optionalMail.mailReason
         };
     };
+
+    const validatePlan = (plan, expectedId, mode) => validatePlanDetails(plan, expectedId, mode)?.plan || null;
 
     const indexPlans = (awayPlans) => (Array.isArray(awayPlans) ? awayPlans : []).reduce((index, plan) => {
         const id = String(plan?.residentId || '');
@@ -298,9 +330,9 @@
         const candidates = (plansByResident.get(String(residentId)) || []).filter(plan => plan?.mode === mode);
         if (!candidates.length) return { candidates, plan: null, valid: false, reason: `missing ${mode} plan` };
         if (candidates.length !== 1) return { candidates, plan: null, valid: false, reason: `duplicate ${mode} plans` };
-        const plan = validatePlan(candidates[0], residentId, mode);
-        return plan
-            ? { candidates, plan, valid: true, reason: '' }
+        const details = validatePlanDetails(candidates[0], residentId, mode);
+        return details?.plan
+            ? { candidates, plan: details.plan, valid: true, reason: '', mailResult: details.mailResult, mailReason: details.mailReason }
             : { candidates, plan: null, valid: false, reason: 'existing validator rejected plan' };
     };
 
