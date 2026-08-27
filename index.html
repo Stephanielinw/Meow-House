@@ -12271,6 +12271,9 @@ JSON 格式：
                     const diceContext = dice
                         ? `本次检定：${dice.skill}，目标值 ${dice.target}，掷骰 ${dice.roll}，结果 ${dice.result}。`
                         : '本轮尚无已结算检定。';
+                    const episodicMemory = companion && cleanText(userAction)
+                        ? buildOwnerScopedEpisodicMemoryContext(companion, { userAction })
+                        : '';
 
                     return `[KP CONTEXT]
 阶段：${phase}
@@ -12287,6 +12290,7 @@ ${userAction ? `馆长本轮行动：${userAction}` : ''}
 ${diceContext}
 同行猫记忆与连续性：
 ${companion ? buildCatMemoryContext(companion, { profile: compact ? 'exploreModule' : 'exploreScene' }) : '无同行猫'}
+${episodicMemory}
 [/KP CONTEXT]`;
                 };
 
@@ -14406,6 +14410,7 @@ ${buildCatMemoryContext(cat)}`;
                 const normalizeEpisodicMemories = window.Meeow.memory.normalizeEpisodicMemories;
                 const appendEpisodicMemory = window.Meeow.memory.appendEpisodicMemory;
                 const hasMeaningfulMemoryOverlap = window.Meeow.memory.hasMeaningfulMemoryOverlap;
+                const buildEpisodicMemoryContext = window.Meeow.memory.buildEpisodicMemoryContext;
                 cats.value.forEach(cat => normalizeEpisodicMemories(cat));
                 const stableEpisodicSourceHash = (value) => {
                     let hash = 2166136261;
@@ -14554,6 +14559,15 @@ ${buildCatMemoryContext(cat)}`;
                     });
                     logEpisodicMemoryResult(String(cat.id), 'first-human-reveal', result);
                     return result.memory;
+                };
+                const buildOwnerScopedEpisodicMemoryContext = (cat, context = {}) => {
+                    const query = cleanText(context.userInput || context.userAction || context.query || '');
+                    if (!cat || !query) return '';
+                    const relatedResidentIds = context.relatedResidentIds || getHomepageGroundedResidentIds(cat, query);
+                    const built = buildEpisodicMemoryContext(cat, { ...context, userInput: query, relatedResidentIds });
+                    const selected = built.result.selected.map(entry => `${entry.memory.id}:${entry.score}`).join(', ');
+                    addLog(`MEMORY RETRIEVAL: owner=${String(cat.id)}; stored=${built.result.stored}; eligible=${built.result.eligible}; selected=[${selected}]`, 'info');
+                    return built.text;
                 };
                 const buildStatusSyncUserContext = (additionalContext = '') => {
                     const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
@@ -16301,6 +16315,10 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         } else { recentHistory = "(Previous conversation expired/too old)"; }
 
                         const catMemory = buildCatMemoryContext(sendingCat);
+                        const episodicMemory = buildOwnerScopedEpisodicMemoryContext(sendingCat, {
+                            userInput: msg,
+                            contextText: recentHistory
+                        });
 
                         const gnnTrends = user.phoneData.gnn?.trending?.map(t => `#${t.topic}`).join(', ') || 'None';
                         const lastChatMs = sendingCat.lastInteractionTimestamp ? (now - sendingCat.lastInteractionTimestamp) : null;
@@ -16398,6 +16416,7 @@ ${getCompactMapPointPromptGuide()}`
 
                         [RECENT CHAT]: ${recentHistory}
                         ${catMemory}
+                        ${episodicMemory}
                         
                         [CONTEXT]:
                         - Current Status (MUST LINK TO THIS): ${sendingCat.status}
@@ -18187,6 +18206,10 @@ ${enrichedStatusOutputContract}`;
                     const itemForm = getResidentForm(targetCat);
                     const targetItem = item;
                     const itemKey = getInventoryItemKey(targetItem);
+                    const episodicMemory = buildOwnerScopedEpisodicMemoryContext(targetCat, {
+                        userInput: `馆长把${targetItem.name}交给你。${targetItem.desc || ''}`,
+                        itemName: targetItem.name
+                    });
 
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
@@ -18203,7 +18226,8 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
 - CAT FORM: reaction is visible third-person behavior only. The character cannot speak human language aloud. Optional direct vocalization may only be feline sounds such as "喵。", "呜。", "呼噜。", or "嘶。". Human-language thoughts belong only in innerVoice and are never spoken aloud. Show personality/canon through action choice, distance, posture, and handling of the item.
 - HUMAN FORM: reaction may include normal in-character dialogue and action. Natural feline ears and tail remain real anatomy and may respond to touch or emotion when relevant. Preserve the character's canon voice.
 ${buildResidentPublicNameContract([targetCat])}
-${buildCatMemoryContext(targetCat)}`;
+${buildCatMemoryContext(targetCat)}
+${episodicMemory}`;
                         const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
                             priority: 'foreground',

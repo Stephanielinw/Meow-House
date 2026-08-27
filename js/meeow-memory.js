@@ -172,6 +172,92 @@
         cat.episodicMemories.push(candidate);
         return { stored: true, reason: '', memory: candidate };
     };
+    const getResidentNameMatches = (text) => {
+        const haystack = cleanText(text || '').toLocaleLowerCase();
+        if (!haystack) return [];
+        const candidates = (dependencies.getCats?.() || []).map(cat => ({
+            id: String(cat?.id ?? ''),
+            name: cleanText(getResidentPublicName(cat)).toLocaleLowerCase()
+        })).filter(entry => entry.id && entry.name.length > 1);
+        const counts = new Map(candidates.map(entry => [entry.name, 0]));
+        candidates.forEach(entry => counts.set(entry.name, (counts.get(entry.name) || 0) + 1));
+        return candidates.filter(entry => counts.get(entry.name) === 1 && haystack.includes(entry.name)).map(entry => entry.id);
+    };
+    const buildEpisodicQuery = (context = {}) => cleanText([
+        context.query, context.userInput, context.userAction, context.contextText, context.itemName
+    ].filter(Boolean).join('\n'));
+    const getContextResidentIds = (context, query) => {
+        const knownIds = getKnownResidentIds();
+        const suppliedIds = [
+            ...(Array.isArray(context?.participantIds) ? context.participantIds : []),
+            ...(Array.isArray(context?.relatedResidentIds) ? context.relatedResidentIds : []),
+            ...(Array.isArray(context?.residentIds) ? context.residentIds : [])
+        ].map(id => String(id || '').trim()).filter(id => knownIds.has(id));
+        return new Set([...suppliedIds, ...getResidentNameMatches(query)]);
+    };
+    const countSharedTerms = (left, right) => {
+        const leftTerms = new Set(getMeaningfulMemoryTerms(left));
+        return getMeaningfulMemoryTerms(right).filter(term => leftTerms.has(term)).length;
+    };
+    const memoryRecencyScore = (eventAt, now) => {
+        const eventMs = parseEpisodicTimestamp(eventAt)?.getTime();
+        if (!eventMs) return 0;
+        const ageDays = Math.max(0, (now.getTime() - eventMs) / 86400000);
+        return Math.max(0, 4 - Math.floor(ageDays / 30));
+    };
+    const retrieveRelevantMemories = (cat, context = {}) => {
+        const memories = getEpisodicMemories(cat);
+        const ownerId = String(cat?.id ?? '');
+        const query = buildEpisodicQuery(context);
+        const queryTerms = getMeaningfulMemoryTerms(query);
+        const contextIds = getContextResidentIds(context, query);
+        const now = context.now instanceof Date ? context.now : new Date();
+        const eligible = memories.map(memory => {
+            const participantMatches = memory.participantIds.filter(id => id !== ownerId && id !== 'USER' && contextIds.has(id));
+            const tagOverlap = countSharedTerms(memory.tags.join(' '), query);
+            const summaryOverlap = countSharedTerms(memory.summary, query);
+            const publicNameMatches = getResidentNameMatches(memory.summary)
+                .filter(id => id !== ownerId && contextIds.has(id));
+            if (!participantMatches.length && !publicNameMatches.length && !tagOverlap && !summaryOverlap) return null;
+            const relevanceScore = participantMatches.length * 80 + publicNameMatches.length * 50 +
+                tagOverlap * 18 + summaryOverlap * 7;
+            const score = relevanceScore + memory.importance * 3 + memory.emotionalWeight * 2 +
+                (memory.unresolved ? 5 : 0) + memoryRecencyScore(memory.eventAt, now);
+            return {
+                memory,
+                score,
+                signals: { participantMatches, publicNameMatches, tagOverlap, summaryOverlap }
+            };
+        }).filter(Boolean).sort((left, right) => right.score - left.score ||
+            String(left.memory.sourceKey).localeCompare(String(right.memory.sourceKey)) ||
+            String(left.memory.id).localeCompare(String(right.memory.id)));
+        return {
+            stored: memories.length,
+            eligible: eligible.length,
+            queryTerms,
+            selected: eligible.slice(0, 4)
+        };
+    };
+    const buildEpisodicMemoryContext = (cat, context = {}) => {
+        const result = retrieveRelevantMemories(cat, context);
+        const lines = ['[OWNER EPISODIC MEMORIES · PRIVATE]'];
+        let length = lines[0].length;
+        const included = [];
+        result.selected.forEach(entry => {
+            const memory = entry.memory;
+            const date = memory.eventAt.slice(0, 10);
+            const tags = memory.tags.length ? ` · tags: ${memory.tags.join(', ')}` : '';
+            const line = `- [${date}] ${memory.summary}${tags}`;
+            if (length + line.length + 1 > 2400) return;
+            lines.push(line);
+            length += line.length + 1;
+            included.push(entry);
+        });
+        return {
+            text: included.length ? lines.join('\n') : '',
+            result: { ...result, selected: included }
+        };
+    };
 
     const getPermanentDiaryEntries = (cat, limit = 5) => (cat?.logs || []).slice(-limit)
         .map(entry => `[${entry.date || entry.time || '历史'}] ${cleanText(entry.content || '')}`);
@@ -316,6 +402,8 @@ Continuity: ${truncateMemoryText(continuity || 'None', 34)}`;
         hasEpisodicMemorySource,
         appendEpisodicMemory,
         getMeaningfulMemoryTerms,
-        hasMeaningfulMemoryOverlap
+        hasMeaningfulMemoryOverlap,
+        retrieveRelevantMemories,
+        buildEpisodicMemoryContext
     });
 }(window));
