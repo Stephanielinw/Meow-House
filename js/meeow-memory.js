@@ -9,6 +9,9 @@
     };
 
     const cleanText = (...args) => dependencies.cleanText(...args);
+    const getResidentPublicName = (cat) => dependencies.getResidentPublicName
+        ? dependencies.getResidentPublicName(cat)
+        : cleanText(cat?.name || '') || '未命名角色';
     const getResidentForm = (cat) => dependencies.getResidentForm
         ? dependencies.getResidentForm(cat)
         : (cat?.isHuman ? 'HUMAN' : 'CAT');
@@ -56,7 +59,7 @@
         const currentHall = dependencies.getCurrentHall();
         const hall = halls.find(item => item.id === cat?.hallId) || currentHall;
         return `[IMMUTABLE CHARACTER IDENTITY]
-- Name: ${cat?.name || '未命名角色'}; Hall: ${hall?.name || 'Meeow House'}
+- Name: ${getResidentPublicName(cat)}; Hall: ${hall?.name || 'Meeow House'}
 - Canon personality / stored prompt: ${cat?.prompt || cat?.personality || '以原作设定为准'}
 - Fixed cat breed: ${cat?.breed || '未设定'}; fixed eye color: ${cat?.eyeColor || '未设定'}.
 - Current physical form: ${describeResidentForm(cat)}; closeness (affinity): ${cat?.affinity ?? 0}/100.
@@ -133,7 +136,7 @@ ${options.extra || ''}
             : '无记录';
         const context = `[STATUS SYNC CONTEXT]
 ID: ${String(cat?.id || '')}
-Name: ${cat?.name || '未命名角色'}
+Name: ${getResidentPublicName(cat)}
 Breed: ${truncateMemoryText(cat?.breed || '未设定', 32)}; Eyes: ${truncateMemoryText(cat?.eyeColor || '未设定', 22)}
 Traits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}
 Canon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}

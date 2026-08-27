@@ -4986,7 +4986,7 @@
                         </div>
 
                         <!-- Hero Info -->
-                        <h3 class="font-bold text-sm text-gray-100 tracking-wide">{{ cat.name }}</h3>
+                        <h3 class="font-bold text-sm text-gray-100 tracking-wide">{{ getResidentPublicName(cat) }}</h3>
                         <div class="text-[9px] bg-black/40 text-yellow-500/80 px-2 py-0.5 rounded-full my-1 border border-yellow-500/20 text-center truncate w-full font-mono">
                             {{ cat.breed || currentHall.catLabel || '馆内猫咪' }}
                         </div>
@@ -5060,7 +5060,7 @@
                         <img v-for="layer in activeMapRoomDefinition.groundLayers" :key="'ground-' + layer" class="meeow-map-layer is-ground" :src="getMapAssetPath(activeMapRoom, layer)" alt="">
                         <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" :class="['meeow-map-cat', marker.depthClass]" :style="marker.position" :title="cleanText(marker.cat.status)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
                             <span class="meeow-map-cat-avatar">
-                                <img :src="getMapCatAvatarSource(marker.cat)" :alt="marker.cat.name + ' 的馆内标记'" @error="handleMapAvatarError($event, marker.cat)">
+                                <img :src="getMapCatAvatarSource(marker.cat)" :alt="getResidentPublicName(marker.cat) + ' 的馆内标记'" @error="handleMapAvatarError($event, marker.cat)">
                             </span>
                         </button>
                         <template v-for="marker in activeMapCatMarkers" :key="'map-occlusion-wrap-' + marker.cat.id">
@@ -5069,7 +5069,7 @@
                         <img v-for="layer in activeMapRoomDefinition.foregroundLayers" :key="'foreground-' + layer" class="meeow-map-layer is-foreground" :class="{'is-table-foreground': activeMapRoom === 'dining' && layer === 'table'}" :src="getMapAssetPath(activeMapRoom, layer)" alt="">
                         <div v-for="marker in activeMapCatMarkers" :key="'map-badge-' + marker.cat.id" class="meeow-map-cat-badge" :style="marker.badgePosition">在馆</div>
                         <div v-for="marker in activeMapCatMarkers" :key="'map-label-' + marker.cat.id" class="meeow-map-cat-label" :style="marker.labelPosition">
-                            <span class="meeow-map-cat-name">{{ marker.cat.name }}</span>
+                            <span class="meeow-map-cat-name">{{ getResidentPublicName(marker.cat) }}</span>
                         </div>
                         <template v-if="showMapPointLabels">
                             <div v-for="point in activeMapPointLabels" :key="'map-point-' + point.id" class="meeow-map-point-label" :class="point.isRegion ? 'is-region' : 'is-anchor'" :style="point.style">
@@ -5081,13 +5081,13 @@
                         </div>
                     </div>
                     <aside v-if="mapPreviewCat" class="meeow-map-status-card" @click.stop>
-                        <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ mapPreviewCat.name }}</strong><span class="text-[9px]" style="color: var(--accent);">单击查看 · 双击进入</span></div>
+                        <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ getResidentPublicName(mapPreviewCat) }}</strong><span class="text-[9px]" style="color: var(--accent);">单击查看 · 双击进入</span></div>
                         <p>{{ cleanText(mapPreviewCat.status) || '正在馆内安静活动。' }}</p>
                         <button type="button" @click="openMapCatDetail(mapPreviewCat)" class="mt-2 text-[10px] font-black" style="color: var(--accent);"><i class="fas fa-arrow-right mr-1"></i>进入小猫主页</button>
                     </aside>
                     <div v-if="mapOutCats.length" class="meeow-map-away-card">
                         <div class="text-[10px] font-black" style="color: var(--accent);"><i class="fas fa-door-open mr-1"></i>暂离馆舍</div>
-                        <p class="mt-1 text-[11px]">{{ mapOutCats.map(cat => cat.name).join('、') }} 正在外出，因此没有放进室内地图。</p>
+                        <p class="mt-1 text-[11px]">{{ mapOutCats.map(cat => getResidentPublicName(cat)).join('、') }} 正在外出，因此没有放进室内地图。</p>
                     </div>
                     <p class="text-center text-[10px]" style="color: var(--ui-text-subtle);"><i class="fas fa-hand-pointer mr-1"></i>单击查看状态；双击进入小猫主页。地图只用于浏览，不会刷新动态。</p>
                 </section>
@@ -5181,7 +5181,7 @@
                                 <div class="flex items-center gap-2 mb-2 relative z-10">
                                     <img :src="getCatAvatarSource(cat)" class="w-7 h-7 rounded-full border border-zinc-600 shadow-sm object-contain">
                                     <div class="flex-1 min-w-0">
-                                        <div class="text-[10px] font-bold text-gray-200 truncate">{{ cat.name }}</div>
+                                        <div class="text-[10px] font-bold text-gray-200 truncate">{{ getResidentPublicName(cat) }}</div>
                                         <div class="text-[8px] text-gray-500">{{ t.date }}</div>
                                     </div>
                                 </div>
@@ -5244,7 +5244,7 @@
                                 </div>
                                 <span class="text-[10px] font-bold"
                                     :class="exploreState.companion?.id === cat.id ? 'text-yellow-500' : 'text-gray-400'">{{
-                                    cat.name }}</span>
+                                    getResidentPublicName(cat) }}</span>
                             </div>
                         </div>
                     </div>
@@ -5275,7 +5275,7 @@
                             <div class="flex items-center gap-1">
                                 <img :src="getCatAvatarSource(exploreState.companion, exploreState.sessionForm)"
                                     class="w-5 h-5 rounded-full border border-zinc-700 object-contain">
-                                <span class="text-[10px] font-bold text-gray-400">{{ exploreState.companion.name
+                                <span class="text-[10px] font-bold text-gray-400">{{ getResidentPublicName(exploreState.companion)
                                     }}</span>
                             </div>
                             <span class="text-[10px] text-zinc-600 font-mono">RND_{{ exploreState.rounds }}</span>
@@ -5394,7 +5394,7 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <h2 class="text-base font-extrabold text-white flex items-center gap-1.5 truncate">
-                                <span>{{ selectedCat.name }}</span>
+                                <span>{{ getResidentPublicName(selectedCat) }}</span>
                                 <i v-if="isResidentHuman(selectedCat)" class="fas fa-user-astronaut text-pink-400 text-xs"></i>
                             </h2>
                             <div class="flex gap-1.5 mt-1">
@@ -5424,7 +5424,7 @@
                 <div v-if="showEasterEggBtn" class="shrink-0">
                     <button @click="triggerEasterEgg"
                         class="sully-btn w-full py-2.5 text-xs special-invite-btn flex items-center justify-center font-bold shadow-lg">
-                        <i class="fas fa-envelope-open-text mr-2 text-sm"></i> 收到一封来自 {{ selectedCat.name }} 的特殊邀约
+                        <i class="fas fa-envelope-open-text mr-2 text-sm"></i> 收到一封来自 {{ getResidentPublicName(selectedCat) }} 的特殊邀约
                     </button>
                 </div>
 
@@ -5456,7 +5456,7 @@
                         <div v-if="selectedCat.chatHistory.length === 0"
                             class="text-center text-gray-500 text-xs mt-12 italic font-serif">
                             {{ selectedCat.logs && selectedCat.logs.length > 0 ? '过去的记忆已存档至日记...' : '和 ' +
-                            selectedCat.name + ' 开启第一次对话吧...' }}
+                            getResidentPublicName(selectedCat) + ' 开启第一次对话吧...' }}
                         </div>
                         <div v-for="(msg, index) in selectedCat.chatHistory" :key="index"
                             :class="['chat-bubble-wrapper msg-pop-in', msg.role === 'user' ? 'justify-end' : 'justify-start']">
@@ -5486,7 +5486,7 @@
                                     </div>
                                     <div class="chat-item-reaction message-text leading-relaxed">{{ cleanText(msg.content) }}</div>
                                     <div class="mt-2 flex items-center justify-between text-[10px] font-bold">
-                                        <span class="chat-item-cat-name">{{ selectedCat.name }}</span>
+                                        <span class="chat-item-cat-name">{{ getResidentPublicName(selectedCat) }}</span>
                                         <span :class="msg.affinityDelta >= 0 ? 'chat-item-affinity-positive' : 'chat-item-affinity-negative'">亲密度 {{ msg.affinityDelta >= 0 ? '+' : '' }}{{ msg.affinityDelta }}</span>
                                     </div>
                                 </template>
@@ -5496,7 +5496,7 @@
                         </div>
                         <div v-if="thinkingStates[selectedCat.id]"
                             class="text-xs text-gray-400 ml-2 animate-pulse flex items-center gap-1.5 font-mono py-1">
-                            <i class="fas fa-pen-fancy text-yellow-500"></i> {{ selectedCat.name }} 正在思考回复...
+                            <i class="fas fa-pen-fancy text-yellow-500"></i> {{ getResidentPublicName(selectedCat) }} 正在思考回复...
                         </div>
                     </div>
                     <div class="fixed-input-bar">
@@ -5634,7 +5634,7 @@
                                 <div v-else-if="phoneState.reader.view === 'entry'" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                                     <div class="reader-panel rounded-2xl p-4"><div class="font-black text-base">{{ activeReaderBook?.title }}</div><div class="text-xs mt-2" style="color:var(--ui-text-muted)">选择从哪里开始，以及是否邀请小猫陪读。</div></div>
                                     <div class="grid grid-cols-2 gap-2"><button type="button" @click="prepareReaderStart('resume')" class="reader-panel rounded-2xl p-3 text-left"><i class="fas fa-bookmark mr-1" style="color:var(--accent)"></i><div class="font-bold text-xs mt-2">从上次位置继续</div></button><button type="button" @click="openReaderTableOfContents(true)" class="reader-panel rounded-2xl p-3 text-left"><i class="fas fa-list mr-1" style="color:var(--accent)"></i><div class="font-bold text-xs mt-2">从目录选择章节</div></button></div>
-                                    <div class="reader-panel rounded-2xl p-4"><div class="font-black text-xs mb-3">陪读选择</div><button type="button" @click="startReaderSession(null)" class="w-full rounded-xl py-2.5 text-xs font-black" style="background:var(--ui-surface-hover); color:var(--ui-text)"><i class="fas fa-book-open mr-1"></i>独自阅读 · 不调用 AI</button><div class="text-[10px] mt-3 mb-2" style="color:var(--ui-text-muted)">或选择一只小猫一起读</div><button v-for="cat in readerAvailableCats" :key="cat.id" type="button" @click="startReaderSession(cat.id)" class="w-full flex items-center gap-2 p-2 rounded-xl text-left mb-1" style="background:var(--ui-surface-hover)"><img :src="getCatAvatarSource(cat)" class="w-8 h-8 object-contain rounded-lg"><span class="text-xs font-bold">{{ cat.name }}</span></button></div>
+                                    <div class="reader-panel rounded-2xl p-4"><div class="font-black text-xs mb-3">陪读选择</div><button type="button" @click="startReaderSession(null)" class="w-full rounded-xl py-2.5 text-xs font-black" style="background:var(--ui-surface-hover); color:var(--ui-text)"><i class="fas fa-book-open mr-1"></i>独自阅读 · 不调用 AI</button><div class="text-[10px] mt-3 mb-2" style="color:var(--ui-text-muted)">或选择一只小猫一起读</div><button v-for="cat in readerAvailableCats" :key="cat.id" type="button" @click="startReaderSession(cat.id)" class="w-full flex items-center gap-2 p-2 rounded-xl text-left mb-1" style="background:var(--ui-surface-hover)"><img :src="getCatAvatarSource(cat)" class="w-8 h-8 object-contain rounded-lg"><span class="text-xs font-bold">{{ getResidentPublicName(cat) }}</span></button></div>
                                 </div>
 
                                 <div v-else-if="phoneState.reader.view === 'toc'" ref="readerTocRef" class="flex-1 overflow-y-auto p-3 custom-scrollbar">
@@ -7613,7 +7613,7 @@
                         <span>共同执行</span>
                         <strong>{{ user.nickname }}</strong>
                         <template v-for="cat in currentSettlement.participants || []" :key="'settlement-' + cat.id">
-                            <i class="fas fa-plus text-[8px]"></i><strong>{{ cat.name }}</strong>
+                            <i class="fas fa-plus text-[8px]"></i><strong>{{ getResidentPublicName(cat) }}</strong>
                         </template>
                     </section>
                     <section class="meeow-settlement-scroll-section">
@@ -8133,7 +8133,7 @@
                                     class="w-full aspect-square object-contain">
                                 <div
                                     class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 to-transparent pt-6 pb-1 px-1 text-center z-20">
-                                    <span class="text-[10px] font-bold text-white truncate block">{{ cat.name }}</span>
+                                    <span class="text-[10px] font-bold text-white truncate block">{{ getResidentPublicName(cat) }}</span>
                                 </div>
                                 <div v-if="focusSetupData.selectedCatIds.includes(cat.id)"
                                     class="absolute top-1 right-1 bg-yellow-500 text-black rounded-full w-5 h-5 flex items-center justify-center z-30 shadow-md">
@@ -8163,7 +8163,7 @@
                     <div v-for="cat in focusCats" :key="cat.id" class="meeow-focus-supervisor">
                         <img :src="getCatAvatarSource(cat)"
                             class="meeow-focus-cat-avatar w-10 h-10 rounded-full border-2 object-contain mb-0.5">
-                        <span class="text-[10px] text-gray-300">{{ cat.name }}</span>
+                        <span class="text-[10px] text-gray-300">{{ getResidentPublicName(cat) }}</span>
                     </div>
                 </div>
                 <h2 class="text-base font-bold text-white text-center">联合监督中 <span class="text-xs font-normal text-gray-400">({{
@@ -8399,7 +8399,7 @@
                         <div class="flex items-center gap-3">
                             <img :src="getCatAvatarSource(cat)" class="w-10 h-10 rounded-xl object-contain" style="background: var(--ui-input);">
                             <div class="min-w-0 flex-1">
-                                <strong class="block text-sm truncate">{{ cat.name }}</strong>
+                                <strong class="block text-sm truncate">{{ getResidentPublicName(cat) }}</strong>
                                 <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ halls.find(h => h.id === cat.hallId)?.name || '未分馆' }}</span>
                             </div>
                             <input v-model.number="cat.affinity" @change="saveAdminAffinity(cat)" type="number" min="0" max="100" class="w-16 rounded-lg px-2 py-1.5 text-center text-sm font-black" style="background: var(--ui-input); color: var(--ui-text); border: 1px solid var(--ui-border);">
@@ -12452,12 +12452,14 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     exploreState.suggestedGoals = [];
 
                     const memoryContext = buildCatMemoryContext(exploreState.companion, { profile: 'exploreModule' });
+                    const companionNameContract = buildResidentPublicNameContract([exploreState.companion]);
 
                     const prompt = `Location: ${exploreState.location.name}. 
                     Atmosphere: ${exploreState.location.atmosphere}.
                     Universe: ${exploreState.location.universe.toUpperCase()}.
                     Resident NPCs: ${exploreState.location.npcs || 'None'}.
-                    Companion: ${exploreState.companion.name}.
+                    Companion: ${getResidentPublicName(exploreState.companion)}.
+                    ${companionNameContract}
                     ${memoryContext}
                     
                     [STRICT PERSPECTIVE RULE]:
@@ -12655,7 +12657,7 @@ ${buildExploreKPContext({ phase: 'opening' })}`;
                     const outCats = roomCats.value.filter(c => isResidentAway(c) && c.id !== exploreState.companion.id);
                     if (outCats.length > 0 && Math.random() < 0.2) {
                         const rescuer = outCats[Math.floor(Math.random() * outCats.length)];
-                        rescueContext = `[SPECIAL EVENT: RESCUE] ${rescuer.name} is currently patrolling nearby and can intervene if the user is in extreme danger.`;
+                        rescueContext = `[SPECIAL EVENT: RESCUE] ${getResidentPublicName(rescuer)} is currently patrolling nearby and can intervene if the user is in extreme danger.`;
                         appendMonitorEvent(rescuer, `在${exploreState.location.name}暗中观察，并在关键时刻协助了${user.nickname}。`, 'explore-rescue');
                     }
 
@@ -12663,13 +12665,13 @@ ${buildExploreKPContext({ phase: 'opening' })}`;
                     let pacingGuide = '';
                     if (round <= 3) {
                         pacingGuide = `[EARLY GAME – 沈浸与发现阶段]
-Focus on atmosphere and discovery. Let the user explore freely. Introduce at most ONE subtle clue or curious detail from the Module. ${exploreState.companion.name} should act in a way consistent with their frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form, character, and cover without taking over the USER's choices.`;
+Focus on atmosphere and discovery. Let the user explore freely. Introduce at most ONE subtle clue or curious detail from the Module. ${getResidentPublicName(exploreState.companion)} should act in a way consistent with their frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form, character, and cover without taking over the USER's choices.`;
                     } else if (round <= 7) {
                         pacingGuide = `[MID GAME – 升温与障碍阶段]
-The situation should grow more complex or tense. Introduce a meaningful obstacle or NPC from the Module. ${exploreState.companion.name} may respond according to their frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form and character, but never expose Meeow House secrets or take over the USER's choices.`;
+The situation should grow more complex or tense. Introduce a meaningful obstacle or NPC from the Module. ${getResidentPublicName(exploreState.companion)} may respond according to their frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form and character, but never expose Meeow House secrets or take over the USER's choices.`;
                     } else {
                         pacingGuide = `[DEEP EXPLORATION – 社事自然展开]
-The story has been running for many rounds — do NOT force a resolution. Keep the world vivid and alive. Introduce new textures: a deeper NPC motivation, a new area, a sensory detail that wasn't there before. ${exploreState.companion.name} remains in the frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form for this session and never breaks cover. Let the story breathe. An ending will come when the MODULE or the user naturally reaches one.`;
+The story has been running for many rounds — do NOT force a resolution. Keep the world vivid and alive. Introduce new textures: a deeper NPC motivation, a new area, a sensory detail that wasn't there before. ${getResidentPublicName(exploreState.companion)} remains in the frozen ${exploreState.sessionForm || getResidentForm(exploreState.companion)} form for this session and never breaks cover. Let the story breathe. An ending will come when the MODULE or the user naturally reaches one.`;
                     }
 
                     const prompt = `[SCENE CONTINUES · ROUND ${round}]
@@ -12682,6 +12684,7 @@ The story has been running for many rounds — do NOT force a resolution. Keep t
 4. 只有完成模组结局条件或用户明确撤退时，才输出 <END_OF_EXPLORATION>。
 5. 正文 120–160 字，以具体可行动的环境变化或感官钩子收尾。
 ${rescueContext}
+${buildResidentPublicNameContract([exploreState.companion])}
 ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
 
                     try {
@@ -12717,6 +12720,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     }
                     Note: "lore" is OPTIONAL. Only provide it if the adventure revealed significant world-building or canon details.
                     Language: Simplified Chinese.
+                    ${buildResidentPublicNameContract([exploreState.companion])}
                     ${buildCatMemoryContext(exploreState.companion)}`;
 
                     try {
@@ -12742,7 +12746,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
 
                             // Generate Travelogue (Logic C)
                             const traveloguePrompt = `[LOGIC C: TRAVELOGUE GENERATION]
-                            Character: ${exploreState.companion.name}
+                            Character: ${getResidentPublicName(exploreState.companion)}
                             Personality: ${exploreState.companion.personality}
                             Core Prompt: ${exploreState.companion.prompt}
                             Location: ${exploreState.location.name}
@@ -12750,12 +12754,13 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                             Adventure Log: ${exploreState.history.map(h => h.role + ": " + h.content).join("\n")}
                             Summary: ${data.summary}
                             
-                            Task: Write a first-person travelogue (150-300 words) from the perspective of ${exploreState.companion.name}.
+                            Task: Write a first-person travelogue (150-300 words) from the perspective of ${getResidentPublicName(exploreState.companion)}.
                             Requirements:
                             - Strictly follow this character's original personality, values, habits, and voice. Never use a generic cute-cat tone or import another hall's setting.
                             - Mention specific events from the Adventure Log and the companion's own choices.
                             - The character remains in this Explore session's frozen visible form, without exposing the Meeow House premise or hidden identity to ordinary people in the story.
                             - Language: Simplified Chinese.
+                            ${buildResidentPublicNameContract([exploreState.companion])}
                             ${buildCatMemoryContext(exploreState.companion)}`;
 
                             exploreState.returnPhase = '步骤 2/3 · 正在整理同行小猫的游记';
@@ -14337,7 +14342,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (!cat) return null;
                     if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
                     const eventAt = parseLogicalDate(logicalEventTime) || new Date();
-                    const content = `${cat.name} ${isOut ? '离开了' : '回到了'} Meeow House。`;
+                    const content = `${getResidentPublicName(cat)} ${isOut ? '离开了' : '回到了'} Meeow House。`;
                     const record = {
                         source: 'away',
                         at: eventAt.toISOString(),
@@ -14361,6 +14366,19 @@ ${buildCatMemoryContext(cat)}`;
 - plannedActivities is required. Use exactly 1 activity for duration under 90 minutes, 2 for 90–179 minutes, 3 for 180–359 minutes, or 4 for 360 minutes or longer. Each item is {"afterMinutes":number,"plannedResidentActivity":"private fact that will only become true at that time","publicTrace":"limited public trace"}. Make the beats distinct moments in chronological order, not paraphrases of one task. plannedResidentActivity remains private resident truth; publicTrace remains limited USER-visible evidence.
 - plannedArchiveNarrative is required for every new departure: approximately 100–200 Chinese characters, first-person, personal, reflective, character-specific prose about this outing. It may be intimate, but must not expose unrevealed HUMAN-form or hidden-identity facts, and must not turn into a system report or bullet summary.
 - plannedReturnStatus and mailPlan remain optional. Their omission never makes the required activity plan or archive narrative incomplete.`;
+                const getResidentPublicName = (catOrId) => {
+                    const cat = catOrId && typeof catOrId === 'object'
+                        ? catOrId
+                        : cats.value.find(item => String(item.id) === String(catOrId));
+                    return cleanText(cat?.name || '') || '馆内居民';
+                };
+                const buildResidentPublicNameContract = (residents) => {
+                    const uniqueResidents = [...new Map((Array.isArray(residents) ? residents : [])
+                        .filter(cat => cat && cat.id !== undefined && cat.id !== null)
+                        .map(cat => [String(cat.id), cat])).values()];
+                    if (!uniqueResidents.length) return '';
+                    return `[PUBLIC RESIDENT NAMES]\n${uniqueResidents.map(cat => `${String(cat.id)} = ${getResidentPublicName(cat)}`).join('\n')}\nWhen Meeow House world prose refers to these residents, use the supplied public name exactly. These are resident-world names only; do not infer or disclose any human/contact identity.`;
+                };
                 window.Meeow.memory.configure({
                     getUser: () => user,
                     getHalls: () => halls.value,
@@ -14371,6 +14389,7 @@ ${buildCatMemoryContext(cat)}`;
                     buildOwnerDailyContext: (...args) => buildOwnerDailyContext(...args),
                     getResidentForm: (cat) => getResidentForm(cat),
                     describeResidentForm: (catOrForm) => describeResidentForm(catOrForm),
+                    getResidentPublicName,
                     cleanText
                 });
                 const CAT_MEMORY_PROFILES = window.Meeow.memory.CAT_MEMORY_PROFILES;
@@ -14425,7 +14444,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (options.crossedOperationalDay) {
                         continuityLines.push('Operational-day boundary: this prior presence and indoor observation are weak historical continuity, not proof of the current location.');
                     }
-                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${cat?.name || '未命名角色'}; ${describeResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
+                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${getResidentPublicName(cat)}; ${describeResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
                 };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
@@ -14947,7 +14966,7 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     return validIds;
                 };
-                const getSharedSceneResidentDisplayName = (cat) => cleanText(cat?.name || '') || '馆内居民';
+                const getSharedSceneResidentDisplayName = (cat) => getResidentPublicName(cat);
                 const isSharedSceneResidentEligible = (cat, hallId = activeHallId.value) => {
                     if (!cat || getCatHallId(cat) !== hallId || !isResidentInHall(cat) || cat.isVisiting || getActiveAwayEpisode(cat)) return false;
                     if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
@@ -15552,7 +15571,8 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const buildDailyArchivePrompt = (snapshot) => {
                     const diaryTasks = getDailyDiaryTasks(snapshot);
-                    const hallOverview = halls.value.map(hall => `${hall.name}：${snapshot.cats.filter(cat => cat.hallId === hall.id).map(cat => cat.name).join('、') || '暂无成员'}`).join('；');
+                    const hallOverview = halls.value.map(hall => `${hall.name}：${snapshot.cats.filter(cat => cat.hallId === hall.id).map(cat => getResidentPublicName(cat)).join('、') || '暂无成员'}`).join('；');
+                    const diaryNameContract = buildResidentPublicNameContract(diaryTasks.map(task => task.cat));
                     const archiveFocusReports = (snapshot.missionReports || []).filter(report => {
                         const timestamp = report?.archivedAt || report?.at || report?.date;
                         return report.duration > 0 && timestamp && getOperationalDayKey(timestamp) === snapshot.dateKey;
@@ -15563,7 +15583,7 @@ ${buildCatMemoryContext(cat)}`;
                         catId: cat.id,
                         dateKey: task.dateKey,
                         taskKind: task.kind,
-                        name: cat.name,
+                        name: getResidentPublicName(cat),
                         hall: halls.value.find(h => h.id === cat.hallId)?.name || 'Meeow House',
                         personality: cat.personality || '',
                         canonPrompt: cat.prompt || '',
@@ -15609,6 +15629,7 @@ ${buildCatMemoryContext(cat)}`;
                     return `你正在为 Meeow House 生成“昨日归档包”，并可同时补写已经准备好的历史离馆日记。馆长：${user.nickname}。当前归档日期：${snapshot.date}。日期/节日信息：${getDateContext(`${snapshot.dateKey}T12:00:00`)}。
 
 馆舍概览：${hallOverview}
+${diaryNameContract}
 昨日已完成任务：${doneTasks.join('、') || '无'}
 仍待办任务：${pendingTasks.join('、') || '无'}
 DDL：${deadlines.join('、') || '无'}
@@ -16157,8 +16178,9 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const frozenPresenceDirectives = Object.freeze({ ...frozenDepartureSchedule.directives });
                         const frozenFormDirectives = Object.freeze(buildFormDirectives(frozenBystanders, frozenNow));
                         addLog(formatAwayLocalScheduleLog(requestHall.name, frozenDepartureSchedule), 'info');
-                        const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => cat.name);
-                        const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}`;
+                        const frozenPublicNameContract = buildResidentPublicNameContract(frozenHallResidents);
+                        const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => getResidentPublicName(cat));
+                        const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => getResidentPublicName(cat)).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}\n${frozenPublicNameContract}`;
                         const hasFrozenBystanderCrossedOperationalDay = (cat) => {
                             const lastStatusDate = cat?.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime) : null;
                             return Boolean(lastStatusDate && !Number.isNaN(lastStatusDate.getTime()) &&
@@ -16167,7 +16189,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const hallUpdateContext = frozenBystanders.length
                             ? `[BYSTANDER HALL UPDATE]
 Time: ${frozenNow.toLocaleString()}; Operational day: ${frozenOperationalDayKey}; Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
-The USER is interacting directly only with ${sendingCat.name}. Do not include ${sendingCat.name} in hallUpdates and do not write a second status, inner voice, form, map, or presence decision for that resident.
+The USER is interacting directly only with ${getResidentPublicName(sendingCat)}. Do not include ${getResidentPublicName(sendingCat)} in hallUpdates and do not write a second status, inner voice, form, map, or presence decision for that resident.
 Update exactly these frozen bystanders with current state consistent with local presence authority. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
 
 ${formatLocalPresenceAuthority(frozenPresenceDirectives)}
@@ -16199,7 +16221,7 @@ ${getCompactMapPointPromptGuide()}`
                         Job: ${user.job}
                         (Please address the user appropriately based on their Job/Role)
 
-                        Role: ${sendingCat.name}. Closeness: ${sendingCat.affinity}/100.
+                        Role: ${getResidentPublicName(sendingCat)}. Closeness: ${sendingCat.affinity}/100.
                         [CLOSENESS INFLUENCE]: The user is already known to be safe and kind. High closeness means more ease and initiative; low closeness means independence, tentative curiosity, or ordinary boundaries — NEVER fear, suspicion, contempt, or treating the user as dangerous by default.
                         [NO AI FLAVOR]: Avoid generic AI greetings or "As an AI..." phrases. Speak naturally as the character would.
                         
@@ -16208,7 +16230,7 @@ ${getCompactMapPointPromptGuide()}`
                         Current physical form: ${describeResidentForm(sendingCat)}
                         [FORM LIFECYCLE AUTHORITY] current=${activeFormDirective.currentForm}; reconsideration=${activeFormDirective.reconsideration}${activeFormDirective.requiredForm ? `; required=${activeFormDirective.requiredForm}` : ''}. If LOCKED, formDecision MUST copy the required form. If ALLOWED, choose CAT or HUMAN from this resident's current preference and circumstances; neither form is superior.
                         
-                        NEGATIVE PROMPT: DO NOT ACT LIKE OTHER CHARACTERS. YOU ARE ${sendingCat.name}.
+                        NEGATIVE PROMPT: DO NOT ACT LIKE OTHER CHARACTERS. YOU ARE ${getResidentPublicName(sendingCat)}.
                         DO NOT BE OOC (Out Of Character). Stay true to this exact character's original-work personality, values, relationships, and voice.
                         DO NOT ACT LIKE A GENERIC TSUNDERE CAT. No stereotypical "傲娇小猫" responses. You are a mature, complex character with your own agenda; never assume they are a superhero or a DC/Marvel character.
 
@@ -16355,17 +16377,18 @@ ${getCompactMapPointPromptGuide()}`
                     const participantBlock = participants.map(cat => `
 --- FOCUS PARTICIPANT ---
 ID: ${cat.id}
-Name: ${cat.name} (${cat.breed || '未知品种'})
+Name: ${getResidentPublicName(cat)} (${cat.breed || '未知品种'})
 Traits: ${cat.personality || '未记录'}
 Frozen session form: ${describeResidentForm(focusSessionForms[String(cat.id)] || getResidentForm(cat))}
 ${buildCatMemoryContext(cat)}`).join('\n');
                     const peerRule = participants.length > 1
-                        ? `There are ${participants.length} cats supervising together: ${participants.map(cat => cat.name).join(', ')}.
+                        ? `There are ${participants.length} cats supervising together: ${participants.map(cat => getResidentPublicName(cat)).join(', ')}.
                         Every cat MUST receive one distinct update in this batch. Include one or two natural peer interactions only when they fit canon personality, source-supported relationships, or established same-hall history: keeping watch together, wary proximity, grooming, a quarrel, playful obstruction, silent observation, or briefly curling up nearby. Never force affection, romance, reconciliation, hostility, or matching "cute" behavior. If a relationship is unclear, prefer parallel activity, cautious observation, or avoidance. If one cat interacts with another, their two status lines must describe the same moment coherently.`
                         : `There is one supervising cat. Write only this cat's independent, in-character action.`;
                     const prompt = `[MEEOW HOUSE FOCUS · ${currentHall.value.name}]
                     User (${user.nickname}) is focusing on: ${focusAction.value}.
                     Recent focus timeline: ${previousLogs || 'Focus has just begun.'}
+                    ${buildResidentPublicNameContract(participants)}
                     ${peerRule}
                     ${participantBlock}
 
@@ -16613,7 +16636,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (!targetCat) return;
                     if (settings.apiKey) {
                         const formStr = isFocusing.value ? (focusSessionForms[String(targetCat.id)] || getResidentForm(targetCat)) : getResidentForm(targetCat);
-                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${targetCat.name}. ${describeResidentForm(formStr)} Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildCatMemoryContext(targetCat, { compact: true })}`;
+                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${getResidentPublicName(targetCat)}. ${describeResidentForm(formStr)} Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildResidentPublicNameContract([targetCat])}\n${buildCatMemoryContext(targetCat, { compact: true })}`;
                         try {
                             const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, { label: `LIGHT INTERACTION · ${targetCat.name}`, priority: 'foreground' });
                             const action = extractSection(res, 'ACTION') || cleanText(res);
@@ -16871,7 +16894,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const userContext = buildStatusSyncUserContext(additionalContext);
                     const scheduledAwaySummary = fullHallCats
                         .filter(cat => getActiveAwayEpisode(cat, now))
-                        .map(cat => `${cat.name} — currently away from Meeow House`)
+                        .map(cat => `${getResidentPublicName(cat)} — currently away from Meeow House`)
                         .join('; ');
 
                     try {
@@ -16967,15 +16990,16 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             } else if (isExploreEnd) {
                                 activeCatContext = `\n[CRITICAL CONTEXT]: ${activeCatNames.join(', ')} just returned from exploring. Other cats should react to their return.`;
                             } else {
-                                const bystanderNames = catsToUpdate.filter(c => !activeCatIds.includes(c.id)).map(c => c.name).join(', ');
+                                const bystanderNames = catsToUpdate.filter(c => !activeCatIds.includes(c.id)).map(c => getResidentPublicName(c)).join(', ');
                                 activeCatContext = `\n[ACTIVE INTERACTION]: User is interacting ONLY with ${activeCatNames.join(', ')}. Active status: "${truncateMemoryText(focusCatLastAction || '近期互动', 140)}". Other cats (${bystanderNames}) may observe, react, or ignore it, but MUST NOT act as the user's target or directly interact with the user.\n[FOLLOW-UP PROGRESSION]: Ignoring this interaction never means freezing or copying a previous status. Every supplied bystander must return a freshly sampled current status and inner voice for this exact moment. Advance at least one plausible beat through posture, attention, location, an object, starting/finishing a small action, a subtle same-hall moment, or independent activity. Fresh means a natural next beat, not an unreasonable major jump; do not copy the previous status or inner voice verbatim.`;
                             }
                         }
 
                         const homeCats = fullHallCats.filter(cat => !cat.isOut);
                         const hallSocialContext = homeCats.length >= 2
-                            ? `\n[HALL SOCIAL]: At home: ${homeCats.map(cat => cat.name).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior.`
+                            ? `\n[HALL SOCIAL]: At home: ${homeCats.map(cat => getResidentPublicName(cat)).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior.`
                             : `\n[HALL SOCIAL]: Fewer than two cats are home; do not invent cat-to-cat interaction.`;
+                        const publicResidentNameContract = buildResidentPublicNameContract(fullHallCats);
 
                         const gnnTrendsGlobal = user.phoneData.gnn?.trending?.slice(0, 3)
                             .map(t => `#${truncateMemoryText(t.topic || '', 28)}`).filter(Boolean).join(', ') || 'None';
@@ -17014,6 +17038,7 @@ Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} �
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
+${publicResidentNameContract}
 ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 
 ${formatLocalPresenceAuthority(presenceDirectives)}
@@ -17984,7 +18009,7 @@ ${enrichedStatusOutputContract}`;
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
                     try {
-                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Current physical form: ${describeResidentForm(itemForm)} Return JSON only:
+                        const prompt = `User gives [${targetItem.name}] to ${getResidentPublicName(targetCat)}. Cat Personality: ${targetCat.personality}. Current physical form: ${describeResidentForm(itemForm)} Return JSON only:
 {
   "liked": boolean,
   "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
@@ -17995,6 +18020,7 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
 [FORM RULES]
 - CAT FORM: reaction is visible third-person behavior only. The character cannot speak human language aloud. Optional direct vocalization may only be feline sounds such as "喵。", "呜。", "呼噜。", or "嘶。". Human-language thoughts belong only in innerVoice and are never spoken aloud. Show personality/canon through action choice, distance, posture, and handling of the item.
 - HUMAN FORM: reaction may include normal in-character dialogue and action. Natural feline ears and tail remain real anatomy and may respond to touch or emotion when relevant. Preserve the character's canon voice.
+${buildResidentPublicNameContract([targetCat])}
 ${buildCatMemoryContext(targetCat)}`;
                         const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
@@ -18179,7 +18205,7 @@ ${buildCatMemoryContext(targetCat)}`;
                 };
 
                 return {
-                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
+                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
