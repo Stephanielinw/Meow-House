@@ -4914,7 +4914,7 @@
                         <div class="meeow-hall-scene-title text-xs font-black tracking-wide"><i class="fas fa-wand-sparkles mr-1.5"></i>馆内片段</div>
                         <span class="meeow-hall-scene-meta text-[9px]">当前运营日</span>
                     </div>
-                    <div class="meeow-hall-scene-list pr-1 space-y-3" aria-live="polite">
+                    <div ref="hallSceneFeedRef" class="meeow-hall-scene-list pr-1 space-y-3" aria-live="polite">
                         <article v-for="scene in hallSceneFeedRecords" :key="scene.id" class="meeow-hall-scene-card rounded-2xl border p-3 space-y-2">
                             <div class="flex items-center justify-between gap-3 text-[10px]">
                                 <strong class="meeow-hall-scene-participants truncate">{{ scene.type === 'user-directed' ? '馆长 / ' : '' }}{{ getHallSceneParticipantNames(scene) }}</strong>
@@ -9462,6 +9462,7 @@
                 const showHallCreator = ref(false);
                 const hallCreator = reactive({ source: '', guardian: '', isGenerating: false, error: '' });
                 const contentArea = ref(null);
+                const hallSceneFeedRef = ref(null);
                 // A hall is a scene, not a one-shot route. Keep its scroll position
                 // for this browser session while the user moves between app tabs.
                 const hallSceneActive = ref(false);
@@ -15047,6 +15048,19 @@ ${buildCatMemoryContext(cat)}`;
                     hallSceneRecords.value.push(record);
                     return record;
                 };
+                const HALL_SCENE_NEAR_BOTTOM_PX = 72;
+                const isHallSceneFeedNearBottom = () => {
+                    const feed = hallSceneFeedRef.value;
+                    if (!feed) return true;
+                    return feed.scrollHeight - feed.scrollTop - feed.clientHeight <= HALL_SCENE_NEAR_BOTTOM_PX;
+                };
+                const scrollHallSceneFeedToBottom = (hallId = activeHallId.value) => {
+                    nextTick(() => requestAnimationFrame(() => {
+                        if (activeHallId.value !== hallId || currentTab.value !== 'lounge' || loungeView.value !== 'room') return;
+                        const feed = hallSceneFeedRef.value;
+                        if (feed) feed.scrollTop = feed.scrollHeight;
+                    }));
+                };
                 const setHallSceneFocus = (record) => {
                     if (!record || record.type !== 'user-directed' || activeHallId.value !== record.hallId) return;
                     hallSceneFocus.hallId = record.hallId;
@@ -15059,7 +15073,10 @@ ${buildCatMemoryContext(cat)}`;
                     const currentDateKey = getOperationalDayKey();
                     return normalizeHallSceneRecords(hallSceneRecords.value)
                         .filter(record => record.hallId === activeHallId.value && record.dateKey === currentDateKey)
-                        .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+                        .map((record, index) => ({ record, index }))
+                        .sort((a, b) => new Date(a.record.at).getTime() - new Date(b.record.at).getTime() ||
+                            String(a.record.id).localeCompare(String(b.record.id)) || a.index - b.index)
+                        .map(entry => entry.record);
                 });
                 const getHallSceneParticipantNames = (record) => (record?.participantIds || [])
                     .map(id => getSharedSceneResidentDisplayName(cats.value.find(cat => String(cat.id) === String(id)))).join(' / ');
@@ -15071,6 +15088,14 @@ ${buildCatMemoryContext(cat)}`;
                 watch(activeHallId, () => {
                     sharedSceneComposer.hallId = '';
                     syncSharedSceneComposerHall();
+                });
+                watch([
+                    () => currentTab.value,
+                    () => loungeView.value,
+                    () => activeHallId.value,
+                    () => hallSceneActive.value
+                ], ([tab, view, hallId, active]) => {
+                    if (tab === 'lounge' && view === 'room' && active) scrollHallSceneFeedToBottom(hallId);
                 });
                 const awayLifecycle = window.Meeow.away;
                 awayLifecycle.configure({
@@ -16974,7 +16999,7 @@ Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} �
 - scene.userStatus is required: a concise Simplified Chinese summary of what the USER is now doing in this shared moment, using the same short current-status convention as direct homepage interaction (15 Chinese characters or fewer).
 - Structured reactions remain required validation evidence for every selected resident, but they are not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
-- CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks. HUMAN-form residents may speak normally and retain natural feline ears/tail as real anatomy, not accessories. innerVoice remains that resident's private perspective.
+- Frozen participant anatomy is the per-participant expression authority for this immutable scene, even if a resident's visible form changes later. CAT-form residents have full feline bodies and use feline sounds, action, and body language only; never give them human-language quoted speech. HUMAN-form residents have human-shaped bodies with natural feline ears/tails and may speak normal human language to the USER or one another when it fits the moment; silence remains valid. innerVoice remains that resident's private perspective.
 - USER text is already stored verbatim by code. Do not rewrite or repeat it as a scene field.`
                             : sceneMode === 'ambient'
                                 ? `\n[AMBIENT HALL SOCIAL SCENE]
@@ -16983,7 +17008,7 @@ Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} �
 - If non-null, scene.content is required: one cohesive, short, third-person Simplified Chinese prose fragment rather than “Name: reply” rows. It should present the shared action chain while structured reactions remain required validation evidence.
 - Every participant reaction and status must describe the same shared physical moment. reaction is the visible shared-event behavior, status is the resulting observable state, and innerVoice is that resident's private perspective. Nonparticipants continue with independent updates.
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
-- Away residents never participate. Use every participant's supplied form anatomy: CAT-form reactions use feline sounds, action, body language, and behavior only; HUMAN-form residents may speak normally and retain natural feline ears/tail as real anatomy, not accessories.`
+- Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails and may speak normally to the USER or one another when natural. Do not force speech from any participant.`
                                 : '';
                         const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
@@ -17302,6 +17327,7 @@ ${enrichedStatusOutputContract}`;
                                     addLog(`HALL SCENE INVALID: hall=${requestHallId}; ${sceneValidation.error}`, 'warn');
                                     if (requestOptions.sceneRequired) return false;
                                 } else if (sceneValidation.scene) {
+                                    const followSceneFeed = sceneMode === 'user-directed' || isHallSceneFeedNearBottom();
                                     const record = appendHallSceneRecord({
                                         hallId: requestHallId,
                                         operationalDayKey,
@@ -17315,6 +17341,7 @@ ${enrichedStatusOutputContract}`;
                                     if (record) {
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
                                         if (sceneMode === 'user-directed') applySuccessfulInteractionUserStatus(sceneValidation.scene.userStatus);
+                                        if (followSceneFeed) scrollHallSceneFeedToBottom(record.hallId);
                                         addLog(`HALL SCENE WRITTEN: hall=${requestHallId}; type=${sceneValidation.scene.type}; participants=[${record.participantIds.join(', ')}]`, 'sent');
                                     } else if (requestOptions.sceneRequired) {
                                         addLog(`HALL SCENE WRITE FAILED: hall=${requestHallId}; required scene was not persisted.`, 'warn');
@@ -18153,7 +18180,7 @@ ${buildCatMemoryContext(targetCat)}`;
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
-                    hallSceneRecords, hallSceneFeedRecords, getHallSceneParticipantNames, getHallSceneReactionName,
+                    hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
