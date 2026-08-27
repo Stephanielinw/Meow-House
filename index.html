@@ -15860,15 +15860,124 @@ ${buildCatMemoryContext(cat)}`;
                     snapshot.backfillDiaryTasks = getPendingAwayBackfillTasks();
                     return snapshot;
                 };
+                const DAILY_SHARED_SCENE_MAX_COUNT = 4;
+                const DAILY_SHARED_SCENE_MAX_CHARS = 2400;
+                const compactDailySharedSceneText = (value, limit) => cleanText(value || '').slice(0, limit);
+                const normalizeDailySharedSceneEvidence = (scene) => {
+                    if (!scene || typeof scene !== 'object' || Array.isArray(scene)) return null;
+                    const sceneId = compactDailySharedSceneText(scene.sceneId, 180);
+                    const at = typeof scene.at === 'string' && parseLogicalDate(scene.at) ? scene.at : '';
+                    const type = scene.type === 'ambient' ? 'ambient' : scene.type === 'user-directed' ? 'user-directed' : '';
+                    const participantNames = Array.isArray(scene.participantNames)
+                        ? scene.participantNames.map(name => compactDailySharedSceneText(name, 48)).filter(Boolean).slice(0, 8)
+                        : [];
+                    const content = compactDailySharedSceneText(scene.content, 600);
+                    const reaction = compactDailySharedSceneText(scene.reaction, 300);
+                    if (!sceneId || !at || !type || !participantNames.length || !content || !reaction) return null;
+                    return {
+                        sceneId,
+                        at,
+                        type,
+                        participantNames,
+                        ...(type === 'user-directed' ? { userText: compactDailySharedSceneText(scene.userText, 240) } : {}),
+                        content,
+                        reaction
+                    };
+                };
+                const getDailySharedSceneMemoryBonus = (cat, sceneId) => {
+                    const sourceKey = `shared-scene:${String(sceneId)}`;
+                    const memory = (Array.isArray(cat?.episodicMemories) ? cat.episodicMemories : [])
+                        .find(entry => String(entry?.sourceKey || '') === sourceKey);
+                    if (!memory) return 0;
+                    const importance = Number(memory.importance);
+                    const emotionalWeight = Number(memory.emotionalWeight);
+                    return (Number.isInteger(importance) && importance >= 1 && importance <= 5 ? importance : 0) +
+                        (Number.isInteger(emotionalWeight) && emotionalWeight >= 1 && emotionalWeight <= 5 ? emotionalWeight : 0) +
+                        (memory.unresolved === true ? 1 : 0);
+                };
+                const buildDailySharedSceneEvidence = (archiveDateKey) => {
+                    const candidatesByResident = new Map();
+                    normalizeHallSceneRecords(hallSceneRecords.value)
+                        .filter(record => record.dateKey === archiveDateKey)
+                        .forEach(record => {
+                            const participantNames = record.participantIds
+                                .map(id => getResidentPublicName(cats.value.find(cat => String(cat.id) === String(id))))
+                                .map(name => compactDailySharedSceneText(name, 48));
+                            record.participantIds.forEach(residentId => {
+                                const resident = cats.value.find(cat => String(cat.id) === String(residentId));
+                                const reaction = record.reactions.find(item => String(item.id) === String(residentId));
+                                if (!resident || !reaction?.content || !participantNames.length) return;
+                                const evidence = normalizeDailySharedSceneEvidence({
+                                    sceneId: String(record.id),
+                                    at: record.at,
+                                    type: record.type,
+                                    participantNames,
+                                    ...(record.type === 'user-directed' ? { userText: record.userText } : {}),
+                                    content: compactDailySharedSceneText(record.content, 600),
+                                    reaction: compactDailySharedSceneText(reaction.content, 300)
+                                });
+                                if (!evidence) return;
+                                const memoryBonus = getDailySharedSceneMemoryBonus(resident, record.id);
+                                if (!candidatesByResident.has(String(resident.id))) candidatesByResident.set(String(resident.id), []);
+                                candidatesByResident.get(String(resident.id)).push({
+                                    evidence,
+                                    memoryBonus,
+                                    timestamp: parseLogicalDate(record.at)?.getTime() || 0
+                                });
+                            });
+                        });
+                    const byResident = {};
+                    candidatesByResident.forEach((candidates, residentId) => {
+                        const ordered = candidates.sort((left, right) =>
+                            (left.evidence.type === 'user-directed' ? 0 : 1) - (right.evidence.type === 'user-directed' ? 0 : 1) ||
+                            right.memoryBonus - left.memoryBonus ||
+                            right.timestamp - left.timestamp ||
+                            String(left.evidence.sceneId).localeCompare(String(right.evidence.sceneId))
+                        );
+                        const selected = [];
+                        ordered.forEach(candidate => {
+                            if (selected.length >= DAILY_SHARED_SCENE_MAX_COUNT) return;
+                            const nextChars = JSON.stringify([...selected, candidate.evidence]).length;
+                            if (nextChars > DAILY_SHARED_SCENE_MAX_CHARS) return;
+                            selected.push(candidate.evidence);
+                        });
+                        if (selected.length) byResident[residentId] = selected;
+                        addLog(`DAILY ARCHIVE SHARED SCENES: resident=${residentId}; available=${candidates.length}; included=${selected.length}.`, 'info');
+                    });
+                    return { archiveDateKey, byResident };
+                };
+                const hasMatchingDailySharedSceneEvidence = (evidence, archiveDateKey) =>
+                    Boolean(evidence && typeof evidence === 'object' && evidence.archiveDateKey === archiveDateKey &&
+                        evidence.byResident && typeof evidence.byResident === 'object' && !Array.isArray(evidence.byResident));
+                const attachDailySharedSceneEvidence = (snapshot, evidence) => {
+                    const byResident = hasMatchingDailySharedSceneEvidence(evidence, snapshot.dateKey) ? evidence.byResident : {};
+                    snapshot.cats.forEach(snapshotCat => {
+                        const selected = [];
+                        (Array.isArray(byResident[String(snapshotCat.id)]) ? byResident[String(snapshotCat.id)] : [])
+                            .map(normalizeDailySharedSceneEvidence)
+                            .filter(Boolean)
+                            .forEach(scene => {
+                                if (selected.length >= DAILY_SHARED_SCENE_MAX_COUNT) return;
+                                const nextChars = JSON.stringify([...selected, scene]).length;
+                                if (nextChars <= DAILY_SHARED_SCENE_MAX_CHARS) selected.push(scene);
+                            });
+                        snapshotCat.witnessedSharedScenes = selected;
+                    });
+                    return snapshot;
+                };
                 // Saved user data is loaded before these helpers are declared.
                 // Normalize once here; later imports normalize at their own apply
                 // point as well, without rewriting historical diary entries.
                 ensurePendingAwayDiaryDays();
-                const captureDailySnapshot = (archiveDateKey = getPreviousOperationalDayKey()) => ({
-                    capturedAt: new Date().toISOString(),
-                    date: getArchiveDateLabel(archiveDateKey),
-                    dateKey: archiveDateKey,
-                    cats: cats.value.map(cat => ({
+                const captureDailySnapshot = (archiveDateKey = getPreviousOperationalDayKey(), frozenWitnessedSharedScenes = null) => {
+                    const witnessedSharedScenes = hasMatchingDailySharedSceneEvidence(frozenWitnessedSharedScenes, archiveDateKey)
+                        ? frozenWitnessedSharedScenes
+                        : buildDailySharedSceneEvidence(archiveDateKey);
+                    return attachDailySharedSceneEvidence({
+                        capturedAt: new Date().toISOString(),
+                        date: getArchiveDateLabel(archiveDateKey),
+                        dateKey: archiveDateKey,
+                        cats: cats.value.map(cat => ({
                         id: cat.id,
                         name: cat.name,
                         hallId: cat.hallId,
@@ -15891,18 +16000,19 @@ ${buildCatMemoryContext(cat)}`;
                         monitor: (cat.diary || []).filter(record => recordMatchesOperationalDay(record, archiveDateKey)),
                         travelogues: [...(cat.travelogues || [])],
                         completedAwayEpisodes: getCompletedAwayDiaryEpisodes(cat.id, archiveDateKey).map(serializeCompletedAwayDiaryEpisode)
-                    })),
-                    missionReports: [...(user.missionReports || [])],
-                    todos: [...(user.todos || [])],
-                    deadlines: [...(user.deadlines || [])],
-                    schedule: [...(user.schedule || [])],
-                    mailState: {
-                        dailyMailCount: user.dailyMailCount || 0,
-                        lastMailDate: user.lastMailDate || '',
-                        lastMailAt: user.lastMailAt || 0,
-                        lastMailSenderId: user.lastMailSenderId || null
-                    }
-                });
+                        })),
+                        missionReports: [...(user.missionReports || [])],
+                        todos: [...(user.todos || [])],
+                        deadlines: [...(user.deadlines || [])],
+                        schedule: [...(user.schedule || [])],
+                        mailState: {
+                            dailyMailCount: user.dailyMailCount || 0,
+                            lastMailDate: user.lastMailDate || '',
+                            lastMailAt: user.lastMailAt || 0,
+                            lastMailSenderId: user.lastMailSenderId || null
+                        }
+                    }, witnessedSharedScenes);
+                };
                 const getPrivateAwayExperiences = (snapshotCat, archiveDateKey) => (snapshotCat?.travelogues || [])
                     .filter(record => {
                         if (!record || record.source !== 'away' || record.kind !== 'activity' || !cleanText(record.residentActivity || '') || !record.at) return false;
@@ -15918,7 +16028,8 @@ ${buildCatMemoryContext(cat)}`;
                     return (snapshotCat.todayInteractions || []).some(event => triggerTypes.has(event.type)) ||
                         (snapshotCat.chatHistory || []).length > 0 || // compatibility for a save made before typed events
                         getPrivateAwayExperiences(snapshotCat, archiveDateKey).length > 0 ||
-                        (snapshotCat.completedAwayEpisodes || []).length > 0;
+                        (snapshotCat.completedAwayEpisodes || []).length > 0 ||
+                        (snapshotCat.witnessedSharedScenes || []).length > 0;
                 };
                 const clearDailyCatRecords = (dateKey = getOperationalDayKey(), archivedBefore = null) => {
                     const cutoff = archivedBefore ? new Date(archivedBefore).getTime() : Number.POSITIVE_INFINITY;
@@ -16036,6 +16147,7 @@ ${buildCatMemoryContext(cat)}`;
                         interactions: cat.todayInteractions || [],
                         chat: cat.chatHistory || [],
                         monitoring: cat.monitor || [],
+                        witnessedSharedScenes: cat.witnessedSharedScenes || [],
                         focus: task.kind === 'current'
                             ? archiveFocusReports.filter(report => String(report.executor || '').includes(cat.name)).slice(-5)
                             : [],
@@ -16091,6 +16203,11 @@ ${JSON.stringify(diaryContext)}
 - plannedArchiveNarrative is a separate episode memory. Use it only as private grounding; do not copy it verbatim into the daily diary. Synthesize the resident's whole operational day instead.
 - Diary prose is a resident-perspective narrative surface, not CAT-form spoken dialogue. Preserve canon identity, worldview, relationships, priorities, and private knowledge without automatically exposing hidden identity.
 
+[PREVIOUS-DAY WITNESSED SHARED SCENES]
+- witnessedSharedScenes is available personal diary material for that exact resident, not a mandatory recap or a shared transcript.
+- Each entry contains only the visible shared-scene presentation, the compact public names of its participants, a user-directed USER action when present, and this resident's own visible reaction. Treat it as knowledge this resident witnessed; never infer or add another resident's private thoughts, reaction, prompt-only context, memory data, or episodic-memory prose.
+- A consequential scene may be reflected on when it fits the resident's canon voice and perspective. Mundane scenes, intentional silence, and character-valid avoidance are equally valid; do not force a mention or recitation.
+
 [HISTORICAL DIARY TASKS]
 - Every diary task's dateKey is authoritative. taskKind:"backfill" means an earlier operational day became diary-ready only after an Away Episode later completed.
 - Write each diary only from that row's own supplied context and dateKey. Do not let the current archive day's house overview, tasks, schedule, focus records, summary, news, or social moment leak into a historical backfill.
@@ -16119,6 +16236,7 @@ ${JSON.stringify(diaryContext)}
                     };
                     const cat = task?.cat || {};
                     [...(cat.todayInteractions || []), ...(cat.chatHistory || []), ...(cat.monitor || [])].forEach(record => addTimestamp(record?.at));
+                    (cat.witnessedSharedScenes || []).forEach(scene => addTimestamp(scene?.at));
                     (cat.completedAwayEpisodes || []).forEach(episode => addTimestamp(episode?.departedAt));
                     const episodeIds = new Set((cat.completedAwayEpisodes || []).map(episode => String(episode.id)));
                     (cat.travelogues || []).forEach(record => {
@@ -16310,6 +16428,10 @@ ${JSON.stringify(diaryContext)}
                             loadingProgress.value = 15;
                             const initializationBatchId = `daily-init-${operationalKey}-${Date.now()}`;
                             const archiveDateKey = pendingArchive?.archiveDateKey || getPreviousOperationalDayKey(now);
+                            const reusablePendingWitnessedSharedScenes = pendingArchive?.archiveDateKey === archiveDateKey &&
+                                hasMatchingDailySharedSceneEvidence(pendingArchive?.witnessedSharedScenes, archiveDateKey)
+                                ? pendingArchive.witnessedSharedScenes
+                                : null;
                             pendingArchive = saveDailyArchivePending({
                                 version: 1,
                                 archiveDateKey,
@@ -16317,14 +16439,24 @@ ${JSON.stringify(diaryContext)}
                                 fromOperationalKey: lastOperationalKey || archiveDateKey,
                                 createdAt: pendingArchive?.createdAt || new Date().toISOString(),
                                 awaitingUser: false,
-                                lastError: ''
+                                lastError: '',
+                                ...(reusablePendingWitnessedSharedScenes ? { witnessedSharedScenes: reusablePendingWitnessedSharedScenes } : {})
                             });
                             let dailySnapshot = null;
                             try {
                                 loadingMessage.value = '正在冻结上一运营日记录，准备生成完整归档包…';
                                 loadingOperation.phase = '冻结昨日记录';
                                 loadingOperation.stepText = '步骤 1/3 · 读取互动、监控与档案';
-                                dailySnapshot = prepareAwayDiaryTasks(captureDailySnapshot(archiveDateKey));
+                                dailySnapshot = prepareAwayDiaryTasks(captureDailySnapshot(archiveDateKey, reusablePendingWitnessedSharedScenes));
+                                pendingArchive = saveDailyArchivePending({
+                                    ...pendingArchive,
+                                    witnessedSharedScenes: {
+                                        archiveDateKey,
+                                        byResident: Object.fromEntries(dailySnapshot.cats
+                                            .filter(cat => Array.isArray(cat.witnessedSharedScenes) && cat.witnessedSharedScenes.length)
+                                            .map(cat => [String(cat.id), cat.witnessedSharedScenes]))
+                                    }
+                                });
                                 const payload = await generateDailyArchivePackage(dailySnapshot, {
                                     batchId: initializationBatchId,
                                     cancelBatchOnAbort: true,
