@@ -187,6 +187,9 @@ const normalizeCatHall = (cat) => {
         diary: Array.isArray(cat.diary) ? cat.diary : [],
         logs: Array.isArray(cat.logs) ? cat.logs : [],
         chatHistory: Array.isArray(cat.chatHistory) ? cat.chatHistory : [],
+        // Resident-owned long-term event memory. Existing saves begin empty;
+        // historical logs and archives deliberately remain separate sources.
+        episodicMemories: Array.isArray(cat.episodicMemories) ? cat.episodicMemories : [],
         // User-uploaded full-body action sprites are independent from
         // the paused in-house pixel workshop. Only a saved standing
         // sprite can replace the normal profile image.

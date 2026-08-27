@@ -23,6 +23,156 @@
             : 'CAT FORM: full feline body. They communicate aloud only through feline sounds and feline body language.';
     };
 
+    const EPISODIC_KNOWLEDGE_MODES = new Set([
+        'direct-conversation', 'witnessed', 'self-experience', 'milestone'
+    ]);
+    const EPISODIC_MAX_SUMMARY_CHARS = 280;
+    const EPISODIC_MAX_TAGS = 8;
+    const EPISODIC_MAX_TAG_CHARS = 32;
+    // These words are useful for conversation, but cannot on their own make a
+    // durable event relevant. Keep this small and deterministic: it is a
+    // noise guard, not a linguistic interpretation layer.
+    const GENERIC_MEMORY_TERMS = new Set([
+        '今天', '昨天', '明天', '现在', '刚才', '后来', '回来', '以后', '怎么样', '什么', '这个', '那个',
+        '事情', '一下', '可以', '已经', '还是', '如果', '因为', '然后', '真的', '感觉', '时候', '这里', '那里',
+        '一起', '你们', '我们', '他们', '他们的', '就是', '没有', '不会', '应该', '只是', '还有', '还是',
+        'the', 'and', 'with', 'that', 'this', 'then', 'when', 'what', 'have', 'from', 'about'
+    ]);
+
+    const truncateEpisodicText = (value, maxChars) => {
+        const text = cleanText(value || '');
+        return text.length > maxChars ? text.slice(0, maxChars) : text;
+    };
+    const parseEpisodicTimestamp = (value) => {
+        if (typeof value !== 'string') return null;
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+    const stableMemoryHash = (value) => {
+        let hash = 2166136261;
+        for (const char of String(value || '')) {
+            hash ^= char.charCodeAt(0);
+            hash = Math.imul(hash, 16777619);
+        }
+        return (hash >>> 0).toString(36);
+    };
+    const getMeaningfulMemoryTerms = (value) => {
+        const text = cleanText(value || '').toLocaleLowerCase();
+        if (!text) return [];
+        const terms = new Set();
+        (text.match(/[a-z0-9][a-z0-9'-]{1,}/g) || []).forEach(term => {
+            if (!GENERIC_MEMORY_TERMS.has(term)) terms.add(term);
+        });
+        let cjkText = text;
+        [...GENERIC_MEMORY_TERMS].filter(term => /[\u3400-\u9fff]/.test(term) && term.length > 1)
+            .forEach(term => { cjkText = cjkText.split(term).join(' '); });
+        (cjkText.match(/[\u3400-\u9fff]+/g) || []).forEach(sequence => {
+            for (let index = 0; index < sequence.length - 1; index += 1) {
+                const term = sequence.slice(index, index + 2);
+                if (!GENERIC_MEMORY_TERMS.has(term)) terms.add(term);
+            }
+        });
+        return [...terms];
+    };
+    const hasMeaningfulMemoryOverlap = (left, right) => {
+        const leftTerms = new Set(getMeaningfulMemoryTerms(left));
+        return getMeaningfulMemoryTerms(right).some(term => leftTerms.has(term));
+    };
+    const getKnownResidentIds = () => new Set((dependencies.getCats?.() || [])
+        .filter(cat => cat && cat.id !== undefined && cat.id !== null)
+        .map(cat => String(cat.id)));
+    const normalizeEpisodicParticipants = (ownerId, values) => {
+        const knownIds = getKnownResidentIds();
+        const participants = [...new Set((Array.isArray(values) ? values : [])
+            .map(value => String(value || '').trim())
+            .filter(id => id === 'USER' || knownIds.has(id)))];
+        if (!participants.includes(ownerId)) participants.unshift(ownerId);
+        return participants;
+    };
+    const normalizeEpisodicTags = (values) => [...new Set((Array.isArray(values) ? values : [])
+        .map(value => truncateEpisodicText(value, EPISODIC_MAX_TAG_CHARS))
+        .filter(Boolean))].slice(0, EPISODIC_MAX_TAGS);
+    const normalizeEpisodicMemory = (memory, ownerId, { allowGeneratedId = false } = {}) => {
+        if (!memory || typeof memory !== 'object' || Array.isArray(memory) || !ownerId) return null;
+        const sourceType = truncateEpisodicText(memory.sourceType, 48);
+        const sourceKey = truncateEpisodicText(memory.sourceKey, 180);
+        const eventAt = parseEpisodicTimestamp(memory.eventAt);
+        const createdAt = parseEpisodicTimestamp(memory.createdAt);
+        const summary = truncateEpisodicText(memory.summary, EPISODIC_MAX_SUMMARY_CHARS);
+        const importance = Number(memory.importance);
+        const emotionalWeight = Number(memory.emotionalWeight);
+        const knowledgeMode = String(memory.knowledgeMode || '').trim();
+        const requestedOwner = memory.ownerId === undefined || memory.ownerId === null
+            ? ownerId
+            : String(memory.ownerId);
+        if (requestedOwner !== ownerId || !sourceType || !sourceKey || !eventAt || !createdAt || !summary ||
+            !Number.isInteger(importance) || importance < 1 || importance > 5 ||
+            !Number.isInteger(emotionalWeight) || emotionalWeight < 1 || emotionalWeight > 5 ||
+            !EPISODIC_KNOWLEDGE_MODES.has(knowledgeMode)) return null;
+        const id = String(memory.id || (allowGeneratedId ? `episodic-${ownerId}-${stableMemoryHash(sourceKey)}` : '')).trim();
+        if (!id) return null;
+        return {
+            id,
+            ownerId,
+            sourceType,
+            sourceKey,
+            eventAt: eventAt.toISOString(),
+            createdAt: createdAt.toISOString(),
+            summary,
+            participantIds: normalizeEpisodicParticipants(ownerId, memory.participantIds),
+            tags: normalizeEpisodicTags(memory.tags),
+            importance,
+            emotionalWeight,
+            unresolved: memory.unresolved === true,
+            knowledgeMode
+        };
+    };
+    const normalizeEpisodicMemories = (cat) => {
+        if (!cat || cat.id === undefined || cat.id === null) return [];
+        const ownerId = String(cat.id);
+        const seenSourceKeys = new Set();
+        const normalized = (Array.isArray(cat.episodicMemories) ? cat.episodicMemories : [])
+            .map(memory => normalizeEpisodicMemory(memory, ownerId))
+            .filter(memory => {
+                if (!memory || seenSourceKeys.has(memory.sourceKey)) return false;
+                seenSourceKeys.add(memory.sourceKey);
+                return true;
+            });
+        cat.episodicMemories = normalized;
+        return normalized;
+    };
+    const getEpisodicMemories = (cat) => {
+        if (!cat || cat.id === undefined || cat.id === null) return [];
+        const ownerId = String(cat.id);
+        const seenSourceKeys = new Set();
+        return (Array.isArray(cat.episodicMemories) ? cat.episodicMemories : [])
+            .map(memory => normalizeEpisodicMemory(memory, ownerId))
+            .filter(memory => {
+                if (!memory || seenSourceKeys.has(memory.sourceKey)) return false;
+                seenSourceKeys.add(memory.sourceKey);
+                return true;
+            })
+            .map(memory => ({ ...memory, participantIds: [...memory.participantIds], tags: [...memory.tags] }));
+    };
+    const hasEpisodicMemorySource = (cat, sourceKey) => Boolean(sourceKey &&
+        getEpisodicMemories(cat).some(memory => memory.sourceKey === String(sourceKey)));
+    const appendEpisodicMemory = (cat, memory) => {
+        if (!cat || cat.id === undefined || cat.id === null) return { stored: false, reason: 'missing-owner', memory: null };
+        const ownerId = String(cat.id);
+        const existing = normalizeEpisodicMemories(cat);
+        const candidate = normalizeEpisodicMemory({
+            ...memory,
+            ownerId,
+            createdAt: memory?.createdAt || new Date().toISOString()
+        }, ownerId, { allowGeneratedId: true });
+        if (!candidate) return { stored: false, reason: 'invalid', memory: null };
+        if (existing.some(entry => entry.sourceKey === candidate.sourceKey)) {
+            return { stored: false, reason: 'duplicate', memory: null };
+        }
+        cat.episodicMemories.push(candidate);
+        return { stored: true, reason: '', memory: candidate };
+    };
+
     const getPermanentDiaryEntries = (cat, limit = 5) => (cat?.logs || []).slice(-limit)
         .map(entry => `[${entry.date || entry.time || '历史'}] ${cleanText(entry.content || '')}`);
     const getRecentMonitorEntries = (cat, limit = 16) => (cat?.diary || []).slice(-limit)
@@ -160,6 +310,12 @@ Continuity: ${truncateMemoryText(continuity || 'None', 34)}`;
         getLatestHouseBriefing,
         buildCatIdentityBlock,
         buildCatMemoryContext,
-        buildStatusSyncCatContext
+        buildStatusSyncCatContext,
+        normalizeEpisodicMemories,
+        getEpisodicMemories,
+        hasEpisodicMemorySource,
+        appendEpisodicMemory,
+        getMeaningfulMemoryTerms,
+        hasMeaningfulMemoryOverlap
     });
 }(window));

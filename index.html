@@ -12864,6 +12864,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         const content = cleanText(await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000, ThinkingLevel.HIGH));
                         if (!content) throw new Error('首次拟人化内容为空。');
                         unlockResidentHumanForm(cat, { now: new Date() });
+                        storeFirstHumanRevealMemory(cat);
                         currentSpecialEventContent.value = content;
                         pendingSpecialEvent.value = { cat: cat, content, type: 'human-reveal' };
                         showSpecialEventModal.value = true;
@@ -14381,6 +14382,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 window.Meeow.memory.configure({
                     getUser: () => user,
+                    getCats: () => cats.value,
                     getHalls: () => halls.value,
                     getCurrentHall: () => currentHall.value,
                     getDateContext,
@@ -14401,6 +14403,158 @@ ${buildCatMemoryContext(cat)}`;
                 const getLatestHouseBriefing = window.Meeow.memory.getLatestHouseBriefing;
                 const buildCatIdentityBlock = window.Meeow.memory.buildCatIdentityBlock;
                 const buildCatMemoryContext = window.Meeow.memory.buildCatMemoryContext;
+                const normalizeEpisodicMemories = window.Meeow.memory.normalizeEpisodicMemories;
+                const appendEpisodicMemory = window.Meeow.memory.appendEpisodicMemory;
+                const hasMeaningfulMemoryOverlap = window.Meeow.memory.hasMeaningfulMemoryOverlap;
+                cats.value.forEach(cat => normalizeEpisodicMemories(cat));
+                const stableEpisodicSourceHash = (value) => {
+                    let hash = 2166136261;
+                    for (const char of String(value || '')) {
+                        hash ^= char.charCodeAt(0);
+                        hash = Math.imul(hash, 16777619);
+                    }
+                    return (hash >>> 0).toString(36);
+                };
+                const getHomepageGroundedResidentIds = (owner, userText = '') => {
+                    if (!owner?.id) return [];
+                    const hallId = owner.hallId || (owner.isMarvel ? 'marvel' : 'gotham');
+                    const ownerWindow = [
+                        cleanText(userText),
+                        ...(owner.chatHistory || []).slice(-12).map(entry => cleanText(entry?.content || '')),
+                        ...(owner.todayInteractions || []).slice(-10).map(entry => cleanText(entry?.content || ''))
+                    ].join('\n').toLocaleLowerCase();
+                    return cats.value.filter(cat => {
+                        const name = getResidentPublicName(cat).toLocaleLowerCase();
+                        return String(cat.id) !== String(owner.id) &&
+                            (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === hallId &&
+                            name.length > 1 && ownerWindow.includes(name);
+                    }).map(cat => String(cat.id));
+                };
+                const getHomepageInteractionRecord = (cat, chatAt, message, type = 'chat-user') => {
+                    const normalizedMessage = cleanText(message || '');
+                    const entries = Array.isArray(cat?.todayInteractions) ? [...cat.todayInteractions].reverse() : [];
+                    return entries.find(entry => entry?.type === type && entry?.source === 'detail-chat' && entry?.chatAt === chatAt) ||
+                        entries.find(entry => entry?.type === type && entry?.source === 'detail-chat' &&
+                            cleanText(entry?.content || '') === normalizedMessage && entry?.at === chatAt) || null;
+                };
+                const getHomepageMemorySource = (cat, interactionRecord, chatAt, message) => {
+                    const ownerId = String(cat.id);
+                    if (interactionRecord?.id) {
+                        return {
+                            sourceKey: `homepage:${ownerId}:${String(interactionRecord.id)}`,
+                            eventAt: interactionRecord.at || chatAt || new Date().toISOString()
+                        };
+                    }
+                    const fallbackIdentity = `${ownerId}|${chatAt || 'no-chat-time'}|${cleanText(message || '')}`;
+                    return {
+                        sourceKey: `homepage:${ownerId}:fallback-${stableEpisodicSourceHash(fallbackIdentity)}`,
+                        eventAt: chatAt || new Date().toISOString()
+                    };
+                };
+                const normalizeHomepageMemoryCandidate = ({ candidate, owner, userText, reply, groundedRelatedIds }) => {
+                    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+                    const summary = cleanText(candidate.summary || '');
+                    const relatedResidentIds = Array.isArray(candidate.relatedResidentIds)
+                        ? [...new Set(candidate.relatedResidentIds.map(id => String(id || '').trim()).filter(Boolean))] : null;
+                    const tags = Array.isArray(candidate.tags)
+                        ? [...new Set(candidate.tags.map(tag => cleanText(tag || '')).filter(Boolean))].slice(0, 8) : null;
+                    const importance = Number(candidate.importance);
+                    const emotionalWeight = Number(candidate.emotionalWeight);
+                    if (!summary || summary.length < 18 || summary.length > 280 || !relatedResidentIds || !tags ||
+                        !Number.isInteger(importance) || importance < 3 || importance > 5 ||
+                        !Number.isInteger(emotionalWeight) || emotionalWeight < 1 || emotionalWeight > 5 ||
+                        !hasMeaningfulMemoryOverlap(summary, `${userText || ''}\n${reply || ''}`)) return null;
+                    const grounded = new Set(groundedRelatedIds || []);
+                    if (relatedResidentIds.some(id => !grounded.has(id))) return null;
+                    const allowedIds = new Set([String(owner.id), ...relatedResidentIds]);
+                    const unauthorizedName = cats.value.some(cat => {
+                        const name = getResidentPublicName(cat);
+                        return String(cat.id) !== String(owner.id) && !allowedIds.has(String(cat.id)) &&
+                            name.length > 1 && summary.toLocaleLowerCase().includes(name.toLocaleLowerCase());
+                    });
+                    if (unauthorizedName) return null;
+                    return { summary, relatedResidentIds, tags, importance, emotionalWeight, unresolved: candidate.unresolved === true };
+                };
+                const logEpisodicMemoryResult = (ownerId, sourceType, result) => {
+                    const outcome = result?.stored ? 'STORED' : 'SKIPPED';
+                    const reason = result?.stored ? '' : `; reason=${result?.reason || 'not-eligible'}`;
+                    addLog(`MEMORY ${outcome}: owner=${ownerId}; source=${sourceType}${reason}`, result?.stored ? 'info' : 'info');
+                };
+                const storeHomepageEpisodicMemory = ({ owner, candidate, userText, reply, chatAt, interactionRecord }) => {
+                    const groundedRelatedIds = getHomepageGroundedResidentIds(owner, userText);
+                    const normalized = normalizeHomepageMemoryCandidate({ candidate, owner, userText, reply, groundedRelatedIds });
+                    if (!normalized) {
+                        if (candidate !== null && candidate !== undefined) logEpisodicMemoryResult(String(owner?.id || ''), 'homepage', { stored: false, reason: 'not-grounded' });
+                        return null;
+                    }
+                    const source = getHomepageMemorySource(owner, interactionRecord, chatAt, userText);
+                    const result = appendEpisodicMemory(owner, {
+                        sourceType: 'homepage',
+                        sourceKey: source.sourceKey,
+                        eventAt: source.eventAt,
+                        summary: normalized.summary,
+                        participantIds: [String(owner.id), 'USER', ...normalized.relatedResidentIds],
+                        tags: normalized.tags,
+                        importance: normalized.importance,
+                        emotionalWeight: normalized.emotionalWeight,
+                        unresolved: normalized.unresolved,
+                        knowledgeMode: 'direct-conversation'
+                    });
+                    logEpisodicMemoryResult(String(owner.id), 'homepage', result);
+                    return result.memory;
+                };
+                const normalizeSharedSceneMemoryMeta = (value) => {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+                    const tags = Array.isArray(value.tags)
+                        ? [...new Set(value.tags.map(tag => cleanText(tag || '')).filter(Boolean))].slice(0, 8) : null;
+                    const importance = Number(value.importance);
+                    const emotionalWeight = Number(value.emotionalWeight);
+                    if (!tags || !Number.isInteger(importance) || importance < 3 || importance > 5 ||
+                        !Number.isInteger(emotionalWeight) || emotionalWeight < 1 || emotionalWeight > 5) return null;
+                    return { tags, importance, emotionalWeight, unresolved: value.unresolved === true };
+                };
+                const storeSharedSceneEpisodicMemories = (record, memoryMeta) => {
+                    if (!record || !memoryMeta) return;
+                    const participantIds = [...new Set([
+                        ...(record.participantIds || []).map(id => String(id)),
+                        ...(record.type === 'user-directed' ? ['USER'] : [])
+                    ])];
+                    const summary = cleanText(record.content || '').slice(0, 280);
+                    if (!summary) return;
+                    (record.participantIds || []).forEach(id => {
+                        const owner = cats.value.find(cat => String(cat.id) === String(id));
+                        if (!owner) return;
+                        const result = appendEpisodicMemory(owner, {
+                            sourceType: 'shared-scene',
+                            sourceKey: `shared-scene:${record.id}`,
+                            eventAt: record.at,
+                            summary,
+                            participantIds,
+                            tags: memoryMeta.tags,
+                            importance: memoryMeta.importance,
+                            emotionalWeight: memoryMeta.emotionalWeight,
+                            unresolved: memoryMeta.unresolved,
+                            knowledgeMode: 'witnessed'
+                        });
+                        logEpisodicMemoryResult(String(owner.id), 'shared-scene', result);
+                    });
+                };
+                const storeFirstHumanRevealMemory = (cat) => {
+                    const result = appendEpisodicMemory(cat, {
+                        sourceType: 'first-human-reveal',
+                        sourceKey: `first-human-reveal:${String(cat.id)}`,
+                        eventAt: cat.lastFormChangeAt || new Date().toISOString(),
+                        summary: `${getResidentPublicName(cat)}首次在馆长面前显露 HUMAN 形态。`,
+                        participantIds: [String(cat.id), 'USER'],
+                        tags: ['first-human-reveal', 'form', 'milestone'],
+                        importance: 5,
+                        emotionalWeight: 5,
+                        unresolved: false,
+                        knowledgeMode: 'milestone'
+                    });
+                    logEpisodicMemoryResult(String(cat.id), 'first-human-reveal', result);
+                    return result.memory;
+                };
                 const buildStatusSyncUserContext = (additionalContext = '') => {
                     const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
                     return `[STATUS USER]\nName: ${truncateMemoryText(user.nickname || '馆长', 48)}\nCurrent status: ${truncateMemoryText(user.currentStatus || '未知', 90)}\nRecent event: ${recentEvent || 'None'}`;
@@ -16049,7 +16203,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             addLog(`[RE-ROLL] 重新定位 ${selectedCat.value.name} 的意识波段...`);
                             // We call sendMessage without adding the user message again
                             // To do this, we need a version of sendMessage that handles re-rolling
-                            await sendMessageInternal(lastUserMsg.content, false, true);
+                            await sendMessageInternal(lastUserMsg.content, false, true, lastUserMsg);
                         }
                     }
                 };
@@ -16089,7 +16243,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     return true;
                 };
 
-                const sendMessageInternal = async (arg1 = null, arg2 = false, isReRoll = false) => {
+                const sendMessageInternal = async (arg1 = null, arg2 = false, isReRoll = false, rerollSource = null) => {
                     let overrideContent = null;
                     let isItemUse = false;
                     if (typeof arg1 === 'string') { overrideContent = arg1; isItemUse = (typeof arg2 === 'boolean') ? arg2 : false; }
@@ -16103,11 +16257,19 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     const shouldSendFriendRequest = isFirstInteraction;
                     const directFormNow = new Date();
                     const activeFormDirective = buildFormDirectives([sendingCat], directFormNow)[String(sendingCat.id)];
+                    let userChatAt = cleanText(rerollSource?.at || '');
+                    let userInteractionRecord = null;
 
                     if (!isReRoll) {
                         const time = getCurrentTimeStr();
-                        sendingCat.chatHistory.push({ role: 'user', content: msg, time, at: new Date().toISOString() });
-                        appendInteractionEvent(sendingCat, isItemUse ? 'item' : 'chat-user', msg, { source: 'detail-chat' });
+                        userChatAt = new Date().toISOString();
+                        sendingCat.chatHistory.push({ role: 'user', content: msg, time, at: userChatAt });
+                        userInteractionRecord = appendInteractionEvent(sendingCat, isItemUse ? 'item' : 'chat-user', msg, {
+                            source: 'detail-chat',
+                            chatAt: userChatAt
+                        });
+                    } else {
+                        userInteractionRecord = getHomepageInteractionRecord(sendingCat, userChatAt, msg, 'chat-user');
                     }
 
                     if (isResidentAway(sendingCat) && Math.random() > 0.15) {
@@ -16253,6 +16415,11 @@ ${getCompactMapPointPromptGuide()}`
                         - Never fall into a generic sequence such as "looked for a while → ears moved → tail moved → meowed → stepped closer". Show this character's own judgment, habits, distance, and action logic instead.
                         - Rhythm example only; never copy its actions or wording as a template: 【从手边的东西上抬起眼睛，停了一瞬，又把它往怀里拢紧一点。尾尖轻轻碰了一下地面，像是在判断你这句话值不值得回应。】"喵。"【下巴重新落回前爪，视线却没有移开。】
 
+                        [OPTIONAL EPISODIC MEMORY SIDECAR]
+                        - activeCat.memoryCandidate is optional. Return null for ordinary conversation. Use it only for a durable fact established in this successful USER/${getResidentPublicName(sendingCat)} exchange, or a fact already valid from ${getResidentPublicName(sendingCat)}'s own supplied recent interaction context.
+                        - Never turn hidden prompt material, bystander context, another resident's private chat/inner voice, or a mere same-hall relationship into memory. relatedResidentIds may contain only exact machine IDs for residents explicitly named in this USER message or this active resident's supplied own recent conversation; otherwise use [].
+                        - Keep it compact and owner-perspective grounded: {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}. This sidecar never replaces the reply.
+
                         ${hallUpdateContext}
 
                         [OUTPUT]
@@ -16260,7 +16427,7 @@ ${getCompactMapPointPromptGuide()}`
                         [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
                         [${frozenBystanderIds.join(', ')}]
                         Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching hallUpdates[].id machine key.
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":""},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]}
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]}
                         This HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.
                         ${AWAY_ACTIVITY_PLANNING_RULES}
                         [OPTIONAL AWAY ENRICHMENT] plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may contain at most one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":null}; it must be after the first planned activity and before return. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans.
@@ -16293,6 +16460,16 @@ ${getCompactMapPointPromptGuide()}`
                         const replyTime = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
                         appendInteractionEvent(sendingCat, 'chat-reply', `[${getResidentForm(sendingCat)}][REPLY]: ${reply}`, { source: 'detail-chat' });
+                        if (!isItemUse) {
+                            storeHomepageEpisodicMemory({
+                                owner: sendingCat,
+                                candidate: activeResponse.memoryCandidate,
+                                userText: msg,
+                                reply,
+                                chatAt: userChatAt,
+                                interactionRecord: userInteractionRecord
+                            });
+                        }
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
                         if (frozenBystanderIds.length) {
@@ -16771,6 +16948,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (expectedType === 'user-directed' && (typeof scene.userStatus !== 'string' || !userStatus)) {
                         return { valid: false, error: 'user-directed scene requires a concise USER status.' };
                     }
+                    // This optional sidecar never affects whether a scene itself is valid.
+                    const memoryMeta = normalizeSharedSceneMemoryMeta(scene.memoryMeta);
                     const reactions = Array.isArray(scene.reactions) ? scene.reactions : [];
                     const reactionById = new Map();
                     for (const reaction of reactions) {
@@ -16810,6 +16989,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             participantIds,
                             content,
                             userStatus,
+                            memoryMeta,
                             participantForms: Object.fromEntries(participantIds.map(id => [id, normalizeFormValue(sceneContext?.participantForms?.[id]) || getResidentForm(cats.value.find(cat => String(cat.id) === id))])),
                             reactions: participantIds.map(id => ({ id, content: reactionById.get(id) }))
                         }
@@ -17021,6 +17201,7 @@ Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} �
 - This is an explicit composer action. You MUST return one non-null user-directed scene whose participantIds exactly equal Frozen required participant IDs: no additions, omissions, substitutions, or reordering-based duplicates.
 - scene.content is required: write one cohesive, short, third-person Simplified Chinese prose fragment. It must hold the USER action, participant-to-participant reactions, movement or pause, and causal continuity inside the same physical moment. Do not write separate “Name: reply” rows, unrelated individual reactions, or a chat transcript.
 - scene.userStatus is required: a concise Simplified Chinese summary of what the USER is now doing in this shared moment, using the same short current-status convention as direct homepage interaction (15 Chinese characters or fewer).
+- scene.memoryMeta is optional and may be null. Use it only for a genuinely durable shared moment: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}. It never replaces the scene prose or reactions.
 - Structured reactions remain required validation evidence for every selected resident, but they are not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
 - Frozen participant anatomy is the per-participant expression authority for this immutable scene, even if a resident's visible form changes later. CAT-form residents have full feline bodies and use feline sounds, action, and body language only; never give them human-language quoted speech. HUMAN-form residents have human-shaped bodies with natural feline ears/tails and may speak normal human language to the USER or one another when it fits the moment; silence remains valid. innerVoice remains that resident's private perspective.
@@ -17034,7 +17215,7 @@ Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} �
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
 - Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails and may speak normally to the USER or one another when natural. Do not force speech from any participant.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null}. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -17364,6 +17545,7 @@ ${enrichedStatusOutputContract}`;
                                         participantForms: sceneValidation.scene.participantForms
                                     });
                                     if (record) {
+                                        storeSharedSceneEpisodicMemories(record, sceneValidation.scene.memoryMeta);
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
                                         if (sceneMode === 'user-directed') applySuccessfulInteractionUserStatus(sceneValidation.scene.userStatus);
                                         if (followSceneFeed) scrollHallSceneFeedToBottom(record.hallId);
