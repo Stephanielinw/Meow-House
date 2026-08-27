@@ -7,6 +7,8 @@
     const INITIAL_AWAY_OPPORTUNITY_MAX_MS = 12 * 60 * 60 * 1000;
     const RETURN_AWAY_OPPORTUNITY_MIN_MS = 6 * 60 * 60 * 1000;
     const RETURN_AWAY_OPPORTUNITY_MAX_MS = 24 * 60 * 60 * 1000;
+    const INDEPENDENT_DEPARTURE_GATE_MIN_MS = 20 * 60 * 1000;
+    const INDEPENDENT_DEPARTURE_GATE_MAX_MS = 60 * 60 * 1000;
     const RECENT_RETURN_CONTINUITY_MS = 30 * 60 * 1000;
     const AWAY_EPISODE_MIN_DURATION_MINUTES = 30;
     const AWAY_EPISODE_MAX_DURATION_MINUTES = 720;
@@ -19,6 +21,7 @@
     const parseLogicalDate = (value) => dependencies.parseLogicalDate(value);
     const getCatHallId = (cat) => dependencies.getCatHallId(cat);
     const isPermanentOut = (cat) => dependencies.isPermanentOut(cat);
+    const isResidentInHall = (cat) => dependencies.isResidentInHall(cat);
     const addLog = (message, type) => dependencies.addLog(message, type);
 
     const getAwayActivityBeatCount = (durationMinutes) => {
@@ -163,12 +166,37 @@
     const schedulePostReturnAwayOpportunity = (cat, logicalReturnAt) =>
         scheduleAwayOpportunity(cat, logicalReturnAt, RETURN_AWAY_OPPORTUNITY_MIN_MS, RETURN_AWAY_OPPORTUNITY_MAX_MS);
 
-    const buildDepartureSchedule = ({ hallId, hallCats, requestedCats, episodes, departureCandidateIds = [], now = new Date(), excluded = [] }) => {
+    const getHomeReserve = (hallCats) => {
+        const residents = (hallCats || []).filter(cat => cat && !isPermanentOut(cat));
+        const eligiblePopulation = residents.length;
+        const currentHomeCount = residents.filter(cat => isResidentInHall(cat)).length;
+        return {
+            eligiblePopulation,
+            currentHomeCount,
+            minimumHome: Math.max(2, Math.ceil(eligiblePopulation * 0.5))
+        };
+    };
+
+    const getIndependentDepartureGate = (hall) => parseLogicalDate(hall?.nextIndependentDepartureAt);
+
+    const scheduleIndependentDepartureGate = (hall, establishedAt = new Date()) => {
+        if (!hall) return null;
+        const base = parseLogicalDate(establishedAt) || new Date();
+        const offset = INDEPENDENT_DEPARTURE_GATE_MIN_MS + Math.floor(Math.random() * (
+            INDEPENDENT_DEPARTURE_GATE_MAX_MS - INDEPENDENT_DEPARTURE_GATE_MIN_MS + 1
+        ));
+        const gateAt = new Date(base.getTime() + offset);
+        hall.nextIndependentDepartureAt = gateAt.toISOString();
+        return gateAt;
+    };
+
+    const buildDepartureSchedule = ({ hall, hallId, hallCats, requestedCats, episodes, departureCandidateIds = [], now = new Date(), excluded = [] }) => {
         const candidateIds = new Set((departureCandidateIds || []).map(id => String(id)));
         const directives = {};
         const due = [];
         const blocked = [...excluded];
-        const homeCount = (hallCats || []).filter(cat => !cat.isOut && !isPermanentOut(cat)).length;
+        const reserve = getHomeReserve(hallCats);
+        const departureGateUntil = getIndependentDepartureGate(hall);
         (requestedCats || []).forEach(cat => {
             if (!cat || cat.isOut || isPermanentOut(cat)) return;
             const id = String(cat.id);
@@ -182,8 +210,10 @@
         const eligibleDue = due.filter(entry => candidateIds.has(entry.id) && !getRecentReturn(episodes, entry.cat, now));
         let selected = null;
         if (eligibleDue.length) {
-            if (homeCount < 3) {
-                eligibleDue.forEach(entry => blocked.push(`${entry.id}:minimum-two-at-home`));
+            if (departureGateUntil && departureGateUntil > now) {
+                eligibleDue.forEach(entry => blocked.push(`${entry.id}:hall-departure-gate`));
+            } else if (reserve.currentHomeCount - 1 < reserve.minimumHome) {
+                eligibleDue.forEach(entry => blocked.push(`${entry.id}:minimum-home-reserve=${reserve.minimumHome}`));
             } else {
                 selected = [...eligibleDue].sort((a, b) =>
                     a.opportunityAt.getTime() - b.opportunityAt.getTime() || a.id.localeCompare(b.id)
@@ -196,7 +226,9 @@
             directives,
             dueIds: due.map(entry => entry.id),
             selectedIds: selected ? [selected.id] : [],
-            blocked
+            blocked,
+            departureGateUntil: departureGateUntil?.toISOString() || null,
+            ...reserve
         };
     };
 
@@ -381,7 +413,9 @@
         getActiveEpisode,
         getRecentReturn,
         getCompletedEpisodes,
+        getHomeReserve,
         buildDepartureSchedule,
+        scheduleIndependentDepartureGate,
         validatePlan,
         indexPlans,
         classifyPlan,

@@ -15078,6 +15078,7 @@ ${buildCatMemoryContext(cat)}`;
                     parseLogicalDate,
                     getCatHallId,
                     isPermanentOut: isPermanentOutBuiltin,
+                    isResidentInHall,
                     addLog
                 });
                 const normalizeAwayEpisodes = awayLifecycle.normalizeEpisodes;
@@ -15086,8 +15087,14 @@ ${buildCatMemoryContext(cat)}`;
                 const getActiveAwayEpisode = (catOrId, now = new Date()) => awayLifecycle.getActiveEpisode(awayEpisodes.value, catOrId, now);
                 const buildLocalAwayDepartureSchedule = (options) => awayLifecycle.buildDepartureSchedule({
                     ...options,
+                    hall: options.hall || halls.value.find(hall => hall.id === options.hallId),
                     episodes: awayEpisodes.value
                 });
+                const getAwayHomeReserve = (hallCats) => awayLifecycle.getHomeReserve(hallCats);
+                const scheduleIndependentAwayDepartureGate = (hall, establishedAt = new Date()) =>
+                    awayLifecycle.scheduleIndependentDepartureGate(hall, establishedAt);
+                const formatAwayLocalScheduleLog = (hallName, schedule) =>
+                    `AWAY LOCAL SCHEDULE: hall=${hallName}; due=[${schedule.dueIds.join(', ')}]; selected=[${schedule.selectedIds.join(', ')}]; blocked=[${schedule.blocked.join(', ')}]; departureGateUntil=${schedule.departureGateUntil || 'none'}; minimumHome=${schedule.minimumHome}; currentHome=${schedule.currentHomeCount}`;
                 const validateAwayEpisodePlan = awayLifecycle.validatePlan;
                 const indexAwayPlans = awayLifecycle.indexPlans;
                 const classifyAwayPlanDiagnostic = awayLifecycle.classifyPlan;
@@ -16124,7 +16131,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         });
                         const frozenPresenceDirectives = Object.freeze({ ...frozenDepartureSchedule.directives });
                         const frozenFormDirectives = Object.freeze(buildFormDirectives(frozenBystanders, frozenNow));
-                        addLog(`AWAY LOCAL SCHEDULE: hall=${requestHall.name}; due=[${frozenDepartureSchedule.dueIds.join(', ')}]; selected=[${frozenDepartureSchedule.selectedIds.join(', ')}]; blocked=[${frozenDepartureSchedule.blocked.join(', ')}]`, 'info');
+                        addLog(formatAwayLocalScheduleLog(requestHall.name, frozenDepartureSchedule), 'info');
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => cat.name);
                         const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => cat.name).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}`;
                         const hasFrozenBystanderCrossedOperationalDay = (cat) => {
@@ -16922,7 +16929,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 : localDepartureSchedule.directives)
                         });
                         if (localDepartureSchedule) {
-                            addLog(`AWAY LOCAL SCHEDULE: hall=${requestHall.name}; due=[${localDepartureSchedule.dueIds.join(', ')}]; selected=[${localDepartureSchedule.selectedIds.join(', ')}]; blocked=[${localDepartureSchedule.blocked.join(', ')}]`, 'info');
+                            addLog(formatAwayLocalScheduleLog(requestHall.name, localDepartureSchedule), 'info');
                         }
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
@@ -17149,14 +17156,16 @@ ${enrichedStatusOutputContract}`;
                                 return false;
                             }
 
-                            // Base Defense Rule: at least two residents remain home.
-                            // Scheduled-away residents already count as away, but are never
-                            // forcibly returned: only this sync's prospective departures are
-                            // cancellable.
-                            let outCats = catsToUpdate.filter(c => c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now));
-                            let homeCats = fullHallCats.filter(c => !c.isOut);
-                            if (fullHallCats.length >= 2 && homeCats.length < 2) {
-                                let needed = 2 - homeCats.length;
+                            // Final occupancy defense mirrors local Away scheduling. Existing
+                            // absences are never undone; only this sync's new departures may be
+                            // cancelled to preserve the hall's stable resident reserve.
+                            const homeReserve = getAwayHomeReserve(fullHallCats);
+                            let outCats = catsToUpdate.filter(c =>
+                                originalPresenceById.get(String(c.id)) === false &&
+                                c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now)
+                            );
+                            if (homeReserve.currentHomeCount < homeReserve.minimumHome) {
+                                let needed = homeReserve.minimumHome - homeReserve.currentHomeCount;
                                 for (let i = 0; i < needed && outCats.length > 0; i++) {
                                     const c = outCats.pop();
                                     const catId = String(c.id);
@@ -17167,7 +17176,7 @@ ${enrichedStatusOutputContract}`;
                                     if (proposedDiagnostic?.valid && !awayDecisionDiagnostics.discardedIds.has(catId)) {
                                         awayDecisionDiagnostics.discardedIds.add(catId);
                                         awayDecisionDiagnostics.discarded++;
-                                        addLog(`AWAY PLAN DISCARDED: resident=${catId}; stage=home-defense; reason=minimum-two-at-home defense`, 'warn');
+                                        addLog(`AWAY PLAN DISCARDED: resident=${catId}; stage=home-defense; reason=minimum-home-reserve=${homeReserve.minimumHome}`, 'warn');
                                     }
                                 }
                             }
@@ -17236,6 +17245,8 @@ ${enrichedStatusOutputContract}`;
                                     }
                                     const episode = createAwayEpisode(cat, episodePlan, now);
                                     cat.nextAwayOpportunityAt = null;
+                                    const establishedHall = halls.value.find(hall => hall.id === requestHallId);
+                                    scheduleIndependentAwayDepartureGate(establishedHall, now);
                                     awayDecisionDiagnostics.departed++;
                                     addLog(`AWAY EPISODE CREATED: resident=${catId}; episode=${episode.id}; destination=${truncateMemoryText(episode.destination || '未留下地点记录', 60)}`, 'sent');
                                     appendMonitorEvent(cat, '离开馆舍，开始处理自己的行程。', 'status-sync', { episodeId: episode.id }, now);
