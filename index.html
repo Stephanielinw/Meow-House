@@ -4519,7 +4519,7 @@
             <!-- Center: Bat Dynamic Island (灵动岛) -->
             <div class="bat-dynamic-island px-3 py-0.5 flex items-center gap-2 text-[10px] text-yellow-500 font-sans cursor-pointer max-w-[200px]"
                 v-if="isFocusing || notification.visible"
-                @click="isFocusing ? (currentTab = 'focus') : hideNotification()">
+                @click="isFocusing ? (currentTab = 'focus') : handleNotificationClick()">
                 <template v-if="notification.visible">
                     <span class="gotham-notification-mini-icon" aria-hidden="true"><i class="fas fa-bell"></i></span>
                     <span class="truncate text-white font-medium">{{ notification.title }}: {{ notification.message }}</span>
@@ -4544,7 +4544,7 @@
         </div>
 
         <!-- Notification Bar (Original Fallback Notification) -->
-        <div id="notification-bar" :class="{ 'visible': notification.visible }" @click="hideNotification">
+        <div id="notification-bar" :class="{ 'visible': notification.visible }" @click="handleNotificationClick">
             <span id="notification-avatar" class="gotham-notification-icon" aria-hidden="true"><i class="fas fa-bell"></i></span>
             <div id="notification-content">
                 <div class="name">{{ notification.title }}</div>
@@ -5959,8 +5959,11 @@
                                                             <div class="flex justify-between items-center mb-1">
                                                                 <span class="text-black text-base font-medium">{{
                                                                     phoneIdentities[cat.id].name }}</span>
-                                                                <span class="text-[10px] text-gray-400">{{
-                                                                    getPhoneLastTime(cat.id) }}</span>
+                                                                <span class="flex items-center gap-1.5">
+                                                                    <span v-if="getUnreadPhonePresenceCount(cat.id)" class="min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[9px] leading-4 text-center">{{ getUnreadPhonePresenceCount(cat.id) }}</span>
+                                                                    <span class="text-[10px] text-gray-400">{{
+                                                                        getPhoneLastTime(cat.id) }}</span>
+                                                                </span>
                                                             </div>
                                                             <div class="text-xs text-gray-400 truncate">{{
                                                                 getPhoneLastMessage(cat.id) }}</div>
@@ -8662,8 +8665,9 @@
                     <i class="fas fa-couch"></i>
                     <span>喵喵馆</span>
                 </button>
-                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'phone' }" @click="navigateToTab('phone')" aria-label="手机">
+                <button type="button" class="nav-item sully-btn relative" :class="{ active: currentTab === 'phone' }" @click="navigateToTab('phone')" aria-label="手机">
                     <i class="fas fa-mobile-alt"></i>
+                    <span v-if="phonePresenceUnreadCount" class="absolute top-0.5 right-[18%] min-w-3.5 h-3.5 px-1 rounded-full bg-red-500 text-white text-[8px] leading-[14px] text-center">{{ phonePresenceUnreadCount }}</span>
                     <span>手机</span>
                 </button>
                 <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'settings' }" @click="navigateToTab('settings')" aria-label="终端">
@@ -8751,6 +8755,7 @@
                     phoneData: {
                         chats: [],
                         chatArchives: {},
+                        nextPhonePresenceConsiderAt: null,
                         moments: [],
                         news: [],
                         delivery: [],
@@ -8934,6 +8939,7 @@
                             }
                             if (!user.phoneData.chats) user.phoneData.chats = [];
                             if (!user.phoneData.chatArchives || typeof user.phoneData.chatArchives !== 'object' || Array.isArray(user.phoneData.chatArchives)) user.phoneData.chatArchives = {};
+                            if (typeof user.phoneData.nextPhonePresenceConsiderAt !== 'string' || Number.isNaN(new Date(user.phoneData.nextPhonePresenceConsiderAt).getTime())) user.phoneData.nextPhonePresenceConsiderAt = null;
                             if (!user.phoneData.moments) user.phoneData.moments = [];
                             if (!user.phoneData.codex) user.phoneData.codex = [];
                             if (!user.phoneData.delivery) user.phoneData.delivery = [];
@@ -9809,21 +9815,28 @@
                 // System Log & Notification Refs
                 const systemLogs = ref([]);
                 const logWindow = ref(null);
-                const notification = reactive({ title: '', message: '', avatar: '', type: 'info', visible: false });
+                const notification = reactive({ title: '', message: '', avatar: '', type: 'info', visible: false, action: null });
                 let notificationTimer = null;
 
-                const showNotification = (title, message, avatarUrl = '', type = 'info') => {
+                const showNotification = (title, message, avatarUrl = '', type = 'info', action = null) => {
                     notification.title = title;
                     notification.message = message;
                     notification.avatar = avatarUrl;
                     notification.type = type;
+                    notification.action = typeof action === 'function' ? action : null;
                     notification.visible = true;
                     if (notificationTimer) clearTimeout(notificationTimer);
-                    notificationTimer = setTimeout(() => { notification.visible = false; }, 5000);
+                    notificationTimer = setTimeout(() => { notification.visible = false; notification.action = null; }, 5000);
                 };
                 const hideNotification = () => {
                     if (notificationTimer) clearTimeout(notificationTimer);
                     notification.visible = false;
+                    notification.action = null;
+                };
+                const handleNotificationClick = () => {
+                    const action = notification.action;
+                    hideNotification();
+                    if (typeof action === 'function') action();
                 };
 
                 // Focus Island State
@@ -13032,6 +13045,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     phoneState.chatTab = 'chat';
                     phoneState.selectedFriendRequestId = null;
                     phoneState.selectedContactId = catId;
+                    markPhonePresenceMessagesRead(catId);
                     addLog(`PHONE CHAT OPENED: ${cat.name}`, 'info');
                     restorePhoneChatScrollPosition(catId);
                 };
@@ -13175,14 +13189,255 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         const archives = getPhoneArchiveForContact(contactId);
                         const existing = Array.isArray(archives[dateKey]?.messages) ? archives[dateKey].messages : [];
                         const identity = (message) => message.id || `${message.at || message.ts || ''}|${message.role}|${message.type}|${message.content}`;
-                        const known = new Set(existing.map(identity));
+                        const archivePresenceMessage = (message) => message?.source === 'presence' && message.read === false
+                            ? { ...message, read: true }
+                            : message;
+                        const archivedExisting = existing.map(archivePresenceMessage);
+                        const known = new Set(archivedExisting.map(identity));
                         archives[dateKey] = {
                             dateKey,
                             archivedAt: new Date().toISOString(),
-                            messages: [...existing, ...datedMessages.filter(message => !known.has(identity(message)))]
+                            messages: [...archivedExisting, ...datedMessages.filter(message => !known.has(identity(message))).map(archivePresenceMessage)]
                         };
                         chat.history = history.filter(message => !belongsToArchive(message));
                     });
+                };
+
+                // Phone Presence has one persisted global opportunity at a time.
+                // It intentionally avoids the broad physical-world context used by
+                // ordinary resident chat.
+                const PHONE_PRESENCE_MIN_DELAY_MS = 3 * 60 * 60 * 1000;
+                const PHONE_PRESENCE_MAX_DELAY_MS = 8 * 60 * 60 * 1000;
+                const PHONE_PRESENCE_RECENT_SEND_MS = 3 * 60 * 60 * 1000;
+                const PHONE_PRESENCE_RECENT_EXCHANGE_MS = 20 * 60 * 1000;
+                let phonePresenceInFlight = false;
+
+                const parsePhonePresenceConsiderAt = (value) => {
+                    if (typeof value !== 'string') return null;
+                    const time = new Date(value).getTime();
+                    return Number.isFinite(time) ? time : null;
+                };
+                const scheduleNextPhonePresenceConsideration = (now = new Date()) => {
+                    const base = now instanceof Date ? now.getTime() : new Date(now).getTime();
+                    const safeBase = Number.isFinite(base) ? base : Date.now();
+                    const delay = PHONE_PRESENCE_MIN_DELAY_MS + Math.floor(Math.random() * (PHONE_PRESENCE_MAX_DELAY_MS - PHONE_PRESENCE_MIN_DELAY_MS + 1));
+                    const nextAt = new Date(safeBase + delay).toISOString();
+                    user.phoneData.nextPhonePresenceConsiderAt = nextAt;
+                    return nextAt;
+                };
+                const ensurePhonePresenceConsiderationSchedule = (now = new Date()) => {
+                    const existing = user.phoneData?.nextPhonePresenceConsiderAt;
+                    return parsePhonePresenceConsiderAt(existing) !== null ? existing : scheduleNextPhonePresenceConsideration(now);
+                };
+                const getDuePhonePresenceConsideration = (now = new Date()) => {
+                    const dueAt = ensurePhonePresenceConsiderationSchedule(now);
+                    const dueTime = parsePhonePresenceConsiderAt(dueAt);
+                    return dueTime !== null && dueTime <= now.getTime() ? dueAt : null;
+                };
+                const getStoredPhoneArchiveMessages = (contactId) => {
+                    const catId = getCanonicalCatId(contactId);
+                    const archives = user.phoneData?.chatArchives?.[catId];
+                    if (!archives || typeof archives !== 'object') return [];
+                    return Object.values(archives).flatMap(day => Array.isArray(day?.messages) ? day.messages : []);
+                };
+                const getAllStoredPhoneMessages = (contactId) => [
+                    ...getPhoneChatHistory(contactId),
+                    ...getStoredPhoneArchiveMessages(contactId)
+                ];
+                const getPhoneMessageTimestamp = (message) => {
+                    const raw = Number(message?.ts) || new Date(message?.at || message?.createdAt || message?.timestamp || 0).getTime();
+                    return Number.isFinite(raw) && raw > 0 ? raw : 0;
+                };
+                const getLatestPhoneMessageTimestamp = (contactId, predicate = () => true) => getAllStoredPhoneMessages(contactId)
+                    .filter(predicate)
+                    .reduce((latest, message) => Math.max(latest, getPhoneMessageTimestamp(message)), 0);
+                const getUnreadPhonePresenceCount = (contactId) => getPhoneChatHistory(contactId)
+                    .filter(message => message?.source === 'presence' && message.read === false).length;
+                const phonePresenceUnreadCount = computed(() => {
+                    const contactIds = [...new Set((user.phoneData?.friends || []).map(id => String(getCanonicalCatId(id))))];
+                    return contactIds.reduce((count, id) => count + getUnreadPhonePresenceCount(id), 0);
+                });
+                const markPhonePresenceMessagesRead = (contactId) => {
+                    const catId = getCanonicalCatId(contactId);
+                    let changed = false;
+                    const markRead = (message) => {
+                        if (message?.source === 'presence' && message.read === false) {
+                            message.read = true;
+                            changed = true;
+                        }
+                    };
+                    getPhoneChatHistory(catId).forEach(markRead);
+                    getStoredPhoneArchiveMessages(catId).forEach(markRead);
+                    return changed;
+                };
+                const hasPhonePresenceSourceKey = (sourceKey) => {
+                    if (!sourceKey) return false;
+                    const contactIds = new Set([
+                        ...(user.phoneData?.friends || []),
+                        ...(user.phoneData?.chats || []).map(chat => chat?.contactId),
+                        ...Object.keys(user.phoneData?.chatArchives || {})
+                    ].map(id => String(getCanonicalCatId(id))));
+                    return [...contactIds].some(id => getAllStoredPhoneMessages(id)
+                        .some(message => message?.source === 'presence' && message?.sourceKey === sourceKey));
+                };
+                const compactPhonePresenceText = (value, maxLength = 120) => cleanText(String(value || ''))
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .slice(0, maxLength);
+                const getPhonePresenceCandidates = (now = new Date()) => {
+                    const seen = new Set();
+                    const contacts = (user.phoneData?.friends || [])
+                        .map(id => cats.value.find(cat => sameCatId(cat.id, getCanonicalCatId(id))))
+                        .filter(cat => cat && !isPermanentOutBuiltin(cat))
+                        .filter(cat => {
+                            const key = String(cat.id);
+                            if (seen.has(key)) return false;
+                            seen.add(key);
+                            return getUnreadPhonePresenceCount(cat.id) === 0;
+                        });
+                    const currentTime = now.getTime();
+                    const preferred = contacts.filter(cat => {
+                        const lastPresence = getLatestPhoneMessageTimestamp(cat.id, message => message?.source === 'presence');
+                        const lastExchange = getLatestPhoneMessageTimestamp(cat.id);
+                        return (!lastPresence || currentTime - lastPresence >= PHONE_PRESENCE_RECENT_SEND_MS)
+                            && (!lastExchange || currentTime - lastExchange >= PHONE_PRESENCE_RECENT_EXCHANGE_MS);
+                    });
+                    return preferred.length ? preferred : contacts;
+                };
+                const choosePhonePresenceCandidate = (now = new Date()) => {
+                    const candidates = getPhonePresenceCandidates(now);
+                    return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+                };
+                const projectPhonePresenceDirectInteractions = (cat) => {
+                    const entries = Array.isArray(cat?.chatHistory) ? cat.chatHistory : [];
+                    const exchanges = [];
+                    for (let index = 0; index < entries.length; index += 1) {
+                        const userEntry = entries[index];
+                        if (userEntry?.role !== 'user' || userEntry?.isSystem) continue;
+                        const userText = compactPhonePresenceText(userEntry.content, 100);
+                        if (!userText) continue;
+                        let replyText = '';
+                        for (let nextIndex = index + 1; nextIndex < entries.length; nextIndex += 1) {
+                            const nextEntry = entries[nextIndex];
+                            if (nextEntry?.role === 'user') break;
+                            if (nextEntry?.role === 'assistant' && !nextEntry?.isSystem) {
+                                replyText = compactPhonePresenceText(nextEntry.content, 120);
+                                break;
+                            }
+                        }
+                        exchanges.push({
+                            at: cleanText(userEntry.at || userEntry.time || ''),
+                            user: userText,
+                            reply: replyText
+                        });
+                    }
+                    return exchanges.slice(-2);
+                };
+                const buildPhonePresenceSafeContext = (resident) => {
+                    const identity = phoneIdentities.value[resident.id] || { name: resident.humanName || resident.name || '联系人' };
+                    const residentHall = halls.value.find(hall => hall.id === (resident.hallId || (resident.isMarvel ? 'marvel' : 'gotham')));
+                    const userHall = currentHall.value;
+                    const isExploring = Boolean(exploreState.active && sameCatId(exploreState.companion?.id, resident.id));
+                    const isFocusingResident = Boolean(isFocusing.value && focusCats.value.some(cat => sameCatId(cat?.id, resident.id)));
+                    const isDirectlyInteracting = Boolean(isInteracting.value && sameCatId(selectedCat.value?.id, resident.id));
+                    const phoneThread = getPhoneChatHistory(resident.id).slice(-6).map(message => {
+                        const speaker = message.role === 'user' ? 'USER' : identity.name;
+                        return `${speaker}: ${compactPhonePresenceText(message.content, 100) || '（非文字内容）'}`;
+                    });
+                    const directInteractions = projectPhonePresenceDirectInteractions(resident).map(exchange =>
+                        `- ${exchange.at || 'recent'} · USER: ${exchange.user}${exchange.reply ? ` · ${identity.name}: ${exchange.reply}` : ''}`
+                    );
+                    return `[PHONE PRESENCE SAFE CONTEXT]
+PHONE CONTACT: ${identity.name}
+CONTACT VOICE: ${compactPhonePresenceText(resident.personality, 360) || '保持既有性格与说话习惯。'}
+USER PUBLIC PROFILE: ${compactPhonePresenceText(user.nickname, 60) || 'USER'} · ${compactPhonePresenceText(user.job, 80) || '未提供'}
+USER NOW: hall=${userHall?.name || 'Meeow House'}; status=${compactPhonePresenceText(user.currentStatus, 120) || '未提供'}
+CONTACT NOW: hall=${residentHall?.name || 'Meeow House'}; status=${compactPhonePresenceText(resident.status, 120) || '未提供'}; away=${isResidentAway(resident) ? 'yes' : 'no'}; visiting=${resident.isVisiting ? 'yes' : 'no'}; exploring=${isExploring ? 'yes' : 'no'}; focusing=${isFocusingResident ? 'yes' : 'no'}; directPhysicalInteraction=${isDirectlyInteracting ? 'yes' : 'no'}; sameHall=${residentHall?.id === userHall?.id ? 'yes' : 'no'}
+TIME: ${new Date().toLocaleString()} · operational day ${getOperationalDayKey(new Date())}
+RECENT DIRECT USER/CONTACT INTERACTIONS (observable only):
+${directInteractions.join('\n') || 'none'}
+RECENT SAME-CONTACT PHONE THREAD:
+${phoneThread.join('\n') || 'none'}`;
+                };
+                const parsePhonePresenceResponse = (raw) => {
+                    if (typeof raw !== 'string') return { valid: false, error: 'response is not text' };
+                    const trimmed = raw.trim();
+                    if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return { valid: false, error: 'response is not a JSON object' };
+                    let payload;
+                    try { payload = JSON.parse(trimmed); }
+                    catch { return { valid: false, error: 'response JSON is invalid' }; }
+                    if (!payload || Array.isArray(payload) || Object.keys(payload).length !== 1 || !Object.prototype.hasOwnProperty.call(payload, 'message')) {
+                        return { valid: false, error: 'response must contain exactly message' };
+                    }
+                    if (payload.message === null) return { valid: true, message: null };
+                    if (typeof payload.message !== 'string') return { valid: false, error: 'message must be string or null' };
+                    const message = compactPhonePresenceText(payload.message, 120);
+                    if (!message) return { valid: false, error: 'message is blank' };
+                    if (!/[\u3400-\u9fff]/.test(message)) return { valid: false, error: 'message must contain Chinese text' };
+                    return { valid: true, message };
+                };
+                const openPhonePresenceConversation = (contactId) => {
+                    navigateToTab('phone');
+                    nextTick(() => openPhoneChat(contactId));
+                };
+                const maybeRunPhonePresenceAfterHomepage = () => {
+                    const now = new Date();
+                    const dueAt = getDuePhonePresenceConsideration(now);
+                    if (!dueAt || phonePresenceInFlight) return;
+                    const sourceKey = `phone-presence:${dueAt}`;
+                    if (hasPhonePresenceSourceKey(sourceKey)) {
+                        scheduleNextPhonePresenceConsideration(now);
+                        addLog(`PHONE PRESENCE: result=deduped; opportunity=${dueAt}`, 'info');
+                        return;
+                    }
+                    const resident = choosePhonePresenceCandidate(now);
+                    if (!resident) {
+                        scheduleNextPhonePresenceConsideration(now);
+                        addLog(`PHONE PRESENCE: result=none-local; opportunity=${dueAt}; reason=no-eligible-contact`, 'info');
+                        return;
+                    }
+                    phonePresenceInFlight = true;
+                    const identity = phoneIdentities.value[resident.id] || { name: resident.humanName || resident.name || '联系人', avatar: getCatAvatarSource(resident) };
+                    const prompt = `[MEEOW HOUSE PHONE PRESENCE]
+You are considering one optional, incoming Phone / 喵信 message from the human-contact identity ${identity.name} to USER.
+${buildPhonePresenceSafeContext(resident)}
+
+Return exactly one JSON object and nothing else: {"message":null} OR {"message":"简短自然的简体中文消息"}.
+
+RULES:
+- Current state above is authoritative. Do not use any older premise that conflicts with it: if USER is now in the same hall, do not ask when they will return; if directPhysicalInteraction=yes, do not describe USER as absent; if away=no, do not speak as if still away.
+- A same-hall or cross-hall message can both be natural. This is an optional, occasional contact, not a required engagement. If there is no timely, character-specific reason to message, return null.
+- You may use only PHONE PRESENCE SAFE CONTEXT. Do not infer or reveal another resident's private thoughts, diary, chat, memories, Away life, Shared Scene interpretation, Focus material, Mailbox content, or any unstated world briefing.
+- Keep the Phone human-contact social convention and plausible deniability. Never make an automatic identity confession such as saying you are literally USER's cat, and do not create identity states.
+- Do not send automatic departure, return, good-morning, good-night, status-report, or engagement-bait messages. A spontaneous thought, teasing, a legitimate recent shared moment, the contact's own present situation, or ordinary character-specific social behavior may justify a message when timely.
+- No markdown, no prose wrapper, no array, no explanation.`;
+
+                    void (async () => {
+                        try {
+                            const raw = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 420, ThinkingLevel.LOW, {
+                                label: `PHONE PRESENCE · ${identity.name}`,
+                                priority: 'background'
+                            });
+                            const parsed = parsePhonePresenceResponse(raw);
+                            if (!parsed.valid) throw new Error(`Phone Presence ${parsed.error}`);
+                            if (parsed.message !== null && !hasPhonePresenceSourceKey(sourceKey)) {
+                                appendPhoneMessage(resident.id, 'assistant', 'text', parsed.message, {
+                                    source: 'presence',
+                                    sourceKey,
+                                    read: false
+                                });
+                                showNotification(identity.name, compactPhonePresenceText(parsed.message, 48), identity.avatar || getCatAvatarSource(resident), 'info', () => openPhonePresenceConversation(resident.id));
+                                addLog(`PHONE PRESENCE: result=message; resident=${String(resident.id)}; opportunity=${dueAt}`, 'info');
+                            } else {
+                                addLog(`PHONE PRESENCE: result=${parsed.message === null ? 'null' : 'deduped'}; resident=${String(resident.id)}; opportunity=${dueAt}`, 'info');
+                            }
+                            scheduleNextPhonePresenceConsideration(new Date());
+                        } catch (error) {
+                            addLog(`PHONE PRESENCE ERROR: ${cleanText(error?.message || 'request failed')}`, 'error');
+                        } finally {
+                            phonePresenceInFlight = false;
+                        }
+                    })();
                 };
                 const getPendingPhoneMessages = (contactId) => {
                     const history = getPhoneChatHistory(contactId);
@@ -16524,6 +16779,7 @@ ${getCompactMapPointPromptGuide()}`
                         }
 
                         sendingCat.lastInteractionTimestamp = Date.now();
+                        if (!isReRoll && !isItemUse) void maybeRunPhonePresenceAfterHomepage();
                     } catch (e) {
                         const isIncompleteHomepageReply = String(e?.message || '').startsWith('Homepage Chat ')
                             || String(e?.message || '') === MECHANICAL_APPEARANCE_REPLY_ERROR;
@@ -17867,6 +18123,8 @@ ${enrichedStatusOutputContract}`;
                             if (data.user) {
                                 Object.assign(user, data.user);
                                 ensurePendingAwayDiaryDays();
+                                if (!user.phoneData || typeof user.phoneData !== 'object') user.phoneData = {};
+                                ensurePhonePresenceConsiderationSchedule();
                             }
                             hallSceneRecords.value = normalizeHallSceneRecords(data.hallSceneRecords);
                             awayEpisodes.value = normalizeAwayEpisodes(data.awayEpisodes);
@@ -18404,6 +18662,7 @@ ${episodicMemory}`;
                     });
 
                     tempUserStatus.value = user.currentStatus;
+                    ensurePhonePresenceConsiderationSchedule();
                     checkSpecialEvent();
                     reconcileAwayEpisodes(new Date());
                     checkDailyInitialization();
@@ -18458,7 +18717,7 @@ ${episodicMemory}`;
                     shopItems, filteredShopItems, buyItem, openBag: () => showBag.value = true, useItem, readItem,
                     openDiary, openLogModal, openTravelogue, generateFullDiary, isGeneratingDiary,
                     isFocusing, focusCats, focusAction, focusTime, focusTotalTime, getCurrentTimeStr, isFocusAudioPlaying, toggleFocusAudioIsland,
-                    notification, showNotification, hideNotification,
+                    notification, showNotification, hideNotification, handleNotificationClick,
                     formatTime: (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`,
                     stopFocus, focusMessage, currentNoise, customNoiseUrl, playNoise, audioPlayer, harassCat, currentFocusLog, isFinishingFocus, focusSettlementLoading,
                     focusMusicAudioPlayer, focusMusicPlaying, focusMusic, currentFocusMusicTrack, isFocusMusicPlaying, openFocusMusicModal, formatFocusMusicTime, syncFocusMusicVolume, updateFocusMusicProgress, playFocusMusic, toggleFocusMusic, seekFocusMusic, addFocusMusicUrl, handleFocusMusicUpload, removeFocusMusic, handleFocusMusicEnded, handleFocusMusicError, searchFocusMusic, addFocusMusicTrack,
@@ -18488,7 +18747,7 @@ ${episodicMemory}`;
                     readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, readerTocRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
                     openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, confirmReaderCompanionChapters, continueReaderIndependently, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
-                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
+                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, getUnreadPhonePresenceCount, phonePresenceUnreadCount, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
                     openPhoneImageComposer, openPhoneLocationComposer, openPhoneMoneyComposer, togglePhoneEmojiPicker, phoneShowEmojiPicker, insertEmoji,
                     showMsgMenu, startLongPress, cancelLongPress, replyToMsg, reactToMsg, copyMsg, recallMsg,
                     openMomentsSettings, saveMomentsSettings, likeMoment, addComment, postMoment,
