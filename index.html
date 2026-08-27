@@ -10243,6 +10243,14 @@ ${buildCatMemoryContext(cat)}`;
                         : 'CAT'
                 );
                 const isResidentHuman = (cat) => getResidentForm(cat) === 'HUMAN';
+                const describeResidentForm = (catOrForm) => {
+                    const form = typeof catOrForm === 'string'
+                        ? (normalizeFormValue(catOrForm) || 'CAT')
+                        : getResidentForm(catOrForm);
+                    return form === 'HUMAN'
+                        ? 'HUMAN FORM: human-shaped body; natural cat ears in the hair/on top of the head and a natural cat tail from the lower back are ordinary physical anatomy. They can speak human language; ears and tail move naturally with attention, mood, touch, and body language.'
+                        : 'CAT FORM: full feline body. They communicate aloud only through feline sounds and feline body language.';
+                };
                 const scheduleNextFormReconsideration = (cat, now = new Date()) => {
                     if (!cat?.hasRevealedHumanForm) {
                         if (cat) cat.nextFormReconsiderAt = null;
@@ -12237,7 +12245,7 @@ JSON 格式：
 - 严格遵循调用方提供的模组、线索与结局；不要突然跳到无关阴谋。
 - 日常出行先呈现合理日常与细微异常，再随玩家选择逐渐展开风险。
 - 只在失败确实有代价的行动上请求检定；失败推进代价、危险或替代线索，绝不堵死故事。
-- 同行猫始终保持猫形态、不能说人话或暴露身份；危机时可按其原作性格和外貌动作暗中干涉，但不得强行抢走玩家选择。
+- 同行居民始终保持调用方提供的冻结可见形态，不在探索中途变化，也不得暴露身份；CAT FORM 为完整猫身、不能说人话，HUMAN FORM 为人形身体并保留自然猫耳与猫尾、可以说人话。危机时可按其原作性格和该形态自然行动，但不得强行抢走玩家选择。
 
 【控制标记】
 - 需要检定时，仅在正文末尾另起一行输出：[请求检定：技能名]
@@ -12268,7 +12276,7 @@ JSON 格式：
 当前馆舍：${hall?.name || '喵喵馆'}。
 地点：${exploreState.location?.name || '未知地点'}；地点氛围：${exploreState.location?.atmosphere || '未提供'}；常驻 NPC：${exploreState.location?.npcs || '无'}。
 ${profile}
-同行居民：${companion?.name || '无'}；冻结可见形态：${exploreState.sessionForm || (companion ? getResidentForm(companion) : 'CAT')}；外貌/品种：${companion?.breed || '未提供'}；好感度：${companion?.affinity ?? 0}；人格：${companion?.personality || '以原作设定为准'}。
+同行居民：${companion?.name || '无'}；冻结可见形态：${describeResidentForm(exploreState.sessionForm || (companion ? getResidentForm(companion) : 'CAT'))}；外貌/品种：${companion?.breed || '未提供'}；好感度：${companion?.affinity ?? 0}；人格：${companion?.personality || '以原作设定为准'}。
 表面出行目的：${exploreState.goal || '未设定'}。
 本次馆舍化 CoC 模组：
 ${compact ? '正在设计模组，暂不提供既有正文。' : (exploreState.module || '未生成')}
@@ -12843,6 +12851,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     - Logic: Must fit the recent interactions and time flow.
                     - Tone: ${cat.personality}.
                     - Language: Simplified Chinese.
+                    - The change is from a full feline body into this exact visible anatomy: ${describeResidentForm('HUMAN')} Preserve recognizable feline traits naturally; do not make ears or tail into accessories, costumes, or temporary effects.
                     `;
 
                     try {
@@ -14360,6 +14369,7 @@ ${buildCatMemoryContext(cat)}`;
                     getPreviousOperationalDayKey: (...args) => getPreviousOperationalDayKey(...args),
                     buildOwnerDailyContext: (...args) => buildOwnerDailyContext(...args),
                     getResidentForm: (cat) => getResidentForm(cat),
+                    describeResidentForm: (catOrForm) => describeResidentForm(catOrForm),
                     cleanText
                 });
                 const CAT_MEMORY_PROFILES = window.Meeow.memory.CAT_MEMORY_PROFILES;
@@ -14414,7 +14424,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (options.crossedOperationalDay) {
                         continuityLines.push('Operational-day boundary: this prior presence and indoor observation are weak historical continuity, not proof of the current location.');
                     }
-                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${cat?.name || '未命名角色'}; Form: ${getResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
+                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${cat?.name || '未命名角色'}; ${describeResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
                 };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
@@ -16163,7 +16173,7 @@ ${getCompactMapPointPromptGuide()}`
                         
                         Specific Character Traits: ${sendingCat.personality}.
                         Specific Instructions: ${sendingCat.prompt}
-                        Current Form: ${getResidentForm(sendingCat)} (${isResidentHuman(sendingCat) ? 'Can speak' : 'Meow/Hiss/Purr ONLY'}).
+                        Current physical form: ${describeResidentForm(sendingCat)}
                         [FORM LIFECYCLE AUTHORITY] current=${activeFormDirective.currentForm}; reconsideration=${activeFormDirective.reconsideration}${activeFormDirective.requiredForm ? `; required=${activeFormDirective.requiredForm}` : ''}. If LOCKED, formDecision MUST copy the required form. If ALLOWED, choose CAT or HUMAN from this resident's current preference and circumstances; neither form is superior.
                         
                         NEGATIVE PROMPT: DO NOT ACT LIKE OTHER CHARACTERS. YOU ARE ${sendingCat.name}.
@@ -16184,7 +16194,7 @@ ${getCompactMapPointPromptGuide()}`
                         - formDecision: Follow [FORM LIFECYCLE AUTHORITY]. Never switch form merely for novelty.
                         - status: third-person current action, about 10 Chinese characters. innerVoice: first-person inner monologue using 我, never meows, wrapped in 【】. userStatus: a short summary of what the USER is doing within 15 Chinese characters; ordinary chat may use "正在和${sendingCat.name}聊天".
                         - reply: 80-140 Chinese characters when natural. It must directly continue the user's turn through specific, continuous, in-character action, current status, nearby objects/space, and recent interaction.
-                        - CAT form: any direct sound may only be feline sounds such as "喵。", "呜。", or "嘶。"; never human speech. Use ordinary double quotes for an optional feline sound, never 「」. HUMAN form may speak naturally.
+                        - CAT form: any direct sound may only be feline sounds such as "喵。", "呜。", or "嘶。"; never human speech. Use ordinary double quotes for an optional feline sound, never 「」. HUMAN form may speak naturally; its real feline ears and tail remain part of ordinary physical body language when relevant.
                         - Fixed appearance is reference information, not ordinary narration material. In ordinary interaction, do not introduce breed, coat colour, eye colour, heterochromia, hair colour, or other identity-card facts. Looking, blinking, eye contact, turning the head, narrowing the eyes, shifting the gaze, or light falling on the face do NOT make eye colour relevant. Mention appearance only when the USER explicitly asks, directly interacts with that feature, or it is causally necessary to understand the event. Never narrate both heterochromia colours in ordinary dialogue.
                         - Never fall into a generic sequence such as "looked for a while → ears moved → tail moved → meowed → stepped closer". Show this character's own judgment, habits, distance, and action logic instead.
                         - Rhythm example only; never copy its actions or wording as a template: 【从手边的东西上抬起眼睛，停了一瞬，又把它往怀里拢紧一点。尾尖轻轻碰了一下地面，像是在判断你这句话值不值得回应。】"喵。"【下巴重新落回前爪，视线却没有移开。】
@@ -16315,7 +16325,7 @@ ${getCompactMapPointPromptGuide()}`
 ID: ${cat.id}
 Name: ${cat.name} (${cat.breed || '未知品种'})
 Traits: ${cat.personality || '未记录'}
-Frozen session form: ${focusSessionForms[String(cat.id)] || getResidentForm(cat)}
+Frozen session form: ${describeResidentForm(focusSessionForms[String(cat.id)] || getResidentForm(cat))}
 ${buildCatMemoryContext(cat)}`).join('\n');
                     const peerRule = participants.length > 1
                         ? `There are ${participants.length} cats supervising together: ${participants.map(cat => cat.name).join(', ')}.
@@ -16571,7 +16581,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (!targetCat) return;
                     if (settings.apiKey) {
                         const formStr = isFocusing.value ? (focusSessionForms[String(targetCat.id)] || getResidentForm(targetCat)) : getResidentForm(targetCat);
-                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${targetCat.name} (${formStr}). Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildCatMemoryContext(targetCat, { compact: true })}`;
+                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${targetCat.name}. ${describeResidentForm(formStr)} Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildCatMemoryContext(targetCat, { compact: true })}`;
                         try {
                             const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, { label: `LIGHT INTERACTION · ${targetCat.name}`, priority: 'foreground' });
                             const action = extractSection(res, 'ACTION') || cleanText(res);
@@ -16951,12 +16961,13 @@ Previous valid scene-focus IDs: [${(sceneContext.previousFocusIds || []).map(Str
 Allowed scene candidate IDs: [${(sceneContext.candidateIds || []).map(String).join(', ')}]
 Frozen required participant IDs: [${(sceneContext.requiredParticipantIds || []).map(String).join(', ')}]
 Candidates: ${sceneCandidateCats.map(cat => `${getSharedSceneResidentDisplayName(cat)} (${String(cat.id)})`).join(', ') || 'None'}
+Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} → ${describeResidentForm(sceneContext?.participantForms?.[String(cat.id)] || getResidentForm(cat))}`).join(' | ') || 'None'}
 - This is an explicit composer action. You MUST return one non-null user-directed scene whose participantIds exactly equal Frozen required participant IDs: no additions, omissions, substitutions, or reordering-based duplicates.
 - scene.content is required: write one cohesive, short, third-person Simplified Chinese prose fragment. It must hold the USER action, participant-to-participant reactions, movement or pause, and causal continuity inside the same physical moment. Do not write separate “Name: reply” rows, unrelated individual reactions, or a chat transcript.
 - scene.userStatus is required: a concise Simplified Chinese summary of what the USER is now doing in this shared moment, using the same short current-status convention as direct homepage interaction (15 Chinese characters or fewer).
 - Structured reactions remain required validation evidence for every selected resident, but they are not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
-- CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks. innerVoice remains that resident's private perspective.
+- CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks. HUMAN-form residents may speak normally and retain natural feline ears/tail as real anatomy, not accessories. innerVoice remains that resident's private perspective.
 - USER text is already stored verbatim by code. Do not rewrite or repeat it as a scene field.`
                             : sceneMode === 'ambient'
                                 ? `\n[AMBIENT HALL SOCIAL SCENE]
@@ -16965,7 +16976,7 @@ Candidates: ${sceneCandidateCats.map(cat => `${getSharedSceneResidentDisplayName
 - If non-null, scene.content is required: one cohesive, short, third-person Simplified Chinese prose fragment rather than “Name: reply” rows. It should present the shared action chain while structured reactions remain required validation evidence.
 - Every participant reaction and status must describe the same shared physical moment. reaction is the visible shared-event behavior, status is the resulting observable state, and innerVoice is that resident's private perspective. Nonparticipants continue with independent updates.
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
-- Away residents never participate. CAT-form reactions use feline sounds, action, body language, and behavior only; never put human dialogue in quotation marks.`
+- Away residents never participate. Use every participant's supplied form anatomy: CAT-form reactions use feline sounds, action, body language, and behavior only; HUMAN-form residents may speak normally and retain natural feline ears/tail as real anatomy, not accessories.`
                                 : '';
                         const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be empty or contain one {"sendAfterMinutes":95,"content":"concise in-character mail","attachment":{"name":"","icon":"","desc":""} or null}; it must be after the first planned activity and before return. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}]}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
@@ -17935,7 +17946,7 @@ ${enrichedStatusOutputContract}`;
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
                     try {
-                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Current Form: ${itemForm}. Return JSON only:
+                        const prompt = `User gives [${targetItem.name}] to ${targetCat.name}. Cat Personality: ${targetCat.personality}. Current physical form: ${describeResidentForm(itemForm)} Return JSON only:
 {
   "liked": boolean,
   "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
@@ -17945,7 +17956,7 @@ ${enrichedStatusOutputContract}`;
 All four fields are mandatory. reaction, status, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another.
 [FORM RULES]
 - CAT FORM: reaction is visible third-person behavior only. The character cannot speak human language aloud. Optional direct vocalization may only be feline sounds such as "喵。", "呜。", "呼噜。", or "嘶。". Human-language thoughts belong only in innerVoice and are never spoken aloud. Show personality/canon through action choice, distance, posture, and handling of the item.
-- HUMAN FORM: reaction may include normal in-character dialogue and action. Preserve the character's canon voice.
+- HUMAN FORM: reaction may include normal in-character dialogue and action. Natural feline ears and tail remain real anatomy and may respond to touch or emotion when relevant. Preserve the character's canon voice.
 ${buildCatMemoryContext(targetCat)}`;
                         const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
