@@ -12861,16 +12861,26 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const triggerHumanFormEvent = async (cat) => {
                     if (!settings.apiKey) return;
                     const prompt = `
-                    EVENT: Cat (${cat.name}) affinity > 50. First time revealing Human Form.
+                    [FIRST WITNESSED HUMAN REVEAL]
+                    Resident: ${getResidentPublicName(cat)}. Affinity has reached the existing first-reveal threshold.
                     ${buildCatMemoryContext(cat)}
-                    
-                    TASK: Write a 50-word scene describing ${cat.name} finally revealing their human form to the user.
-                    REQUIREMENTS:
-                    - Include Dialogue, Action, and Psychological description.
-                    - Logic: Must fit the recent interactions and time flow.
-                    - Tone: ${cat.personality}.
-                    - Language: Simplified Chinese.
-                    - The change is from a full feline body into this exact visible anatomy: ${describeResidentForm('HUMAN')} Preserve recognizable feline traits naturally; do not make ears or tail into accessories, costumes, or temporary effects.
+
+                    WORLD FACTS:
+                    - Until this exact moment, the USER has known this resident physically in CAT form. This is the first time the USER witnesses this resident transform in shared physical space and hear the newly revealed HUMAN form speak aloud.
+                    - This does NOT mean the resident has never used human language through Phone / 喵信 or another existing human-identity channel. Preserve any such history; the novelty is the first witnessed physical CAT → HUMAN reveal and in-person HUMAN-form voice.
+                    - This event unlocks HUMAN as another natural living form. It is not a permanent promotion, an identity confession, or a change to Phone conventions.
+                    - HUMAN anatomy is exact and ordinary: a human-shaped body with natural living cat ears integrated with the hair/on top of the head and a natural living cat tail from the lower back. Ears and tail move with attention, tension, uncertainty, embarrassment, curiosity, and mood. They are never accessories, costume pieces, detachable parts, magical decorations, or remnants of CAT form.
+
+                    TASK:
+                    Write one cohesive 250–450 Chinese-character scene in Simplified Chinese. It is a compact but substantial shared moment, not a heading, checklist, lore monologue, proclamation, exposition dump, or chat transcript.
+
+                    SCENE AUTHORITY:
+                    - Let ${getResidentPublicName(cat)} make a character-specific decision, hesitation, impulse, or quiet commitment before transforming. The emotional shape must fit: ${cat.personality}. Pride, deliberate calm, defiance, tenderness, awkwardness, theatrical bravado, irritation, curiosity, or restraint may all be valid; do not make every resident timid or vulnerable.
+                    - Embody the transformation enough to feel real without body horror or sexualization: changing height or balance, paws becoming hands/feet, hair/ears settling into HUMAN anatomy, tail repositioning, an unfamiliar human voice, or a brief need to orient in the room are possible natural details. Preserve recognizable feline traits.
+                    - Let ears, tail, posture, hands, expression, distance, or pause reveal emotion before or alongside the resident's first spoken human-language words from this physically revealed HUMAN form. The words may be ordinary, sharp, dry, formal, playful, blunt, or dramatic only when that genuinely fits this resident. Do not impose archaic speech, a catchphrase, or a speech length.
+                    - The resident may look toward the USER and try to read the visible reaction space, but the USER's actual reaction is UNKNOWN unless explicitly established in supplied interaction context. Never narrate, decide, or assume USER dialogue, touch, acceptance, reassurance, fear, understanding, forgiveness, smile, embrace, internal emotion, or any action the USER did not provide. Do not force recoil either.
+                    - End with open space for the USER to respond: the resident may wait, fall quiet, hold distance, or leave their words hanging. Do not resolve the event by deciding how the USER feels or reacts.
+                    - Keep the scene in current continuity. Do not create an identity-state machine, automatically collapse Phone and resident identities, or make this a Phone confession.
                     `;
 
                     try {
