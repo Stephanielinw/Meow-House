@@ -8811,6 +8811,8 @@
                     BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS,
                     OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
                     normalizeCatHall,
+                    RESIDENT_RELATIONSHIP_TAGS,
+                    normalizeResidentRelationships,
                     rosterHasValue,
                     rosterRecordKey,
                     mergeRosterRecords,
@@ -8923,6 +8925,12 @@
                         else if (savedHall) Object.assign(savedHall, { ...hall, destinations: savedHall.destinations || [] });
                     });
                 };
+                const normalizeResidentRelationshipRoster = () => {
+                    const knownResidentIds = new Set(cats.value.map(cat => String(cat.id)));
+                    cats.value.forEach(cat => {
+                        cat.residentRelationships = normalizeResidentRelationships(cat.residentRelationships, String(cat.id), knownResidentIds);
+                    });
+                };
 
                 if (savedData) {
                     try {
@@ -9005,6 +9013,7 @@
                 }
 
                 mergeBuiltInCats();
+                normalizeResidentRelationshipRoster();
 
                 // Neutralize only bundled legacy labels; user-created profile text and items remain untouched.
                 if (user.nickname === '哥谭市民') user.nickname = '馆长';
@@ -15379,6 +15388,131 @@ ${buildCatMemoryContext(cat)}`;
                         };
                     })
                     .filter(record => record.hallId && record.dateKey && record.at && record.participantIds.length && record.reactions.length);
+                const RESIDENT_RELATIONSHIP_MAX_TAGS = 4;
+                const RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS = 64;
+                const RESIDENT_RELATIONSHIP_MAX_EVENTS = 40;
+                const clampResidentRelationshipValue = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : 0));
+                const normalizeRelationshipDeltaTags = (value) => {
+                    if (value === undefined) return [];
+                    if (!Array.isArray(value)) return null;
+                    const tags = [...new Set(value.map(tag => String(tag || '').trim()))];
+                    return tags.every(tag => RESIDENT_RELATIONSHIP_TAGS.has(tag)) ? tags : null;
+                };
+                const normalizeResidentRelationshipDeltas = (deltas, participantIds = []) => {
+                    if (!Array.isArray(deltas)) return [];
+                    const participantSet = new Set(participantIds.map(id => String(id || '').trim()).filter(Boolean));
+                    return deltas.map(delta => {
+                        if (!delta || typeof delta !== 'object' || Array.isArray(delta)) return null;
+                        const fromId = String(delta.fromId || '').trim();
+                        const toId = String(delta.toId || '').trim();
+                        if (!fromId || !toId || fromId === toId || !participantSet.has(fromId) || !participantSet.has(toId)) return null;
+                        const fromCat = cats.value.find(cat => String(cat.id) === fromId);
+                        const toCat = cats.value.find(cat => String(cat.id) === toId);
+                        if (!fromCat || !toCat) return null;
+                        const readDelta = (field, minimum, maximum) => {
+                            if (delta[field] === undefined) return 0;
+                            return Number.isInteger(delta[field]) && delta[field] >= minimum && delta[field] <= maximum ? delta[field] : null;
+                        };
+                        const familiarityDelta = readDelta('familiarityDelta', 0, 1);
+                        const warmthDelta = readDelta('warmthDelta', -1, 1);
+                        const trustDelta = readDelta('trustDelta', -1, 1);
+                        const tensionDelta = readDelta('tensionDelta', -1, 1);
+                        const addTags = normalizeRelationshipDeltaTags(delta.addTags);
+                        const removeTags = normalizeRelationshipDeltaTags(delta.removeTags);
+                        if ([familiarityDelta, warmthDelta, trustDelta, tensionDelta].some(value => value === null) || addTags === null || removeTags === null) return null;
+                        return { fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, removeTags };
+                    }).filter(Boolean);
+                };
+                const relationshipFamiliarityLabels = ['little emergent shared history', 'slightly familiar', 'somewhat familiar', 'quite familiar', 'very familiar', 'deeply familiar through repeated shared experience'];
+                const relationshipWarmthLabel = value => value <= -3 ? 'cold' : value < 0 ? 'distant' : value === 0 ? 'neutral' : value <= 2 ? 'somewhat warm' : 'strongly warm';
+                const relationshipTrustLabel = value => value <= -3 ? 'distrustful' : value < 0 ? 'cautious' : value === 0 ? 'neutral' : value <= 2 ? 'some trust' : 'strong trust';
+                const relationshipTensionLabel = value => value === 0 ? 'little tension' : value === 1 ? 'mild tension' : value === 2 ? 'noticeable tension' : 'strong unresolved tension';
+                const formatResidentRelationshipSummary = (relationship) => [
+                    relationshipFamiliarityLabels[clampResidentRelationshipValue(relationship.familiarity, 0, 5)],
+                    `${relationshipWarmthLabel(clampResidentRelationshipValue(relationship.warmth, -5, 5))} warmth`,
+                    `${relationshipTrustLabel(clampResidentRelationshipValue(relationship.trust, -5, 5))} trust`,
+                    relationshipTensionLabel(clampResidentRelationshipValue(relationship.tension, 0, 5)),
+                    Array.isArray(relationship.tags) && relationship.tags.length ? relationship.tags.join(', ') : ''
+                ].filter(Boolean).join('; ');
+                const buildUserDirectedRelationshipContext = (participantCats) => {
+                    const lines = [];
+                    participantCats.forEach(fromCat => {
+                        participantCats.forEach(toCat => {
+                            if (String(fromCat.id) === String(toCat.id)) return;
+                            const relationship = fromCat.residentRelationships?.[String(toCat.id)];
+                            if (!relationship) return;
+                            lines.push(`${getResidentPublicName(fromCat)} → ${getResidentPublicName(toCat)}: ${formatResidentRelationshipSummary(relationship)}`);
+                        });
+                    });
+                    return lines.length
+                        ? `\n[EMERGENT RESIDENT RELATIONSHIPS]\n${lines.join('\n').slice(0, 900)}\nUse this compact save-specific continuity only; do not infer or expose private history.`
+                        : '';
+                };
+                const applyResidentRelationshipDeltas = (record, deltas) => {
+                    if (!record || !Array.isArray(deltas)) return;
+                    const participantIds = [...new Set((record.participantIds || []).map(id => String(id || '').trim()).filter(Boolean))];
+                    const participantSet = new Set(participantIds);
+                    const knownResidentIds = new Set(cats.value.map(cat => String(cat.id)));
+                    const sourceKey = `shared-scene:${String(record.id)}`;
+                    const appliedDirections = new Set();
+                    normalizeResidentRelationshipDeltas(deltas, participantIds).forEach(delta => {
+                        const directionKey = `${delta.fromId}->${delta.toId}`;
+                        if (appliedDirections.has(directionKey) || !participantSet.has(delta.fromId) || !participantSet.has(delta.toId)) return;
+                        const fromCat = cats.value.find(cat => String(cat.id) === delta.fromId);
+                        const toCat = cats.value.find(cat => String(cat.id) === delta.toId);
+                        if (!fromCat || !toCat || delta.fromId === delta.toId || !knownResidentIds.has(delta.fromId) || !knownResidentIds.has(delta.toId)) return;
+                        const relationships = normalizeResidentRelationships(fromCat.residentRelationships, delta.fromId, knownResidentIds);
+                        const existing = relationships[delta.toId];
+                        if (existing?.appliedSceneKeys?.includes(sourceKey)) return;
+                        const current = existing || { familiarity: 0, warmth: 0, trust: 0, tension: 0, tags: [], appliedSceneKeys: [], events: [] };
+                        const nextValues = {
+                            familiarity: clampResidentRelationshipValue(current.familiarity + delta.familiarityDelta, 0, 5),
+                            warmth: clampResidentRelationshipValue(current.warmth + delta.warmthDelta, -5, 5),
+                            trust: clampResidentRelationshipValue(current.trust + delta.trustDelta, -5, 5),
+                            tension: clampResidentRelationshipValue(current.tension + delta.tensionDelta, 0, 5)
+                        };
+                        const changes = {
+                            familiarity: nextValues.familiarity - current.familiarity,
+                            warmth: nextValues.warmth - current.warmth,
+                            trust: nextValues.trust - current.trust,
+                            tension: nextValues.tension - current.tension
+                        };
+                        const addSet = new Set(delta.addTags);
+                        const removeSet = new Set(delta.removeTags);
+                        const actualAddTags = delta.addTags.filter(tag => !removeSet.has(tag));
+                        const actualRemoveTags = delta.removeTags.filter(tag => !addSet.has(tag));
+                        const previousTags = Array.isArray(current.tags) ? current.tags : [];
+                        const afterRemove = previousTags.filter(tag => !actualRemoveTags.includes(tag));
+                        const removedTags = previousTags.filter(tag => !afterRemove.includes(tag));
+                        const nextTags = [...afterRemove];
+                        actualAddTags.forEach(tag => {
+                            if (!nextTags.includes(tag) && nextTags.length < RESIDENT_RELATIONSHIP_MAX_TAGS) nextTags.push(tag);
+                        });
+                        const addedTags = nextTags.filter(tag => !previousTags.includes(tag));
+                        if (!Object.values(changes).some(value => value !== 0) && !addedTags.length && !removedTags.length) return;
+                        const event = {
+                            sourceKey,
+                            sceneId: String(record.id),
+                            at: record.at,
+                            changes,
+                            addedTags,
+                            removedTags,
+                            evidenceExcerpt: cleanText(record.content || '').slice(0, 160)
+                        };
+                        fromCat.residentRelationships = {
+                            ...relationships,
+                            [delta.toId]: {
+                                ...current,
+                                ...nextValues,
+                                tags: nextTags.slice(0, RESIDENT_RELATIONSHIP_MAX_TAGS),
+                                appliedSceneKeys: [...(current.appliedSceneKeys || []).filter(key => key !== sourceKey), sourceKey].slice(-RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS),
+                                events: [...(current.events || []), event].slice(-RESIDENT_RELATIONSHIP_MAX_EVENTS)
+                            }
+                        };
+                        appliedDirections.add(directionKey);
+                        addLog(`RELATIONSHIP UPDATED: from=${delta.fromId}; to=${delta.toId}; source=${sourceKey}; familiarity=${changes.familiarity}; warmth=${changes.warmth}; trust=${changes.trust}; tension=${changes.tension}`, 'info');
+                    });
+                };
                 const pruneHallSceneRecords = (dateKey = getOperationalDayKey()) => {
                     hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value)
                         .filter(record => record.dateKey === dateKey);
@@ -17418,6 +17552,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             content,
                             userStatus,
                             memoryMeta,
+                            relationshipDeltas: normalizeResidentRelationshipDeltas(scene.relationshipDeltas, participantIds),
                             participantForms: Object.fromEntries(participantIds.map(id => [id, normalizeFormValue(sceneContext?.participantForms?.[id]) || getResidentForm(cats.value.find(cat => String(cat.id) === id))])),
                             reactions: participantIds.map(id => ({ id, content: reactionById.get(id) }))
                         }
@@ -17626,6 +17761,7 @@ Allowed scene candidate IDs: [${(sceneContext.candidateIds || []).map(String).jo
 Frozen required participant IDs: [${(sceneContext.requiredParticipantIds || []).map(String).join(', ')}]
 Candidates: ${sceneCandidateCats.map(cat => `${getSharedSceneResidentDisplayName(cat)} (${String(cat.id)})`).join(', ') || 'None'}
 Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} → ${describeResidentForm(sceneContext?.participantForms?.[String(cat.id)] || getResidentForm(cat))}`).join(' | ') || 'None'}
+${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || []).map(id => sceneCandidateCats.find(cat => String(cat.id) === String(id))).filter(Boolean))}
 - This is an explicit composer action. You MUST return one non-null user-directed scene whose participantIds exactly equal Frozen required participant IDs: no additions, omissions, substitutions, or reordering-based duplicates.
 - scene.content is required: write one cohesive, short, third-person Simplified Chinese prose fragment. It must hold the USER action, participant-to-participant reactions, movement or pause, and causal continuity inside the same physical moment. Do not write separate “Name: reply” rows, unrelated individual reactions, or a chat transcript.
 - scene.userStatus is required: a concise Simplified Chinese summary of what the USER is now doing in this shared moment, using the same short current-status convention as direct homepage interaction (15 Chinese characters or fewer).
@@ -17633,6 +17769,7 @@ Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} �
 - Structured reactions remain required validation evidence for every selected resident, but they are not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
 - Frozen participant anatomy is the per-participant expression authority for this immutable scene, even if a resident's visible form changes later. CAT-form residents have full feline bodies and use feline sounds, action, and body language only; never give them human-language quoted speech. HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is their normal, first-class communication channel, not a rare exception: when the shared moment naturally calls for verbal exchange—especially a direct USER question, explanation, promise, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange—normally let them communicate in brief, natural human-language dialogue. Ears, tail, posture, gesture, and expression should enrich speech rather than replace it by default. Keep cohesive third-person prose, never dialogue-row screenplay formatting, and never force a spoken line or answer: silence remains valid when it reads as an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice. innerVoice remains that resident's private perspective.
+- relationshipDeltas is optional metadata. Use it only when the visible shared event meaningfully establishes, reinforces, weakens, complicates, or resolves an interpersonal tendency; an empty array is normal. Each entry is directional and must use frozen participant IDs with integer familiarityDelta 0 or 1, integer warmthDelta/trustDelta/tensionDelta from -1 to 1, and only these tags: protective, competitive, wary, affectionate, amused, resentful, fascinated, awkward, deferential. A direction's judgment must rely only on the visible scene, that resident's own observable reaction, events that resident actually witnessed, and legitimate existing canon characterization. Ignore private/hidden context, inner voices, diaries, episodic memories, Away material, other residents' private context, and USER-only hidden knowledge. Do not force symmetry or invent a relationship update for ordinary shared presence.
 - USER text is already stored verbatim by code. Do not rewrite or repeat it as a scene field.`
                             : sceneMode === 'ambient'
                                 ? `\n[AMBIENT HALL SOCIAL SCENE]
@@ -17641,9 +17778,10 @@ Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} �
 - If non-null, scene.content is required: one cohesive, short, third-person Simplified Chinese prose fragment rather than “Name: reply” rows. It should present the shared action chain while structured reactions remain required validation evidence.
 - Every participant reaction and status must describe the same shared physical moment. reaction is the visible shared-event behavior, status is the resulting observable state, and innerVoice is that resident's private perspective. Nonparticipants continue with independent updates.
 - Every participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the interaction; do not invent map topology or require identical map points.
-- Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is normal first-class communication for each HUMAN participant, not a rare exception: when a shared moment naturally involves questions, explanations, promises, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange, normally let brief natural dialogue carry that content, enriched by ears, tail, posture, gesture, and expression rather than replaced by them. Keep cohesive third-person prose, not dialogue-row screenplay formatting. Do not force speech: silence remains valid when it is an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice.`
+- Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is normal first-class communication for each HUMAN participant, not a rare exception: when a shared moment naturally involves questions, explanations, promises, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange, normally let brief natural dialogue carry that content, enriched by ears, tail, posture, gesture, and expression rather than replaced by them. Keep cohesive third-person prose, not dialogue-row screenplay formatting. Do not force speech: silence remains valid when it is an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice.
+- relationshipDeltas is optional metadata and never required for a valid scene. If supplied, use only frozen participant IDs and the bounded integer fields/tags described for the user-directed scene. Judge each direction only from visible shared-scene material and that resident's legitimate observable experience; ignore private/hidden context, inner voices, diaries, episodic memories, Away material, and other residents' private context. Do not force symmetry or relationship change for mundane presence.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be [] or contain one {"sendAfterMinutes":95,"content":"路边那张旧明信片很像馆里的窗。","attachment":null}; for this 210-minute / first-activity-at-35 example, it is after the first activity and before return. It is an occasional physical trace of meaningful Away life, never an automatic departure/return notice. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null}. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be [] or contain one {"sendAfterMinutes":95,"content":"路边那张旧明信片很像馆里的窗。","attachment":null}; for this 210-minute / first-activity-at-35 example, it is after the first activity and before return. It is an occasional physical trace of meaningful Away life, never an automatic departure/return notice. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -17981,6 +18119,7 @@ ${enrichedStatusOutputContract}`;
                                     });
                                     if (record) {
                                         storeSharedSceneEpisodicMemories(record, sceneValidation.scene.memoryMeta);
+                                        applyResidentRelationshipDeltas(record, sceneValidation.scene.relationshipDeltas);
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
                                         if (sceneMode === 'user-directed') applySuccessfulInteractionUserStatus(sceneValidation.scene.userStatus);
                                         if (followSceneFeed) scrollHallSceneFeedToBottom(record.hallId);
@@ -18265,6 +18404,7 @@ ${enrichedStatusOutputContract}`;
                             if (data.cats) cats.value = data.cats.map(normalizeCatHall);
                             if (data.halls) halls.value = data.halls;
                             mergeBuiltInCats();
+                            normalizeResidentRelationshipRoster();
                             normalizeCustomHallPresentation();
                             if (data.settings) Object.assign(settings, data.settings);
                             if (data.catPaintAssets) await restoreCatPaintBackups(data.catPaintAssets);
@@ -18420,7 +18560,7 @@ ${enrichedStatusOutputContract}`;
                         const existingNames = roomCats.value.map(c => c.name).join(', ');
                         const systemPrompt = `You are ${gachaResult.value.name}. Personality: ${gachaResult.value.personality || 'unknown'}. Breed: ${gachaResult.value.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality. Do NOT default to tsundere or generic cute-cat behavior. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Express your character\'s unique voice, emotional range, worldview, moral boundaries and important relationships authentically. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}. ${gachaResult.value.prompt}`;
                         const id = Date.now();
-                        cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: 10, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
+                            cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: 10, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], residentRelationships: {}, innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
                         currentTab.value = 'lounge';
                     }
                     gachaResult.value = null;

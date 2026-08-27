@@ -29,7 +29,7 @@ const makeHallCat = (id, hallId, data) => ({
     id, hallId, ...data, isOut: false, affinity: 10, isHuman: false,
     hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null,
     nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [],
-    travelogues: [], todayInteractions: [], lastFocusTime: 0,
+    travelogues: [], todayInteractions: [], residentRelationships: {}, lastFocusTime: 0,
     lastInteractionTimestamp: 0, lastLogDate: null, lastStatusUpdateTime: Date.now()
 });
 
@@ -147,6 +147,13 @@ const ALL_BUILTIN_CATS = [
 ];
 const BUILTIN_CAT_PROFILES = new Map(ALL_BUILTIN_CATS.map(cat => [String(cat.id), cat]));
 const PERMANENT_OUT_BUILTIN_IDS = new Set(['gotham-test']);
+const RESIDENT_RELATIONSHIP_TAGS = new Set([
+    'protective', 'competitive', 'wary', 'affectionate', 'amused',
+    'resentful', 'fascinated', 'awkward', 'deferential'
+]);
+const RESIDENT_RELATIONSHIP_MAX_TAGS = 4;
+const RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS = 64;
+const RESIDENT_RELATIONSHIP_MAX_EVENTS = 40;
 const isPermanentOutBuiltin = (cat) => PERMANENT_OUT_BUILTIN_IDS.has(String(cat?.id));
 const BUILTIN_CANONICAL_PROMPT_REFRESH_IDS = new Set(['1', '3', '4', '5', 'marvel-harry', 'greek-antinous', 'greek-melanthios']);
 const BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS = new Map([
@@ -157,6 +164,62 @@ const BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS = new Map([
 const OBSOLETE_ITHACA_BUILTIN_MIGRATIONS = {
     'greek-molanthios': 'greek-melanthios',
     'greek-peleus': 'greek-peiraios'
+};
+
+const clampResidentRelationshipValue = (value, minimum, maximum) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 0;
+    return Math.max(minimum, Math.min(maximum, Math.trunc(numeric)));
+};
+const sanitizeResidentRelationshipTags = (values) => [...new Set(
+    (Array.isArray(values) ? values : [])
+        .map(value => String(value || '').trim())
+        .filter(value => RESIDENT_RELATIONSHIP_TAGS.has(value))
+)].slice(0, RESIDENT_RELATIONSHIP_MAX_TAGS);
+const sanitizeResidentRelationshipSceneKeys = (values) => [...new Set(
+    (Array.isArray(values) ? values : [])
+        .map(value => String(value || '').trim())
+        .filter(value => /^shared-scene:.+/.test(value))
+)].slice(-RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS);
+const normalizeResidentRelationshipEvents = (events) => (Array.isArray(events) ? events : [])
+    .map(event => {
+        if (!event || typeof event !== 'object' || Array.isArray(event)) return null;
+        const sceneId = String(event.sceneId || '').trim().slice(0, 180);
+        const sourceKey = String(event.sourceKey || '').trim();
+        const at = typeof event.at === 'string' && !Number.isNaN(new Date(event.at).getTime()) ? event.at : '';
+        const changes = event.changes && typeof event.changes === 'object' && !Array.isArray(event.changes) ? event.changes : null;
+        if (!sceneId || sourceKey !== `shared-scene:${sceneId}` || !at || !changes) return null;
+        const normalizedChanges = {
+            familiarity: clampResidentRelationshipValue(changes.familiarity, 0, 1),
+            warmth: clampResidentRelationshipValue(changes.warmth, -1, 1),
+            trust: clampResidentRelationshipValue(changes.trust, -1, 1),
+            tension: clampResidentRelationshipValue(changes.tension, -1, 1)
+        };
+        const addedTags = sanitizeResidentRelationshipTags(event.addedTags);
+        const removedTags = sanitizeResidentRelationshipTags(event.removedTags);
+        const evidenceExcerpt = String(event.evidenceExcerpt || '').trim().slice(0, 160);
+        if (!Object.values(normalizedChanges).some(value => value !== 0) && !addedTags.length && !removedTags.length) return null;
+        return { sourceKey, sceneId, at, changes: normalizedChanges, addedTags, removedTags, evidenceExcerpt };
+    })
+    .filter(Boolean)
+    .slice(-RESIDENT_RELATIONSHIP_MAX_EVENTS);
+const normalizeResidentRelationships = (relationships, ownerId = '', knownResidentIds = null) => {
+    if (!relationships || typeof relationships !== 'object' || Array.isArray(relationships)) return {};
+    const knownIds = knownResidentIds instanceof Set ? knownResidentIds : null;
+    return Object.fromEntries(Object.entries(relationships).map(([rawTargetId, rawLink]) => {
+        const targetId = String(rawTargetId || '').trim();
+        if (!targetId || (knownIds && (targetId === String(ownerId) || !knownIds.has(targetId))) ||
+            !rawLink || typeof rawLink !== 'object' || Array.isArray(rawLink)) return null;
+        return [targetId, {
+            familiarity: clampResidentRelationshipValue(rawLink.familiarity, 0, 5),
+            warmth: clampResidentRelationshipValue(rawLink.warmth, -5, 5),
+            trust: clampResidentRelationshipValue(rawLink.trust, -5, 5),
+            tension: clampResidentRelationshipValue(rawLink.tension, 0, 5),
+            tags: sanitizeResidentRelationshipTags(rawLink.tags),
+            appliedSceneKeys: sanitizeResidentRelationshipSceneKeys(rawLink.appliedSceneKeys),
+            events: normalizeResidentRelationshipEvents(rawLink.events)
+        }];
+    }).filter(Boolean));
 };
 
 
@@ -190,6 +253,7 @@ const normalizeCatHall = (cat) => {
         // Resident-owned long-term event memory. Existing saves begin empty;
         // historical logs and archives deliberately remain separate sources.
         episodicMemories: Array.isArray(cat.episodicMemories) ? cat.episodicMemories : [],
+        residentRelationships: normalizeResidentRelationships(cat.residentRelationships, id),
         // User-uploaded full-body action sprites are independent from
         // the paused in-house pixel workshop. Only a saved standing
         // sprite can replace the normal profile image.
@@ -313,6 +377,8 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
         BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS,
         OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
         normalizeCatHall,
+        RESIDENT_RELATIONSHIP_TAGS,
+        normalizeResidentRelationships,
         rosterHasValue,
         rosterRecordKey,
         mergeRosterRecords,
