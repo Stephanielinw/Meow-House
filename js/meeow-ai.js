@@ -35,6 +35,33 @@ const getReadableAPIError = (rawError) => {
     return message.length > 1200 ? `${message.slice(0, 1200)}…` : message;
 };
 
+const DEFAULT_PROVIDER_TIMEOUT_MS = 40000;
+const ZHIPU_PROVIDER_TIMEOUT_MS = 120000;
+const ZHIPU_GLM_CHAT_MODEL = /^glm-4(?:\.\d+(?:\.\d+)?)?(?:-(?:flash|air|plus|long|alltools|assistant))?$/i;
+
+// Official Zhipu traffic must be identified from the parsed hostname. Do not
+// apply BigModel-only fields to an unrelated OpenAI-compatible relay.
+const getOpenAICompatibleProviderPolicy = (baseUrl, modelName) => {
+    let hostname = '';
+    try { hostname = new URL(baseUrl).hostname.toLowerCase(); } catch (e) { }
+    const isOfficialZhipu = hostname === 'open.bigmodel.cn';
+    return {
+        hostname,
+        isOfficialZhipu,
+        disableThinking: isOfficialZhipu && ZHIPU_GLM_CHAT_MODEL.test(String(modelName || '').trim()),
+        timeoutMs: isOfficialZhipu ? ZHIPU_PROVIDER_TIMEOUT_MS : DEFAULT_PROVIDER_TIMEOUT_MS
+    };
+};
+
+const formatProviderError = (status, errorData, fallback = '') => {
+    const error = errorData?.error && typeof errorData.error === 'object' ? errorData.error : errorData;
+    const code = error?.code ?? errorData?.code;
+    const message = error?.message || errorData?.message || fallback || '未知上游错误';
+    const codeSuffix = code === undefined || code === null || String(code).trim() === ''
+        ? '' : ` [provider code ${String(code)}]`;
+    return status ? `HTTP ${status}${codeSuffix}: ${message}` : `API error${codeSuffix}: ${message}`;
+};
+
 // Only reject text that is structurally an upstream/proxy failure.
 // Ordinary roleplay text mentioning an "error" is not treated as a failure.
 const assertValidAIContent = (content) => {
@@ -73,6 +100,9 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
     const modelName = dependencies.getSettings().model || "gemini-3-flash-preview";
 
     let url, payload, headers;
+    const providerPolicy = baseUrl
+        ? getOpenAICompatibleProviderPolicy(baseUrl, modelName)
+        : { hostname: '', isOfficialZhipu: false, disableThinking: false, timeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS };
 
     if (baseUrl) {
         // --- 模式 B: OpenAI 兼容模式 (适配中转站) ---
@@ -93,6 +123,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
             temperature: Number.isFinite(request?.temperature) ? request.temperature : dependencies.getSettings().temperature,
             max_tokens: maxTokens
         };
+        if (providerPolicy.disableThinking) payload.thinking = { type: 'disabled' };
     } else {
         // --- 模式 A: Google 官方模式 ---
         url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
@@ -124,9 +155,10 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
     if (request) {
         request.payloadBytes = new TextEncoder().encode(serializedPayload).length;
         request.attemptStartedAt = Date.now();
+        request.timeoutMs = providerPolicy.timeoutMs;
         let endpointHost = 'unknown-host';
         try { endpointHost = new URL(url).host || endpointHost; } catch (e) { }
-        request.transportInfo = `${baseUrl ? 'OpenAI-compatible relay' : 'Google direct'} · ${endpointHost} · ${modelName}`;
+        request.transportInfo = `${baseUrl ? (providerPolicy.isOfficialZhipu ? 'Zhipu direct OpenAI-compatible' : 'OpenAI-compatible relay') : 'Google direct'} · ${endpointHost} · ${modelName} · timeout=${providerPolicy.timeoutMs / 1000}s`;
         dependencies.addLog(`API REQUEST #${request.id} DISPATCH ${request.label}; ${request.transportInfo}; input=${request.guardedInputChars || request.inputChars || 0} chars, payload=${Math.ceil(request.payloadBytes / 1024)} KB, queue=${(request.queueWaitMs / 1000).toFixed(1)}s.`, 'info');
     }
     const controller = new AbortController();
@@ -136,7 +168,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
     const timeoutId = window.setTimeout(() => {
         timedOut = true;
         controller.abort();
-    }, 40000);
+    }, providerPolicy.timeoutMs);
     let response;
     try {
         onProgress?.({ stage: 'connecting' });
@@ -156,7 +188,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
         }
         if (request) request.lastWaitMs = Date.now() - (request.attemptStartedAt || Date.now());
         if (timedOut || err?.name === 'AbortError') {
-            throw new Error('请求超时：等待反代或模型响应超过 40 秒。');
+            throw new Error(`请求超时：等待反代或模型响应超过 ${providerPolicy.timeoutMs / 1000} 秒。`);
         }
         const errorMsg = `网络请求失败: ${err.message}。可能是由于 CORS 跨域限制、反代地址无效或网络连接中断。请确保反代地址以 https:// 开头。`;
         dependencies.addLog(`FETCH ERROR: ${err.message} (Target: ${url})`, "error");
@@ -176,8 +208,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
         const errorText = await response.text();
         let errorData;
         try { errorData = JSON.parse(errorText); } catch (e) { }
-        const msg = errorData?.error?.message || errorData?.message || errorText || `HTTP ${response.status}`;
-        throw new Error(`HTTP ${response.status}: ${msg}`);
+        throw new Error(formatProviderError(response.status, errorData, errorText));
     }
 
     let result;
@@ -206,7 +237,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
     if (baseUrl) {
         // --- 检测响应体中的错误字段 ---
         if (result.error) {
-            throw new Error(result.error.message || JSON.stringify(result.error));
+            throw new Error(formatProviderError(null, result.error, JSON.stringify(result.error)));
         }
         if (result.choices && result.choices.length > 0) {
             content = result.choices[0].message?.content || "";
@@ -216,7 +247,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
             throw new Error(`提示词被拦截 (原因: ${result.promptFeedback.blockReason})`);
         }
         if (result.error) {
-            throw new Error(result.error.message || JSON.stringify(result.error));
+            throw new Error(formatProviderError(null, result.error, JSON.stringify(result.error)));
         }
         if (result.candidates && result.candidates.length > 0) {
             const candidate = result.candidates[0];
@@ -255,7 +286,7 @@ const _waitForRetryDecision = (request, lastError, attemptsUsed = 5, immediateDe
         dependencies.apiRetryModal.waitInfo = immediateDecision
             ? '此类配置或 404 错误不会自动空转；停止后可进入终端检查连接设置。'
             : /超时/.test(getReadableAPIError(lastError))
-            ? '本轮最后一次请求已等待 40 秒后中止；不会继续在后台挂起。'
+            ? `本轮最后一次请求已等待 ${(request.timeoutMs || DEFAULT_PROVIDER_TIMEOUT_MS) / 1000} 秒后中止；不会继续在后台挂起。`
             : `本轮 ${maxAttempts} 次尝试均已结束；选择“继续重试”才会开始新的 ${maxAttempts} 次。`;
         dependencies.apiRetryModal.isDeciding = false;
         dependencies.apiRetryModal.show = true;
