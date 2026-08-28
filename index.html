@@ -16430,6 +16430,57 @@ ${buildCatMemoryContext(cat)}`;
                     awayEpisodes.value.push(episode);
                     return episode;
                 };
+                const AWAY_PROMPT_MODES = Object.freeze({
+                    NO_AWAY_WORK: 'NO_AWAY_WORK',
+                    LEGACY_ONLY: 'LEGACY_ONLY',
+                    FULL_DEPARTURE: 'FULL_DEPARTURE'
+                });
+                const buildAwayPromptContract = ({ residents, presenceDirectives, now = new Date(), carriedAwayPlans } = {}) => {
+                    const scopedResidents = Array.isArray(residents)
+                        ? residents.filter(cat => cat && cat.id !== undefined && cat.id !== null)
+                        : [];
+                    const scopedIds = new Set(scopedResidents.map(cat => String(cat.id)));
+                    const departingIds = Object.entries(presenceDirectives || {})
+                        .filter(([id, directive]) => scopedIds.has(String(id)) && directive === 'DEPARTING_NOW')
+                        .map(([id]) => String(id));
+                    const eligibleLegacyIds = scopedResidents
+                        .filter(cat => cat.isOut === true && !isPermanentOutBuiltin(cat) && !getActiveAwayEpisode(cat, now))
+                        .map(cat => String(cat.id));
+                    const hasCarriedAwayPlans = Array.isArray(carriedAwayPlans) && carriedAwayPlans.length > 0;
+                    const mode = departingIds.length || hasCarriedAwayPlans
+                        ? AWAY_PROMPT_MODES.FULL_DEPARTURE
+                        : eligibleLegacyIds.length
+                            ? AWAY_PROMPT_MODES.LEGACY_ONLY
+                            : AWAY_PROMPT_MODES.NO_AWAY_WORK;
+                    const legacyEligibility = eligibleLegacyIds.length
+                        ? `[${eligibleLegacyIds.join(', ')}]`
+                        : '[]';
+                    if (mode === AWAY_PROMPT_MODES.NO_AWAY_WORK) {
+                        return {
+                            mode,
+                            departingIds,
+                            eligibleLegacyIds,
+                            awayPlansExample: '[]',
+                            instructions: `[NO NEW AWAY WORK]\nThere is no new Away semantic work in this request. Do not invent a departure or legacy continuation. awayPlans must be exactly []. Resident physical presence remains governed by the supplied local lifecycle and presence authority; isOut is compatibility metadata only and never authorizes departure.`
+                        };
+                    }
+                    if (mode === AWAY_PROMPT_MODES.LEGACY_ONLY) {
+                        return {
+                            mode,
+                            departingIds,
+                            eligibleLegacyIds,
+                            awayPlansExample: '[{"residentId":"exact eligible legacy machine id","mode":"legacy-continuation","plannedDurationMinutes":210}]',
+                            instructions: `[LEGACY AWAY CONTINUATION]\nOnly these frozen, locally identified unmanaged legacy Away residents may receive a plan: ${legacyEligibility}. For each such resident only, return a finite {"residentId":"exact eligible legacy machine id","mode":"legacy-continuation","plannedDurationMinutes":210} plan. Do not return legacy-continuation for any other resident. Do not include destination, plannedActivities, publicTrace, plannedArchiveNarrative, plannedReturnStatus, mailPlan, or other departure fields. Do not plan an already scheduled-away resident; its lifecycle is local.`
+                        };
+                    }
+                    return {
+                        mode,
+                        departingIds,
+                        eligibleLegacyIds,
+                        awayPlansExample: '[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]',
+                        instructions: `This HOME/DEPARTING_NOW pair illustrates the local contract only. isOut is required compatibility metadata, not a presence decision. A resident directed HOME remains home and has no departure plan. Every resident directed DEPARTING_NOW must include exactly one matching mode:"departure" plan with the required fields shown above; local code commits departure only after that plan is valid and an Away episode is created. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be [] or contain one {"sendAfterMinutes":95,"content":"路边那张旧明信片很像馆里的窗。","attachment":null}; for this 210-minute / first-activity-at-35 example, it is after the first activity and before return. It is an occasional physical trace of meaningful Away life, never an automatic departure/return notice. Legacy-continuation is allowed only for these frozen, locally identified unmanaged legacy Away resident IDs: ${legacyEligibility}. A legacy-continuation plan is {"residentId":"exact eligible legacy id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not return legacy-continuation for any other resident. Do not plan an already scheduled-away resident; its lifecycle is local.`
+                    };
+                };
                 const reconcileAwayEpisodes = (reconciliationTime = new Date()) => {
                     const result = awayLifecycle.reconcileEpisodes({
                         episodes: awayEpisodes.value,
@@ -17599,6 +17650,11 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         });
                         const frozenPresenceDirectives = Object.freeze({ ...frozenDepartureSchedule.directives });
                         const frozenFormDirectives = Object.freeze(buildFormDirectives(frozenBystanders, frozenNow));
+                        const frozenAwayPromptContract = buildAwayPromptContract({
+                            residents: frozenBystanders,
+                            presenceDirectives: frozenPresenceDirectives,
+                            now: frozenNow
+                        });
                         addLog(formatAwayLocalScheduleLog(requestHall.name, frozenDepartureSchedule), 'info');
                         const frozenPublicNameContract = buildResidentPublicNameContract(frozenHallResidents);
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => getResidentPublicName(cat));
@@ -17619,7 +17675,7 @@ ${formatFormLifecycleAuthority(frozenFormDirectives)}
 ${formatResidentFormExpressionContract()}
 
 [BYSTANDER CONTEXT]
-${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
+${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
 
 [BYSTANDER RULES]
 - Return exactly one update for every supplied bystander ID.
@@ -17686,10 +17742,9 @@ ${getCompactMapPointPromptGuide()}`
                         [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
                         [${frozenBystanderIds.join(', ')}]
                         Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching hallUpdates[].id machine key.
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]}
-                        This HOME/DEPARTING_NOW pair illustrates the local contract only. isOut is required compatibility metadata, not a presence decision. A resident directed HOME remains home and has no departure plan. Every resident directed DEPARTING_NOW must include exactly one matching mode:"departure" plan; local code commits departure only after that plan is valid and an Away episode is created. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.
-                        ${AWAY_ACTIVITY_PLANNING_RULES}
-                        [OPTIONAL AWAY ENRICHMENT] plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be [] or contain at most one {"sendAfterMinutes":95,"content":"路边那张旧明信片很像馆里的窗。","attachment":null}; for this 210-minute example it is after the first 35-minute activity and before return. It is an occasional physical trace of meaningful Away life, never an automatic departure/return notice. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans.
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${frozenAwayPromptContract.awayPlansExample}}
+                        ${frozenAwayPromptContract.instructions}
+                        Do not include the active cat in hallUpdates or awayPlans.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -18361,9 +18416,6 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             }
                             crossedDayBoundary.push(`${String(c.id)}:${crossedOperationalDay}`);
                             const memoryBlock = buildPresenceInferenceContext(c, { now, crossedOperationalDay });
-                            const legacyAwayContext = c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now)
-                                ? '\n[LEGACY AWAY]: This resident is currently away without a schedule from an older save. If you keep isOut:true, provide one finite mode:"legacy-continuation" plan for this exact ID. Do not invent historical destination, activity, trace, or mail.'
-                                : '';
                             const recentReturnContext = getRecentAwayReturn(c, now)
                                 ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Their current status is the immediate handoff from that return. Continue naturally through settling in, resting, grooming, checking familiar surroundings, food/water, or quietly observing the hall; do not reset them into an unrelated activity. Do not infer or reveal any destination, private activity, mail, or other hidden Away details.'
                                 : '';
@@ -18383,7 +18435,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 gapContext = `\n[CRITICAL TIME GAP]: The user has been away for over an hour. THE PREVIOUS INTERACTION IS STRICTLY OVER. DO NOT mention previous interactions holding your paw or looking at you. You MUST be entertaining yourself, sleeping, or harassing other cats independently.`;
                             }
 
-                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${legacyAwayContext}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
+                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
                         });
 
                         const formLockedIds = new Set([
@@ -18417,6 +18469,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         if (localDepartureSchedule) {
                             addLog(formatAwayLocalScheduleLog(requestHall.name, localDepartureSchedule), 'info');
                         }
+                        const awayPromptContract = buildAwayPromptContract({
+                            residents: requestedCats,
+                            presenceDirectives,
+                            now,
+                            carriedAwayPlans: requestOptions.prevalidatedAwayPlans
+                        });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
                         if (statusCompletion) statusCompletion.expected = requestedIds.length;
@@ -18476,7 +18534,7 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
 - Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is normal first-class communication for each HUMAN participant, not a rare exception: when a shared moment naturally involves questions, explanations, promises, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange, normally let brief natural dialogue carry that content, enriched by ears, tail, posture, gesture, and expression rather than replaced by them. Keep cohesive third-person prose, not dialogue-row screenplay formatting. Do not force speech: silence remains valid when it is an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice.
 - relationshipDeltas is optional metadata and never required for a valid scene. If supplied, use only frozen participant IDs and the bounded integer fields/tags described for the user-directed scene. Judge each direction only from visible shared-scene material and that resident's legitimate observable experience; ignore private/hidden context, inner voices, diaries, episodic memories, Away material, and other residents' private context. Do not force symmetry or relationship change for mundane presence.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}],"scene":null}\nThis HOME/DEPARTING_NOW pair illustrates the local contract only. isOut is required compatibility metadata, not a presence decision. A resident directed HOME remains home and has no departure plan. Every resident directed DEPARTING_NOW must include exactly one matching mode:"departure" plan with the required fields shown above; local code commits departure only after that plan is valid and an Away episode is created. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be [] or contain one {"sendAfterMinutes":95,"content":"路边那张旧明信片很像馆里的窗。","attachment":null}; for this 210-minute / first-activity-at-35 example, it is after the first activity and before return. It is an occasional physical trace of meaningful Away life, never an automatic departure/return notice. A legacy-continuation plan is {"residentId":"exact id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not plan an already scheduled-away resident. ${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null}\n${awayPromptContract.instructions}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
