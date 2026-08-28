@@ -9421,6 +9421,18 @@
                 if (!user.inventory) user.inventory = [];
                 if (!user.gender) user.gender = 'Secret';
 
+                const getAuthoritativeUserGender = (value = user.gender) => {
+                    const normalized = String(value || '').trim().toLowerCase();
+                    if (normalized === 'female' || normalized === '女') return { label: 'female / 女', pronoun: '她', thirdPersonRule: 'If referring to the USER in Chinese third person, use 她.' };
+                    if (normalized === 'male' || normalized === '男') return { label: 'male / 男', pronoun: '他', thirdPersonRule: 'If referring to the USER in Chinese third person, use 他.' };
+                    return { label: normalized === 'other' || normalized === '其他' ? 'other / 其他' : 'unknown / 未设定', pronoun: 'avoid gendered third person', thirdPersonRule: 'Avoid gendered Chinese third person; prefer direct address 你 or the supplied name.' };
+                };
+                const buildAuthoritativeUserIdentityContext = () => {
+                    const identity = getAuthoritativeUserGender();
+                    const name = String(user.nickname || user.name || '馆长').trim().slice(0, 48) || '馆长';
+                    return `[USER IDENTITY — AUTHORITATIVE]\nName: ${name}; Gender: ${identity.label}; Chinese third-person: ${identity.pronoun}; direct address: 你.\nThese profile facts are fixed. Do not infer, reinterpret, guess, or override them. ${identity.thirdPersonRule}`;
+                };
+
                 // --- UI SYSTEM STATE ---
                 const UI_THEME_KEY = 'gotham_ui_theme';
                 const UI_THEME_OPTIONS = ['default', 'cappuccino', 'strawberry', 'sky', 'grape'];
@@ -10462,6 +10474,7 @@
                     const names = roomCats.value.map(c => c.name).join(', ');
                     if (names.length === 0) return showToast("当前馆舍没有可接收的猫咪频道。");
                     const prompt = `[MEEOW HOUSE RELAY · ${currentHall.value.name}] Task: Write a short private exchange between only these cats: ${names}. It can be about the user, their day in this hall, or a small plan that naturally belongs to their own original work. Format: [Name]: Dialogue. Preserve every speaker's exact canon personality. Never force a superhero mission, DC terminology, or generic cute-cat behaviour onto a character. (50-80 words)
+                    ${buildAuthoritativeUserIdentityContext()}
                     ${roomCats.value.map(cat => buildCatMemoryContext(cat, { compact: true })).join('\n---\n')}`;
                     try {
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1500, ThinkingLevel.HIGH);
@@ -10478,7 +10491,7 @@
                     if (!settings.apiKey) return alert("需要API连接");
                     if (cat.hasHackedThisPatrol) return showToast("这段馆舍观察记录今天已经整理过了。", "error");
                     showToast("正在调取馆舍观察记录…", "loading");
-                    const prompt = `[MEEOW HOUSE OBSERVATION LOG] Character: ${cat.name}. Hall: ${currentHall.value.name}. Current status: ${cat.status}. Task: Generate a vivid but grounded observation log of what this cat did while the user was away. The activity must fit this exact character's original canon and current hall. Do not force crime-fighting, surveillance, DC references, or action scenes. Output only the log, ~60 Chinese words.\n${buildCatMemoryContext(cat)}`;
+                    const prompt = `[MEEOW HOUSE OBSERVATION LOG] Character: ${cat.name}. Hall: ${currentHall.value.name}. Current status: ${cat.status}. Task: Generate a vivid but grounded observation log of what this cat did while the user was away. The activity must fit this exact character's original canon and current hall. Do not force crime-fighting, surveillance, DC references, or action scenes. Output only the log, ~60 Chinese words.\n${buildAuthoritativeUserIdentityContext()}\n${buildCatMemoryContext(cat)}`;
                     try {
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1500, ThinkingLevel.HIGH);
                         appendMonitorEvent(cat, `[监控截获] ${cleanText(res)}`, 'manual-camera');
@@ -10532,6 +10545,7 @@
                     const catNames = roomCats.value.map(c => c.name).join(', ');
                     const prompt = `[MEEOW HOUSE GROUP CHAT · ${currentHall.value.name}]
 User message: "${userMsg}"
+${buildAuthoritativeUserIdentityContext()}
 Cats in this hall only: ${catNames}.
 Task: Generate 2-3 short replies from these cats. For EACH cat responding, provide TWO layers:
 1. CAT_MEOW: The actual cat noise/action they perform (just sounds and physical actions).
@@ -10570,6 +10584,7 @@ ${roomCats.value.map(cat => buildCatMemoryContext(cat)).join('\n---\n')}`;
                     const glitchStatus = cat._glitchStatus || '正在做一些很普通的事情。。。';
                     showToast(`抓包了 ${cat.name}! 将尝试辯解...`, "loading");
                     const prompt = `[CAUGHT IN THE ACT] Character: ${cat.name}. They were secretly doing: "${glitchStatus}". The user just caught them mid-action.
+${buildAuthoritativeUserIdentityContext()}
 Task: Write their panicked, hilariously OOC excuse (~50 words). They MUST deny EVERYTHING and blame it on normal cat behavior. Canon personality must shine through (e.g., Damian's arrogance, Bruce's stoicism, Jason's anger).
 Language: Simplified Chinese.
 ${buildCatMemoryContext(cat)}`;
@@ -10795,7 +10810,7 @@ ${buildCatMemoryContext(cat)}`;
                         return;
                     }
 
-                    const userSocialProfile = `昵称「${user.phoneData.momentsNickname}」，性别：${user.gender}，个性签名：「${user.phoneData.signature || '无'}」`;
+                    const userSocialProfile = `${buildAuthoritativeUserIdentityContext()}\nPhone nickname: 「${user.phoneData.momentsNickname}」; signature: 「${user.phoneData.signature || '无'}」`;
                     const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
                     const prompt = `\n【馆舍通讯录：首次互动后的好友申请】\n你是 ${identity.name}，来自 ${hall.name}。${userSocialProfile}。你希望与这位馆长建立一个日常、可靠的文字联络渠道；真实原因是你需要在不打扰对方的情况下保持沟通，但绝不能泄露猫形态、喵喵馆秘密或任何超现实身份。\n要求：\n1. 用你在原作中合理的公开身份、正在处理的小事、共同认识的日常场景或当前事件作为自然开场；像真实人类申请好友。\n2. 严禁提及“见过像你的猫”“你的猫似曾相识”“听说你有猫”“可能与你有关的猫”或任何类似借口。\n3. 不得擅自添加不属于原作的身份、关系或世界观；不得默认哥谭、韦恩、夜巡或超英身份。\n4. 借口必须符合 ${identity.name} 的语言习惯与性格，严格避免 OOC 和泛化撒娇。\n5. 简体中文，50 字以内。只输出好友申请内容。\n                    `;
 
@@ -11864,7 +11879,7 @@ ${buildCatMemoryContext(cat)}`;
                     const mailContext = lastMail ? `Recent Mail from ${lastMail.from}: ${lastMail.content.substring(0, 30)}...` : "No recent mail.";
 
                     // --- NEW USER IDENTITY BLOCK ---
-                    const userProfile = `[USER PROFILE] Name: ${user.nickname || 'Citizen'}. Gender: ${user.gender}. Job/Role: ${user.job || 'Unknown'}. Current Status: ${user.currentStatus || 'Unknown'}.`;
+                    const userProfile = `${buildAuthoritativeUserIdentityContext()}\nJob/Role: ${user.job || 'Unknown'}. Current Status: ${user.currentStatus || 'Unknown'}.`;
                     const realLifeContext = `${buildOwnerDailyContext('compact')}\n[MAIL CONTEXT] ${mailContext}`;
 
                     return `${userProfile}\n${realLifeContext}`;
@@ -11997,7 +12012,7 @@ ${buildCatMemoryContext(cat)}`;
                     const recentMonitor = (senderCat.diary || []).slice(-3).map(entry => `[${entry.time}] ${entry.content}`).join('；');
                     const recentDiary = (senderCat.logs || []).slice(-2).map(entry => entry.content).join('；');
                     const recentTravel = (senderCat.travelogues || []).slice(-1).map(entry => `${entry.location}: ${entry.content}`).join('；');
-                    const recipientInfo = `收件人：${user.nickname}；身份/职业：${user.job || '馆长'}`;
+                    const recipientInfo = `${buildAuthoritativeUserIdentityContext()}\n收件人：${user.nickname}；身份/职业：${user.job || '馆长'}`;
                     const prompt = `[MEEOW HOUSE OUTGOING MAIL]
                     寄件人：${senderName}。所属馆舍：${senderHall.name}。该角色当前确实在馆外，状态：${senderCat.status}。
                     ${recipientInfo}
@@ -12064,6 +12079,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (selectedCat.value.affinity < 90) return alert("好感度不足");
                     selectedCat.value.affinity -= 10;
                     const prompt = `Generate Special Event for ${selectedCat.value.name} and User (${user.nickname}). Type: Letter, Postcard, or Romantic Date Invitation. Content (350 words): Very sweet, immersive. Language: Simplified Chinese.
+${buildAuthoritativeUserIdentityContext()}
 ${buildCatMemoryContext(selectedCat.value)}`;
                     try {
                         const res = await callAI(prompt + " LANGUAGE: SIMPLIFIED CHINESE.", STRICT_CANON_PROMPT, 2000);
@@ -12643,8 +12659,7 @@ JSON 格式：
                     const companion = exploreState.companion;
                     const hall = halls.value.find(item => item.id === companion?.hallId) || currentHall.value;
                     const profile = [
-                        `馆长：${user.nickname || '馆长'}`,
-                        `性别：${user.gender || '未设定'}`,
+                        buildAuthoritativeUserIdentityContext(),
                         `身份：${user.job || user.occupation || '普通市民'}`,
                         `属性：${JSON.stringify(user.stats || {})}`,
                         `技能：${JSON.stringify(user.skills || {})}`
@@ -13110,6 +13125,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     }
                     Note: "lore" is OPTIONAL. Only provide it if the adventure revealed significant world-building or canon details.
                     Language: Simplified Chinese.
+                    ${buildAuthoritativeUserIdentityContext()}
                     ${buildResidentPublicNameContract([exploreState.companion])}
                     ${buildCatMemoryContext(exploreState.companion)}`;
 
@@ -13150,6 +13166,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                             - Mention specific events from the Adventure Log and the companion's own choices.
                             - The character remains in this Explore session's frozen visible form, without exposing the Meeow House premise or hidden identity to ordinary people in the story.
                             - Language: Simplified Chinese.
+                            ${buildAuthoritativeUserIdentityContext()}
                             ${buildResidentPublicNameContract([exploreState.companion])}
                             ${buildCatMemoryContext(exploreState.companion)}`;
 
@@ -13240,6 +13257,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     const prompt = `
                     [FIRST WITNESSED HUMAN REVEAL]
                     Resident: ${getResidentPublicName(cat)}. Affinity has reached the existing first-reveal threshold.
+                    ${buildAuthoritativeUserIdentityContext()}
                     ${buildCatMemoryContext(cat)}
 
                     WORLD FACTS:
@@ -13764,6 +13782,7 @@ ${phoneThread.join('\n') || 'none'}`;
                     const identity = phoneIdentities.value[resident.id] || { name: resident.humanName || resident.name || '联系人', avatar: getCatAvatarSource(resident) };
                     const prompt = `[MEEOW HOUSE PHONE PRESENCE]
 You are considering one optional, incoming Phone / 喵信 message from the human-contact identity ${identity.name} to USER.
+${buildAuthoritativeUserIdentityContext()}
 ${buildPhonePresenceSafeContext(resident)}
 
 Return exactly one JSON object and nothing else: {"message":null} OR {"message":"简短自然的简体中文消息"}.
@@ -13917,6 +13936,7 @@ ${pendingText}
 6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
 7. 总长 20–120 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"]}。不要 Markdown、解释或任何 JSON 以外的文字。
 
+${buildAuthoritativeUserIdentityContext()}
 ${buildCatMemoryContext(cat)}`;
                     try {
                         const reply = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 450, ThinkingLevel.LOW, {
@@ -14060,7 +14080,7 @@ ${buildCatMemoryContext(cat)}`;
 
                             const catOfReplier = (cats.value || []).find(c => c.id == randomId);
                             const catCurrentStatus = catOfReplier ? catOfReplier.status : '在家里';
-                            const userSocialProfileC = `昵称「${user.phoneData.momentsNickname}」，性别：${user.gender}，个性签名：「${user.phoneData.signature || '无'}」`;
+                            const userSocialProfileC = `${buildAuthoritativeUserIdentityContext()}\nPhone nickname: 「${user.phoneData.momentsNickname}」; signature: 「${user.phoneData.signature || '无'}」`;
                             const replyPrompt = `
                             【逻辑C：朋友圈评论回复】
                             你是处于人类身份的 ${replier.name}（角色：${replier.role}）。
@@ -14748,6 +14768,7 @@ ${buildCatMemoryContext(cat)}`;
                     const prompt = `
                     [MYSTIC TAROT APP]
                     User Question: "${phoneState.tarotQuestion}"
+                    ${buildAuthoritativeUserIdentityContext()}
                     Task: Perform a 3-card Tarot reading (Past, Present, Future).
                     Requirements:
                     1. Select 3 random Tarot cards (Major Arcana or Minor Arcana).
@@ -14837,6 +14858,7 @@ ${buildCatMemoryContext(cat)}`;
                     [LOGIC B/D: MOMENTS GENERATION]
                     Character: ${identity.name}
                     Real Event at Home: ${interaction}
+                    ${buildAuthoritativeUserIdentityContext()}
                     Task: Write a social media post (Moment) from ${identity.name}'s human perspective.
                     Rules:
                     1. Subtly reflect the "Real Event" (e.g. if the user brushed them, mention "grooming" or "putting up with the human").
@@ -15210,7 +15232,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const buildStatusSyncUserContext = (additionalContext = '') => {
                     const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
-                    return `[STATUS USER]\nName: ${truncateMemoryText(user.nickname || '馆长', 48)}\nCurrent status: ${truncateMemoryText(user.currentStatus || '未知', 90)}\nRecent event: ${recentEvent || 'None'}`;
+                    return `${buildAuthoritativeUserIdentityContext()}\n[STATUS USER]\nName: ${truncateMemoryText(user.nickname || '馆长', 48)}\nCurrent status: ${truncateMemoryText(user.currentStatus || '未知', 90)}\nRecent event: ${recentEvent || 'None'}`;
                 };
                 const getStatusSyncDeltaTier = (diffMinutes) => diffMinutes < 30 ? 'short' : (diffMinutes > 60 ? 'long' : 'meaningful');
                 const buildPresenceInferenceContext = (cat, options = {}) => {
@@ -15384,7 +15406,7 @@ ${buildCatMemoryContext(cat)}`;
                         const previousNotes = getReaderExistingNotesContext(book.id, nearbyIds, 12) || 'None';
                         const chapterLabel = batch.map(chapter => chapter.title).join('、');
                         const prompt = `[MEEOW READER · COMPANION NOTES]\nBook title: ${book.title}\nCompanion cat: ${cat.name}\n\nYou are leaving tiny private margin notes while reading with the safe, kind museum owner. For EVERY supplied chapter, pick exactly 2 or 3 distinct paragraph indices. Every note must be Simplified Chinese and contain exactly two fields: status (a brief cat sound plus a tiny physical reaction while reading) and innerVoice (the cat's concise internal thought in canon voice). The two fields combined must be no more than 50 Chinese characters. Never write ordinary dialogue, scene narration, spoilers beyond supplied text, markdown, or an identity reveal. Notes may naturally react to earlier notes by this cat or other cats, but may never alter or contradict them. Preserve exact original-character voice, fixed breed, and fixed eye colour.\n\nEXISTING NOTES NEAR THESE CHAPTERS:\n${previousNotes}\n\nNEW CHAPTERS:\n${material}\n\nReturn strict JSON only: {"notes":[{"chapterId":"","paragraphIndex":0,"status":"","innerVoice":""}]}.`;
-                        const response = await callAI(`${prompt}\n${buildCatMemoryContext(cat, { profile: 'reader', extra: `[READING CONTEXT] The user is reading ${book.title}. Treat listed notes as long-term shared reading memory.` })}`, 'You write only valid JSON for a private cat reading annotation system. Canon fidelity and immutable character identity are mandatory.', 900, ThinkingLevel.LOW, {
+                    const response = await callAI(`${prompt}\n${buildAuthoritativeUserIdentityContext()}\n${buildCatMemoryContext(cat, { profile: 'reader', extra: `[READING CONTEXT] The user is reading ${book.title}. Treat listed notes as long-term shared reading memory.` })}`, 'You write only valid JSON for a private cat reading annotation system. Canon fidelity and immutable character identity are mandatory.', 900, ThinkingLevel.LOW, {
                             label: `MEEOW READER · ${cat.name}`,
                             priority: 'foreground',
                             batchId: waveBatchId,
@@ -16986,7 +17008,7 @@ ${buildCatMemoryContext(cat)}`;
                     const deadlines = (snapshot.deadlines || []).map(item => `${item.title || item.text || '未命名 DDL'}${item.time ? `（${item.time}）` : ''}`);
                     const schedule = (snapshot.schedule || []).map(item => `${item.time || ''} ${item.event || item.title || ''}`.trim()).filter(Boolean);
                     const focusRecords = archiveFocusReports.slice(-12).map(report => `${report.missionName || '专注'} · ${Math.floor((report.duration || 0) / 60)} 分钟 · ${report.isSuccess === false || report.status === 'FAILED' ? '中止' : '完成'} · ${report.coinsDelta || 0}G`);
-                    return `你正在为 Meeow House 生成“昨日归档包”，并可同时补写已经准备好的历史离馆日记。馆长：${user.nickname}。当前归档日期：${snapshot.date}。日期/节日信息：${getDateContext(`${snapshot.dateKey}T12:00:00`)}。
+                    return `${buildAuthoritativeUserIdentityContext()}\n你正在为 Meeow House 生成“昨日归档包”，并可同时补写已经准备好的历史离馆日记。馆长：${user.nickname}。当前归档日期：${snapshot.date}。日期/节日信息：${getDateContext(`${snapshot.dateKey}T12:00:00`)}。
 
 馆舍概览：${hallOverview}
 ${diaryNameContract}
@@ -17326,7 +17348,7 @@ ${JSON.stringify(diaryContext)}
 
                     const scheduleContext = (user.schedule || []).filter(item => !item.done).slice(0, 8).map(item => `${item.time || ''} ${item.event || item.title || ''}`.trim()).filter(Boolean).join('；') || '无待办日程';
                     const focusContext = (user.missionReports || []).filter(report => report.duration > 0).slice(-8).map(report => `${report.missionName || '专注'} ${Math.floor((report.duration || 0) / 60)} 分钟 ${report.status === 'FAILED' ? '中止' : '完成'}`).join('；') || '无专注记录';
-                    const prompt = `Role: 奈恩 (Nain), the user's co-owner and everyday partner at Meeow House. Task: Write a daily summary briefing for the house owner ${user.nickname}.
+                    const prompt = `${buildAuthoritativeUserIdentityContext()}\nRole: 奈恩 (Nain), the user's co-owner and everyday partner at Meeow House. Task: Write a daily summary briefing for the house owner ${user.nickname}.
                     Context: 
                     - Date/Background: ${backgroundContext}
                     - Yesterday's Completed Tasks: ${doneStr || 'None'}. 
@@ -17386,6 +17408,7 @@ Fixed cat breed: ${cat.breed || '未设定'}
 Fixed eye color: ${cat.eyeColor || '未设定'}
 Date: ${yesterdayStr}
 Date context: ${getDateContext()}
+${buildAuthoritativeUserIdentityContext()}
 Affinity: ${cat.affinity}/100
 Yesterday's direct interactions: ${interactions.join(' | ') || chat.join(' | ') || 'None'}
 Yesterday's homepage conversation: ${chat.join(' | ') || 'None'}
@@ -17496,7 +17519,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         if (!sendingCat.autoReply) {
                             thinkingStates[sendingCat.id] = true;
                             try {
-                                const prompt = `[AUTO-REPLY GEN] You are ${sendingCat.name} (Traits: ${sendingCat.personality}) from ${halls.value.find(h => h.id === sendingCat.hallId)?.name || 'Meeow House'}. You are currently out of the house. Generate one short in-character automated reply (under 20 Chinese words) saying you cannot reply now. Do not assume crime-fighting or a superhero identity. Output only the reply.\n${buildCatMemoryContext(sendingCat)}`;
+                                const prompt = `[AUTO-REPLY GEN] You are ${sendingCat.name} (Traits: ${sendingCat.personality}) from ${halls.value.find(h => h.id === sendingCat.hallId)?.name || 'Meeow House'}. You are currently out of the house. Generate one short in-character automated reply (under 20 Chinese words) saying you cannot reply now. Do not assume crime-fighting or a superhero identity. Output only the reply.\n${buildAuthoritativeUserIdentityContext()}\n${buildCatMemoryContext(sendingCat)}`;
                                 const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 100, ThinkingLevel.LOW);
                                 sendingCat.autoReply = "[自动回复] " + cleanText(res);
                             } catch (e) {
@@ -17601,11 +17624,8 @@ ${getCompactMapPointPromptGuide()}`
                         - GNN Trending Topics: ${gnnTrends}
                         ${timePerceptionStr}
 
-                        [USER IDENTITY]:
-                        Name: ${user.nickname}
-                        Gender: ${user.gender}
-                        Job: ${user.job}
-                        (Please address the user appropriately based on their Job/Role)
+                        ${buildAuthoritativeUserIdentityContext()}
+                        Job: ${user.job || 'Unknown'}
 
                         Role: ${getResidentPublicName(sendingCat)}. Closeness: ${sendingCat.affinity}/100.
                         [CLOSENESS INFLUENCE]: The user is already known to be safe and kind. High closeness means more ease and initiative; low closeness means independence, tentative curiosity, or ordinary boundaries — NEVER fear, suspicion, contempt, or treating the user as dangerous by default.
@@ -17746,6 +17766,7 @@ ${getCompactMapPointPromptGuide()}`
                     1. Incorporate this character's exact original-work canon behaviours; never default to Bat-family or superhero behaviour.
                     2. Show interactions with other members: ${otherCats}.
                     3. Show secret activities hidden from the "foolish human" user.
+                    ${buildAuthoritativeUserIdentityContext()}
                     ${buildCatMemoryContext(selectedCat.value)}`;
                     try {
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 2000, ThinkingLevel.LOW);
@@ -17758,7 +17779,7 @@ ${getCompactMapPointPromptGuide()}`
                 const releaseCat = async () => {
                     if (!confirm("确定要放生吗？")) return;
                     isReleasing.value = true;
-                    const prompt = `Character: ${selectedCat.value.name}. Task: Say goodbye forever to ${user.nickname}. (30 words). Tone: Sad. Preserve original canon and voice exactly.\n${buildCatMemoryContext(selectedCat.value)}`;
+                    const prompt = `Character: ${selectedCat.value.name}. Task: Say goodbye forever to ${user.nickname}. (30 words). Tone: Sad. Preserve original canon and voice exactly.\n${buildAuthoritativeUserIdentityContext()}\n${buildCatMemoryContext(selectedCat.value)}`;
                     try {
                         const msg = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000);
                         alert(`${selectedCat.value.name}: "${cleanText(msg)}"`);
@@ -17788,6 +17809,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         : `There is one supervising cat. Write only this cat's independent, in-character action.`;
                     const prompt = `[MEEOW HOUSE FOCUS · ${currentHall.value.name}]
                     User (${user.nickname}) is focusing on: ${focusAction.value}.
+                    ${buildAuthoritativeUserIdentityContext()}
                     Recent focus timeline: ${previousLogs || 'Focus has just begun.'}
                     ${buildResidentPublicNameContract(participants)}
                     ${peerRule}
@@ -17991,8 +18013,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const catTraits = participants.map(c => `${c.name}: ${c.personality} (Affinity: ${c.affinity}/100)`).join('; ');
                         const memoryContext = participants.map(cat => buildCatMemoryContext(cat)).join('\n---\n');
                         const prompt = success
-                            ? `Identities: ${catNames}. Traits: ${catTraits}. User (${user.nickname}) completed the focus task "${focusAction.value}" in ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n${memoryContext}`
-                            : `Identities: ${catNames}. Traits: ${catTraits}. User (${user.nickname}) stopped the focus task "${focusAction.value}" after ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Be honest about the interruption, never cruel or generic. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n${memoryContext}`;
+                            ? `${buildAuthoritativeUserIdentityContext()}\nIdentities: ${catNames}. Traits: ${catTraits}. User (${user.nickname}) completed the focus task "${focusAction.value}" in ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n${memoryContext}`
+                            : `${buildAuthoritativeUserIdentityContext()}\nIdentities: ${catNames}. Traits: ${catTraits}. User (${user.nickname}) stopped the focus task "${focusAction.value}" after ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Be honest about the interruption, never cruel or generic. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n${memoryContext}`;
                         try {
                             const generated = cleanText(await callAI(prompt, "Write only the mission report content in Simplified Chinese. Keep every character strictly in canon. Never add DC, superhero, or Gotham assumptions outside the relevant hall.", 1000, ThinkingLevel.LOW, {
                                 label: 'FOCUS · MISSION REPORT',
@@ -18037,7 +18059,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     if (!targetCat) return;
                     if (settings.apiKey) {
                         const formStr = isFocusing.value ? (focusSessionForms[String(targetCat.id)] || getResidentForm(targetCat)) : getResidentForm(targetCat);
-                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${getResidentPublicName(targetCat)}. ${describeResidentForm(formStr)} Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildResidentPublicNameContract([targetCat])}\n${buildCatMemoryContext(targetCat, { compact: true })}`;
+                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${getResidentPublicName(targetCat)}. ${describeResidentForm(formStr)} Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildAuthoritativeUserIdentityContext()}\n${buildResidentPublicNameContract([targetCat])}\n${buildCatMemoryContext(targetCat, { compact: true })}`;
                         try {
                             const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, { label: `LIGHT INTERACTION · ${targetCat.name}`, priority: 'foreground' });
                             const action = extractSection(res, 'ACTION') || cleanText(res);
@@ -19455,6 +19477,7 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
 - CAT FORM: reaction is visible third-person behavior only. The character cannot speak human language aloud. Optional direct vocalization may only be feline sounds such as "喵。", "呜。", "呼噜。", or "嘶。". Human-language thoughts belong only in innerVoice and are never spoken aloud. Show personality/canon through action choice, distance, posture, and handling of the item.
 - HUMAN FORM: reaction may include normal in-character dialogue and action. Natural feline ears and tail remain real anatomy and may respond to touch or emotion when relevant. Preserve the character's canon voice.
 ${buildResidentPublicNameContract([targetCat])}
+${buildAuthoritativeUserIdentityContext()}
 ${buildCatMemoryContext(targetCat)}
 ${episodicMemory}`;
                         const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
