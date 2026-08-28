@@ -10619,6 +10619,8 @@ ${buildCatMemoryContext(cat)}`;
                 // compatibility mirror for older saves and narrow legacy surfaces.
                 const FORM_RECONSIDER_MIN_MS = 3 * 60 * 60 * 1000;
                 const FORM_RECONSIDER_MAX_MS = 12 * 60 * 60 * 1000;
+                const FORM_RECONSIDER_KEEP_MIN_MS = 1 * 60 * 60 * 1000;
+                const FORM_RECONSIDER_KEEP_MAX_MS = 3 * 60 * 60 * 1000;
                 const FORM_VALUES = new Set(['CAT', 'HUMAN']);
                 const firstHumanRevealInFlight = new Set();
                 const parseFormTimestamp = (value) => {
@@ -10644,14 +10646,17 @@ ${buildCatMemoryContext(cat)}`;
                         ? 'HUMAN FORM: human-shaped body; natural cat ears in the hair/on top of the head and a natural cat tail from the lower back are ordinary physical anatomy. They can speak human language; ears and tail move naturally with attention, mood, touch, and body language.'
                         : 'CAT FORM: full feline body. They communicate aloud only through feline sounds and feline body language.';
                 };
-                const scheduleNextFormReconsideration = (cat, now = new Date()) => {
+                const scheduleNextFormReconsideration = (cat, now = new Date(), mode = 'SWITCH') => {
                     if (!cat?.hasRevealedHumanForm) {
                         if (cat) cat.nextFormReconsiderAt = null;
                         return null;
                     }
                     const base = now instanceof Date ? now : new Date(now);
                     if (Number.isNaN(base.getTime())) return null;
-                    const delay = FORM_RECONSIDER_MIN_MS + Math.floor(Math.random() * (FORM_RECONSIDER_MAX_MS - FORM_RECONSIDER_MIN_MS + 1));
+                    const isKeep = mode === 'KEEP';
+                    const minDelay = isKeep ? FORM_RECONSIDER_KEEP_MIN_MS : FORM_RECONSIDER_MIN_MS;
+                    const maxDelay = isKeep ? FORM_RECONSIDER_KEEP_MAX_MS : FORM_RECONSIDER_MAX_MS;
+                    const delay = minDelay + Math.floor(Math.random() * (maxDelay - minDelay + 1));
                     const scheduled = new Date(base.getTime() + delay).toISOString();
                     cat.nextFormReconsiderAt = scheduled;
                     return scheduled;
@@ -10693,7 +10698,10 @@ ${buildCatMemoryContext(cat)}`;
                     cat.currentForm = form;
                     cat.isHuman = form === 'HUMAN';
                     if (changed) cat.lastFormChangeAt = (options.now instanceof Date ? options.now : new Date(options.now || Date.now())).toISOString();
-                    if (options.scheduleNext !== false) scheduleNextFormReconsideration(cat, options.now || new Date());
+                    if (options.scheduleNext !== false) {
+                        const scheduleMode = options.reconsiderationMode === 'KEEP' && !changed ? 'KEEP' : 'SWITCH';
+                        scheduleNextFormReconsideration(cat, options.now || new Date(), scheduleMode);
+                    }
                     return changed;
                 };
                 const unlockResidentHumanForm = (cat, options = {}) => {
@@ -10756,7 +10764,8 @@ ${buildCatMemoryContext(cat)}`;
                     const current = getResidentForm(cat);
                     if (directive?.requiredForm && parsed.form !== directive.requiredForm) return false;
                     if (directive?.reconsideration !== 'ALLOWED') return parsed.form === current;
-                    const changed = setResidentForm(cat, parsed.form, { now, scheduleNext: true });
+                    const reconsiderationMode = parsed.form === current ? 'KEEP' : 'SWITCH';
+                    const changed = setResidentForm(cat, parsed.form, { now, scheduleNext: true, reconsiderationMode });
                     addLog(`FORM RECONSIDERATION: resident=${String(cat.id)}; current=${current}; result=${parsed.form}; changed=${changed}`, 'info');
                     return true;
                 };
