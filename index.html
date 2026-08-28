@@ -10643,7 +10643,7 @@ ${buildCatMemoryContext(cat)}`;
                         ? (normalizeFormValue(catOrForm) || 'CAT')
                         : getResidentForm(catOrForm);
                     return form === 'HUMAN'
-                        ? 'HUMAN FORM: human-shaped body; natural cat ears in the hair/on top of the head and a natural cat tail from the lower back are ordinary physical anatomy. They can speak human language; ears and tail move naturally with attention, mood, touch, and body language.'
+                        ? 'HUMAN FORM: human-shaped body; natural cat ears in the hair/on top of the head and a natural cat tail from the lower back are ordinary physical anatomy. They can speak ordinary human language. When the immediate social situation is naturally verbal, they normally use brief, character-appropriate speech alongside action and body language; body language enriches rather than replaces speech. Silence remains valid when character or situation specifically supports it. Ears and tail move naturally with attention, mood, touch, and body language.'
                         : 'CAT FORM: full feline body. They communicate aloud only through feline sounds and feline body language.';
                 };
                 const scheduleNextFormReconsideration = (cat, now = new Date(), mode = 'SWITCH') => {
