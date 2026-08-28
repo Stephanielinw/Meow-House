@@ -8896,6 +8896,7 @@
                     defaultTroyCats,
                     defaultUnderworldCats,
                     defaultOlympusCats,
+                    LEGACY_GOTHAM_RESIDENT_ID_MAP,
                     BUILTIN_NAME_MIGRATIONS,
                     BUILTIN_CAT_HALL_MIGRATIONS,
                     ALL_BUILTIN_CATS,
@@ -8914,6 +8915,267 @@
                     applyCanonicalRosterIdentity,
                     mergeObsoleteIthacaCat
                 } = window.Meeow.data;
+
+                const legacyGothamResidentIdMap = new Map(Object.entries(LEGACY_GOTHAM_RESIDENT_ID_MAP));
+                const migrateResidentIdValue = (value, idMap = legacyGothamResidentIdMap) => {
+                    const normalized = String(value ?? '').trim();
+                    return idMap.get(normalized) || value;
+                };
+                const mergeMigrationArrays = (primary, legacy) => {
+                    const merged = [];
+                    const seen = new Set();
+                    [...(Array.isArray(primary) ? primary : []), ...(Array.isArray(legacy) ? legacy : [])].forEach(item => {
+                        const key = rosterRecordKey(item);
+                        if (seen.has(key)) return;
+                        seen.add(key);
+                        merged.push(item);
+                    });
+                    return merged;
+                };
+                const mergeMigrationValues = (primary, legacy) => {
+                    if (Array.isArray(primary) || Array.isArray(legacy)) return mergeMigrationArrays(primary, legacy);
+                    if (primary && typeof primary === 'object' && !Array.isArray(primary) && legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
+                        const merged = { ...legacy, ...primary };
+                        [...new Set([...Object.keys(legacy), ...Object.keys(primary)])].forEach(key => {
+                            if (primary[key] !== undefined) merged[key] = legacy[key] === undefined ? primary[key] : mergeMigrationValues(primary[key], legacy[key]);
+                        });
+                        return merged;
+                    }
+                    return primary === undefined || primary === null || primary === '' ? legacy : primary;
+                };
+                const mergeMigrationRelationshipLinks = (primary, legacy) => {
+                    if (!primary || typeof primary !== 'object' || Array.isArray(primary)) return legacy;
+                    if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)) return primary;
+                    const primaryWeight = (Array.isArray(primary.events) ? primary.events.length : 0) + (Array.isArray(primary.appliedSceneKeys) ? primary.appliedSceneKeys.length : 0);
+                    const legacyWeight = (Array.isArray(legacy.events) ? legacy.events.length : 0) + (Array.isArray(legacy.appliedSceneKeys) ? legacy.appliedSceneKeys.length : 0);
+                    const preferred = primaryWeight >= legacyWeight ? primary : legacy;
+                    return {
+                        ...legacy,
+                        ...primary,
+                        ...preferred,
+                        tags: mergeMigrationArrays(primary.tags, legacy.tags).slice(0, 4),
+                        appliedSceneKeys: mergeMigrationArrays(primary.appliedSceneKeys, legacy.appliedSceneKeys).slice(-64),
+                        events: mergeMigrationArrays(primary.events, legacy.events).slice(-40)
+                    };
+                };
+                const remapResidentIdKeys = (value, idMap = legacyGothamResidentIdMap, mergeValues = mergeMigrationValues) => {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+                    const output = {};
+                    Object.entries(value)
+                        .sort(([left], [right]) => Number(migrateResidentIdValue(left, idMap) !== left) - Number(migrateResidentIdValue(right, idMap) !== right))
+                        .forEach(([key, entry]) => {
+                            const targetKey = String(migrateResidentIdValue(key, idMap));
+                            output[targetKey] = output[targetKey] === undefined ? entry : mergeValues(output[targetKey], entry);
+                        });
+                    return output;
+                };
+                const migrateResidentIdField = (object, field, idMap = legacyGothamResidentIdMap) => {
+                    if (!object || typeof object !== 'object' || object[field] === undefined) return false;
+                    const previous = object[field];
+                    const next = migrateResidentIdValue(previous, idMap);
+                    if (next === previous) return false;
+                    object[field] = next;
+                    return true;
+                };
+                const migrateResidentIdArrayField = (object, field, idMap = legacyGothamResidentIdMap) => {
+                    if (!object || !Array.isArray(object[field])) return false;
+                    let changed = false;
+                    object[field] = object[field].map(value => {
+                        const next = migrateResidentIdValue(value, idMap);
+                        if (next !== value) changed = true;
+                        return next;
+                    });
+                    return changed;
+                };
+                const migrateResidentRecords = (records, idMap = legacyGothamResidentIdMap) => {
+                    if (!Array.isArray(records)) return false;
+                    let changed = false;
+                    records.forEach(record => {
+                        if (!record || typeof record !== 'object') return;
+                        changed = migrateResidentIdField(record, 'ownerId', idMap) || changed;
+                        if (migrateResidentIdArrayField(record, 'participantIds', idMap)) changed = true;
+                    });
+                    return changed;
+                };
+                const migrateSceneRecords = (records, idMap = legacyGothamResidentIdMap) => {
+                    if (!Array.isArray(records)) return false;
+                    let changed = false;
+                    records.forEach(record => {
+                        if (!record || typeof record !== 'object') return;
+                        if (migrateResidentIdArrayField(record, 'participantIds', idMap)) changed = true;
+                        if (Array.isArray(record.reactions)) {
+                            record.reactions.forEach(reaction => {
+                                if (reaction && typeof reaction === 'object' && migrateResidentIdField(reaction, 'id', idMap)) changed = true;
+                            });
+                        }
+                        if (record.participantForms && typeof record.participantForms === 'object' && !Array.isArray(record.participantForms)) {
+                            const next = remapResidentIdKeys(record.participantForms, idMap);
+                            if (JSON.stringify(next) !== JSON.stringify(record.participantForms)) changed = true;
+                            record.participantForms = next;
+                        }
+                    });
+                    return changed;
+                };
+                const migrateResidentRecordArrays = (records, field, nestedField, idMap = legacyGothamResidentIdMap) => {
+                    if (!Array.isArray(records)) return false;
+                    let changed = false;
+                    records.forEach(record => {
+                        if (!record || typeof record !== 'object') return;
+                        if (nestedField && Array.isArray(record[nestedField])) {
+                            record[nestedField].forEach(item => {
+                                if (item && typeof item === 'object' && migrateResidentIdField(item, field, idMap)) changed = true;
+                            });
+                        } else if (migrateResidentIdField(record, field, idMap)) changed = true;
+                    });
+                    return changed;
+                };
+                const migratePendingArchiveResidentIds = (pending, idMap = legacyGothamResidentIdMap) => {
+                    if (!pending || typeof pending !== 'object') return false;
+                    let changed = false;
+                    const snapshot = pending.snapshot;
+                    if (snapshot && typeof snapshot === 'object') {
+                        if (Array.isArray(snapshot.cats)) {
+                            snapshot.cats.forEach(cat => {
+                                if (cat && typeof cat === 'object' && migrateResidentIdField(cat, 'id', idMap)) changed = true;
+                                if (Array.isArray(cat?.completedAwayEpisodes)) {
+                                    cat.completedAwayEpisodes.forEach(episode => {
+                                        if (episode && migrateResidentIdField(episode, 'residentId', idMap)) changed = true;
+                                    });
+                                }
+                            });
+                        }
+                        if (Array.isArray(snapshot.missionReports)) {
+                            snapshot.missionReports.forEach(report => {
+                                if (!Array.isArray(report?.participants)) return;
+                                report.participants.forEach(participant => {
+                                    if (participant && migrateResidentIdField(participant, 'id', idMap)) changed = true;
+                                });
+                            });
+                        }
+                        if (snapshot.mailState && migrateResidentIdField(snapshot.mailState, 'lastMailSenderId', idMap)) changed = true;
+                    }
+                    changed = migrateResidentRecordArrays(pending.backfillDiaryTasks, 'catId', null, idMap) || changed;
+                    changed = migrateResidentIdArrayField(pending, 'awayDiaryBlockedResidentIds', idMap) || changed;
+                    if (Array.isArray(pending.diaryTasks)) {
+                        pending.diaryTasks.forEach(task => {
+                            if (task && migrateResidentIdField(task, 'catId', idMap)) changed = true;
+                        });
+                    }
+                    const witnessed = pending.witnessedSharedScenes;
+                    if (witnessed && typeof witnessed === 'object' && witnessed.byResident && typeof witnessed.byResident === 'object' && !Array.isArray(witnessed.byResident)) {
+                        const nextByResident = remapResidentIdKeys(witnessed.byResident, idMap);
+                        if (JSON.stringify(nextByResident) !== JSON.stringify(witnessed.byResident)) changed = true;
+                        witnessed.byResident = nextByResident;
+                        Object.values(witnessed.byResident).forEach(entries => {
+                            if (!Array.isArray(entries)) return;
+                            entries.forEach(entry => {
+                                if (!entry || typeof entry !== 'object') return;
+                                if (migrateResidentIdField(entry, 'residentId', idMap)) changed = true;
+                                if (migrateResidentIdField(entry, 'catId', idMap)) changed = true;
+                                if (migrateResidentIdArrayField(entry, 'participantIds', idMap)) changed = true;
+                            });
+                        });
+                    }
+                    return changed;
+                };
+                const migratePendingDailyArchiveResidentIds = () => {
+                    try {
+                        const raw = localStorage.getItem(DAILY_ARCHIVE_PENDING_KEY);
+                        if (!raw) return false;
+                        const pending = JSON.parse(raw);
+                        if (!migratePendingArchiveResidentIds(pending)) return false;
+                        localStorage.setItem(DAILY_ARCHIVE_PENDING_KEY, JSON.stringify(pending));
+                        console.info('GOTHAM ID MIGRATION: independent daily archive pending state canonicalized.');
+                        return true;
+                    } catch (error) {
+                        console.warn('GOTHAM ID MIGRATION: unable to inspect daily archive pending state.', error);
+                        return false;
+                    }
+                };
+                const migrateLegacyGothamResidentIds = (payload) => {
+                    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+                    const idMap = new Map(legacyGothamResidentIdMap);
+                    const stats = { migrated: 0, collisions: 0 };
+                    const savedCats = Array.isArray(payload.cats) ? payload.cats : [];
+                    const expectedNames = new Map([...legacyGothamResidentIdMap].map(([legacyId, targetId]) => {
+                        const profile = BUILTIN_CAT_PROFILES.get(targetId);
+                        const translatedNames = Object.entries(BUILTIN_NAME_MIGRATIONS)
+                            .filter(([, canonicalName]) => canonicalName === profile?.name)
+                            .map(([legacyName]) => legacyName);
+                        return [legacyId, new Set([profile?.name, profile?.humanName, ...translatedNames].filter(Boolean))];
+                    }));
+                    const isExpectedBuiltin = (cat, legacyId) => {
+                        const names = expectedNames.get(legacyId) || new Set();
+                        return names.has(String(cat?.name || '')) || names.has(String(cat?.humanName || ''));
+                    };
+                    [...legacyGothamResidentIdMap.entries()].forEach(([legacyId, targetId]) => {
+                        const legacyIndex = savedCats.findIndex(cat => String(cat?.id ?? '').trim() === legacyId);
+                        if (legacyIndex < 0) return;
+                        const canonicalIndex = savedCats.findIndex(cat => String(cat?.id ?? '').trim() === targetId);
+                        if (canonicalIndex < 0) {
+                            savedCats[legacyIndex].id = targetId;
+                            stats.migrated += 1;
+                            return;
+                        }
+                        if (isExpectedBuiltin(savedCats[legacyIndex], legacyId) && isExpectedBuiltin(savedCats[canonicalIndex], legacyId)) {
+                            savedCats[canonicalIndex] = mergeMigrationValues(savedCats[canonicalIndex], savedCats[legacyIndex]);
+                            savedCats.splice(legacyIndex, 1);
+                            stats.migrated += 1;
+                            stats.collisions += 1;
+                        } else {
+                            idMap.delete(legacyId);
+                            stats.collisions += 1;
+                            console.warn(`GOTHAM ID MIGRATION CONFLICT: legacy=${legacyId}; canonical=${targetId}`);
+                        }
+                    });
+                    const remap = value => migrateResidentIdValue(value, idMap);
+                    savedCats.forEach(cat => {
+                        if (!cat || typeof cat !== 'object') return;
+                        if (cat.id !== undefined) cat.id = remap(cat.id);
+                        if (cat.residentRelationships && typeof cat.residentRelationships === 'object' && !Array.isArray(cat.residentRelationships)) {
+                            cat.residentRelationships = remapResidentIdKeys(cat.residentRelationships, idMap, mergeMigrationRelationshipLinks);
+                        }
+                        if (Array.isArray(cat.episodicMemories)) migrateResidentRecords(cat.episodicMemories, idMap);
+                    });
+                    const userPayload = payload.user;
+                    if (userPayload && typeof userPayload === 'object') {
+                        migrateResidentIdField(userPayload, 'lastMailSenderId', idMap);
+                        migrateResidentRecordArrays(userPayload.mailbox, 'catId', null, idMap);
+                        migrateResidentRecordArrays(userPayload.pendingAwayDiaryDays, 'residentId', null, idMap);
+                        if (Array.isArray(userPayload.missionReports)) {
+                            userPayload.missionReports.forEach(report => {
+                                if (!Array.isArray(report?.participants)) return;
+                                report.participants.forEach(participant => {
+                                    if (participant && migrateResidentIdField(participant, 'id', idMap)) stats.migrated += 1;
+                                });
+                            });
+                        }
+                        const phoneData = userPayload.phoneData;
+                        if (phoneData && typeof phoneData === 'object') {
+                            if (Array.isArray(phoneData.friends)) phoneData.friends = phoneData.friends.map(friend => {
+                                if (friend && typeof friend === 'object') {
+                                    const copy = { ...friend };
+                                    if (copy.id !== undefined) copy.id = remap(copy.id);
+                                    if (copy.catId !== undefined) copy.catId = remap(copy.catId);
+                                    return copy;
+                                }
+                                return remap(friend);
+                            });
+                            migrateResidentRecordArrays(phoneData.friendRequests, 'catId', null, idMap);
+                            migrateResidentIdArrayField(phoneData, 'friendRequestSentCatIds', idMap);
+                            migrateResidentRecordArrays(phoneData.chats, 'contactId', null, idMap);
+                            if (phoneData.chatArchives && typeof phoneData.chatArchives === 'object' && !Array.isArray(phoneData.chatArchives)) {
+                                phoneData.chatArchives = remapResidentIdKeys(phoneData.chatArchives, idMap);
+                            }
+                            if (phoneData.reader && typeof phoneData.reader === 'object') migrateResidentRecordArrays(phoneData.reader.annotations, 'catId', null, idMap);
+                        }
+                    }
+                    migrateSceneRecords(payload.hallSceneRecords, idMap);
+                    migrateResidentRecordArrays(payload.awayEpisodes, 'residentId', null, idMap);
+                    if (stats.migrated || stats.collisions) console.info(`GOTHAM ID MIGRATION: migrated=${stats.migrated}; collisions=${stats.collisions}`);
+                    return Boolean(stats.migrated || stats.collisions);
+                };
+                migratePendingDailyArchiveResidentIds();
 
                 let initialCats = [...ALL_BUILTIN_CATS];
                 let initialShopItems = [
@@ -9030,6 +9292,7 @@
                 if (savedData) {
                     try {
                         const parsed = JSON.parse(savedData);
+                        if (migrateLegacyGothamResidentIds(parsed)) rosterMigrationPendingSave = true;
                         if (parsed.user) {
                             Object.assign(user, parsed.user);
                             if (!user.phoneData) user.phoneData = {};
@@ -9094,14 +9357,6 @@
                         if (parsed.cats && parsed.cats.length > 0) cats.value = parsed.cats;
                         if (parsed.halls && parsed.halls.length > 0) halls.value = parsed.halls;
                         if (parsed.shopItems && parsed.shopItems.length > 0) shopItems.value = parsed.shopItems;
-
-                        // Robust Migration: Clear friends if they contain default IDs 1-5 or other legacy values
-                        if (user.phoneData && user.phoneData.friends && user.phoneData.friends.length > 0) {
-                            const hasAnyDefaultId = user.phoneData.friends.some(f => (typeof f === 'number' && f <= 5) || (f && [1, 2, 3, 4, 5].includes(f.id)));
-                            if (hasAnyDefaultId) {
-                                user.phoneData.friends = [];
-                            }
-                        }
                     } catch (e) {
                         console.error("数据损坏，重置为默认", e);
                     }
@@ -18699,6 +18954,7 @@ ${enrichedStatusOutputContract}`;
                     reader.onload = async (e) => {
                         try {
                             const data = JSON.parse(e.target.result);
+                            if (migrateLegacyGothamResidentIds(data)) rosterMigrationPendingSave = true;
                             if (data.user) {
                                 Object.assign(user, data.user);
                                 ensurePendingAwayDiaryDays();
