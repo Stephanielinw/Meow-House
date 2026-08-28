@@ -165,19 +165,107 @@ const RESIDENT_RELATIONSHIP_TAGS = new Set([
 const RESIDENT_RELATIONSHIP_MAX_TAGS = 4;
 const RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS = 64;
 const RESIDENT_RELATIONSHIP_MAX_EVENTS = 40;
+const freezeCanonBaseline = (familiarity, warmth, trust, tension) => Object.freeze({ familiarity, warmth, trust, tension });
+const makeCanonicalDirectionalRecord = (fromId, toId, labels, baseline) => Object.freeze({
+    fromId,
+    toId,
+    labels: Object.freeze([...labels]),
+    baseline: freezeCanonBaseline(baseline.familiarity, baseline.warmth, baseline.trust, baseline.tension)
+});
+const makeCanonicalPair = (fromId, toId, labels, fromBaseline, toBaseline = fromBaseline) => Object.freeze([
+    makeCanonicalDirectionalRecord(fromId, toId, labels, fromBaseline),
+    makeCanonicalDirectionalRecord(toId, fromId, labels, toBaseline)
+]);
+const CANONICAL_SOCIAL_GROUPS = Object.freeze([
+    Object.freeze({ id: 'bat-family', label: 'Bat-family', memberIds: Object.freeze(['gotham-bruce', 'gotham-dick', 'gotham-jason', 'gotham-tim', 'gotham-damian', 'gotham-stephanie', 'gotham-cassandra', 'gotham-barbara']), baseline: freezeCanonBaseline(3, 0, 0, 0) }),
+    Object.freeze({ id: 'avengers-core', label: 'Avengers 战友', memberIds: Object.freeze(['marvel-tony', 'marvel-steve', 'marvel-natasha', 'marvel-thor', 'marvel-clint']), baseline: freezeCanonBaseline(4, 0, 0, 0) }),
+    Object.freeze({ id: 'ithaca-suitor-faction', label: '求婚者阵营', memberIds: Object.freeze(['greek-antinous', 'greek-eurymachus', 'greek-amphinomos', 'greek-melanthios']), baseline: freezeCanonBaseline(3, 0, 0, 0) }),
+    Object.freeze({ id: 'achaean-commanders', label: '希腊联军战友', memberIds: Object.freeze(['greek-odysseus', 'greek-diomendes', 'troy-agamemnon', 'troy-menelaus', 'troy-ajax', 'troy-nestor']), baseline: freezeCanonBaseline(4, 0, 1, 0) }),
+    Object.freeze({ id: 'trojan-defenders', label: '特洛伊阵营战友', memberIds: Object.freeze(['troy-hector', 'troy-paris', 'troy-aeneas', 'troy-sarpedon']), baseline: freezeCanonBaseline(4, 0, 1, 0) }),
+    Object.freeze({ id: 'hades-court', label: '冥府成员', memberIds: Object.freeze(['underworld-hades', 'greek-zagreus', 'underworld-hypnos', 'underworld-thanatos', 'underworld-achilles']), baseline: freezeCanonBaseline(3, 0, 0, 0) }),
+    Object.freeze({ id: 'olympians', label: '奥林匹斯诸神', memberIds: Object.freeze(['olympus-zeus', 'olympus-hera', 'olympus-poseidon', 'olympus-demeter', 'olympus-athena', 'olympus-apollo', 'olympus-artemis', 'olympus-ares', 'olympus-aphrodite', 'olympus-hephaestus', 'olympus-hermes', 'olympus-dionysus']), baseline: freezeCanonBaseline(4, 0, 0, 0) })
+]);
+const CANONICAL_GROUP_RELATIONSHIPS = Object.freeze([
+    ...makeCanonicalPair('achaean-commanders', 'trojan-defenders', ['敌对阵营'], freezeCanonBaseline(3, -2, -2, 3))
+]);
 const CANONICAL_RESIDENT_RELATIONSHIPS = Object.freeze([
-    Object.freeze({
-        fromId: 'greek-telemachus',
-        toId: 'greek-odysseus',
-        label: '父子',
-        baseline: Object.freeze({ familiarity: 5, warmth: 0, trust: 0, tension: 0 })
-    }),
-    Object.freeze({
-        fromId: 'greek-odysseus',
-        toId: 'greek-telemachus',
-        label: '父子',
-        baseline: Object.freeze({ familiarity: 5, warmth: 0, trust: 0, tension: 0 })
-    })
+    ...makeCanonicalPair('greek-telemachus', 'greek-odysseus', ['父子'], freezeCanonBaseline(5, 4, 4, 2), freezeCanonBaseline(5, 4, 5, 1)),
+    ...makeCanonicalPair('greek-telemachus', 'greek-antinous', ['敌对', '求婚者首领与家主继承人'], freezeCanonBaseline(5, -5, -5, 5), freezeCanonBaseline(5, -4, -5, 5)),
+    ...makeCanonicalPair('greek-telemachus', 'greek-eurymachus', ['敌对', '求婚者与家主继承人'], freezeCanonBaseline(5, -4, -5, 5), freezeCanonBaseline(5, -3, -4, 4)),
+    ...makeCanonicalPair('greek-telemachus', 'greek-amphinomos', ['敌对阵营', '复杂认识'], freezeCanonBaseline(4, -1, -2, 3), freezeCanonBaseline(4, 0, -1, 2)),
+    ...makeCanonicalPair('greek-telemachus', 'greek-melanthios', ['敌对', '背叛者'], freezeCanonBaseline(4, -4, -5, 4), freezeCanonBaseline(4, -3, -4, 4)),
+    ...makeCanonicalPair('greek-telemachus', 'greek-peiraios', ['好友', '可信赖同伴'], freezeCanonBaseline(4, 4, 5, 0)),
+    ...makeCanonicalPair('greek-telemachus', 'greek-peisistratus', ['好友', '旅伴'], freezeCanonBaseline(4, 4, 4, 0)),
+    ...makeCanonicalPair('greek-antinous', 'greek-eurymachus', ['求婚者核心', '同盟兼竞争'], freezeCanonBaseline(5, 1, 2, 2)),
+    ...makeCanonicalPair('greek-antinous', 'greek-amphinomos', ['求婚者同伴', '同阵营但立场有分歧'], freezeCanonBaseline(4, 0, 1, 1), freezeCanonBaseline(4, 0, 0, 2)),
+    ...makeCanonicalPair('troy-nestor', 'greek-peisistratus', ['父子'], freezeCanonBaseline(5, 5, 5, 0)),
+    ...makeCanonicalPair('greek-telemachus', 'troy-nestor', ['长辈', '指导者', '宾主'], freezeCanonBaseline(3, 3, 4, 0)),
+    ...makeCanonicalPair('greek-telemachus', 'troy-menelaus', ['长辈', '宾主', '父辈战友'], freezeCanonBaseline(3, 2, 3, 0)),
+    ...makeCanonicalPair('greek-telemachus', 'olympus-athena', ['师生', '庇护者与受庇护者'], freezeCanonBaseline(5, 4, 5, 0)),
+    ...makeCanonicalPair('greek-odysseus', 'olympus-athena', ['师生', '庇护者', '长期盟友'], freezeCanonBaseline(5, 5, 5, 0)),
+    ...makeCanonicalPair('greek-odysseus', 'olympus-poseidon', ['宿敌', '神祇敌对'], freezeCanonBaseline(5, -5, -5, 5)),
+    ...makeCanonicalPair('greek-odysseus', 'greek-diomendes', ['亲密战友', '行动搭档'], freezeCanonBaseline(5, 4, 5, 1)),
+    ...makeCanonicalPair('troy-agamemnon', 'troy-menelaus', ['兄弟'], freezeCanonBaseline(5, 4, 5, 1)),
+    ...makeCanonicalPair('troy-hector', 'troy-paris', ['兄弟'], freezeCanonBaseline(5, 2, 2, 3), freezeCanonBaseline(5, 3, 3, 2)),
+    ...makeCanonicalPair('troy-menelaus', 'troy-paris', ['宿敌', '战争直接冲突'], freezeCanonBaseline(5, -5, -5, 5)),
+    ...makeCanonicalPair('troy-ajax', 'troy-hector', ['战场宿敌', '相互尊重的对手'], freezeCanonBaseline(5, -1, 1, 4)),
+    ...makeCanonicalPair('greek-odysseus', 'troy-ajax', ['战友', '竞争者'], freezeCanonBaseline(4, 0, 1, 3)),
+    ...makeCanonicalPair('greek-odysseus', 'troy-nestor', ['战友', '长辈参谋'], freezeCanonBaseline(4, 3, 4, 0)),
+    ...makeCanonicalPair('troy-hector', 'troy-aeneas', ['战友', '同族盟友'], freezeCanonBaseline(4, 3, 4, 0)),
+    ...makeCanonicalPair('troy-hector', 'troy-sarpedon', ['盟友', '战友'], freezeCanonBaseline(4, 3, 4, 0)),
+    ...makeCanonicalPair('gotham-bruce', 'gotham-dick', ['养父子', '导师学生'], freezeCanonBaseline(5, 3, 4, 1), freezeCanonBaseline(5, 4, 4, 1)),
+    ...makeCanonicalPair('gotham-bruce', 'gotham-jason', ['养父子', '导师学生', '复杂冲突'], freezeCanonBaseline(5, 1, 0, 4)),
+    ...makeCanonicalPair('gotham-bruce', 'gotham-tim', ['养父子', '导师学生'], freezeCanonBaseline(5, 3, 4, 1)),
+    ...makeCanonicalPair('gotham-bruce', 'gotham-damian', ['亲生父子', '导师学生'], freezeCanonBaseline(5, 2, 3, 3)),
+    ...makeCanonicalPair('gotham-bruce', 'gotham-cassandra', ['养父女', '导师学生'], freezeCanonBaseline(4, 3, 4, 1)),
+    ...makeCanonicalPair('gotham-bruce', 'gotham-stephanie', ['导师学生', 'Bat-family'], freezeCanonBaseline(4, 1, 1, 2)),
+    ...makeCanonicalPair('gotham-bruce', 'gotham-barbara', ['长期战友', '合作伙伴'], freezeCanonBaseline(5, 2, 4, 2)),
+    ...makeCanonicalPair('gotham-dick', 'gotham-damian', ['兄弟', '导师学生', '长期搭档'], freezeCanonBaseline(5, 4, 4, 1)),
+    ...makeCanonicalPair('gotham-dick', 'gotham-barbara', ['恋人', '长期战友'], freezeCanonBaseline(5, 5, 5, 1)),
+    ...makeCanonicalPair('gotham-jason', 'gotham-tim', ['家族手足', '历史竞争'], freezeCanonBaseline(4, 0, 0, 3)),
+    ...makeCanonicalPair('gotham-jason', 'gotham-damian', ['家族手足'], freezeCanonBaseline(4, 0, 1, 2)),
+    ...makeCanonicalPair('gotham-tim', 'gotham-damian', ['家族手足', '竞争'], freezeCanonBaseline(4, 0, 1, 3)),
+    ...makeCanonicalPair('gotham-tim', 'gotham-stephanie', ['前恋人', '好友', '战友'], freezeCanonBaseline(5, 3, 3, 2)),
+    ...makeCanonicalPair('gotham-cassandra', 'gotham-stephanie', ['挚友', '战友'], freezeCanonBaseline(5, 5, 5, 0)),
+    ...makeCanonicalPair('gotham-barbara', 'gotham-cassandra', ['导师学生', '亲密战友'], freezeCanonBaseline(5, 4, 5, 1)),
+    ...makeCanonicalPair('gotham-barbara', 'gotham-stephanie', ['导师学生', '战友'], freezeCanonBaseline(5, 4, 5, 1)),
+    ...makeCanonicalPair('marvel-peter', 'marvel-harry', ['挚友', '复杂友情'], freezeCanonBaseline(5, 4, 4, 2)),
+    ...makeCanonicalPair('marvel-tony', 'marvel-peter', ['师生', '导师学生'], freezeCanonBaseline(4, 4, 4, 1), freezeCanonBaseline(4, 4, 5, 1)),
+    ...makeCanonicalPair('marvel-tony', 'marvel-steve', ['战友', '好友', '理念冲突'], freezeCanonBaseline(5, 2, 3, 3)),
+    ...makeCanonicalPair('marvel-tony', 'marvel-bucky', ['敌对', '复杂冲突'], freezeCanonBaseline(3, -3, -4, 4)),
+    ...makeCanonicalPair('marvel-steve', 'marvel-bucky', ['挚友', '战友'], freezeCanonBaseline(5, 5, 5, 1)),
+    ...makeCanonicalPair('marvel-steve', 'marvel-natasha', ['好友', '战友'], freezeCanonBaseline(5, 4, 5, 1)),
+    ...makeCanonicalPair('marvel-natasha', 'marvel-clint', ['挚友', '战友'], freezeCanonBaseline(5, 5, 5, 0)),
+    ...makeCanonicalPair('marvel-natasha', 'marvel-yelena', ['姐妹', '家人'], freezeCanonBaseline(5, 4, 4, 2)),
+    ...makeCanonicalPair('marvel-thor', 'marvel-loki', ['兄弟', '复杂敌友'], freezeCanonBaseline(5, 2, 1, 4)),
+    ...makeCanonicalPair('marvel-loki', 'marvel-clint', ['敌对', '历史伤害'], freezeCanonBaseline(3, -3, -4, 4)),
+    ...makeCanonicalPair('underworld-hades', 'greek-zagreus', ['父子', '严重冲突'], freezeCanonBaseline(5, 0, -2, 4), freezeCanonBaseline(5, -1, -2, 4)),
+    ...makeCanonicalPair('greek-zagreus', 'underworld-achilles', ['师生', '导师学生'], freezeCanonBaseline(5, 5, 5, 0)),
+    ...makeCanonicalPair('greek-zagreus', 'underworld-thanatos', ['挚友', '亲密同伴'], freezeCanonBaseline(5, 4, 4, 2)),
+    ...makeCanonicalPair('underworld-thanatos', 'underworld-hypnos', ['兄弟'], freezeCanonBaseline(5, 2, 2, 2)),
+    ...makeCanonicalPair('underworld-achilles', 'underworld-patroclus', ['恋人', '灵魂伴侣'], freezeCanonBaseline(5, 5, 5, 1)),
+    ...makeCanonicalPair('underworld-hades', 'underworld-achilles', ['上司下属', '契约关系'], freezeCanonBaseline(4, 0, 2, 2)),
+    ...makeCanonicalPair('underworld-hades', 'underworld-thanatos', ['上司下属'], freezeCanonBaseline(4, 0, 3, 0)),
+    ...makeCanonicalPair('underworld-hades', 'underworld-hypnos', ['上司下属'], freezeCanonBaseline(4, -1, 1, 2)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-hera', ['夫妻', '兄妹'], freezeCanonBaseline(5, 0, 1, 4)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-poseidon', ['兄弟'], freezeCanonBaseline(5, 0, 1, 2)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-demeter', ['兄妹'], freezeCanonBaseline(5, 0, 1, 1)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-athena', ['父女'], freezeCanonBaseline(5, 3, 4, 1)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-apollo', ['父子'], freezeCanonBaseline(5, 2, 3, 1)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-artemis', ['父女'], freezeCanonBaseline(5, 2, 3, 1)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-ares', ['父子'], freezeCanonBaseline(5, -1, 0, 3)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-hermes', ['父子'], freezeCanonBaseline(5, 2, 3, 1)),
+    ...makeCanonicalPair('olympus-zeus', 'olympus-dionysus', ['父子'], freezeCanonBaseline(5, 2, 3, 1)),
+    ...makeCanonicalPair('olympus-hera', 'olympus-poseidon', ['兄妹'], freezeCanonBaseline(5, 0, 1, 2)),
+    ...makeCanonicalPair('olympus-hera', 'olympus-demeter', ['姐妹'], freezeCanonBaseline(5, 1, 2, 1)),
+    ...makeCanonicalPair('olympus-hera', 'olympus-ares', ['母子'], freezeCanonBaseline(5, 1, 2, 2)),
+    ...makeCanonicalPair('olympus-hera', 'olympus-hephaestus', ['母子'], freezeCanonBaseline(5, -1, 0, 3)),
+    ...makeCanonicalPair('olympus-apollo', 'olympus-artemis', ['双胞胎兄妹'], freezeCanonBaseline(5, 4, 4, 0)),
+    ...makeCanonicalPair('olympus-ares', 'olympus-aphrodite', ['恋人'], freezeCanonBaseline(5, 4, 2, 2)),
+    ...makeCanonicalPair('olympus-aphrodite', 'olympus-hephaestus', ['夫妻', '关系破裂'], freezeCanonBaseline(5, -2, -2, 4)),
+    ...makeCanonicalPair('olympus-athena', 'olympus-poseidon', ['竞争者', '历史对立'], freezeCanonBaseline(5, -2, -2, 4)),
+    ...makeCanonicalPair('olympus-athena', 'olympus-ares', ['战争理念对手'], freezeCanonBaseline(5, -2, -1, 3)),
+    ...makeCanonicalPair('olympus-apollo', 'olympus-hermes', ['兄弟', '竞争兼友好'], freezeCanonBaseline(4, 3, 3, 1))
 ]);
 const isPermanentOutBuiltin = (cat) => PERMANENT_OUT_BUILTIN_IDS.has(String(cat?.id));
 const BUILTIN_CANONICAL_PROMPT_REFRESH_IDS = new Set(['gotham-bruce', 'gotham-dick', 'gotham-jason', 'gotham-tim', 'gotham-damian', 'marvel-harry', 'greek-antinous', 'greek-melanthios']);
@@ -405,6 +493,8 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
         OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
         normalizeCatHall,
         RESIDENT_RELATIONSHIP_TAGS,
+        CANONICAL_SOCIAL_GROUPS,
+        CANONICAL_GROUP_RELATIONSHIPS,
         CANONICAL_RESIDENT_RELATIONSHIPS,
         normalizeResidentRelationships,
         rosterHasValue,

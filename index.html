@@ -8908,6 +8908,8 @@
                     OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
                     normalizeCatHall,
                     RESIDENT_RELATIONSHIP_TAGS,
+                    CANONICAL_SOCIAL_GROUPS,
+                    CANONICAL_GROUP_RELATIONSHIPS,
                     CANONICAL_RESIDENT_RELATIONSHIPS,
                     normalizeResidentRelationships,
                     rosterHasValue,
@@ -15704,6 +15706,79 @@ ${buildCatMemoryContext(cat)}`;
                     const numeric = Number(value);
                     return Number.isFinite(numeric) ? Math.max(minimum, Math.min(maximum, Math.trunc(numeric))) : 0;
                 };
+                const isValidCanonicalRelationshipDimension = (value, minimum, maximum) =>
+                    Number.isInteger(value) && value >= minimum && value <= maximum;
+                const isValidCanonicalRelationshipBaseline = baseline => baseline && typeof baseline === 'object' && !Array.isArray(baseline) &&
+                    isValidCanonicalRelationshipDimension(baseline.familiarity, 0, 5) &&
+                    isValidCanonicalRelationshipDimension(baseline.warmth, -5, 5) &&
+                    isValidCanonicalRelationshipDimension(baseline.trust, -5, 5) &&
+                    isValidCanonicalRelationshipDimension(baseline.tension, 0, 5);
+                const normalizeCanonicalRelationshipLabels = labels => {
+                    if (!Array.isArray(labels)) return null;
+                    const normalized = [...new Set(labels.map(label => String(label || '').trim()).filter(Boolean))];
+                    return normalized.length ? normalized : null;
+                };
+                const validateCanonicalSocialGraph = ({
+                    groups = CANONICAL_SOCIAL_GROUPS || [],
+                    groupRelationships = CANONICAL_GROUP_RELATIONSHIPS || [],
+                    relationships = CANONICAL_RESIDENT_RELATIONSHIPS || []
+                } = {}) => {
+                    const errors = [];
+                    const knownResidentIds = new Set((ALL_BUILTIN_CATS || []).map(cat => String(cat?.id || '').trim()).filter(Boolean));
+                    const validGroups = [];
+                    const groupIds = new Set();
+                    (Array.isArray(groups) ? groups : []).forEach((group, index) => {
+                        const id = String(group?.id || '').trim();
+                        const label = String(group?.label || '').trim();
+                        const memberIds = Array.isArray(group?.memberIds) ? group.memberIds.map(memberId => String(memberId || '').trim()).filter(Boolean) : [];
+                        if (!id || groupIds.has(id)) {
+                            errors.push(`duplicate or invalid social group at ${index}`);
+                            return;
+                        }
+                        groupIds.add(id);
+                        const uniqueMemberIds = [...new Set(memberIds)];
+                        if (!label || !memberIds.length || uniqueMemberIds.length !== memberIds.length || memberIds.some(memberId => !knownResidentIds.has(memberId)) || !isValidCanonicalRelationshipBaseline(group?.baseline)) {
+                            errors.push(`invalid social group ${id}`);
+                            return;
+                        }
+                        validGroups.push({ id, label, memberIds: uniqueMemberIds, baseline: group.baseline });
+                    });
+                    const validGroupIds = new Set(validGroups.map(group => group.id));
+                    const validateDirectionalRecords = (records, validIds, recordType) => {
+                        const valid = [];
+                        const seen = new Set();
+                        (Array.isArray(records) ? records : []).forEach((entry, index) => {
+                            const fromId = String(entry?.fromId || '').trim();
+                            const toId = String(entry?.toId || '').trim();
+                            const directionalKey = `${fromId}→${toId}`;
+                            const labels = normalizeCanonicalRelationshipLabels(entry?.labels || (entry?.label ? [entry.label] : null));
+                            if (!fromId || !toId || fromId === toId || !validIds.has(fromId) || !validIds.has(toId) || !labels || !isValidCanonicalRelationshipBaseline(entry?.baseline)) {
+                                errors.push(`invalid ${recordType} at ${index}`);
+                                return;
+                            }
+                            if (seen.has(directionalKey)) {
+                                errors.push(`duplicate ${recordType} ${directionalKey}`);
+                                return;
+                            }
+                            seen.add(directionalKey);
+                            valid.push({ fromId, toId, labels, baseline: entry.baseline });
+                        });
+                        valid.forEach(entry => {
+                            if (!seen.has(`${entry.toId}→${entry.fromId}`)) errors.push(`missing reciprocal ${recordType} ${entry.fromId}↔${entry.toId}`);
+                        });
+                        return valid;
+                    };
+                    const validGroupRelationships = validateDirectionalRecords(groupRelationships, validGroupIds, 'group relationship');
+                    const validRelationships = validateDirectionalRecords(relationships, knownResidentIds, 'resident relationship');
+                    return Object.freeze({
+                        errors: Object.freeze([...new Set(errors)]),
+                        groups: Object.freeze(validGroups.map(group => Object.freeze({ ...group, memberIds: Object.freeze([...group.memberIds]) }))),
+                        groupRelationships: Object.freeze(validGroupRelationships.map(entry => Object.freeze({ ...entry, labels: Object.freeze([...entry.labels]) }))),
+                        relationships: Object.freeze(validRelationships.map(entry => Object.freeze({ ...entry, labels: Object.freeze([...entry.labels]) })))
+                    });
+                };
+                const canonicalSocialGraph = validateCanonicalSocialGraph();
+                if (canonicalSocialGraph.errors.length) console.error(`CANON SOCIAL GRAPH INVALID: ${canonicalSocialGraph.errors.join('; ')}`);
                 const getArchiveRelationshipLink = (owner, target) => {
                     const link = owner?.residentRelationships?.[String(target?.id)];
                     return link && typeof link === 'object' && !Array.isArray(link) ? link : null;
@@ -15732,22 +15807,36 @@ ${buildCatMemoryContext(cat)}`;
                     return Boolean(fromCurrentHall && fromCurrentHall === toCurrentHall);
                 };
                 const getCanonicalRelationshipBaseline = (from, to) => {
-                    const entry = (CANONICAL_RESIDENT_RELATIONSHIPS || []).find(item =>
-                        String(item?.fromId || '') === String(from?.id || '') &&
-                        String(item?.toId || '') === String(to?.id || '')
-                    );
-                    if (!entry) return null;
-                    const baseline = entry.baseline && typeof entry.baseline === 'object' && !Array.isArray(entry.baseline)
-                        ? entry.baseline
-                        : {};
-                    return {
-                        kind: 'canonical',
-                        label: String(entry.label || '').trim(),
-                        familiarity: getRelationshipNumber(baseline.familiarity, 0, 5),
-                        warmth: getRelationshipNumber(baseline.warmth, -5, 5),
-                        trust: getRelationshipNumber(baseline.trust, -5, 5),
-                        tension: getRelationshipNumber(baseline.tension, 0, 5)
+                    const fromId = String(from?.id || '').trim();
+                    const toId = String(to?.id || '').trim();
+                    if (!fromId || !toId || fromId === toId) return null;
+                    const makeBaseline = (kind, entry) => {
+                        if (!entry) return null;
+                        const labels = Array.isArray(entry.labels) ? entry.labels : [entry.label];
+                        const normalizedLabels = normalizeCanonicalRelationshipLabels(labels);
+                        if (!normalizedLabels || !isValidCanonicalRelationshipBaseline(entry.baseline)) return null;
+                        return {
+                            kind,
+                            labels: normalizedLabels,
+                            label: normalizedLabels.join(' · '),
+                            familiarity: entry.baseline.familiarity,
+                            warmth: entry.baseline.warmth,
+                            trust: entry.baseline.trust,
+                            tension: entry.baseline.tension
+                        };
                     };
+                    const explicit = canonicalSocialGraph.relationships.find(entry => entry.fromId === fromId && entry.toId === toId);
+                    if (explicit) return makeBaseline('canonical-explicit', explicit);
+                    const fromGroups = canonicalSocialGraph.groups.filter(group => group.memberIds.includes(fromId));
+                    const toGroups = canonicalSocialGraph.groups.filter(group => group.memberIds.includes(toId));
+                    for (const fromGroup of fromGroups) {
+                        for (const toGroup of toGroups) {
+                            const groupRelation = canonicalSocialGraph.groupRelationships.find(entry => entry.fromId === fromGroup.id && entry.toId === toGroup.id);
+                            if (groupRelation) return makeBaseline('canonical-group-relation', groupRelation);
+                        }
+                    }
+                    const sharedGroup = fromGroups.find(group => toGroups.some(other => other.id === group.id));
+                    return sharedGroup ? makeBaseline('canonical-group', { labels: [sharedGroup.label], baseline: sharedGroup.baseline }) : null;
                 };
                 const getRelationshipBaseline = (from, to) => {
                     if (!from || !to || String(from.id) === String(to.id)) return null;
@@ -16014,12 +16103,10 @@ ${buildCatMemoryContext(cat)}`;
                 const formatUserDirectedRelationshipContext = (from, to) => {
                     const projection = getEffectiveRelationshipProjection(from, to);
                     if (!projection) return 'no established prior relationship; effectively strangers';
-                    const baselineText = projection.baseline?.kind === 'canonical'
-                        ? `canon: ${projection.baseline.label}`
-                        : '';
+                    const baselineText = projection.baseline?.label ? `canon: ${projection.baseline.label}` : '';
                     const currentText = projection.emergent
                         ? formatResidentRelationshipSummary(projection)
-                        : 'no save-specific emotional tendency yet';
+                        : `${formatResidentRelationshipSummary(projection)}; no save-specific change yet`;
                     return [baselineText, currentText].filter(Boolean).join('; ');
                 };
                 const buildUserDirectedRelationshipContext = (participantCats) => {
