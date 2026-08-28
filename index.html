@@ -7882,6 +7882,7 @@
                                             <h3 class="text-sm font-bold truncate">{{ getResidentPublicName(entry.target) }}</h3>
                                             <p v-if="entry.baseline" class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">{{ entry.baseline.label }}</p>
                                             <p v-if="entry.ownerLink" class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">{{ formatRelationshipCurrentState(entry.ownerProjection) }}</p>
+                                            <p v-else-if="!entry.baseline && entry.isLocalStranger" class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">陌生</p>
                                             <p v-else-if="!entry.baseline && entry.reverseLink" class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">TA 尚未形成明确的关系倾向</p>
                                             <p v-if="!entry.ownerLink && entry.reverseLink" class="mt-1 text-[10px]" style="color: var(--ui-text-muted);">对方已有关系变化</p>
                                             <div v-if="getRelationshipTagLabels(entry.ownerProjection).length" class="flex flex-wrap gap-1.5 mt-2">
@@ -7906,13 +7907,13 @@
                                 <div class="space-y-3">
                                     <section v-for="direction in getCatArchiveRelationshipDirections(catArchiveCat, catArchiveRelationshipTarget)" :key="`${direction.from.id}->${direction.to.id}`" class="meeow-relationship-direction p-3">
                                         <h4 class="text-xs font-bold break-words">{{ getResidentPublicName(direction.from) }} → {{ getResidentPublicName(direction.to) }}</h4>
-                                        <div v-if="direction.baseline" class="mt-2">
+                                        <div v-if="direction.baseline || direction.isLocalStranger" class="mt-2">
                                             <div class="text-[10px]" style="color: var(--ui-text-muted);">基础关系</div>
-                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.baseline.label }}</p>
+                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.baseline ? direction.baseline.label : '陌生' }}</p>
                                         </div>
                                         <div class="mt-2">
                                             <div class="text-[10px]" style="color: var(--ui-text-muted);">当前关系</div>
-                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.emergentLink ? formatRelationshipCurrentState(direction.link) : direction.baseline ? '尚无新的关系变化记录' : '尚未形成明确的关系记录' }}</p>
+                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.emergentLink ? formatRelationshipCurrentState(direction.link) : direction.baseline ? '尚无新的关系变化记录' : direction.isLocalStranger ? '陌生' : '尚未形成明确的关系记录' }}</p>
                                         </div>
                                         <div v-if="getRelationshipTagLabels(direction.link).length" class="flex flex-wrap gap-1.5 mt-2">
                                             <span v-for="tag in getRelationshipTagLabels(direction.link)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
@@ -7935,7 +7936,7 @@
                                             <p v-if="group.evidenceExcerpt" class="meeow-relationship-evidence mt-3 pt-2 border-t text-xs leading-relaxed" style="border-color: var(--ui-border); color: var(--ui-text-muted);">当时：{{ group.evidenceExcerpt }}</p>
                                         </article>
                                     </div>
-                                    <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">还没有可查看的关系变化。</p>
+                                    <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">尚无新的关系变化记录。</p>
                                 </section>
                             </div>
                         </template>
@@ -15716,6 +15717,20 @@ ${buildCatMemoryContext(cat)}`;
                         : String(resident.hallId || '').trim();
                     return candidate && halls.value.some(hall => String(hall?.id || '') === candidate) ? candidate : '';
                 };
+                const getResidentCurrentHallId = (resident) => {
+                    if (!resident || !isResidentInHall(resident)) return '';
+                    const candidate = String(getCatHallId(resident) || '').trim();
+                    return candidate && halls.value.some(hall => String(hall?.id || '') === candidate) ? candidate : '';
+                };
+                const areResidentsArchiveLocalPeers = (from, to) => {
+                    if (!from || !to || String(from.id) === String(to.id)) return false;
+                    const fromHomeHall = getResidentHomeHallId(from);
+                    const toHomeHall = getResidentHomeHallId(to);
+                    if (fromHomeHall && fromHomeHall === toHomeHall) return true;
+                    const fromCurrentHall = getResidentCurrentHallId(from);
+                    const toCurrentHall = getResidentCurrentHallId(to);
+                    return Boolean(fromCurrentHall && fromCurrentHall === toCurrentHall);
+                };
                 const getCanonicalRelationshipBaseline = (from, to) => {
                     const entry = (CANONICAL_RESIDENT_RELATIONSHIPS || []).find(item =>
                         String(item?.fromId || '') === String(from?.id || '') &&
@@ -15736,12 +15751,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const getRelationshipBaseline = (from, to) => {
                     if (!from || !to || String(from.id) === String(to.id)) return null;
-                    const canonical = getCanonicalRelationshipBaseline(from, to);
-                    if (canonical) return canonical;
-                    const fromHomeHall = getResidentHomeHallId(from);
-                    const toHomeHall = getResidentHomeHallId(to);
-                    if (!fromHomeHall || fromHomeHall !== toHomeHall) return null;
-                    return { kind: 'same-home-hall', label: '同馆熟识', familiarity: 1, warmth: 0, trust: 0, tension: 0 };
+                    return getCanonicalRelationshipBaseline(from, to);
                 };
                 const getEffectiveRelationshipProjection = (from, to) => {
                     const emergent = getArchiveRelationshipLink(from, to);
@@ -15774,6 +15784,8 @@ ${buildCatMemoryContext(cat)}`;
                             const reverseLink = getArchiveRelationshipLink(target, owner);
                             const ownerBaseline = getRelationshipBaseline(owner, target);
                             const reverseBaseline = getRelationshipBaseline(target, owner);
+                            const isLocalStranger = areResidentsArchiveLocalPeers(owner, target) &&
+                                !ownerLink && !reverseLink && !ownerBaseline && !reverseBaseline;
                             const latestEvent = [...(Array.isArray(ownerLink?.events) ? ownerLink.events : []), ...(Array.isArray(reverseLink?.events) ? reverseLink.events : [])]
                                 .reduce((latest, event) => getRelationshipEventTime(event) > getRelationshipEventTime(latest) ? event : latest, null);
                             return {
@@ -15783,23 +15795,31 @@ ${buildCatMemoryContext(cat)}`;
                                 ownerBaseline,
                                 reverseBaseline,
                                 baseline: ownerBaseline || reverseBaseline,
+                                isLocalStranger,
                                 ownerProjection: getEffectiveRelationshipProjection(owner, target),
                                 reverseProjection: getEffectiveRelationshipProjection(target, owner),
                                 latestAt: latestEvent?.at || '',
                                 latestTime: getRelationshipEventTime(latestEvent)
                             };
                         })
-                        .filter(entry => entry.ownerLink || entry.reverseLink || entry.ownerBaseline || entry.reverseBaseline)
+                        .filter(entry => entry.ownerLink || entry.reverseLink || entry.ownerBaseline || entry.reverseBaseline || entry.isLocalStranger)
                         .sort((a, b) => b.latestTime - a.latestTime ||
                             getResidentPublicName(a.target).localeCompare(getResidentPublicName(b.target)) ||
                             String(a.target.id).localeCompare(String(b.target.id)));
                 };
-                const getCatArchiveRelationshipDirections = (owner, target) => owner && target
-                    ? [
-                        { from: owner, to: target, link: getEffectiveRelationshipProjection(owner, target), emergentLink: getArchiveRelationshipLink(owner, target), baseline: getRelationshipBaseline(owner, target) },
-                        { from: target, to: owner, link: getEffectiveRelationshipProjection(target, owner), emergentLink: getArchiveRelationshipLink(target, owner), baseline: getRelationshipBaseline(target, owner) }
-                    ]
-                    : [];
+                const getCatArchiveRelationshipDirections = (owner, target) => {
+                    if (!owner || !target) return [];
+                    const ownerLink = getArchiveRelationshipLink(owner, target);
+                    const reverseLink = getArchiveRelationshipLink(target, owner);
+                    const ownerBaseline = getRelationshipBaseline(owner, target);
+                    const reverseBaseline = getRelationshipBaseline(target, owner);
+                    const isLocalStranger = areResidentsArchiveLocalPeers(owner, target) &&
+                        !ownerLink && !reverseLink && !ownerBaseline && !reverseBaseline;
+                    return [
+                        { from: owner, to: target, link: getEffectiveRelationshipProjection(owner, target), emergentLink: ownerLink, baseline: ownerBaseline, isLocalStranger },
+                        { from: target, to: owner, link: getEffectiveRelationshipProjection(target, owner), emergentLink: reverseLink, baseline: reverseBaseline, isLocalStranger }
+                    ];
+                };
                 const getRelationshipTagLabels = link => (Array.isArray(link?.tags) ? link.tags : [])
                     .map(tag => RELATIONSHIP_TAG_LABELS[String(tag)])
                     .filter(Boolean);
@@ -15993,12 +16013,10 @@ ${buildCatMemoryContext(cat)}`;
                 ].filter(Boolean).join('; ');
                 const formatUserDirectedRelationshipContext = (from, to) => {
                     const projection = getEffectiveRelationshipProjection(from, to);
-                    if (!projection) return '';
+                    if (!projection) return 'no established prior relationship; effectively strangers';
                     const baselineText = projection.baseline?.kind === 'canonical'
                         ? `canon: ${projection.baseline.label}`
-                        : projection.baseline?.kind === 'same-home-hall'
-                            ? 'baseline: same-home-hall familiarity'
-                            : '';
+                        : '';
                     const currentText = projection.emergent
                         ? formatResidentRelationshipSummary(projection)
                         : 'no save-specific emotional tendency yet';
@@ -16014,7 +16032,7 @@ ${buildCatMemoryContext(cat)}`;
                         });
                     });
                     return lines.length
-                        ? `\n[RESIDENT RELATIONSHIP CONTEXT]\n${lines.join('\n').slice(0, 900)}\nUse only this compact baseline and save-specific continuity; do not infer or expose private history.`
+                        ? `\n[RESIDENT RELATIONSHIP CONTEXT]\n${lines.join('\n').slice(0, 900)}\nUse only this compact canon and save-specific continuity; do not infer or expose private history.`
                         : '';
                 };
                 const applyResidentRelationshipDeltas = (record, deltas) => {
