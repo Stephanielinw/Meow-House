@@ -7903,7 +7903,7 @@
                                 <button type="button" class="sully-btn text-xs flex items-center gap-2" style="color: var(--accent);" @click="backToCatArchiveRelationships">
                                     <i class="fas fa-arrow-left"></i> 返回关系列表
                                 </button>
-                                <h3 class="text-base font-bold break-words">{{ getResidentPublicName(catArchiveCat) }} ↔ {{ getResidentPublicName(catArchiveRelationshipTarget) }}</h3>
+                                <h3 class="text-base font-bold break-words">{{ getResidentPublicName(catArchiveCat) }} → {{ getResidentPublicName(catArchiveRelationshipTarget) }}</h3>
                                 <div class="space-y-3">
                                     <section v-for="direction in getCatArchiveRelationshipDirections(catArchiveCat, catArchiveRelationshipTarget)" :key="`${direction.from.id}->${direction.to.id}`" class="meeow-relationship-direction p-3">
                                         <h4 class="text-xs font-bold break-words">{{ getResidentPublicName(direction.from) }} → {{ getResidentPublicName(direction.to) }}</h4>
@@ -7911,9 +7911,9 @@
                                             <div class="text-[10px]" style="color: var(--ui-text-muted);">基础关系</div>
                                             <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.baseline ? direction.baseline.label : '陌生' }}</p>
                                         </div>
-                                        <div class="mt-2">
+                                        <div v-if="direction.emergentLink || (!direction.baseline && !direction.isLocalStranger)" class="mt-2">
                                             <div class="text-[10px]" style="color: var(--ui-text-muted);">当前关系</div>
-                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.emergentLink ? formatRelationshipCurrentState(direction.link) : direction.baseline ? '尚无新的关系变化记录' : direction.isLocalStranger ? '陌生' : '尚未形成明确的关系记录' }}</p>
+                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.emergentLink ? formatRelationshipCurrentState(direction.link) : '尚未形成明确的关系记录' }}</p>
                                         </div>
                                         <div v-if="getRelationshipTagLabels(direction.link).length" class="flex flex-wrap gap-1.5 mt-2">
                                             <span v-for="tag in getRelationshipTagLabels(direction.link)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
@@ -15905,8 +15905,7 @@ ${buildCatMemoryContext(cat)}`;
                     const isLocalStranger = areResidentsArchiveLocalPeers(owner, target) &&
                         !ownerLink && !reverseLink && !ownerBaseline && !reverseBaseline;
                     return [
-                        { from: owner, to: target, link: getEffectiveRelationshipProjection(owner, target), emergentLink: ownerLink, baseline: ownerBaseline, isLocalStranger },
-                        { from: target, to: owner, link: getEffectiveRelationshipProjection(target, owner), emergentLink: reverseLink, baseline: reverseBaseline, isLocalStranger }
+                        { from: owner, to: target, link: getEffectiveRelationshipProjection(owner, target), emergentLink: ownerLink, baseline: ownerBaseline, isLocalStranger }
                     ];
                 };
                 const getRelationshipTagLabels = link => (Array.isArray(link?.tags) ? link.tags : [])
@@ -15954,10 +15953,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const getRelationshipHistoryGroups = (owner, target) => {
                     if (!owner || !target) return [];
-                    const directions = [
-                        { from: owner, to: target, link: getArchiveRelationshipLink(owner, target) },
-                        { from: target, to: owner, link: getArchiveRelationshipLink(target, owner) }
-                    ];
+                    const directions = [{ from: owner, to: target, link: getArchiveRelationshipLink(owner, target) }];
                     const groups = new Map();
                     directions.forEach((direction, directionIndex) => {
                         (Array.isArray(direction.link?.events) ? direction.link.events : []).forEach((event, eventIndex) => {
