@@ -10646,6 +10646,10 @@ ${buildCatMemoryContext(cat)}`;
                         ? 'HUMAN FORM: human-shaped body; natural cat ears in the hair/on top of the head and a natural cat tail from the lower back are ordinary physical anatomy. They can speak ordinary human language. When the immediate social situation is naturally verbal, they normally use brief, character-appropriate speech alongside action and body language; body language enriches rather than replaces speech. Silence remains valid when character or situation specifically supports it. Ears and tail move naturally with attention, mood, touch, and body language.'
                         : 'CAT FORM: full feline body. They communicate aloud only through feline sounds and feline body language.';
                 };
+                const formatResidentFormExpressionContract = () => `[FORM EXPRESSION CONTRACT]
+Each resident's explicit Form value is the authoritative current anatomy for expression; this contract describes expression only and never authorizes a form decision or transition.
+CAT: human-language speech is prohibited. Use feline vocalization, action, posture, ears, tail, movement, and body language only.
+HUMAN: ordinary human speech is available. When an immediate social moment is naturally verbal, normally use brief, character-appropriate speech alongside action and body language; body language enriches rather than systematically replaces speech. Intentional silence remains valid when character or situation supports it.`;
                 const scheduleNextFormReconsideration = (cat, now = new Date(), mode = 'SWITCH') => {
                     if (!cat?.hasRevealedHumanForm) {
                         if (cat) cat.nextFormReconsiderAt = null;
@@ -15282,7 +15286,7 @@ ${buildCatMemoryContext(cat)}`;
                     if (options.crossedOperationalDay) {
                         continuityLines.push('Operational-day boundary: this prior presence and indoor observation are weak historical continuity, not proof of the current location.');
                     }
-                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${getResidentPublicName(cat)}; ${describeResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
+                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${getResidentPublicName(cat)}; Form: ${getResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
                 };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
@@ -17612,6 +17616,7 @@ Update exactly these frozen bystanders with current state consistent with local 
 
 ${formatLocalPresenceAuthority(frozenPresenceDirectives)}
 ${formatFormLifecycleAuthority(frozenFormDirectives)}
+${formatResidentFormExpressionContract()}
 
 [BYSTANDER CONTEXT]
 ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${cat.isOut && !isPermanentOutBuiltin(cat) ? '\n[LEGACY AWAY]: if you keep isOut:true, provide only a finite mode:"legacy-continuation" plan for this ID; do not invent historical details.' : ''}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
@@ -18480,6 +18485,7 @@ ${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
 
 ${formatLocalPresenceAuthority(presenceDirectives)}
 ${formatFormLifecycleAuthority(formDirectives)}
+${formatResidentFormExpressionContract()}
 
 [RULES]
 - Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.
