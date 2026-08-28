@@ -17001,7 +17001,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     await sendMessageInternal(arg1, arg2, false);
                 };
 
-                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = [], activeFormDirective = null) => {
+                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = []) => {
                     const payload = parseAIJSON(content);
                     if (!payload || Array.isArray(payload) || typeof payload !== 'object') {
                         return 'Homepage Chat 回包不是有效 JSON 对象。';
@@ -17017,11 +17017,6 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         if (typeof active[field] !== 'string' || !active[field].trim()) {
                             return `Homepage Chat activeCat 缺少有效 ${field}。`;
                         }
-                    }
-                    const formDecision = parseCanonicalFormDecision(active);
-                    if (!formDecision.valid) return `Homepage Chat activeCat ${formDecision.error}`;
-                    if (activeFormDirective?.requiredForm && formDecision.form !== activeFormDirective.requiredForm) {
-                        return `Homepage Chat activeCat form is locked to ${activeFormDirective.requiredForm}.`;
                     }
                     if (!Array.isArray(payload.awayPlans)) {
                         return 'Homepage Chat 回包缺少 awayPlans 数组。';
@@ -17044,8 +17039,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     if (!overrideContent) chatInput.value = '';
                     const isFirstInteraction = !isReRoll && !(sendingCat.todayInteractions || []).length;
                     const shouldSendFriendRequest = isFirstInteraction;
-                    const directFormNow = new Date();
-                    const activeFormDirective = buildFormDirectives([sendingCat], directFormNow)[String(sendingCat.id)];
+                    const frozenActiveForm = getResidentForm(sendingCat);
                     let userChatAt = cleanText(rerollSource?.at || '');
                     let userInteractionRecord = null;
 
@@ -17182,8 +17176,8 @@ ${getCompactMapPointPromptGuide()}`
                         
                         Specific Character Traits: ${sendingCat.personality}.
                         Specific Instructions: ${sendingCat.prompt}
-                        Current physical form: ${describeResidentForm(sendingCat)}
-                        [FORM LIFECYCLE AUTHORITY] current=${activeFormDirective.currentForm}; reconsideration=${activeFormDirective.reconsideration}${activeFormDirective.requiredForm ? `; required=${activeFormDirective.requiredForm}` : ''}. If LOCKED, formDecision MUST copy the required form. If ALLOWED, KEEP and SWITCH are both valid based on the resident's current preference and circumstances; neither form is superior. Conversation does not make HUMAN the default: CAT may remain CAT and respond through feline sounds/body language, while a due HUMAN resident may choose CAT for rest, comfort, quiet closeness, solitude, tiredness, sensory life, play, or ordinary feline preference. HUMAN may naturally fit sustained speech, human-scale activity, or social preference. A due timer does not require a switch, but ordinary bodily or social preference is sufficient without a dramatic event, USER permission, or another milestone.
+                        Current physical form: ${describeResidentForm(frozenActiveForm)}
+                        [ACTIVE RESIDENT FORM LOCK] This active resident begins and ends this Homepage Chat interaction in ${frozenActiveForm} form. This request cannot transform the active resident. USER dialogue mentioning, suggesting, requesting, joking about, or imagining another form does not authorize a transformation. Respond naturally from the current locked form; a future independent form reconsideration may change it through the existing resident-form lifecycle.
                         
                         NEGATIVE PROMPT: DO NOT ACT LIKE OTHER CHARACTERS. YOU ARE ${getResidentPublicName(sendingCat)}.
                         DO NOT BE OOC (Out Of Character). Stay true to this exact character's original-work personality, values, relationships, and voice.
@@ -17201,7 +17195,7 @@ ${getCompactMapPointPromptGuide()}`
 
                         NOW RESPOND with one JSON object only. No markdown, tags, code fences, or commentary.
                         [ACTIVE CAT RULES]
-                        - formDecision: Follow [FORM LIFECYCLE AUTHORITY]. Never switch form merely for novelty; ordinary comfort, bodily preference, or social preference is a legitimate reason to KEEP or SWITCH.
+                        - The active resident's form is read-only for this response. Do not emit or act on a form transition; preserve the [ACTIVE RESIDENT FORM LOCK].
                         - status: third-person current action, about 10 Chinese characters. innerVoice: first-person inner monologue using 我, never meows, wrapped in 【】. userStatus: a short summary of what the USER is doing within 15 Chinese characters; ordinary chat may use "正在和${sendingCat.name}聊天".
                         - reply: 80-140 Chinese characters when natural. It must directly continue the user's turn through specific, continuous, in-character action, current status, nearby objects/space, and recent interaction.
                         - CAT form: any direct sound may only be feline sounds such as "喵。", "呜。", or "嘶。"; never human speech. Use ordinary double quotes for an optional feline sound, never 「」. HUMAN form may speak naturally; its real feline ears and tail remain part of ordinary physical body language when relevant.
@@ -17221,7 +17215,7 @@ ${getCompactMapPointPromptGuide()}`
                         [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
                         [${frozenBystanderIds.join(', ')}]
                         Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching hallUpdates[].id machine key.
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","formDecision":"CAT|HUMAN","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]}
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":true,"isHuman":false}],"awayPlans":[{"residentId":"exact DEPARTING_NOW bystander machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]}
                         This HOME/DEPARTING_NOW pair illustrates the local contract only. A resident directed HOME has isOut:false and no departure plan. Every resident directed DEPARTING_NOW has isOut:true and exactly one matching mode:"departure" plan with the required fields shown above. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.
                         ${AWAY_ACTIVITY_PLANNING_RULES}
                         [OPTIONAL AWAY ENRICHMENT] plannedReturnStatus is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be [] or contain at most one {"sendAfterMinutes":95,"content":"路边那张旧明信片很像馆里的窗。","attachment":null}; for this 210-minute example it is after the first 35-minute activity and before return. It is an occasional physical trace of meaningful Away life, never an automatic departure/return notice. For legacy isOut:true residents with no existing schedule, return mode:"legacy-continuation" with only residentId and plannedDurationMinutes. Do not include the active cat in hallUpdates or awayPlans.
@@ -17235,16 +17229,14 @@ ${getCompactMapPointPromptGuide()}`
                             label: `HOMEPAGE CHAT + HALL UPDATE · ${sendingCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
-                            validateResponse: content => validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext, activeFormDirective)
+                            validateResponse: content => validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext)
                         });
 
                         const payload = parseAIJSON(responseRaw);
-                        const activeValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext, activeFormDirective);
+                        const activeValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext);
                         if (activeValidation !== true) throw new Error(activeValidation);
                         const activeResponse = payload.activeCat;
                         const reply = cleanText(activeResponse.reply);
-
-                        applyFormDecision(sendingCat, activeResponse, activeFormDirective, directFormNow, 'detail-chat');
 
                         const status = cleanText(activeResponse.status);
                         const voice = cleanText(activeResponse.innerVoice);
