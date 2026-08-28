@@ -7880,12 +7880,12 @@
                                     <div class="flex items-start justify-between gap-3 min-w-0">
                                         <div class="min-w-0 flex-1">
                                             <h3 class="text-sm font-bold truncate">{{ getResidentPublicName(entry.target) }}</h3>
-                                            <p class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">
-                                                {{ entry.ownerLink ? formatRelationshipCurrentState(entry.ownerLink) : 'TA 尚未形成明确的关系倾向' }}
-                                            </p>
+                                            <p v-if="entry.baseline" class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">{{ entry.baseline.label }}</p>
+                                            <p v-if="entry.ownerLink" class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">{{ formatRelationshipCurrentState(entry.ownerProjection) }}</p>
+                                            <p v-else-if="!entry.baseline && entry.reverseLink" class="meeow-relationship-state mt-1 border-0 bg-transparent text-xs leading-relaxed">TA 尚未形成明确的关系倾向</p>
                                             <p v-if="!entry.ownerLink && entry.reverseLink" class="mt-1 text-[10px]" style="color: var(--ui-text-muted);">对方已有关系变化</p>
-                                            <div v-if="getRelationshipTagLabels(entry.ownerLink).length" class="flex flex-wrap gap-1.5 mt-2">
-                                                <span v-for="tag in getRelationshipTagLabels(entry.ownerLink)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
+                                            <div v-if="getRelationshipTagLabels(entry.ownerProjection).length" class="flex flex-wrap gap-1.5 mt-2">
+                                                <span v-for="tag in getRelationshipTagLabels(entry.ownerProjection)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
                                             </div>
                                         </div>
                                         <i class="fas fa-chevron-right text-xs mt-1 shrink-0" style="color: var(--ui-text-muted);"></i>
@@ -7906,7 +7906,14 @@
                                 <div class="space-y-3">
                                     <section v-for="direction in getCatArchiveRelationshipDirections(catArchiveCat, catArchiveRelationshipTarget)" :key="`${direction.from.id}->${direction.to.id}`" class="meeow-relationship-direction p-3">
                                         <h4 class="text-xs font-bold break-words">{{ getResidentPublicName(direction.from) }} → {{ getResidentPublicName(direction.to) }}</h4>
-                                        <p class="meeow-relationship-state mt-2 text-xs leading-relaxed">{{ formatRelationshipCurrentState(direction.link) }}</p>
+                                        <div v-if="direction.baseline" class="mt-2">
+                                            <div class="text-[10px]" style="color: var(--ui-text-muted);">基础关系</div>
+                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.baseline.label }}</p>
+                                        </div>
+                                        <div class="mt-2">
+                                            <div class="text-[10px]" style="color: var(--ui-text-muted);">当前关系</div>
+                                            <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.emergentLink ? formatRelationshipCurrentState(direction.link) : direction.baseline ? '尚无新的关系变化记录' : '尚未形成明确的关系记录' }}</p>
+                                        </div>
                                         <div v-if="getRelationshipTagLabels(direction.link).length" class="flex flex-wrap gap-1.5 mt-2">
                                             <span v-for="tag in getRelationshipTagLabels(direction.link)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
                                         </div>
@@ -8899,6 +8906,7 @@
                     OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
                     normalizeCatHall,
                     RESIDENT_RELATIONSHIP_TAGS,
+                    CANONICAL_RESIDENT_RELATIONSHIPS,
                     normalizeResidentRelationships,
                     rosterHasValue,
                     rosterRecordKey,
@@ -15444,6 +15452,60 @@ ${buildCatMemoryContext(cat)}`;
                     const link = owner?.residentRelationships?.[String(target?.id)];
                     return link && typeof link === 'object' && !Array.isArray(link) ? link : null;
                 };
+                const getResidentHomeHallId = (resident) => {
+                    if (!resident) return '';
+                    const canonicalProfile = BUILTIN_CAT_PROFILES.get(String(resident.id));
+                    if (canonicalProfile) return String(canonicalProfile.hallId || (canonicalProfile.isMarvel ? 'marvel' : 'gotham'));
+                    const candidate = resident.isVisiting
+                        ? String(resident.visitOriginHallId || '').trim()
+                        : String(resident.hallId || '').trim();
+                    return candidate && halls.value.some(hall => String(hall?.id || '') === candidate) ? candidate : '';
+                };
+                const getCanonicalRelationshipBaseline = (from, to) => {
+                    const entry = (CANONICAL_RESIDENT_RELATIONSHIPS || []).find(item =>
+                        String(item?.fromId || '') === String(from?.id || '') &&
+                        String(item?.toId || '') === String(to?.id || '')
+                    );
+                    if (!entry) return null;
+                    const baseline = entry.baseline && typeof entry.baseline === 'object' && !Array.isArray(entry.baseline)
+                        ? entry.baseline
+                        : {};
+                    return {
+                        kind: 'canonical',
+                        label: String(entry.label || '').trim(),
+                        familiarity: getRelationshipNumber(baseline.familiarity, 0, 5),
+                        warmth: getRelationshipNumber(baseline.warmth, -5, 5),
+                        trust: getRelationshipNumber(baseline.trust, -5, 5),
+                        tension: getRelationshipNumber(baseline.tension, 0, 5)
+                    };
+                };
+                const getRelationshipBaseline = (from, to) => {
+                    if (!from || !to || String(from.id) === String(to.id)) return null;
+                    const canonical = getCanonicalRelationshipBaseline(from, to);
+                    if (canonical) return canonical;
+                    const fromHomeHall = getResidentHomeHallId(from);
+                    const toHomeHall = getResidentHomeHallId(to);
+                    if (!fromHomeHall || fromHomeHall !== toHomeHall) return null;
+                    return { kind: 'same-home-hall', label: '同馆熟识', familiarity: 1, warmth: 0, trust: 0, tension: 0 };
+                };
+                const getEffectiveRelationshipProjection = (from, to) => {
+                    const emergent = getArchiveRelationshipLink(from, to);
+                    const baseline = getRelationshipBaseline(from, to);
+                    if (!baseline && !emergent) return null;
+                    const emergentFamiliarity = getRelationshipNumber(emergent?.familiarity, 0, 5);
+                    const emergentWarmth = getRelationshipNumber(emergent?.warmth, -5, 5);
+                    const emergentTrust = getRelationshipNumber(emergent?.trust, -5, 5);
+                    const emergentTension = getRelationshipNumber(emergent?.tension, 0, 5);
+                    return {
+                        familiarity: getRelationshipNumber((baseline?.familiarity || 0) + emergentFamiliarity, 0, 5),
+                        warmth: getRelationshipNumber((baseline?.warmth || 0) + emergentWarmth, -5, 5),
+                        trust: getRelationshipNumber((baseline?.trust || 0) + emergentTrust, -5, 5),
+                        tension: getRelationshipNumber((baseline?.tension || 0) + emergentTension, 0, 5),
+                        tags: Array.isArray(emergent?.tags) ? [...emergent.tags] : [],
+                        baseline,
+                        emergent
+                    };
+                };
                 const getRelationshipEventTime = event => {
                     const date = parseLogicalDate(event?.at);
                     return date ? date.getTime() : 0;
@@ -15455,25 +15517,32 @@ ${buildCatMemoryContext(cat)}`;
                         .map(target => {
                             const ownerLink = getArchiveRelationshipLink(owner, target);
                             const reverseLink = getArchiveRelationshipLink(target, owner);
+                            const ownerBaseline = getRelationshipBaseline(owner, target);
+                            const reverseBaseline = getRelationshipBaseline(target, owner);
                             const latestEvent = [...(Array.isArray(ownerLink?.events) ? ownerLink.events : []), ...(Array.isArray(reverseLink?.events) ? reverseLink.events : [])]
                                 .reduce((latest, event) => getRelationshipEventTime(event) > getRelationshipEventTime(latest) ? event : latest, null);
                             return {
                                 target,
                                 ownerLink,
                                 reverseLink,
+                                ownerBaseline,
+                                reverseBaseline,
+                                baseline: ownerBaseline || reverseBaseline,
+                                ownerProjection: getEffectiveRelationshipProjection(owner, target),
+                                reverseProjection: getEffectiveRelationshipProjection(target, owner),
                                 latestAt: latestEvent?.at || '',
                                 latestTime: getRelationshipEventTime(latestEvent)
                             };
                         })
-                        .filter(entry => entry.ownerLink || entry.reverseLink)
+                        .filter(entry => entry.ownerLink || entry.reverseLink || entry.ownerBaseline || entry.reverseBaseline)
                         .sort((a, b) => b.latestTime - a.latestTime ||
                             getResidentPublicName(a.target).localeCompare(getResidentPublicName(b.target)) ||
                             String(a.target.id).localeCompare(String(b.target.id)));
                 };
                 const getCatArchiveRelationshipDirections = (owner, target) => owner && target
                     ? [
-                        { from: owner, to: target, link: getArchiveRelationshipLink(owner, target) },
-                        { from: target, to: owner, link: getArchiveRelationshipLink(target, owner) }
+                        { from: owner, to: target, link: getEffectiveRelationshipProjection(owner, target), emergentLink: getArchiveRelationshipLink(owner, target), baseline: getRelationshipBaseline(owner, target) },
+                        { from: target, to: owner, link: getEffectiveRelationshipProjection(target, owner), emergentLink: getArchiveRelationshipLink(target, owner), baseline: getRelationshipBaseline(target, owner) }
                     ]
                     : [];
                 const getRelationshipTagLabels = link => (Array.isArray(link?.tags) ? link.tags : [])
@@ -15667,18 +15736,30 @@ ${buildCatMemoryContext(cat)}`;
                     relationshipTensionLabel(clampResidentRelationshipValue(relationship.tension, 0, 5)),
                     Array.isArray(relationship.tags) && relationship.tags.length ? relationship.tags.join(', ') : ''
                 ].filter(Boolean).join('; ');
+                const formatUserDirectedRelationshipContext = (from, to) => {
+                    const projection = getEffectiveRelationshipProjection(from, to);
+                    if (!projection) return '';
+                    const baselineText = projection.baseline?.kind === 'canonical'
+                        ? `canon: ${projection.baseline.label}`
+                        : projection.baseline?.kind === 'same-home-hall'
+                            ? 'baseline: same-home-hall familiarity'
+                            : '';
+                    const currentText = projection.emergent
+                        ? formatResidentRelationshipSummary(projection)
+                        : 'no save-specific emotional tendency yet';
+                    return [baselineText, currentText].filter(Boolean).join('; ');
+                };
                 const buildUserDirectedRelationshipContext = (participantCats) => {
                     const lines = [];
                     participantCats.forEach(fromCat => {
                         participantCats.forEach(toCat => {
                             if (String(fromCat.id) === String(toCat.id)) return;
-                            const relationship = fromCat.residentRelationships?.[String(toCat.id)];
-                            if (!relationship) return;
-                            lines.push(`${getResidentPublicName(fromCat)} → ${getResidentPublicName(toCat)}: ${formatResidentRelationshipSummary(relationship)}`);
+                            const context = formatUserDirectedRelationshipContext(fromCat, toCat);
+                            if (context) lines.push(`${getResidentPublicName(fromCat)} → ${getResidentPublicName(toCat)}: ${context}`);
                         });
                     });
                     return lines.length
-                        ? `\n[EMERGENT RESIDENT RELATIONSHIPS]\n${lines.join('\n').slice(0, 900)}\nUse this compact save-specific continuity only; do not infer or expose private history.`
+                        ? `\n[RESIDENT RELATIONSHIP CONTEXT]\n${lines.join('\n').slice(0, 900)}\nUse only this compact baseline and save-specific continuity; do not infer or expose private history.`
                         : '';
                 };
                 const applyResidentRelationshipDeltas = (record, deltas) => {

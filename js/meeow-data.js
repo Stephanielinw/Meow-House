@@ -154,6 +154,20 @@ const RESIDENT_RELATIONSHIP_TAGS = new Set([
 const RESIDENT_RELATIONSHIP_MAX_TAGS = 4;
 const RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS = 64;
 const RESIDENT_RELATIONSHIP_MAX_EVENTS = 40;
+const CANONICAL_RESIDENT_RELATIONSHIPS = Object.freeze([
+    Object.freeze({
+        fromId: 'greek-telemachus',
+        toId: 'greek-odysseus',
+        label: '父子',
+        baseline: Object.freeze({ familiarity: 5, warmth: 0, trust: 0, tension: 0 })
+    }),
+    Object.freeze({
+        fromId: 'greek-odysseus',
+        toId: 'greek-telemachus',
+        label: '父子',
+        baseline: Object.freeze({ familiarity: 5, warmth: 0, trust: 0, tension: 0 })
+    })
+]);
 const isPermanentOutBuiltin = (cat) => PERMANENT_OUT_BUILTIN_IDS.has(String(cat?.id));
 const BUILTIN_CANONICAL_PROMPT_REFRESH_IDS = new Set(['1', '3', '4', '5', 'marvel-harry', 'greek-antinous', 'greek-melanthios']);
 const BUILTIN_CANONICAL_METADATA_REFRESH_FIELDS = new Map([
@@ -378,6 +392,7 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
         OBSOLETE_ITHACA_BUILTIN_MIGRATIONS,
         normalizeCatHall,
         RESIDENT_RELATIONSHIP_TAGS,
+        CANONICAL_RESIDENT_RELATIONSHIPS,
         normalizeResidentRelationships,
         rosterHasValue,
         rosterRecordKey,
