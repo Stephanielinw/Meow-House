@@ -4051,6 +4051,26 @@
         #app .meeow-map-layer.is-foreground { z-index: 3; }
         #app .meeow-map-cat.is-surface { z-index: 4; }
 
+        #app .meeow-map-fridge-hotspot {
+            position: absolute;
+            left: 1.5%;
+            top: 5.25%;
+            width: 27.5%;
+            height: 49.5%;
+            z-index: 3;
+            border: 0;
+            border-radius: 14%;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        #app .meeow-map-fridge-hotspot:hover,
+        #app .meeow-map-fridge-hotspot:focus-visible {
+            outline: 2px solid color-mix(in srgb, var(--accent) 72%, #fff);
+            outline-offset: -3px;
+            background: color-mix(in srgb, var(--accent) 9%, transparent);
+        }
+
         #app .meeow-map-cat-occlusion {
             position: absolute;
             inset: 0;
@@ -4918,6 +4938,9 @@
                             <i class="fas fa-sync-alt mr-2" :class="{'loading-spin': isUpdatingStatus}"></i>
                             {{ isUpdatingStatus ? `正在扫描${currentHall.name}信号...` : '强制刷新馆内动态' }}
                         </button>
+                        <button v-if="hallDisplayMode === 'text'" type="button" class="sully-btn shrink-0 px-3 text-xs font-bold" style="background: var(--ui-surface-soft); color: var(--ui-text); border: 1px solid var(--ui-border);" @click="openFridgeNotes">
+                            <i class="fas fa-note-sticky mr-1"></i>冰箱留言
+                        </button>
                     </div>
 
                     <!-- User Status Bar Widget -->
@@ -4974,6 +4997,45 @@
                         </div>
                     </div>
                 </section>
+
+                <div v-if="showFridgeNotesModal" class="meeow-modal-overlay fixed inset-0 z-[900] p-3 sm:p-5 flex items-center justify-center" @click.self="closeFridgeNotes">
+                    <section class="sully-glass w-full max-w-lg rounded-[2rem] flex flex-col overflow-hidden" style="max-height: var(--app-height, 88vh);" role="dialog" aria-modal="true" aria-label="冰箱便签">
+                        <header class="px-5 py-4 shrink-0 flex items-center justify-between gap-3" style="border-bottom: 1px solid var(--ui-border);">
+                            <div>
+                                <div class="text-xs font-black tracking-wide"><i class="fas fa-note-sticky mr-1.5" style="color: var(--accent);"></i>冰箱便签</div>
+                                <p class="mt-1 text-[10px]" style="color: var(--ui-text-muted);">{{ currentHall.name }} · 留下一点馆内痕迹；居民偶尔会以自己的方式回应。</p>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button type="button" class="sully-btn px-2.5 py-1 text-[10px]" @click="showArchivedFridgeNotes = !showArchivedFridgeNotes">
+                                    {{ showArchivedFridgeNotes ? '只看进行中' : '查看已归档' }}
+                                </button>
+                                <button type="button" class="sully-btn w-9 h-9 rounded-xl" style="background: var(--ui-surface-hover); color: var(--ui-text);" aria-label="关闭冰箱便签" @click="closeFridgeNotes"><i class="fas fa-times"></i></button>
+                            </div>
+                        </header>
+                        <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-3">
+                            <div class="flex items-end gap-2">
+                                <textarea v-model="fridgeNoteComposer.text" rows="2" maxlength="160" class="flex-1 rounded-2xl border px-3 py-2 text-xs leading-relaxed focus:ring-0" style="background: var(--ui-surface-soft); color: var(--ui-text); border-color: var(--ui-border);" placeholder="在冰箱上留一张便签…"></textarea>
+                                <button type="button" class="sully-btn min-h-10 rounded-xl px-3 text-xs font-bold" :disabled="!fridgeNoteComposer.text.trim()" @click="createFridgeNote"><i class="fas fa-thumbtack mr-1"></i>贴上</button>
+                            </div>
+                            <div class="space-y-2">
+                                <article v-for="note in visibleFridgeNotes" :key="note.id" class="rounded-2xl border p-3 space-y-2" style="background: var(--ui-surface-soft); border-color: var(--ui-border);">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <p class="whitespace-pre-wrap text-[11px] leading-relaxed">{{ note.content }}</p>
+                                        <button v-if="!note.archivedAt" type="button" class="shrink-0 text-[10px]" style="color: var(--ui-text-muted);" @click="archiveFridgeNote(note.id)">归档</button>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-2 text-[9px]" style="color: var(--ui-text-muted);">
+                                        <span>馆长 · {{ formatFridgeNoteTime(note.createdAt) }}</span>
+                                        <span v-if="note.archivedAt">已归档</span>
+                                    </div>
+                                    <div v-if="note.reactions && note.reactions.length" class="border-t pt-2 space-y-1.5" style="border-color: var(--ui-border);">
+                                        <p v-for="reaction in note.reactions" :key="note.id + '-' + reaction.residentId" class="text-[10px] leading-relaxed" style="color: var(--ui-text-muted);"><strong style="color: var(--ui-text);">{{ getResidentPublicName(reaction.residentId) }}</strong>：{{ reaction.content }}</p>
+                                    </div>
+                                </article>
+                                <p v-if="!visibleFridgeNotes.length" class="px-1 py-3 text-center text-[11px]" style="color: var(--ui-text-muted);">{{ showArchivedFridgeNotes ? '还没有已归档的便签。' : '冰箱上暂时没有便签。' }}</p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
 
                 <!-- Alfred Voice Card -->
                 <div class="sully-card p-4 text-xs text-gray-300 italic border-l-4 border-yellow-500 relative overflow-hidden">
@@ -5094,6 +5156,7 @@
                             <span v-if="marker.occlusionStyle" :key="'map-occlusion-' + marker.cat.id" class="meeow-map-cat-occlusion" :style="marker.occlusionStyle"></span>
                         </template>
                         <img v-for="layer in activeMapRoomDefinition.foregroundLayers" :key="'foreground-' + layer" class="meeow-map-layer is-foreground" :class="{'is-table-foreground': activeMapRoom === 'dining' && layer === 'table'}" :src="getMapAssetPath(activeMapRoom, layer)" alt="">
+                        <button v-if="activeMapRoom === 'dining'" type="button" class="meeow-map-fridge-hotspot" aria-label="打开冰箱便签" title="打开冰箱便签" @click.stop="openFridgeNotes"></button>
                         <div v-for="marker in activeMapCatMarkers" :key="'map-badge-' + marker.cat.id" class="meeow-map-cat-badge" :style="marker.badgePosition">在馆</div>
                         <div v-for="marker in activeMapCatMarkers" :key="'map-label-' + marker.cat.id" class="meeow-map-cat-label" :style="marker.labelPosition">
                             <span class="meeow-map-cat-name">{{ getResidentPublicName(marker.cat) }}</span>
@@ -9621,7 +9684,11 @@
                 const currentTab = ref('mission');
                 const loungeView = ref('selector');
                 const activeHallId = ref(localStorage.getItem('meeow_active_hall') || 'gotham');
-                watch(activeHallId, (hallId) => localStorage.setItem('meeow_active_hall', hallId));
+                const showFridgeNotesModal = ref(false);
+                watch(activeHallId, (hallId) => {
+                    localStorage.setItem('meeow_active_hall', hallId);
+                    showFridgeNotesModal.value = false;
+                });
                 const currentHall = computed(() => halls.value.find(hall => hall.id === activeHallId.value) || halls.value[0] || DEFAULT_HALLS[0]);
                 const {
                     isResidentAway,
@@ -9840,6 +9907,8 @@
                     localStorage.setItem('meeow_hall_display_mode', hallDisplayMode.value);
                     mapPreviewCat.value = null;
                 };
+                const openFridgeNotes = () => { showFridgeNotesModal.value = true; };
+                const closeFridgeNotes = () => { showFridgeNotesModal.value = false; };
                 const showHallCreator = ref(false);
                 const hallCreator = reactive({ source: '', guardian: '', isGenerating: false, error: '' });
                 const contentArea = ref(null);
@@ -15630,7 +15699,152 @@ ${buildCatMemoryContext(cat)}`;
                 const sharedSceneComposer = reactive({
                     hallId: '', selectedResidentIds: [], text: '', pickerOpen: false
                 });
+                const fridgeNoteComposer = reactive({ text: '' });
+                const showArchivedFridgeNotes = ref(false);
+                const FRIDGE_NOTE_MAX_REACTIONS = 3;
+                const FRIDGE_NOTE_MAX_OPPORTUNITIES_PER_REQUEST = 2;
+                const getHallFridgeNotes = (hall) => Array.isArray(hall?.fridgeNotes) ? hall.fridgeNotes : [];
+                const ensureHallFridgeNotes = (hall) => {
+                    if (!hall) return [];
+                    // Hall records are Vue 3 proxies from halls.value; this property
+                    // addition is therefore observed by the existing deep save watcher.
+                    if (!Array.isArray(hall.fridgeNotes)) hall.fridgeNotes = [];
+                    return hall.fridgeNotes;
+                };
+                const getFridgeNoteReactions = (note) => Array.isArray(note?.reactions) ? note.reactions : [];
+                const getFridgeNoteConsideredResidentIds = (note) => Array.isArray(note?.consideredResidentIds)
+                    ? note.consideredResidentIds.map(id => String(id))
+                    : [];
+                const isActiveFridgeNote = (note) => Boolean(note && !note.archivedAt && cleanText(note.content || ''));
+                const compareFridgeNotesOldestFirst = (left, right) => {
+                    const leftAt = Date.parse(left?.createdAt || '') || 0;
+                    const rightAt = Date.parse(right?.createdAt || '') || 0;
+                    if (leftAt !== rightAt) return leftAt - rightAt;
+                    return String(left?.id || '').localeCompare(String(right?.id || ''));
+                };
+                const visibleFridgeNotes = computed(() => getHallFridgeNotes(currentHall.value)
+                    .filter(note => showArchivedFridgeNotes.value ? Boolean(note?.archivedAt) : isActiveFridgeNote(note))
+                    .slice()
+                    .sort(compareFridgeNotesOldestFirst));
+                const formatFridgeNoteTime = (value) => {
+                    const date = new Date(value || '');
+                    return Number.isNaN(date.getTime()) ? '刚刚' : date.toLocaleString([], { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                };
+                const createFridgeNote = () => {
+                    const content = cleanText(fridgeNoteComposer.text || '').slice(0, 160);
+                    const hall = halls.value.find(item => String(item?.id) === String(activeHallId.value));
+                    if (!hall || !content) return;
+                    ensureHallFridgeNotes(hall).push({
+                        id: `fridge-note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                        author: 'USER',
+                        content,
+                        createdAt: new Date().toISOString(),
+                        archivedAt: null,
+                        consideredResidentIds: [],
+                        reactions: []
+                    });
+                    fridgeNoteComposer.text = '';
+                    addLog(`FRIDGE NOTE CREATED: hall=${hall.id}`, 'sent');
+                    showToast('便签已经贴到冰箱上。', 'success');
+                };
+                const archiveFridgeNote = (noteId) => {
+                    const hall = halls.value.find(item => String(item?.id) === String(activeHallId.value));
+                    const note = getHallFridgeNotes(hall).find(item => String(item?.id) === String(noteId));
+                    if (!isActiveFridgeNote(note)) return;
+                    note.archivedAt = new Date().toISOString();
+                    addLog(`FRIDGE NOTE ARCHIVED: hall=${hall.id}; note=${String(note.id)}`, 'info');
+                };
                 const getCatHallId = (cat) => cat?.hallId || (cat?.isMarvel ? 'marvel' : 'gotham');
+                const buildFridgeNoteReactionCandidates = ({ hallId, residents } = {}) => {
+                    const hall = halls.value.find(item => String(item?.id) === String(hallId));
+                    const eligibleResidents = (Array.isArray(residents) ? residents : [])
+                        .filter(cat => cat && String(getCatHallId(cat)) === String(hallId) && isResidentInHall(cat))
+                        .slice()
+                        .sort((left, right) => String(left.id).localeCompare(String(right.id)));
+                    const candidates = [];
+                    getHallFridgeNotes(hall)
+                        .filter(isActiveFridgeNote)
+                        .slice()
+                        .sort(compareFridgeNotesOldestFirst)
+                        .some(note => {
+                            const consideredIds = new Set(getFridgeNoteConsideredResidentIds(note));
+                            const reactionIds = new Set(getFridgeNoteReactions(note).map(reaction => String(reaction?.residentId || '')));
+                            if (getFridgeNoteReactions(note).length >= FRIDGE_NOTE_MAX_REACTIONS) return false;
+                            eligibleResidents.forEach(cat => {
+                                const residentId = String(cat.id);
+                                if (candidates.length >= FRIDGE_NOTE_MAX_OPPORTUNITIES_PER_REQUEST || consideredIds.has(residentId) || reactionIds.has(residentId)) return;
+                                candidates.push({
+                                    noteId: String(note.id),
+                                    residentId,
+                                    form: getResidentForm(cat),
+                                    noteContent: truncateMemoryText(cleanText(note.content || ''), 120)
+                                });
+                            });
+                            return candidates.length >= FRIDGE_NOTE_MAX_OPPORTUNITIES_PER_REQUEST;
+                        });
+                    return candidates;
+                };
+                const buildFridgeNoteReactionPromptContract = (candidates) => {
+                    if (!Array.isArray(candidates) || !candidates.length) return '';
+                    const opportunities = candidates.map(candidate =>
+                        `- noteId=${candidate.noteId}; residentId=${candidate.residentId}; Form=${candidate.form}; note=${JSON.stringify(candidate.noteContent)}`
+                    ).join('\n');
+                    return `\n[FRIDGE NOTES — OPTIONAL ASYNCHRONOUS REACTIONS]\nOnly the locally selected opportunities below may receive a reaction. A resident may ignore a note; return fridgeNoteReactions:[] when no selected opportunity naturally merits a trace. Do not infer that anyone else saw or knows a note. HUMAN may return one short written annotation; CAT may return one short feline trace (feline sound/action only, never human language). Return at most one reaction for each listed noteId/residentId pair and no other pair.\n${opportunities}\nReaction shape: {"noteId":"exact selected id","residentId":"exact selected id","kind":"annotation"|"feline-trace","content":"short Simplified Chinese trace"}.`;
+                };
+                const normalizeFridgeNoteReactions = (reactions, candidates) => {
+                    const candidateByPair = new Map((Array.isArray(candidates) ? candidates : [])
+                        .map(candidate => [`${candidate.noteId}::${candidate.residentId}`, candidate]));
+                    const accepted = [];
+                    const seenPairs = new Set();
+                    let discarded = 0;
+                    (Array.isArray(reactions) ? reactions : []).forEach(reaction => {
+                        const noteId = String(reaction?.noteId || '');
+                        const residentId = String(reaction?.residentId || '');
+                        const pairKey = `${noteId}::${residentId}`;
+                        const candidate = candidateByPair.get(pairKey);
+                        const content = cleanText(reaction?.content || '').slice(0, 100);
+                        const kind = String(reaction?.kind || '').trim();
+                        const allowedKind = candidate?.form === 'HUMAN' ? 'annotation' : 'feline-trace';
+                        if (!candidate || seenPairs.has(pairKey) || kind !== allowedKind || !content) {
+                            discarded++;
+                            return;
+                        }
+                        seenPairs.add(pairKey);
+                        accepted.push({ noteId, residentId, form: candidate.form, kind, content });
+                    });
+                    return { accepted, discarded };
+                };
+                const commitFridgeNoteReactionOpportunities = ({ hallId, candidates, reactions, now = new Date() } = {}) => {
+                    if (!Array.isArray(candidates) || !candidates.length) return { considered: 0, accepted: 0, discarded: 0 };
+                    const hall = halls.value.find(item => String(item?.id) === String(hallId));
+                    const normalized = normalizeFridgeNoteReactions(reactions, candidates);
+                    const reactionByPair = new Map(normalized.accepted.map(reaction => [`${reaction.noteId}::${reaction.residentId}`, reaction]));
+                    let considered = 0;
+                    let accepted = 0;
+                    candidates.forEach(candidate => {
+                        const note = getHallFridgeNotes(hall).find(item => String(item?.id) === candidate.noteId);
+                        if (!isActiveFridgeNote(note)) return;
+                        const existingReactionIds = new Set(getFridgeNoteReactions(note).map(reaction => String(reaction?.residentId || '')));
+                        const consideredIds = getFridgeNoteConsideredResidentIds(note);
+                        if (existingReactionIds.has(candidate.residentId) || consideredIds.includes(candidate.residentId)) return;
+                        if (!Array.isArray(note.consideredResidentIds)) note.consideredResidentIds = [];
+                        note.consideredResidentIds.push(candidate.residentId);
+                        considered++;
+                        const reaction = reactionByPair.get(`${candidate.noteId}::${candidate.residentId}`);
+                        if (!reaction || getFridgeNoteReactions(note).length >= FRIDGE_NOTE_MAX_REACTIONS) return;
+                        if (!Array.isArray(note.reactions)) note.reactions = [];
+                        note.reactions.push({
+                            residentId: candidate.residentId,
+                            form: reaction.form,
+                            kind: reaction.kind,
+                            content: reaction.content,
+                            createdAt: (now instanceof Date ? now : new Date(now)).toISOString()
+                        });
+                        accepted++;
+                    });
+                    if (considered || normalized.discarded) addLog(`FRIDGE NOTE REACTIONS: hall=${hallId}; offered=${candidates.length}; considered=${considered}; accepted=${accepted}; discarded=${normalized.discarded}`, normalized.discarded ? 'warn' : 'info');
+                    return { considered, accepted, discarded: normalized.discarded };
+                };
                 const parseLogicalDate = (value) => {
                     const date = value instanceof Date ? new Date(value) : new Date(value);
                     return Number.isNaN(date.getTime()) ? null : date;
@@ -17658,6 +17872,14 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             presenceDirectives: frozenPresenceDirectives,
                             now: frozenNow
                         });
+                        const frozenFridgeNoteCandidates = buildFridgeNoteReactionCandidates({
+                            hallId: requestHallId,
+                            residents: frozenBystanders
+                        });
+                        const frozenFridgeNotePromptContract = buildFridgeNoteReactionPromptContract(frozenFridgeNoteCandidates);
+                        const frozenFridgeNoteOutputSchema = frozenFridgeNoteCandidates.length
+                            ? ',"fridgeNoteReactions":[{"noteId":"exact selected note id","residentId":"exact selected resident id","kind":"annotation|feline-trace","content":"short trace"}]'
+                            : '';
                         addLog(formatAwayLocalScheduleLog(requestHall.name, frozenDepartureSchedule), 'info');
                         const frozenPublicNameContract = buildResidentPublicNameContract(frozenHallResidents);
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => getResidentPublicName(cat));
@@ -17676,6 +17898,7 @@ Update exactly these frozen bystanders with current state consistent with local 
 ${formatLocalPresenceAuthority(frozenPresenceDirectives)}
 ${formatFormLifecycleAuthority(frozenFormDirectives)}
 ${formatResidentFormExpressionContract()}
+${frozenFridgeNotePromptContract}
 
 [BYSTANDER CONTEXT]
 ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
@@ -17748,7 +17971,7 @@ ${getCompactMapPointPromptGuide()}`
                         [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
                         [${frozenBystanderIds.join(', ')}]
                         Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching hallUpdates[].id machine key.
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${frozenAwayPromptContract.awayPlansExample}}
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${frozenAwayPromptContract.awayPlansExample}${frozenFridgeNoteOutputSchema}}
                         ${frozenAwayPromptContract.instructions}
                         Do not include the active cat in hallUpdates or awayPlans.
                         `;
@@ -17799,6 +18022,7 @@ ${getCompactMapPointPromptGuide()}`
                                 operationalDayKey: frozenOperationalDayKey,
                                 updates: payload.hallUpdates,
                                 awayPlans: payload.awayPlans,
+                                fridgeNoteReactions: payload.fridgeNoteReactions,
                                 presenceDirectives: frozenPresenceDirectives
                             });
                         }
@@ -18472,6 +18696,14 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 ? requestOptions.presenceDirectives
                                 : localDepartureSchedule.directives)
                         });
+                        const fridgeNoteCandidates = buildFridgeNoteReactionCandidates({
+                            hallId: requestHallId,
+                            residents: requestedCats
+                        });
+                        const fridgeNotePromptContract = buildFridgeNoteReactionPromptContract(fridgeNoteCandidates);
+                        const fridgeNoteOutputSchema = fridgeNoteCandidates.length
+                            ? ',"fridgeNoteReactions":[{"noteId":"exact selected note id","residentId":"exact selected resident id","kind":"annotation|feline-trace","content":"short trace"}]'
+                            : '';
                         if (localDepartureSchedule) {
                             addLog(formatAwayLocalScheduleLog(requestHall.name, localDepartureSchedule), 'info');
                         }
@@ -18540,7 +18772,7 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
 - Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is normal first-class communication for each HUMAN participant, not a rare exception: when a shared moment naturally involves questions, explanations, promises, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange, normally let brief natural dialogue carry that content, enriched by ears, tail, posture, gesture, and expression rather than replaced by them. Keep cohesive third-person prose, not dialogue-row screenplay formatting. Do not force speech: silence remains valid when it is an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice.
 - relationshipDeltas is optional metadata and never required for a valid scene. If supplied, use only frozen participant IDs and the bounded integer fields/tags described for the user-directed scene. Judge each direction only from visible shared-scene material and that resident's legitimate observable experience; ignore private/hidden context, inner voices, diaries, episodic memories, Away material, and other residents' private context. Do not force symmetry or relationship change for mundane presence.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null}\n${awayPromptContract.instructions}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -18582,6 +18814,7 @@ ${enrichedStatusOutputContract}`;
                         let updates;
                         let optionalScene;
                         let awayPlans = [];
+                        let fridgeNoteReactions = [];
                         if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
                             const updateValidation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
                             const validation = updateValidation === true
@@ -18602,6 +18835,7 @@ ${enrichedStatusOutputContract}`;
                             }
                             updates = requestOptions.prevalidatedStatusUpdates;
                             awayPlans = Array.isArray(requestOptions.prevalidatedAwayPlans) ? requestOptions.prevalidatedAwayPlans : [];
+                            fridgeNoteReactions = Array.isArray(requestOptions.prevalidatedFridgeNoteReactions) ? requestOptions.prevalidatedFridgeNoteReactions : [];
                         } else {
                             const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                                 ...requestOptions,
@@ -18617,6 +18851,7 @@ ${enrichedStatusOutputContract}`;
                             const parsedResponse = parseAIJSON(res);
                             updates = parsedResponse?.updates;
                             awayPlans = parsedResponse?.awayPlans;
+                            fridgeNoteReactions = parsedResponse?.fridgeNoteReactions;
                             optionalScene = sceneMode ? parsedResponse?.scene : undefined;
                         }
 
@@ -18908,6 +19143,13 @@ ${enrichedStatusOutputContract}`;
                                 applyFormDecision(cat, decision, directive, now, 'status-sync');
                             });
 
+                            commitFridgeNoteReactionOpportunities({
+                                hallId: requestHallId,
+                                candidates: fridgeNoteCandidates,
+                                reactions: fridgeNoteReactions,
+                                now
+                            });
+
                             if (pendingStatusDayRefresh) {
                                 try {
                                     localStorage.removeItem(STATUS_DAY_REFRESH_PENDING_KEY);
@@ -18958,7 +19200,7 @@ ${enrichedStatusOutputContract}`;
                     }
                 };
 
-                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [], presenceDirectives = {} }) => {
+                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [], fridgeNoteReactions = [], presenceDirectives = {} }) => {
                     if (!frozenBystanders.length) return true;
                     const statusCompletion = {
                         requestHallId,
@@ -18980,6 +19222,7 @@ ${enrichedStatusOutputContract}`;
                         operationalDayKey,
                         prevalidatedStatusUpdates: updates,
                         prevalidatedAwayPlans: awayPlans,
+                        prevalidatedFridgeNoteReactions: fridgeNoteReactions,
                         presenceDirectives,
                         priority: 'background',
                         statusCompletion
@@ -19747,6 +19990,7 @@ ${episodicMemory}`;
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
+                    fridgeNoteComposer, showArchivedFridgeNotes, visibleFridgeNotes, createFridgeNote, archiveFridgeNote, formatFridgeNoteTime, showFridgeNotesModal, openFridgeNotes, closeFridgeNotes,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
