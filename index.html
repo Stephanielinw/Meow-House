@@ -4071,6 +4071,48 @@
             background: color-mix(in srgb, var(--accent) 9%, transparent);
         }
 
+        #app .curator-room-map-stage {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            min-height: 300px;
+            overflow: hidden;
+            border: 1px solid var(--ui-border);
+            border-radius: 24px;
+            background:
+                linear-gradient(135deg, color-mix(in srgb, var(--ui-surface-strong) 88%, var(--accent) 12%), var(--ui-surface-soft)),
+                repeating-linear-gradient(45deg, transparent 0 18px, color-mix(in srgb, var(--ui-border) 38%, transparent) 18px 19px);
+        }
+        #app .curator-room-map-anchor {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            color: var(--ui-text-subtle);
+            font-size: 9px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        #app .curator-room-map-resident {
+            position: absolute;
+            z-index: 4;
+            width: 58px;
+            height: 58px;
+            padding: 0;
+            border: 0;
+            border-radius: 18px;
+            background: color-mix(in srgb, var(--ui-surface) 74%, transparent);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, .28);
+            transform: translate(-50%, -100%);
+        }
+        #app .curator-room-map-resident img { width: 100%; height: 100%; object-fit: contain; }
+        #app .curator-room-map-resident:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+        #app .curator-room-map-empty {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: var(--ui-text-muted);
+            font-size: 11px;
+        }
+
         #app .meeow-map-cat-occlusion {
             position: absolute;
             inset: 0;
@@ -4882,6 +4924,59 @@
 
             </div>
 
+            <!-- CURATOR ROOM -->
+            <div v-if="currentTab === 'lounge' && loungeView === 'curator'" class="gotham-main-page meeow-hall-room space-y-4">
+                <div class="hall-room-bar">
+                    <div>
+                        <div class="hall-room-title"><i class="fas fa-door-closed" style="color: var(--accent);"></i> 馆长室</div>
+                        <div class="hall-room-meta">馆长的私密房间 · {{ curatorRoomResident ? getResidentPublicName(curatorRoomResident) + ' 正在' + getCuratorRoomAnchorLabel(curatorRoomResident) : '此刻很安静' }}</div>
+                    </div>
+                    <button type="button" @click="openHallDirectory" class="sully-btn px-3 py-1.5 text-[10px]" style="background: var(--ui-surface-soft); color: var(--ui-text-muted); border: 1px solid var(--ui-border);"><i class="fas fa-building-columns mr-1"></i>喵喵馆</button>
+                </div>
+
+                <div class="meeow-hall-view-toggle" role="tablist" aria-label="馆长室展示方式">
+                    <button type="button" role="tab" :aria-selected="curatorRoomDisplayMode === 'text'" :class="{ 'is-active': curatorRoomDisplayMode === 'text' }" @click="setCuratorRoomDisplayMode('text')"><i class="fas fa-list-ul mr-1"></i>文字模式</button>
+                    <button type="button" role="tab" :aria-selected="curatorRoomDisplayMode === 'map'" :class="{ 'is-active': curatorRoomDisplayMode === 'map' }" @click="setCuratorRoomDisplayMode('map')"><i class="fas fa-map-location-dot mr-1"></i>地图模式</button>
+                </div>
+
+                <template v-if="curatorRoomDisplayMode === 'text'">
+                    <div v-if="curatorRoomResident" class="sully-card p-4 cursor-pointer" @click="openCuratorResidentDetail(curatorRoomResident)">
+                        <div class="flex items-center gap-3">
+                            <img :src="getCatAvatarSource(curatorRoomResident)" :alt="getResidentPublicName(curatorRoomResident)" class="h-16 w-16 rounded-2xl object-contain border" style="border-color: var(--ui-active-border);">
+                            <div class="min-w-0 flex-1">
+                                <div class="text-sm font-black truncate">{{ getResidentPublicName(curatorRoomResident) }}</div>
+                                <p class="mt-1 text-[10px]" style="color: var(--ui-text-muted);"><i class="fas fa-location-dot mr-1" style="color: var(--accent);"></i>{{ getCuratorRoomAnchorLabel(curatorRoomResident) }}</p>
+                                <p class="mt-1 text-[11px] leading-relaxed" style="color: var(--ui-text-muted);">{{ cleanText(curatorRoomResident.status) || '正在房间里安静待着。' }}</p>
+                            </div>
+                        </div>
+                        <button type="button" class="sully-btn mt-3 w-full py-2 text-xs font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text);" @click.stop="returnResidentFromCuratorRoom(curatorRoomResident)"><i class="fas fa-house mr-1"></i>送回喵喵馆</button>
+                    </div>
+                    <section v-else class="sully-card p-8 text-center" style="color: var(--ui-text-muted);">
+                        <i class="fas fa-moon text-3xl mb-3" style="color: var(--accent);"></i>
+                        <p class="text-sm font-bold" style="color: var(--ui-text);">馆长室很安静</p>
+                        <p class="mt-1 text-[10px]">可以在居民主页邀请一位不在外出或串门中的居民前来。</p>
+                    </section>
+                </template>
+
+                <template v-else>
+                    <section class="curator-room-map-stage" aria-label="馆长室地图">
+                        <span v-for="(anchor, id) in CURATOR_ROOM_ANCHORS" :key="id" class="curator-room-map-anchor" :style="{ left: anchor.x + '%', top: anchor.y + '%' }">{{ anchor.label }}</span>
+                        <button v-if="curatorRoomResident" type="button" class="curator-room-map-resident" :style="getCuratorRoomMarkerStyle(curatorRoomResident)" :title="cleanText(curatorRoomResident.status)" @click.stop="handleCuratorRoomResidentTap(curatorRoomResident)" @dblclick.stop.prevent="openCuratorResidentDetail(curatorRoomResident)">
+                            <img :src="getMapCatAvatarSource(curatorRoomResident)" :alt="getResidentPublicName(curatorRoomResident) + ' 的馆长室标记'" @error="handleMapAvatarError($event, curatorRoomResident)">
+                        </button>
+                        <p v-if="!curatorRoomResident" class="curator-room-map-empty">房间里暂时没有居民。</p>
+                    </section>
+                    <aside v-if="curatorRoomMapPreviewCat" class="meeow-map-status-card" @click.stop>
+                        <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ getResidentPublicName(curatorRoomMapPreviewCat) }}</strong><span class="text-[9px]" style="color: var(--accent);">{{ getCuratorRoomAnchorLabel(curatorRoomMapPreviewCat) }}</span></div>
+                        <p>{{ cleanText(curatorRoomMapPreviewCat.status) || '正在房间里安静待着。' }}</p>
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" class="sully-btn flex-1 py-2 text-[10px] font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text);" @click="openCuratorResidentDetail(curatorRoomMapPreviewCat)">进入主页</button>
+                            <button type="button" class="sully-btn flex-1 py-2 text-[10px] font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text);" @click="returnResidentFromCuratorRoom(curatorRoomMapPreviewCat)">送回馆里</button>
+                        </div>
+                    </aside>
+                </template>
+            </div>
+
             <!-- MEEOW HOUSE DIRECTORY -->
             <div v-if="currentTab === 'lounge' && loungeView === 'selector'" class="gotham-main-page meeow-hall-selector space-y-4">
                 <section class="meeow-hall-hero">
@@ -4928,7 +5023,10 @@
                         <div class="hall-room-title"><i :class="['fas', currentHall.icon || 'fa-cat']" style="color: var(--accent);"></i> {{ currentHall.name }}</div>
                         <div class="hall-room-meta">{{ currentHall.guardian }} · {{ currentHall.guardianTitle }} · {{ roomCats.length }} 只馆内猫</div>
                     </div>
-                    <button @click="openHallDirectory" class="sully-btn px-3 py-1.5 text-[10px]" style="background: var(--ui-surface-soft); color: var(--ui-text-muted); border: 1px solid var(--ui-border);"><i class="fas fa-building-columns mr-1"></i>换馆</button>
+                    <div class="flex gap-2">
+                        <button type="button" @click="openCuratorRoom" class="sully-btn px-3 py-1.5 text-[10px]" style="background: var(--ui-surface-soft); color: var(--ui-text-muted); border: 1px solid var(--ui-border);"><i class="fas fa-door-closed mr-1"></i>馆长室</button>
+                        <button @click="openHallDirectory" class="sully-btn px-3 py-1.5 text-[10px]" style="background: var(--ui-surface-soft); color: var(--ui-text-muted); border: 1px solid var(--ui-border);"><i class="fas fa-building-columns mr-1"></i>换馆</button>
+                    </div>
                 </div>
                 <!-- Action Header Widget -->
                 <div class="sully-widget p-4 flex flex-col gap-3">
@@ -5540,6 +5638,15 @@
                     </button>
                 </div>
 
+                <button v-if="isResidentInCuratorRoom(selectedCat)" type="button" @click="returnResidentFromCuratorRoom(selectedCat)"
+                    class="sully-btn w-full py-2.5 rounded-2xl text-xs font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-active-border);">
+                    <i class="fas fa-house mr-1"></i>送回喵喵馆
+                </button>
+                <button v-else-if="!isResidentAway(selectedCat) && !selectedCat.isVisiting" type="button" @click="inviteResidentToCuratorRoom(selectedCat)"
+                    class="sully-btn w-full py-2.5 rounded-2xl text-xs font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-border);">
+                    <i class="fas fa-door-open mr-1"></i>邀请来馆长室
+                </button>
+
                 <!-- Chat History Container -->
                 <div class="gotham-chat-panel sully-widget flex-1 rounded-2xl flex flex-col shadow-2xl relative overflow-hidden">
                     <div class="chat-messages custom-scrollbar p-3.5 space-y-3" ref="chatMessagesRef">
@@ -5698,6 +5805,13 @@
                                     </div>
                                     <span class="text-[10px] text-gray-300 font-medium">喵读</span>
                                 </button>
+                                <button type="button" @click="openFanficLibrary"
+                                    class="flex flex-col items-center gap-2 cursor-pointer">
+                                    <div class="w-14 h-14 bg-gradient-to-br from-fuchsia-500 to-violet-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                        <i class="fas fa-feather-pointed"></i>
+                                    </div>
+                                    <span class="text-[10px] text-gray-300 font-medium">同人文</span>
+                                </button>
                             </div>
 
                             <!-- Reader App: book metadata lives in the normal save;
@@ -5763,6 +5877,39 @@
                                         <div class="grid grid-cols-2 gap-2 mt-4"><button type="button" @click="continueReaderIndependently" class="reader-panel rounded-xl py-2.5 text-xs font-black">先自己读</button><button type="button" @click="confirmReaderCompanionChapters" :disabled="!phoneState.reader.selectedCompanionChapterIds.length" class="rounded-xl py-2.5 text-xs font-black disabled:opacity-40" style="background:var(--accent); color:var(--accent-contrast)">让 {{ getCatById(phoneState.reader.pendingCompanionCatId)?.name || '小猫' }} 阅读</button></div>
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Fanfic App: a private local writing shelf. Fiction only reaches AI
+                                 through the deliberate, immutable recipient-share reaction flow. -->
+                            <div v-if="phoneState.currentApp === 'fanfic'" class="phone-reader-shell absolute inset-0 z-20 flex flex-col">
+                                <div class="h-12 shrink-0 px-4 flex items-center justify-between border-b" style="border-color:var(--ui-border)">
+                                    <button type="button" @click="closeFanficApp" class="text-sm font-bold"><i class="fas fa-chevron-left mr-1"></i>返回</button>
+                                    <div class="font-black text-sm"><i class="fas fa-feather-pointed mr-1" style="color:var(--accent)"></i>同人文</div>
+                                    <button v-if="phoneState.fanfic.view !== 'library'" type="button" @click="openFanficLibrary" class="text-xs font-bold" style="color:var(--accent)">书架</button>
+                                    <span v-else class="w-8"></span>
+                                </div>
+                                <div v-if="phoneState.fanfic.view === 'library'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                                    <button type="button" @click="createFanficDraft" class="reader-panel w-full p-4 rounded-2xl text-left"><i class="fas fa-plus mr-2" style="color:var(--accent)"></i><span class="font-black text-sm">新建作品</span></button>
+                                    <div v-if="fanficWorks.length === 0" class="reader-panel rounded-2xl p-7 text-center text-xs" style="color:var(--ui-text-muted)">这里安静地收着你的故事。想写的时候再开始。</div>
+                                    <button v-for="work in fanficWorks" :key="work.id" type="button" @click="openFanficWork(work.id)" class="reader-book-card w-full p-4 text-left"><div class="font-black text-sm truncate">《{{ work.title || '未命名作品' }}》</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">第 {{ work.revision }} 版 · 最近编辑：{{ formatFanficTime(work.updatedAt) }}</div></button>
+                                </div>
+                                <div v-else-if="phoneState.fanfic.view === 'editor'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                                    <input v-model="phoneState.fanfic.draft.title" maxlength="120" class="w-full rounded-xl p-3 text-sm" style="background:var(--ui-surface-hover); color:var(--ui-text)" placeholder="作品标题">
+                                    <textarea v-model="phoneState.fanfic.draft.body" maxlength="12000" rows="14" class="w-full rounded-xl p-3 text-sm leading-relaxed" style="background:var(--ui-surface-hover); color:var(--ui-text)" placeholder="在这里写下你的故事……"></textarea>
+                                    <div class="grid grid-cols-2 gap-2"><button type="button" @click="openFanficLibrary" class="reader-panel rounded-xl py-3 text-xs font-black">返回书架</button><button type="button" @click="saveFanficDraft" class="rounded-xl py-3 text-xs font-black" style="background:var(--accent); color:var(--accent-contrast)">保存作品</button></div>
+                                </div>
+                                <div v-else-if="phoneState.fanfic.view === 'work' && activeFanficWork" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                                    <div class="reader-panel rounded-2xl p-4"><div class="font-black text-base">《{{ activeFanficWork.title }}》</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">第 {{ activeFanficWork.revision }} 版 · {{ formatFanficTime(activeFanficWork.updatedAt) }}</div><p class="whitespace-pre-wrap text-sm leading-relaxed mt-4">{{ activeFanficWork.body }}</p></div>
+                                    <div class="grid grid-cols-2 gap-2"><button type="button" @click="editFanficWork(activeFanficWork.id)" class="reader-panel rounded-xl py-3 text-xs font-black">编辑</button><button type="button" @click="openFanficSharePicker(activeFanficWork.id)" class="rounded-xl py-3 text-xs font-black" style="background:var(--accent); color:var(--accent-contrast)">分享给……</button></div>
+                                    <div class="reader-panel rounded-2xl p-4"><div class="font-black text-xs mb-3">已分享给</div><div v-if="activeFanficShares.length === 0" class="text-xs" style="color:var(--ui-text-muted)">这部作品还没有分享。</div><button v-for="share in activeFanficShares" :key="share.id" type="button" @click="openFanficShare(share.id)" class="w-full text-left py-2 border-b last:border-0" style="border-color:var(--ui-border)"><div class="text-xs font-bold">{{ getResidentPublicName(getCatById(share.recipientId)) || '未知居民' }}</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">第 {{ share.revision }} 版 · {{ getFanficChannelLabel(share.channel) }} · {{ getFanficShareStatusLabel(share.status) }}</div></button></div>
+                                </div>
+                                <div v-else-if="phoneState.fanfic.view === 'picker'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                                    <div class="reader-panel rounded-2xl p-4 text-xs" style="color:var(--ui-text-muted)">选择一位能实际收到这版作品的居民。作品内容仅作为虚构作品阅读，不会成为馆舍现实。</div>
+                                    <button v-for="candidate in fanficRecipientCandidates" :key="candidate.cat.id" type="button" @click="selectFanficRecipient(candidate.cat.id)" class="reader-panel w-full rounded-2xl p-3 text-left"><div class="font-bold text-sm">{{ getResidentPublicName(candidate.cat) }}</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">{{ candidate.channels.map(getFanficChannelLabel).join(' · ') }}</div></button>
+                                    <div v-if="fanficRecipientCandidates.length === 0" class="text-center text-xs p-6" style="color:var(--ui-text-muted)">此刻没有可用的分享对象。</div>
+                                </div>
+                                <div v-else-if="phoneState.fanfic.view === 'channel'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar"><div class="reader-panel rounded-2xl p-4"><div class="font-black">分享给 {{ getResidentPublicName(getCatById(phoneState.fanfic.recipientId)) }}</div><div class="text-xs mt-2" style="color:var(--ui-text-muted)">选择这一次真实发生的分享方式。</div></div><button v-for="channel in selectedFanficRecipientChannels" :key="channel" type="button" @click="createFanficShare(channel)" class="reader-panel w-full rounded-2xl p-4 text-left"><div class="font-black text-sm">{{ getFanficChannelLabel(channel) }}</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">{{ channel === 'in-person' ? '仅限此刻真实同处一地。' : '仅限已互加的喵信好友。' }}</div></button></div>
+                                <div v-else-if="phoneState.fanfic.view === 'share' && activeFanficShare" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"><div class="reader-panel rounded-2xl p-4"><div class="font-black text-base">{{ getResidentPublicName(getCatById(activeFanficShare.recipientId)) }}</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">{{ getFanficChannelLabel(activeFanficShare.channel) }} · {{ getFanficShareStatusLabel(activeFanficShare.status) }}</div><div class="mt-3 text-xs leading-relaxed whitespace-pre-wrap">{{ activeFanficShare.reaction || activeFanficShare.failureMessage || '正在等待这次阅读反应。' }}</div><button v-if="activeFanficShare.status === 'failed'" type="button" @click="retryFanficShare(activeFanficShare.id)" class="mt-4 rounded-xl px-3 py-2 text-xs font-black" style="background:var(--accent); color:var(--accent-contrast)">重新尝试阅读</button></div><details class="reader-panel rounded-2xl p-4"><summary class="text-xs font-black cursor-pointer">查看当时分享的冻结版本</summary><div class="mt-3"><div class="font-bold text-sm">《{{ activeFanficShare.titleSnapshot }}》</div><p class="whitespace-pre-wrap text-xs leading-relaxed mt-2">{{ activeFanficShare.bodySnapshot }}</p></div></details></div>
                             </div>
 
                             <!-- Scanner App -->
@@ -8820,9 +8967,9 @@
                     <i class="fas fa-compass"></i>
                     <span>外出</span>
                 </button>
-                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="openCurrentHall" aria-label="喵喵馆">
-                    <i class="fas fa-couch"></i>
-                    <span>喵喵馆</span>
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="openCuratorRoom" aria-label="馆长室">
+                    <i class="fas fa-door-closed"></i>
+                    <span>馆长室</span>
                 </button>
                 <button type="button" class="nav-item sully-btn relative" :class="{ active: currentTab === 'phone' }" @click="navigateToTab('phone')" aria-label="手机">
                     <i class="fas fa-mobile-alt"></i>
@@ -9263,6 +9410,7 @@
                     customFontFamily: '',
                     customFontEnabled: false,
                     hallDisplayMode: 'text',
+                    curatorRoomDisplayMode: 'text',
                     focusMusicPlaylist: [],
                     focusMusicVolume: 0.7,
                     focusMusicLoop: true,
@@ -9291,6 +9439,59 @@
                 // planned absence independent from transient Status Sync output.
                 const awayEpisodes = ref([]);
                 let rosterMigrationPendingSave = false;
+                const CURATOR_ROOM_ANCHORS = Object.freeze({
+                    bed: Object.freeze({ label: '床边', x: 24, y: 73 }),
+                    nightstand: Object.freeze({ label: '床头柜旁', x: 39, y: 65 }),
+                    desk: Object.freeze({ label: '书桌前', x: 73, y: 64 }),
+                    window: Object.freeze({ label: '窗边', x: 79, y: 25 }),
+                    wardrobe: Object.freeze({ label: '衣柜旁', x: 20, y: 31 }),
+                    floor: Object.freeze({ label: '房间里', x: 51, y: 76 })
+                });
+                const getCuratorRoomPresence = (cat) => {
+                    const presence = cat?.curatorRoomPresence;
+                    const anchor = String(presence?.anchor || '').trim();
+                    return presence && typeof presence === 'object' && !Array.isArray(presence) && CURATOR_ROOM_ANCHORS[anchor]
+                        ? { anchor, enteredAt: typeof presence.enteredAt === 'string' ? presence.enteredAt : '' }
+                        : null;
+                };
+                const isResidentInCuratorRoom = (cat) => Boolean(getCuratorRoomPresence(cat));
+                const sanitizeCuratorRoomPresence = () => {
+                    const occupants = [];
+                    let changed = false;
+                    cats.value.forEach(cat => {
+                        const hasActiveAwayEpisode = awayEpisodes.value.some(episode =>
+                            String(episode?.residentId || '') === String(cat?.id || '') && episode?.status === 'active'
+                        );
+                        // One physical lifecycle at a time: an existing Away state wins
+                        // malformed Visit overlap, restoring the stored Visit origin when
+                        // possible before removing its transient fields.
+                        if (cat?.isVisiting && (cat.isOut || hasActiveAwayEpisode)) {
+                            const originHallId = String(cat.visitOriginHallId || '').trim();
+                            if (originHallId && halls.value.some(hall => String(hall?.id || '') === originHallId)) cat.hallId = originHallId;
+                            cat.isVisiting = false;
+                            cat.visitOriginHallId = null;
+                            cat.visitStartedAt = null;
+                            changed = true;
+                        }
+                        if (!cat?.curatorRoomPresence) return;
+                        const presence = getCuratorRoomPresence(cat);
+                        if (!presence || cat.isOut || cat.isVisiting || hasActiveAwayEpisode) {
+                            delete cat.curatorRoomPresence;
+                            changed = true;
+                            return;
+                        }
+                        if (!presence.enteredAt || Number.isNaN(new Date(presence.enteredAt).getTime())) {
+                            cat.curatorRoomPresence = { anchor: presence.anchor, enteredAt: new Date(0).toISOString() };
+                            changed = true;
+                        }
+                        occupants.push(cat);
+                    });
+                    occupants
+                        .sort((left, right) => String(left.curatorRoomPresence?.enteredAt || '').localeCompare(String(right.curatorRoomPresence?.enteredAt || '')) || String(left.id).localeCompare(String(right.id)))
+                        .slice(1)
+                        .forEach(cat => { delete cat.curatorRoomPresence; changed = true; });
+                    return changed;
+                };
 
                 const migrateObsoleteIthacaCats = () => {
                     let migrated = false;
@@ -9430,6 +9631,7 @@
 
                 mergeBuiltInCats();
                 normalizeResidentRelationshipRoster();
+                if (sanitizeCuratorRoomPresence()) rosterMigrationPendingSave = true;
 
                 // Neutralize only bundled legacy labels; user-created profile text and items remain untouched.
                 if (user.nickname === '哥谭市民') user.nickname = '馆长';
@@ -9688,6 +9890,7 @@
                 watch(activeHallId, (hallId) => {
                     localStorage.setItem('meeow_active_hall', hallId);
                     showFridgeNotesModal.value = false;
+                    curatorRoomMapPreviewCat.value = null;
                 });
                 const currentHall = computed(() => halls.value.find(hall => hall.id === activeHallId.value) || halls.value[0] || DEFAULT_HALLS[0]);
                 const {
@@ -9697,10 +9900,27 @@
                     getResidentPresenceLabel,
                     deriveResidentPresence
                 } = window.Meeow.presence;
-                const roomCats = computed(() => cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === activeHallId.value));
+                const getResidentPhysicalHallId = (cat) => {
+                    if (!cat || isResidentAway(cat) || isResidentInCuratorRoom(cat)) return '';
+                    return String(cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham'));
+                };
+                const roomCats = computed(() => cats.value.filter(cat =>
+                    (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === activeHallId.value && !isResidentInCuratorRoom(cat)
+                ));
                 const storedHallDisplayMode = localStorage.getItem('meeow_hall_display_mode');
                 const hallDisplayMode = ref((storedHallDisplayMode || settings.hallDisplayMode) === 'map' ? 'map' : 'text');
+                const curatorRoomDisplayMode = ref(settings.curatorRoomDisplayMode === 'map' ? 'map' : 'text');
                 const mapPreviewCat = ref(null);
+                const curatorRoomMapPreviewCat = ref(null);
+                const detailReturnOrigin = ref('');
+                const curatorRoomResident = computed(() => cats.value.find(isResidentInCuratorRoom) || null);
+                const getCuratorRoomAnchor = (cat) => getCuratorRoomPresence(cat)?.anchor || 'floor';
+                const getCuratorRoomAnchorMeta = (cat) => CURATOR_ROOM_ANCHORS[getCuratorRoomAnchor(cat)] || CURATOR_ROOM_ANCHORS.floor;
+                const getCuratorRoomAnchorLabel = (cat) => getCuratorRoomAnchorMeta(cat).label;
+                const getCuratorRoomMarkerStyle = (cat) => {
+                    const anchor = getCuratorRoomAnchorMeta(cat);
+                    return { left: `${anchor.x}%`, top: `${anchor.y}%` };
+                };
                 const showMapPointLabels = ref(localStorage.getItem('meeow_show_map_points') === '1');
                 const {
                     MAP_ROOM_DEFINITIONS,
@@ -9906,6 +10126,11 @@
                     settings.hallDisplayMode = hallDisplayMode.value;
                     localStorage.setItem('meeow_hall_display_mode', hallDisplayMode.value);
                     mapPreviewCat.value = null;
+                };
+                const setCuratorRoomDisplayMode = (mode) => {
+                    curatorRoomDisplayMode.value = mode === 'map' ? 'map' : 'text';
+                    settings.curatorRoomDisplayMode = curatorRoomDisplayMode.value;
+                    curatorRoomMapPreviewCat.value = null;
                 };
                 const openFridgeNotes = () => { showFridgeNotesModal.value = true; };
                 const closeFridgeNotes = () => { showFridgeNotesModal.value = false; };
@@ -10469,6 +10694,15 @@
                         payload: null,
                         annotationParagraphIndex: null,
                         isPreparing: false
+                    },
+                    fanfic: {
+                        view: 'library',
+                        activeWorkId: null,
+                        activeShareId: null,
+                        recipientId: null,
+                        draft: { id: null, title: '', body: '' },
+                        entryLocation: null,
+                        isGenerating: false
                     },
                     codexSelected: null,
                     gnnTab: 'trending'
@@ -12132,8 +12366,64 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     hallSceneActive.value = true;
                     loungeView.value = 'room';
                     selectedCat.value = cat;
+                    detailReturnOrigin.value = '';
                     currentTab.value = 'detail';
                     showEasterEggBtn.value = (cat.affinity >= 90 && Math.random() < 0.05);
+                };
+
+                const canInviteResidentToCuratorRoom = (cat) => Boolean(cat && !isResidentInCuratorRoom(cat) && !isResidentAway(cat) && !getActiveAwayEpisode(cat) && !cat.isVisiting);
+                const inviteResidentToCuratorRoom = (cat) => {
+                    if (!canInviteResidentToCuratorRoom(cat)) {
+                        showToast('这位居民当前无法离开既有行程或串门状态。', 'warn');
+                        return false;
+                    }
+                    const currentResident = curatorRoomResident.value;
+                    if (currentResident && String(currentResident.id) !== String(cat.id)) {
+                        showToast(`馆长室目前有 ${getResidentPublicName(currentResident)}，请先送回喵喵馆。`, 'warn');
+                        return false;
+                    }
+                    cat.curatorRoomPresence = { anchor: 'floor', enteredAt: new Date().toISOString() };
+                    curatorRoomMapPreviewCat.value = null;
+                    addLog(`CURATOR ROOM INVITE: resident=${String(cat.id)}; anchor=floor`, 'info');
+                    showToast(`${getResidentPublicName(cat)} 已来到馆长室。`, 'success');
+                    return true;
+                };
+                const returnResidentFromCuratorRoom = (cat) => {
+                    if (!isResidentInCuratorRoom(cat)) return false;
+                    delete cat.curatorRoomPresence;
+                    if (curatorRoomMapPreviewCat.value && String(curatorRoomMapPreviewCat.value.id) === String(cat.id)) curatorRoomMapPreviewCat.value = null;
+                    addLog(`CURATOR ROOM RETURN: resident=${String(cat.id)}; hall=${String(cat.hallId || '')}`, 'info');
+                    showToast(`${getResidentPublicName(cat)} 已送回喵喵馆。`, 'success');
+                    return true;
+                };
+                const openCuratorResidentDetail = (cat) => {
+                    if (!isResidentInCuratorRoom(cat)) return;
+                    if (curatorRoomTapTimer) window.clearTimeout(curatorRoomTapTimer);
+                    curatorRoomTapTimer = null;
+                    curatorRoomTapCatId = null;
+                    curatorRoomMapPreviewCat.value = null;
+                    selectedCat.value = cat;
+                    detailReturnOrigin.value = 'curator';
+                    currentTab.value = 'detail';
+                    showEasterEggBtn.value = false;
+                };
+                let curatorRoomTapTimer = null;
+                let curatorRoomTapCatId = null;
+                const handleCuratorRoomResidentTap = (cat) => {
+                    if (curatorRoomTapTimer && curatorRoomTapCatId === cat.id) {
+                        window.clearTimeout(curatorRoomTapTimer);
+                        curatorRoomTapTimer = null;
+                        curatorRoomTapCatId = null;
+                        openCuratorResidentDetail(cat);
+                        return;
+                    }
+                    if (curatorRoomTapTimer) window.clearTimeout(curatorRoomTapTimer);
+                    curatorRoomTapCatId = cat.id;
+                    curatorRoomTapTimer = window.setTimeout(() => {
+                        curatorRoomMapPreviewCat.value = isResidentInCuratorRoom(cat) ? cat : null;
+                        curatorRoomTapTimer = null;
+                        curatorRoomTapCatId = null;
+                    }, 230);
                 };
 
                 const openMapCatDetail = (cat) => {
@@ -12209,22 +12499,24 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     if (currentTab.value === 'phone') rememberPhoneChatScrollPosition?.();
                     if (tab === 'phone') {
                         resetPhoneTransientUI?.();
+                        phoneState.fanfic.entryLocation = getFanficEntryLocation?.() || null;
                         addLog('NAVIGATION: 打开手机页面', 'info');
                     }
                     currentTab.value = tab;
                 };
 
-                const openCurrentHall = () => {
+                const openCuratorRoom = () => {
                     rememberHallScrollPosition();
                     currentTab.value = 'lounge';
+                    loungeView.value = 'curator';
                     selectedCat.value = null;
-                    if (!hallSceneActive.value) {
-                        loungeView.value = 'selector';
-                        setContentScrollTop(0);
-                        return;
-                    }
-                    loungeView.value = 'room';
-                    setContentScrollTop(hallScrollPositions[activeHallId.value] || 0);
+                    detailReturnOrigin.value = '';
+                    mapPreviewCat.value = null;
+                    curatorRoomMapPreviewCat.value = null;
+                    setContentScrollTop(0);
+                };
+                const openCurrentHall = () => {
+                    openCuratorRoom();
                 };
 
                 const openHallDirectory = () => {
@@ -12233,16 +12525,23 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     currentTab.value = 'lounge';
                     loungeView.value = 'selector';
                     selectedCat.value = null;
+                    detailReturnOrigin.value = '';
+                    curatorRoomMapPreviewCat.value = null;
                     setContentScrollTop(0);
                 };
 
                 const returnToHallRoom = () => {
+                    if (detailReturnOrigin.value === 'curator') {
+                        openCuratorRoom();
+                        return;
+                    }
                     const returnHallId = selectedCat.value?.hallId || activeHallId.value;
                     activeHallId.value = returnHallId;
                     hallSceneActive.value = true;
                     currentTab.value = 'lounge';
                     loungeView.value = 'room';
                     selectedCat.value = null;
+                    detailReturnOrigin.value = '';
                     showEasterEggBtn.value = false;
                     setContentScrollTop(hallScrollPositions[returnHallId] || 0);
                 };
@@ -12391,6 +12690,8 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const enterHall = (hall) => {
                     if (!hall) return;
                     reconcileAwayEpisodes(new Date());
+                    curatorRoomMapPreviewCat.value = null;
+                    detailReturnOrigin.value = '';
                     if (activeHallId.value !== hall.id) clearHallSceneFocus();
                     const elapsedSinceLastEntry = Date.now() - getHallLastEnteredAt(hall);
                     if (getHallLastEnteredAt(hall) && elapsedSinceLastEntry < HALL_ENTRY_REFRESH_COOLDOWN_MS) {
@@ -12425,7 +12726,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const openCatVisit = (cat) => {
-                    if (!cat || isResidentAway(cat) || cat.isVisiting) return;
+                    if (!cat || isResidentAway(cat) || cat.isVisiting || isResidentInCuratorRoom(cat)) return;
                     visitCat.value = cat;
                     visitTargetHallId.value = halls.value.find(hall => hall.id !== cat.hallId)?.id || '';
                     visitMessage.value = '';
@@ -12435,7 +12736,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const sendCatVisiting = async () => {
                     const cat = visitCat.value;
                     const targetHall = halls.value.find(hall => hall.id === visitTargetHallId.value);
-                    if (!cat || !targetHall || isResidentAway(cat) || cat.isVisiting) return;
+                    if (!cat || !targetHall || isResidentAway(cat) || cat.isVisiting || isResidentInCuratorRoom(cat)) return;
                     visitIsProcessing.value = true;
                     const originHallId = cat.hallId || activeHallId.value;
                     cat.visitOriginHallId = originHallId;
@@ -15070,19 +15371,24 @@ ${buildCatMemoryContext(cat)}`;
                     const changed = clean !== cleanText(cat.status || '');
                     cat.status = clean;
                     if (options.innerVoice) cat.innerVoice = cleanText(options.innerVoice);
-                    const explicitPoint = findMapPoint(options.mapPoint || options.mapSpot);
-                    cat.mapRoom = explicitPoint?.roomId || (MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
-                        ? options.mapRoom
-                        : inferMapRoomFromStatus(clean));
-                    const roomDefinition = MAP_ROOM_DEFINITIONS.find(room => room.id === cat.mapRoom);
-                    const validPoint = findMapPoint(options.mapPoint || options.mapSpot, cat.mapRoom);
-                    if (validPoint) {
-                        cat.mapPoint = validPoint.id;
-                        cat.mapSpot = validPoint.id;
-                        cat.mapFurniture = cleanText(options.mapFurniture || validPoint.furnitureId || '');
-                        cat.mapPositionLabel = cleanText(options.mapPositionLabel || validPoint.name || '');
-                    } else if (roomDefinition?.zones.some(zone => zone.id === options.mapSpot)) {
-                        cat.mapSpot = options.mapSpot;
+                    // Curator Room is a physical location outside any Hall. Its status may
+                    // refresh through the home-Hall scheduler, but must never overwrite the
+                    // resident's stored Hall-map position.
+                    if (!isResidentInCuratorRoom(cat) || options.allowHallMap === true) {
+                        const explicitPoint = findMapPoint(options.mapPoint || options.mapSpot);
+                        cat.mapRoom = explicitPoint?.roomId || (MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
+                            ? options.mapRoom
+                            : inferMapRoomFromStatus(clean));
+                        const roomDefinition = MAP_ROOM_DEFINITIONS.find(room => room.id === cat.mapRoom);
+                        const validPoint = findMapPoint(options.mapPoint || options.mapSpot, cat.mapRoom);
+                        if (validPoint) {
+                            cat.mapPoint = validPoint.id;
+                            cat.mapSpot = validPoint.id;
+                            cat.mapFurniture = cleanText(options.mapFurniture || validPoint.furnitureId || '');
+                            cat.mapPositionLabel = cleanText(options.mapPositionLabel || validPoint.name || '');
+                        } else if (roomDefinition?.zones.some(zone => zone.id === options.mapSpot)) {
+                            cat.mapSpot = options.mapSpot;
+                        }
                     }
                     cat.lastStatusUpdateTime = Date.now();
                     if (changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {}, options.eventAt || new Date());
@@ -15108,7 +15414,7 @@ ${buildCatMemoryContext(cat)}`;
                 const formatLocalPresenceAuthority = (directives) => {
                     const entries = Object.entries(directives || {});
                     if (!entries.length) return '[LOCAL PRESENCE AUTHORITY]\nNo HOME residents require a local presence directive in this response.';
-                    return `[LOCAL PRESENCE AUTHORITY]\n${entries.map(([id, directive]) => `${id} → ${directive}`).join('\n')}\nThese directives are binding local world logic. Do not independently infer or choose HOME/AWAY. Returned isOut is compatibility metadata only; local lifecycle authority commits physical presence. Use [CURRENT-LIFE CONTEXT] and [LAST-KNOWN CONTINUITY EVIDENCE] only to write content consistent with the assigned directive: HOME remains in hall with no departure plan; DEPARTING_NOW means locally selected to attempt departure and requires one matching core mode:"departure" plan. A valid plan commits departure locally.`;
+                    return `[LOCAL PRESENCE AUTHORITY]\n${entries.map(([id, directive]) => `${id} → ${directive}`).join('\n')}\nThese directives are binding local world logic. Do not independently infer or choose HOME/AWAY. Returned isOut is compatibility metadata only; local lifecycle authority commits physical presence. HOME remains in its physical hall with no departure plan. DEPARTING_NOW means locally selected to attempt departure and requires one matching core mode:"departure" plan. CURATOR_ROOM means the resident is physically in the USER's private Curator Room, never in this Hall: keep isOut:false, generate no Away plan or Hall map point, and use only that resident's isolated Curator Room context plus a valid curatorRoomAnchor.`;
                 };
                 const AWAY_ACTIVITY_PLANNING_RULES = `[AWAY LIFE PLAN]
 - AWAY means the resident has left Meeow House and resumed a meaningful part of their independent life elsewhere: work, study, training, a social commitment, an errand, a relationship, a personal project, unfinished business, or private time. They are not normally wandering the courtyard, a nearby wall, or an alley like a stray cat. Avoid vague phrases such as “处理一些事情”, “出去转转”, or “随便走走” unless concrete character-specific context makes them meaningful.
@@ -15167,6 +15473,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const getHomepageGroundedResidentIds = (owner, userText = '') => {
                     if (!owner?.id) return [];
+                    if (isResidentInCuratorRoom(owner)) return [];
                     const hallId = owner.hallId || (owner.isMarvel ? 'marvel' : 'gotham');
                     const ownerWindow = [
                         cleanText(userText),
@@ -15310,9 +15617,23 @@ ${buildCatMemoryContext(cat)}`;
                     if (!cat || !query) return '';
                     const relatedResidentIds = context.relatedResidentIds || getHomepageGroundedResidentIds(cat, query);
                     const built = buildEpisodicMemoryContext(cat, { ...context, userInput: query, relatedResidentIds });
-                    const selected = built.result.selected.map(entry => `${entry.memory.id}:${entry.score}`).join(', ');
+                    // A factual event may intentionally have both a same-day timeline
+                    // projection and a durable episodic projection. When their source
+                    // identity is the same (for example fanfic-reading:<shareId>),
+                    // ordinary prompt context must present it once, never as two events.
+                    const interactionSourceKeys = new Set((cat.todayInteractions || []).map(entry => String(entry?.sourceKey || '')).filter(Boolean));
+                    const selectedEntries = built.result.selected.filter(entry => !interactionSourceKeys.has(String(entry.memory?.sourceKey || '')));
+                    const lines = ['[OWNER EPISODIC MEMORIES · PRIVATE]']; let length = lines[0].length;
+                    const included = [];
+                    selectedEntries.forEach(entry => {
+                        const memory = entry.memory; const tags = memory.tags?.length ? ` · tags: ${memory.tags.join(', ')}` : '';
+                        const line = `- [${memory.eventAt.slice(0, 10)}] ${memory.summary}${tags}`;
+                        if (length + line.length + 1 > 2400) return;
+                        lines.push(line); length += line.length + 1; included.push(entry);
+                    });
+                    const selected = included.map(entry => `${entry.memory.id}:${entry.score}`).join(', ');
                     addLog(`MEMORY RETRIEVAL: owner=${String(cat.id)}; stored=${built.result.stored}; eligible=${built.result.eligible}; selected=[${selected}]`, 'info');
-                    return built.text;
+                    return included.length ? lines.join('\n') : '';
                 };
                 const buildStatusSyncUserContext = (additionalContext = '') => {
                     const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
@@ -15344,8 +15665,9 @@ ${buildCatMemoryContext(cat)}`;
                         formatMemoryEntries(interactions, 2, 25),
                         continuity ? truncateMemoryText(continuity, 40) : ''
                     ].filter(Boolean).join(' | ') || 'None';
+                    const curatorPresence = getCuratorRoomPresence(cat);
                     const continuityLines = [
-                        `Last known presence: ${cat?.isOut ? 'AWAY' : 'HOME'}`,
+                        `Last known presence: ${cat?.isOut ? 'AWAY' : (curatorPresence ? 'CURATOR_ROOM' : 'HOME')}`,
                         `Last observation: ${lastObservationLabel}; Observation age / Δt: ${observationAgeMinutes}m (${tier})`,
                         `Last observed status: ${truncateMemoryText(cat?.status || '未知', observedStatusLimit)}`
                     ];
@@ -15357,7 +15679,10 @@ ${buildCatMemoryContext(cat)}`;
                     if (options.crossedOperationalDay) {
                         continuityLines.push('Operational-day boundary: this prior presence and indoor observation are weak historical continuity, not proof of the current location.');
                     }
-                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${getResidentPublicName(cat)}; Form: ${getResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
+                    const physicalLocation = curatorPresence
+                        ? `Physical location: CURATOR_ROOM — the USER's private bedroom; anchor=${curatorPresence.anchor} (${getCuratorRoomAnchorLabel(cat)}). This resident is not physically present in any Hall. Do not use Hall residents, Hall scenes, Hall social context, or Hall map topology for this resident's update.`
+                        : `Physical location: ${cat?.isOut ? 'AWAY' : 'HOME HALL'}.`;
+                    return `MACHINE ID — COPY EXACTLY: ${String(cat?.id ?? '')}\n[CURRENT-LIFE CONTEXT]\nSync time: ${now.toLocaleString()}\nObservation age / Δt: ${observationAgeMinutes}m (${tier})\nResident: ${getResidentPublicName(cat)}; Form: ${getResidentForm(cat)}; Affinity: ${cat?.affinity ?? 0}/100\n${physicalLocation}\nTraits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}\nCanon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}\nCausally relevant recent events: ${relevantEvents}\n\n[LAST-KNOWN CONTINUITY EVIDENCE]\n${continuityLines.join('\n')}`;
                 };
 
                 // ===== MEEOW READER · LOCAL BOOKS + LONG-TERM CAT NOTES =====
@@ -15512,6 +15837,175 @@ ${buildCatMemoryContext(cat)}`;
                 const closeReader = () => {
                     resetPhoneTransientUI(); phoneState.reader.view = 'library'; phoneState.reader.annotationParagraphIndex = null; phoneState.currentApp = 'home';
                 };
+
+                // ===== FANFIC · PRIVATE USER WORKSPACE =====
+                // Fanfic bodies are deliberately confined to this app and the one-time
+                // reading-reaction request. They never enter general Phone history or
+                // resident/world prompt context as if their events were real.
+                const FANFIC_MAX_TITLE_LENGTH = 120;
+                const FANFIC_MAX_BODY_LENGTH = 12000;
+                const createFanficId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                const fanficWorks = computed(() => Array.isArray(user.fanfic?.works)
+                    ? [...user.fanfic.works].sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
+                    : []);
+                const fanficShares = computed(() => Array.isArray(user.fanfic?.shares) ? user.fanfic.shares : []);
+                const activeFanficWork = computed(() => fanficWorks.value.find(work => String(work.id) === String(phoneState.fanfic.activeWorkId)) || null);
+                const activeFanficShares = computed(() => activeFanficWork.value
+                    ? fanficShares.value.filter(share => String(share.workId) === String(activeFanficWork.value.id))
+                    : []);
+                const activeFanficShare = computed(() => fanficShares.value.find(share => String(share.id) === String(phoneState.fanfic.activeShareId)) || null);
+                const normalizeFanficText = (value, limit) => String(value || '').replace(/\r\n/g, '\n').trim().slice(0, limit);
+                const ensureFanficData = () => {
+                    if (!user.fanfic || typeof user.fanfic !== 'object' || Array.isArray(user.fanfic)) user.fanfic = { works: [], shares: [] };
+                    if (!Array.isArray(user.fanfic.works)) user.fanfic.works = [];
+                    if (!Array.isArray(user.fanfic.shares)) user.fanfic.shares = [];
+                    return user.fanfic;
+                };
+                const normalizeFanficData = () => {
+                    if (!user.fanfic || typeof user.fanfic !== 'object' || Array.isArray(user.fanfic)) return false;
+                    const data = ensureFanficData(); let changed = false;
+                    const workIds = new Set();
+                    data.works = data.works.filter(work => {
+                        if (!work || typeof work !== 'object' || !String(work.id || '').trim() || workIds.has(String(work.id))) { changed = true; return false; }
+                        workIds.add(String(work.id));
+                        const title = normalizeFanficText(work.title, FANFIC_MAX_TITLE_LENGTH);
+                        const body = normalizeFanficText(work.body, FANFIC_MAX_BODY_LENGTH);
+                        const revision = Math.max(1, Number.parseInt(work.revision, 10) || 1);
+                        const createdAt = !Number.isNaN(new Date(work.createdAt).getTime()) ? work.createdAt : new Date(0).toISOString();
+                        const updatedAt = !Number.isNaN(new Date(work.updatedAt).getTime()) ? work.updatedAt : createdAt;
+                        if (title !== work.title || body !== work.body || revision !== work.revision || createdAt !== work.createdAt || updatedAt !== work.updatedAt) changed = true;
+                        Object.assign(work, { title, body, revision, createdAt, updatedAt });
+                        return true;
+                    });
+                    const seen = new Set();
+                    data.shares = data.shares.filter(share => {
+                        const key = `${String(share?.workId || '')}:${Number(share?.revision)}:${String(share?.recipientId || '')}`;
+                        if (!share || typeof share !== 'object' || !String(share.id || '').trim() || !workIds.has(String(share.workId)) || !String(share.recipientId || '').trim() || !['in-person', 'phone'].includes(share.channel) || seen.has(key)) { changed = true; return false; }
+                        seen.add(key);
+                        share.titleSnapshot = normalizeFanficText(share.titleSnapshot, FANFIC_MAX_TITLE_LENGTH);
+                        share.bodySnapshot = normalizeFanficText(share.bodySnapshot, FANFIC_MAX_BODY_LENGTH);
+                        if (!share.titleSnapshot || !share.bodySnapshot) { changed = true; return false; }
+                        if (!['completed', 'failed', 'pending'].includes(share.status)) { share.status = 'failed'; share.failureMessage = '阅读记录状态异常，可重新尝试。'; changed = true; }
+                        // Pending only exists while this page holds the live request; a restored
+                        // save has no such request and must become safely retryable.
+                        if (share.status === 'pending') { share.status = 'failed'; share.failureMessage = '上次阅读生成被中断，可重新尝试。'; changed = true; }
+                        share.reaction = cleanText(share.reaction || '').slice(0, 900);
+                        share.readingMemorySummary = cleanText(share.readingMemorySummary || '').slice(0, 280);
+                        return true;
+                    });
+                    return changed;
+                };
+                const formatFanficTime = (value) => {
+                    const date = new Date(value || 0);
+                    return Number.isNaN(date.getTime()) ? '刚刚' : date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+                };
+                const getFanficChannelLabel = (channel) => channel === 'phone' ? '喵信发送' : '当面给 TA 看';
+                const getFanficShareStatusLabel = (status) => ({ completed: '已读', pending: '正在阅读', failed: '可重试' }[status] || '未完成');
+                const getFanficEntryLocation = () => {
+                    if (currentTab.value === 'lounge' && loungeView.value === 'curator') return { kind: 'curator' };
+                    if (currentTab.value === 'lounge' && loungeView.value === 'room') return { kind: 'hall', hallId: String(activeHallId.value) };
+                    if (currentTab.value === 'detail' && detailReturnOrigin.value === 'curator') return { kind: 'curator' };
+                    if (currentTab.value === 'detail') return { kind: 'hall', hallId: String(activeHallId.value) };
+                    return null;
+                };
+                const isFanficPhoneEligible = (cat) => Boolean(cat && Array.isArray(user.phoneData?.friends) && user.phoneData.friends.some(id => String(id) === String(cat.id)));
+                const isFanficInPersonEligible = (cat, location = phoneState.fanfic.entryLocation) => {
+                    if (!cat || !location || isResidentAway(cat) || getActiveAwayEpisode(cat)) return false;
+                    if (location.kind === 'curator') return isResidentInCuratorRoom(cat);
+                    return location.kind === 'hall' && !isResidentInCuratorRoom(cat) && isResidentInHall(cat) && getResidentPhysicalHallId(cat) === String(location.hallId);
+                };
+                const getFanficChannelsForResident = (cat) => {
+                    const channels = [];
+                    if (isFanficInPersonEligible(cat)) channels.push('in-person');
+                    if (isFanficPhoneEligible(cat)) channels.push('phone');
+                    return channels;
+                };
+                const fanficRecipientCandidates = computed(() => cats.value.map(cat => ({ cat, channels: getFanficChannelsForResident(cat) })).filter(entry => entry.channels.length));
+                const selectedFanficRecipientChannels = computed(() => getFanficChannelsForResident(getCatById(phoneState.fanfic.recipientId)));
+                const openFanficLibrary = () => {
+                    resetPhoneTransientUI(); phoneState.currentApp = 'fanfic'; phoneState.fanfic.view = 'library'; phoneState.fanfic.activeWorkId = null; phoneState.fanfic.activeShareId = null; phoneState.fanfic.recipientId = null;
+                };
+                const closeFanficApp = () => {
+                    phoneState.fanfic.view = 'library'; phoneState.fanfic.activeWorkId = null; phoneState.fanfic.activeShareId = null; phoneState.fanfic.recipientId = null; phoneState.fanfic.draft = { id: null, title: '', body: '' }; phoneState.currentApp = 'home';
+                };
+                const createFanficDraft = () => { phoneState.fanfic.draft = { id: null, title: '', body: '' }; phoneState.fanfic.view = 'editor'; };
+                const openFanficWork = (workId) => { phoneState.fanfic.activeWorkId = workId; phoneState.fanfic.activeShareId = null; phoneState.fanfic.view = 'work'; };
+                const editFanficWork = (workId) => {
+                    const work = fanficWorks.value.find(item => String(item.id) === String(workId)); if (!work) return;
+                    phoneState.fanfic.draft = { id: work.id, title: work.title, body: work.body }; phoneState.fanfic.view = 'editor';
+                };
+                const saveFanficDraft = () => {
+                    const title = normalizeFanficText(phoneState.fanfic.draft.title, FANFIC_MAX_TITLE_LENGTH);
+                    const body = normalizeFanficText(phoneState.fanfic.draft.body, FANFIC_MAX_BODY_LENGTH);
+                    if (!title || !body) return showToast('请先写下标题和正文。', 'error');
+                    const data = ensureFanficData(); const now = new Date().toISOString();
+                    let work = data.works.find(item => String(item.id) === String(phoneState.fanfic.draft.id));
+                    if (!work) { work = { id: createFanficId('fanfic-work'), title, body, revision: 1, createdAt: now, updatedAt: now }; data.works.push(work); }
+                    else if (work.title !== title || work.body !== body) Object.assign(work, { title, body, revision: Number(work.revision || 1) + 1, updatedAt: now });
+                    phoneState.fanfic.activeWorkId = work.id; phoneState.fanfic.draft = { id: work.id, title: work.title, body: work.body }; phoneState.fanfic.view = 'work';
+                    showToast('作品已保存。', 'success');
+                };
+                const openFanficSharePicker = (workId) => { phoneState.fanfic.activeWorkId = workId; phoneState.fanfic.recipientId = null; phoneState.fanfic.view = 'picker'; };
+                const selectFanficRecipient = (recipientId) => { phoneState.fanfic.recipientId = recipientId; phoneState.fanfic.view = 'channel'; };
+                const openFanficShare = (shareId) => { phoneState.fanfic.activeShareId = shareId; phoneState.fanfic.view = 'share'; };
+                const getFanficExistingShare = (work, recipientId) => fanficShares.value.find(share => String(share.workId) === String(work?.id) && Number(share.revision) === Number(work?.revision) && String(share.recipientId) === String(recipientId)) || null;
+                const buildFanficReadingSummary = (share) => `馆长通过${getFanficChannelLabel(share.channel)}分享了虚构作品《${share.titleSnapshot}》。我明确知道其中情节只是创作，并留下了自己的阅读反应。`;
+                const validateFanficReaction = (content) => {
+                    const parsed = parseAIJSON(content); const reaction = cleanText(parsed?.reaction || '');
+                    return reaction && reaction.length <= 900 ? true : '同人文阅读反应必须是简短有效 JSON。';
+                };
+                const commitFanficReadingEvent = (share, cat) => {
+                    const summary = buildFanficReadingSummary(share);
+                    share.readingMemorySummary = summary;
+                    appendInteractionEvent(cat, 'fanfic-reading', summary, { source: 'fanfic-reading', shareId: share.id, sourceKey: `fanfic-reading:${share.id}`, channel: share.channel });
+                    const result = appendEpisodicMemory(cat, { sourceType: 'fanfic-reading', sourceKey: `fanfic-reading:${share.id}`, eventAt: share.reactionAt, summary, participantIds: [String(cat.id), 'USER'], tags: ['fanfic', 'fiction-reading', share.channel], importance: 3, emotionalWeight: 2, unresolved: false, knowledgeMode: 'direct-conversation' });
+                    logEpisodicMemoryResult(String(cat.id), 'fanfic-reading', result);
+                };
+                const appendFanficPhoneReference = (share) => {
+                    const history = ensurePhoneChatHistory(share.recipientId);
+                    if (history.some(message => String(message?.fanficShareRef || '') === String(share.id))) return;
+                    const now = new Date();
+                    history.push({ id: createFanficId('phone-fanfic'), role: 'user', type: 'fanfic-share', content: `分享了同人文《${share.titleSnapshot}》· 第 ${share.revision} 版`, fanficShareRef: share.id, workId: share.workId, revision: share.revision, time: now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }), ts: now.getTime(), at: now.toISOString(), dateKey: getOperationalDayKey(now) });
+                };
+                const runFanficShareReaction = async (share) => {
+                    const cat = getCatById(share?.recipientId); const allowed = cat && (share.channel === 'phone' ? isFanficPhoneEligible(cat) : isFanficInPersonEligible(cat));
+                    if (!share || !cat || !allowed) { if (share) { share.status = 'failed'; share.failureMessage = '这次分享条件已经变化，请重新确认可用方式。'; } return; }
+                    if (!settings.apiKey) { share.status = 'failed'; share.failureMessage = '需要 API 连接才能生成这次阅读反应。'; return; }
+                    // The work snapshot is immutable, but an in-person retry happens
+                    // now, not at the failed attempt: lock its current authoritative
+                    // form immediately before the new reading reaction is generated.
+                    if (share.channel === 'in-person') share.recipientFormSnapshot = getResidentForm(cat);
+                    share.status = 'pending'; share.failureMessage = ''; phoneState.fanfic.isGenerating = true;
+                    const form = share.recipientFormSnapshot || getResidentForm(cat);
+                    const channelRule = share.channel === 'phone'
+                        ? 'PHONE: This is ordinary human-identity 喵信 communication. Return only the resident\'s concise text reply; do not narrate an in-person scene or reveal any cat/secret identity.'
+                        : form === 'CAT'
+                            ? 'IN PERSON / CAT: The resident cannot speak human language. Return a concise feline vocalization plus physical reaction, posture, ears/tail/movement only; no human-language dialogue.'
+                            : 'IN PERSON / HUMAN: Return concise third-person reaction with natural brief human speech only if it fits, plus action/body language.';
+                    const prompt = `[FANFIC READING — PRIVATE, FICTION NOT CANON]\nRecipient: ${getResidentPublicName(cat)} (ID ${cat.id}); form snapshot: ${form}; channel: ${getFanficChannelLabel(share.channel)}\n${channelRule}\n\nThe USER has deliberately shown this resident a FICTIONAL work. Its events, relationships, places and claims are invented writing, NOT Meeow House world facts. Never treat any event in the work as having happened. No other resident knows this work was shared. The only real event is this resident reading it and reacting personally. Preserve exact canon personality; react as a character, not a generic literary critic.\n\nWORK TITLE: ${share.titleSnapshot}\nWORK BODY (fiction only):\n${share.bodySnapshot}\n\nReturn strict JSON only: {"reaction":"concise Simplified Chinese reaction"}.\n${buildAuthoritativeUserIdentityContext()}\n${buildCatMemoryContext(cat, { compact: true })}`;
+                    try {
+                        const response = await callAI(prompt, 'You generate one concise, canon-faithful private reaction to a fictional work. Fiction never becomes world canon. Output only valid JSON.', 900, ThinkingLevel.LOW, { label: `FANFIC READING · ${getResidentPublicName(cat)}`, priority: 'foreground', maxAttempts: 1, validateResponse: validateFanficReaction });
+                        const reaction = cleanText(parseAIJSON(response)?.reaction || '');
+                        if (!reaction) throw new Error('阅读反应为空。');
+                        share.reaction = reaction; share.reactionAt = new Date().toISOString(); share.sharedAt = share.reactionAt; share.status = 'completed'; share.failureMessage = '';
+                        commitFanficReadingEvent(share, cat);
+                        if (share.channel === 'phone') appendFanficPhoneReference(share);
+                        addLog(`FANFIC READING COMPLETED: share=${share.id}; recipient=${cat.id}; channel=${share.channel}`, 'info');
+                    } catch (error) {
+                        share.status = 'failed'; share.failureMessage = `阅读反应未完成：${cleanText(error?.message || '连接异常').slice(0, 120)}`;
+                        addLog(`FANFIC READING FAILED: share=${share.id}; recipient=${cat.id}`, 'error');
+                    } finally { phoneState.fanfic.isGenerating = false; }
+                };
+                const createFanficShare = async (channel) => {
+                    const work = activeFanficWork.value; const cat = getCatById(phoneState.fanfic.recipientId);
+                    if (!work || !cat || !getFanficChannelsForResident(cat).includes(channel)) return showToast('这次分享条件已经变化，请重新选择。', 'error');
+                    const existing = getFanficExistingShare(work, cat.id); if (existing) return openFanficShare(existing.id);
+                    const data = ensureFanficData(); const now = new Date().toISOString();
+                    const share = { id: createFanficId('fanfic-share'), workId: work.id, revision: work.revision, recipientId: cat.id, channel, createdAt: now, sharedAt: null, titleSnapshot: work.title, bodySnapshot: work.body, recipientFormSnapshot: getResidentForm(cat), status: 'pending', reaction: '', reactionAt: null, readingMemorySummary: '', failureMessage: '' };
+                    data.shares.push(share); openFanficShare(share.id); await runFanficShareReaction(share);
+                };
+                const retryFanficShare = async (shareId) => { const share = fanficShares.value.find(item => String(item.id) === String(shareId)); if (share?.status === 'failed') await runFanficShareReaction(share); };
+                if (normalizeFanficData()) rosterMigrationPendingSave = true;
                 const handleReaderFileUpload = async (event) => {
                     const file = event.target.files?.[0]; event.target.value = '';
                     if (!file) return;
@@ -15758,7 +16252,7 @@ ${buildCatMemoryContext(cat)}`;
                 const buildFridgeNoteReactionCandidates = ({ hallId, residents } = {}) => {
                     const hall = halls.value.find(item => String(item?.id) === String(hallId));
                     const eligibleResidents = (Array.isArray(residents) ? residents : [])
-                        .filter(cat => cat && String(getCatHallId(cat)) === String(hallId) && isResidentInHall(cat))
+                        .filter(cat => cat && String(getCatHallId(cat)) === String(hallId) && isResidentInHall(cat) && !isResidentInCuratorRoom(cat))
                         .slice()
                         .sort((left, right) => String(left.id).localeCompare(String(right.id)));
                     const candidates = [];
@@ -16044,8 +16538,8 @@ ${buildCatMemoryContext(cat)}`;
                     return candidate && halls.value.some(hall => String(hall?.id || '') === candidate) ? candidate : '';
                 };
                 const getResidentCurrentHallId = (resident) => {
-                    if (!resident || !isResidentInHall(resident)) return '';
-                    const candidate = String(getCatHallId(resident) || '').trim();
+                    if (!resident || !isResidentInHall(resident) || isResidentInCuratorRoom(resident)) return '';
+                    const candidate = String(getResidentPhysicalHallId(resident) || '').trim();
                     return candidate && halls.value.some(hall => String(hall?.id || '') === candidate) ? candidate : '';
                 };
                 const areResidentsArchiveLocalPeers = (from, to) => {
@@ -16457,7 +16951,7 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     const validIds = hallSceneFocus.participantIds.filter(id => {
                         const cat = cats.value.find(item => String(item.id) === String(id));
-                        return cat && getCatHallId(cat) === hallId && isResidentInHall(cat);
+                        return cat && getCatHallId(cat) === hallId && isResidentInHall(cat) && !isResidentInCuratorRoom(cat);
                     });
                     if (validIds.length !== hallSceneFocus.participantIds.length) {
                         clearHallSceneFocus();
@@ -16467,7 +16961,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const getSharedSceneResidentDisplayName = (cat) => getResidentPublicName(cat);
                 const isSharedSceneResidentEligible = (cat, hallId = activeHallId.value) => {
-                    if (!cat || getCatHallId(cat) !== hallId || !isResidentInHall(cat) || cat.isVisiting || getActiveAwayEpisode(cat)) return false;
+                    if (!cat || getCatHallId(cat) !== hallId || !isResidentInHall(cat) || isResidentInCuratorRoom(cat) || cat.isVisiting || getActiveAwayEpisode(cat)) return false;
                     if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
                     if (isFocusing.value && focusCats.value.some(item => String(item?.id) === String(cat.id))) return false;
                     if (isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id)) return false;
@@ -16642,6 +17136,7 @@ ${buildCatMemoryContext(cat)}`;
                 const indexAwayPlans = awayLifecycle.indexPlans;
                 const classifyAwayPlanDiagnostic = awayLifecycle.classifyPlan;
                 const createAwayEpisode = (cat, plan, departedAt = new Date()) => {
+                    if (!cat || isResidentInCuratorRoom(cat)) return null;
                     const episode = awayLifecycle.createEpisode(cat, plan, departedAt);
                     awayEpisodes.value.push(episode);
                     return episode;
@@ -17844,11 +18339,18 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                         };
                         const frozenNow = new Date();
+                        const activeCuratorPresence = getCuratorRoomPresence(sendingCat);
                         const reconciliation = reconcileAwayEpisodes(frozenNow);
                         const justSettledReturnIds = new Set(reconciliation.returnedResidentIds || []);
                         const frozenOperationalDayKey = getOperationalDayKey(frozenNow);
-                        const frozenHallResidents = cats.value.filter(cat => (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId);
-                        const frozenBystanders = frozenHallResidents.filter(cat =>
+                        // The active resident may still be refreshed on their home-Hall
+                        // schedule while physically in Curator Room, but they and any other
+                        // Curator occupant are never Hall-local bystanders or social context.
+                        const frozenHallResidents = cats.value.filter(cat =>
+                            (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId &&
+                            !isResidentInCuratorRoom(cat)
+                        );
+                        const frozenBystanders = activeCuratorPresence ? [] : frozenHallResidents.filter(cat =>
                             String(cat.id) !== String(sendingCat.id) &&
                             !getActiveAwayEpisode(cat, frozenNow) &&
                             !justSettledReturnIds.has(String(cat.id))
@@ -17884,6 +18386,9 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const frozenPublicNameContract = buildResidentPublicNameContract(frozenHallResidents);
                         const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => getResidentPublicName(cat));
                         const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => getResidentPublicName(cat)).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}\n${frozenPublicNameContract}`;
+                        const activeLocationContext = activeCuratorPresence
+                            ? `[CURRENT PHYSICAL LOCATION — AUTHORITATIVE] ${getResidentPublicName(sendingCat)} is in the USER's private Curator Room at ${CURATOR_ROOM_ANCHORS[activeCuratorPresence.anchor].label}. They are not physically in ${requestHall.name}; do not use Hall residents, Hall scenes, Hall social context, Hall map topology, or local co-presence as their current-life context. Their form, status, and ordinary interaction remain valid here.`
+                            : hallContext;
                         const hasFrozenBystanderCrossedOperationalDay = (cat) => {
                             const lastStatusDate = cat?.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime) : null;
                             return Boolean(lastStatusDate && !Number.isNaN(lastStatusDate.getTime()) &&
@@ -17946,7 +18451,7 @@ ${getCompactMapPointPromptGuide()}`
                         [CONTEXT]:
                         - Current Status (MUST LINK TO THIS): ${sendingCat.status}
                         - World Context: ${context}
-                        - ${hallContext}
+                        - ${activeLocationContext}
                         - User Input: "${msg}" ${isItemUse ? '(User used an item on you)' : ''}
 
                         NOW RESPOND with one JSON object only. No markdown, tags, code fences, or commentary.
@@ -18423,9 +18928,17 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                 const validateLocalPresenceDirectives = (updates, presenceDirectives = {}) => {
                     const directives = presenceDirectives && typeof presenceDirectives === 'object' ? presenceDirectives : {};
                     for (const [id, directive] of Object.entries(directives)) {
-                        if (directive !== 'HOME' && directive !== 'DEPARTING_NOW') continue;
+                        if (directive !== 'HOME' && directive !== 'DEPARTING_NOW' && directive !== 'CURATOR_ROOM') continue;
                         const update = (updates || []).find(entry => String(entry?.id ?? '') === String(id));
                         if (!update) return `Status Sync local presence directive failed: id=${id}; directive=${directive}; required update is missing.`;
+                        if (directive === 'CURATOR_ROOM') {
+                            if (!CURATOR_ROOM_ANCHORS[String(update.curatorRoomAnchor || '').trim()]) {
+                                return `Status Sync local presence directive failed: id=${id}; directive=CURATOR_ROOM; curatorRoomAnchor is invalid.`;
+                            }
+                            if (['mapRoom', 'mapFurniture', 'mapPoint', 'mapSpot', 'mapPositionLabel'].some(field => cleanText(update[field] || ''))) {
+                                return `Status Sync local presence directive failed: id=${id}; directive=CURATOR_ROOM; Hall map fields are not allowed.`;
+                            }
+                        }
                     }
                     return true;
                 };
@@ -18473,7 +18986,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     }
                     const allowedIds = new Set(expectedType === 'user-directed'
                         ? (sceneContext?.candidateIds || []).map(id => String(id))
-                        : (updates || []).map(update => String(update?.id || '')).filter(Boolean));
+                        : (sceneContext?.physicalParticipantIds || (updates || []).map(update => String(update?.id || '')).filter(Boolean)).map(String));
                     if (participantIds.some(id => !allowedIds.has(id))) {
                         return { valid: false, error: 'scene includes an ID outside its allowed participant pool.' };
                     }
@@ -18510,7 +19023,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     for (const id of participantIds) {
                         const update = updatesById.get(id);
                         const cat = cats.value.find(item => String(item.id) === id);
-                        if (!update || !cat || getCatHallId(cat) !== requestHallId || update.isOut !== false || !isResidentInHall(cat)) {
+                        if (!update || !cat || getCatHallId(cat) !== requestHallId || update.isOut !== false || !isResidentInHall(cat) || isResidentInCuratorRoom(cat)) {
                             return { valid: false, error: `scene participant ${id} is not finally in hall.` };
                         }
                         const mapPoint = findMapPoint(update.mapPoint);
@@ -18575,6 +19088,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const reconciliation = reconcileAwayEpisodes(now);
                     const justSettledReturnIds = new Set(reconciliation.returnedResidentIds || []);
                     const fullHallCats = cats.value.filter(cat => getCatHallId(cat) === requestHallId);
+                    const physicalHallCats = fullHallCats.filter(cat => !isResidentInCuratorRoom(cat));
                     const frozenCandidateCats = Array.isArray(requestOptions.frozenCatsToUpdate)
                         ? requestOptions.frozenCatsToUpdate
                         : fullHallCats;
@@ -18673,32 +19187,43 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             ...((isFocusEnd || isExploreEnd) ? (activeCatIds || []).map(id => String(id)) : [])
                         ]);
                         const formDirectives = buildFormDirectives(requestedCats, now, [...formLockedIds]);
+                        const curatorRoomResidentIds = new Set(requestedCats.filter(isResidentInCuratorRoom).map(cat => String(cat.id)));
+                        if (sceneMode === 'ambient') sceneContext.physicalParticipantIds = requestedCats
+                            .filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
+                            .map(cat => String(cat.id));
 
                         const activeIdSet = new Set((activeCatIds || []).map(id => String(id)));
                         const localDepartureSchedule = requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
                             ? null
                             : buildLocalAwayDepartureSchedule({
                                 hallId: requestHallId,
-                                hallCats: fullHallCats,
+                                hallCats: physicalHallCats,
                                 requestedCats,
                                 departureCandidateIds: requestedCats
-                                    .filter(cat => !activeIdSet.has(String(cat.id)) && !protectedSceneParticipantIds.has(String(cat.id)))
+                                    .filter(cat => !curatorRoomResidentIds.has(String(cat.id)) && !activeIdSet.has(String(cat.id)) && !protectedSceneParticipantIds.has(String(cat.id)))
                                     .map(cat => String(cat.id)),
                                 now,
                                 excluded: [
-                                    ...fullHallCats.filter(cat => getActiveAwayEpisode(cat, now)).map(cat => `${String(cat.id)}:active-episode`),
-                                    ...fullHallCats.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`),
+                                    ...physicalHallCats.filter(cat => getActiveAwayEpisode(cat, now)).map(cat => `${String(cat.id)}:active-episode`),
+                                    ...physicalHallCats.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`),
+                                    ...requestedCats.filter(cat => curatorRoomResidentIds.has(String(cat.id))).map(cat => `${String(cat.id)}:curator-room`),
                                     ...requestedCats.filter(cat => protectedSceneParticipantIds.has(String(cat.id))).map(cat => `${String(cat.id)}:shared-scene`)
                                 ]
                             });
-                        const presenceDirectives = Object.freeze({
+                        const mutablePresenceDirectives = {
                             ...(requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
                                 ? requestOptions.presenceDirectives
                                 : localDepartureSchedule.directives)
+                        };
+                        // Curator presence is locally authoritative even when this resident is
+                        // refreshed on their unchanged home-Hall schedule.
+                        requestedCats.filter(isResidentInCuratorRoom).forEach(cat => {
+                            mutablePresenceDirectives[String(cat.id)] = 'CURATOR_ROOM';
                         });
+                        const presenceDirectives = Object.freeze(mutablePresenceDirectives);
                         const fridgeNoteCandidates = buildFridgeNoteReactionCandidates({
                             hallId: requestHallId,
-                            residents: requestedCats
+                            residents: requestedCats.filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
                         });
                         const fridgeNotePromptContract = buildFridgeNoteReactionPromptContract(fridgeNoteCandidates);
                         const fridgeNoteOutputSchema = fridgeNoteCandidates.length
@@ -18724,16 +19249,16 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             } else if (isExploreEnd) {
                                 activeCatContext = `\n[CRITICAL CONTEXT]: ${activeCatNames.join(', ')} just returned from exploring. Other cats should react to their return.`;
                             } else {
-                                const bystanderNames = catsToUpdate.filter(c => !activeCatIds.includes(c.id)).map(c => getResidentPublicName(c)).join(', ');
+                                const bystanderNames = catsToUpdate.filter(c => !activeCatIds.includes(c.id) && !isResidentInCuratorRoom(c)).map(c => getResidentPublicName(c)).join(', ');
                                 activeCatContext = `\n[ACTIVE INTERACTION]: User is interacting ONLY with ${activeCatNames.join(', ')}. Active status: "${truncateMemoryText(focusCatLastAction || '近期互动', 140)}". Other cats (${bystanderNames}) may observe, react, or ignore it, but MUST NOT act as the user's target or directly interact with the user.\n[FOLLOW-UP PROGRESSION]: Ignoring this interaction never means freezing or copying a previous status. Every supplied bystander must return a freshly sampled current status and inner voice for this exact moment. Advance at least one plausible beat through posture, attention, location, an object, starting/finishing a small action, a subtle same-hall moment, or independent activity. Fresh means a natural next beat, not an unreasonable major jump; do not copy the previous status or inner voice verbatim.`;
                             }
                         }
 
-                        const homeCats = fullHallCats.filter(cat => !cat.isOut);
+                        const homeCats = physicalHallCats.filter(cat => !cat.isOut);
                         const hallSocialContext = homeCats.length >= 2
-                            ? `\n[HALL SOCIAL]: At home: ${homeCats.map(cat => getResidentPublicName(cat)).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior.`
-                            : `\n[HALL SOCIAL]: Fewer than two cats are home; do not invent cat-to-cat interaction.`;
-                        const publicResidentNameContract = buildResidentPublicNameContract(fullHallCats);
+                            ? `\n[HALL SOCIAL — HOME RESIDENTS ONLY]: At home: ${homeCats.map(cat => getResidentPublicName(cat)).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior. This never applies to a CURATOR_ROOM resident.`
+                            : `\n[HALL SOCIAL — HOME RESIDENTS ONLY]: Fewer than two cats are home; do not invent cat-to-cat interaction. This never applies to a CURATOR_ROOM resident.`;
+                        const publicResidentNameContract = buildResidentPublicNameContract(physicalHallCats);
 
                         const gnnTrendsGlobal = user.phoneData.gnn?.trending?.slice(0, 3)
                             .map(t => `#${truncateMemoryText(t.topic || '', 28)}`).filter(Boolean).join(', ') || 'None';
@@ -18772,7 +19297,7 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
 - Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is normal first-class communication for each HUMAN participant, not a rare exception: when a shared moment naturally involves questions, explanations, promises, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange, normally let brief natural dialogue carry that content, enriched by ears, tail, posture, gesture, and expression rather than replaced by them. Keep cohesive third-person prose, not dialogue-row screenplay formatting. Do not force speech: silence remains valid when it is an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice.
 - relationshipDeltas is optional metadata and never required for a valid scene. If supplied, use only frozen participant IDs and the bounded integer fields/tags described for the user-directed scene. Judge each direction only from visible shared-scene material and that resident's legitimate observable experience; ignore private/hidden context, inner voices, diaries, episodic memories, Away material, and other residents' private context. Do not force symmetry or relationship change for mundane presence.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
+                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false},{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const prompt = `[STATUS SYNC]
 Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
 GNN: ${gnnTrendsGlobal}
@@ -18792,10 +19317,11 @@ ${formatResidentFormExpressionContract()}
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the cat is still in that exact place or activity at this Status Sync time.
 - [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with [LOCAL PRESENCE AUTHORITY], not a new presence decision.
 - [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. These residents are outside Meeow House for a locally scheduled absence. They are context only: do not output updates for them, do not invent their destination or activity, and do not place them in hall scenes.
+- [CURATOR ROOM ISOLATION] A resident marked CURATOR_ROOM is physically in the USER's private Curator Room, not in this Hall. Their own [CURRENT-LIFE CONTEXT] is complete for current location: never place them in Hall scenes, Hall social life, Hall map topology, Fridge Notes, or local co-presence.
 ${scenePrompt}
 
 [MAP]
-For every at-home cat use exactly one listed mapPoint. Status must naturally match its furniture/position; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
+Only HOME residents use exactly one listed Hall mapPoint. CURATOR_ROOM residents use a valid curatorRoomAnchor only, never Hall map fields. Status must naturally match its location; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
 ${getCompactMapPointPromptGuide()}
 
 [OUTPUT]
@@ -18865,7 +19391,7 @@ ${enrichedStatusOutputContract}`;
                             const plansByResident = indexAwayPlans(awayPlans);
                             const getLocalPresenceDirective = (catId) => {
                                 const directive = presenceDirectives[String(catId)];
-                                return directive === 'HOME' || directive === 'DEPARTING_NOW' ? directive : '';
+                                return directive === 'HOME' || directive === 'DEPARTING_NOW' || directive === 'CURATOR_ROOM' ? directive : '';
                             };
                             const awayDecisionDiagnostics = {
                                 requested: requestedIds.length,
@@ -18923,8 +19449,15 @@ ${enrichedStatusOutputContract}`;
                                     if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                     const localDirective = getLocalPresenceDirective(updateId);
-                                    if (localDirective === 'HOME' || localDirective === 'DEPARTING_NOW') {
+                                    if (localDirective === 'HOME' || localDirective === 'DEPARTING_NOW' || localDirective === 'CURATOR_ROOM') {
                                         if (!isPermanentOutBuiltin(cat)) cat.isOut = false;
+                                        if (localDirective === 'CURATOR_ROOM') {
+                                            const existingPresence = getCuratorRoomPresence(cat);
+                                            cat.curatorRoomPresence = {
+                                                anchor: String(update.curatorRoomAnchor || existingPresence?.anchor || 'floor'),
+                                                enteredAt: existingPresence?.enteredAt || new Date(now).toISOString()
+                                            };
+                                        }
                                     } else if (originalPresenceById.get(updateId) !== false && update.isOut !== undefined) {
                                         const nextIsOut = isPermanentOutBuiltin(cat) ? true : update.isOut;
                                         cat.isOut = nextIsOut;
@@ -18958,7 +19491,7 @@ ${enrichedStatusOutputContract}`;
                             // Final occupancy defense mirrors local Away scheduling. Existing
                             // absences are never undone; only this sync's new departures may be
                             // cancelled to preserve the hall's stable resident reserve.
-                            const homeReserve = getAwayHomeReserve(fullHallCats);
+                            const homeReserve = getAwayHomeReserve(physicalHallCats);
                             let outCats = catsToUpdate.filter(c =>
                                 originalPresenceById.get(String(c.id)) === false &&
                                 c.isOut && !isPermanentOutBuiltin(c) && !getActiveAwayEpisode(c, now)
@@ -19987,6 +20520,7 @@ ${episodicMemory}`;
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
+                    CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
@@ -20035,6 +20569,8 @@ ${episodicMemory}`;
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef, rememberPhoneChatScrollPosition,
+                    fanficWorks, activeFanficWork, activeFanficShares, activeFanficShare, fanficRecipientCandidates, selectedFanficRecipientChannels, formatFanficTime, getFanficChannelLabel, getFanficShareStatusLabel,
+                    openFanficLibrary, closeFanficApp, createFanficDraft, openFanficWork, editFanficWork, saveFanficDraft, openFanficSharePicker, selectFanficRecipient, createFanficShare, openFanficShare, retryFanficShare,
                     readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, readerTocRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
                     openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, confirmReaderCompanionChapters, continueReaderIndependently, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
