@@ -97,6 +97,10 @@
                         deliveredAt: parseLogicalDate(mail.deliveredAt)?.toISOString() || null
                     }))
                     .filter(mail => mail.sendAt && mail.content),
+                mailDecision: episode.mailDecision && typeof episode.mailDecision === 'object' &&
+                    Number.isInteger(Number(episode.mailDecision.roll)) && Number(episode.mailDecision.roll) >= 1 && Number(episode.mailDecision.roll) <= 100
+                    ? { roll: Number(episode.mailDecision.roll), shouldWrite: episode.mailDecision.shouldWrite === true }
+                    : null,
                 status: episode.status === 'completed' ? 'completed' : 'active',
                 returnedAt: parseLogicalDate(episode.returnedAt)?.toISOString() || null,
                 settledAt: parseLogicalDate(episode.settledAt)?.toISOString() || null,
@@ -336,7 +340,7 @@
             : { candidates, plan: null, valid: false, reason: 'existing validator rejected plan' };
     };
 
-    const createEpisode = (cat, plan, departedAt = new Date()) => {
+    const createEpisode = (cat, plan, departedAt = new Date(), mailDecision = null) => {
         const departure = parseLogicalDate(departedAt) || new Date();
         const durationMs = Number(plan.plannedDurationMinutes) * 60 * 1000;
         return {
@@ -363,6 +367,9 @@
                 state: 'planned',
                 deliveredAt: null
             })),
+            mailDecision: mailDecision && Number.isInteger(Number(mailDecision.roll))
+                ? { roll: Number(mailDecision.roll), shouldWrite: mailDecision.shouldWrite === true }
+                : null,
             status: 'active',
             returnedAt: null,
             settledAt: null,
@@ -396,8 +403,12 @@
             : '正在馆内安静休息，偶尔整理前爪。';
         cat.isOut = false;
         if (hooks.onSettleReturn?.({ cat, episode, logicalReturnAt, reconciledAt: now, returnStatus }) === false) return false;
+        // A frozen positive mail decision describes actual production, not a
+        // best-effort slot reservation. Keep that one planned letter alive if
+        // it has been deferred beyond the resident's return.
+        const retainsGuaranteedMail = episode.mailDecision?.shouldWrite === true;
         (episode.mailPlan || []).forEach(mail => {
-            if (mail.state === 'planned') mail.state = 'cancelled';
+            if (mail.state === 'planned' && !retainsGuaranteedMail) mail.state = 'cancelled';
         });
         episode.status = 'completed';
         episode.returnedAt = logicalReturnAt.toISOString();
@@ -414,19 +425,24 @@
         const dueEvents = [];
         const returnedResidentIds = [];
         normalizedEpisodes.forEach(episode => {
-            if (episode.status !== 'active') return;
-            (episode.activityPlans || []).forEach((plan, beatIndex, allPlans) => {
-                const activityAt = parseLogicalDate(plan?.activityAt);
-                if (plan?.state === 'planned' && activityAt && activityAt <= now) {
-                    dueEvents.push({ type: 'activity', at: activityAt, episode, plan, beatIndex, beatCount: allPlans.length });
-                }
-            });
+            if (episode.status === 'active') {
+                (episode.activityPlans || []).forEach((plan, beatIndex, allPlans) => {
+                    const activityAt = parseLogicalDate(plan?.activityAt);
+                    if (plan?.state === 'planned' && activityAt && activityAt <= now) {
+                        dueEvents.push({ type: 'activity', at: activityAt, episode, plan, beatIndex, beatCount: allPlans.length });
+                    }
+                });
+            }
             (episode.mailPlan || []).forEach(mail => {
                 const sendAt = parseLogicalDate(mail.sendAt);
-                if (mail.state === 'planned' && sendAt && sendAt <= now) dueEvents.push({ type: 'mail', at: sendAt, episode, mail });
+                if ((episode.status === 'active' || episode.status === 'completed') && mail.state === 'planned' && sendAt && sendAt <= now) {
+                    dueEvents.push({ type: 'mail', at: sendAt, episode, mail });
+                }
             });
-            const returnAt = parseLogicalDate(episode.plannedReturnAt);
-            if (returnAt && returnAt <= now) dueEvents.push({ type: 'return', at: returnAt, episode });
+            if (episode.status === 'active') {
+                const returnAt = parseLogicalDate(episode.plannedReturnAt);
+                if (returnAt && returnAt <= now) dueEvents.push({ type: 'return', at: returnAt, episode });
+            }
         });
         const rank = { activity: 0, mail: 1, return: 2 };
         dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type]);

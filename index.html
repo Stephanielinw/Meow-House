@@ -4673,7 +4673,7 @@
 
         <!-- Hall transition: this protects the room while a live refresh runs,
              but never prevents the local hall entry from completing. -->
-        <div v-if="hallEntryLoading.visible"
+        <div v-if="hallEntryLoading.visible && ownsHallEntryPresentation(hallEntryLoading.requestHallId)"
             class="meeow-hall-entry-screen fixed inset-0 z-[100000] flex items-center justify-center p-6 font-mono">
             <div class="meeow-hall-entry-card">
                 <div class="w-14 h-14 mx-auto mb-5 rounded-2xl flex items-center justify-center text-2xl"
@@ -4697,7 +4697,7 @@
         </div>
 
         <!-- Arrival status retry modal: a failed refresh never revokes hall access. -->
-        <div v-if="hallStatusRetryModal.show"
+        <div v-if="hallStatusRetryModal.show && ownsHallEntryPresentation(hallStatusRetryModal.requestHallId)"
             class="fixed inset-0 z-[100101] flex items-center justify-center p-5"
             style="background: rgba(0,0,0,0.76); backdrop-filter: blur(8px);">
             <div class="w-full max-w-sm rounded-2xl p-5"
@@ -10925,6 +10925,7 @@ ${buildCatMemoryContext(cat)}`;
                 const FORM_RECONSIDER_KEEP_MIN_MS = 1 * 60 * 60 * 1000;
                 const FORM_RECONSIDER_KEEP_MAX_MS = 3 * 60 * 60 * 1000;
                 const FORM_VALUES = new Set(['CAT', 'HUMAN']);
+                const rollPercent = () => Math.floor(Math.random() * 100) + 1;
                 const firstHumanRevealInFlight = new Set();
                 const parseFormTimestamp = (value) => {
                     if (typeof value !== 'string') return null;
@@ -11043,24 +11044,41 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         normalizeResidentFormState(cat);
                         const id = String(cat.id);
                         const currentForm = getResidentForm(cat);
-                        const due = !locked.has(id) && isFormReconsiderationDue(cat, now);
-                        if (cat.hasRevealedHumanForm && !cat.nextFormReconsiderAt) ensureResidentFormSchedule(cat, now);
+                        // Form state is sampled only by a real, frozen in-Hall Status
+                        // Sync request. The old persisted cooldown is no longer an
+                        // eligibility gate and UI/reload paths never call this helper.
+                        const eligible = Boolean(
+                            cat.hasRevealedHumanForm &&
+                            !locked.has(id) &&
+                            !cat.isVisiting &&
+                            !isResidentAway(cat) &&
+                            !isResidentInCuratorRoom(cat) &&
+                            isResidentInHall(cat) &&
+                            !getActiveAwayEpisode(cat, now)
+                        );
+                        const roll = eligible ? rollPercent() : null;
+                        const targetForm = eligible && roll <= 30
+                            ? (currentForm === 'CAT' ? 'HUMAN' : 'CAT')
+                            : currentForm;
                         directives[id] = {
                             currentForm,
-                            reconsideration: due ? 'ALLOWED' : 'LOCKED',
-                            requiredForm: due ? null : currentForm
+                            targetForm,
+                            requiredForm: targetForm,
+                            roll,
+                            transitioned: targetForm !== currentForm,
+                            automatic: eligible
                         };
                         return directives;
                     }, {});
                 };
-                const formatFormLifecycleAuthority = (directives) => `[FORM LIFECYCLE AUTHORITY]\n${Object.entries(directives || {}).map(([id, directive]) => `${id} → current=${directive.currentForm}; reconsideration=${directive.reconsideration}${directive.requiredForm ? `; required=${directive.requiredForm}` : ''}`).join('\n') || 'None'}\nForm is local lifecycle authority. When reconsideration is LOCKED, copy the required current form exactly. When ALLOWED, assess the resident's current life situation: KEEP and SWITCH are both valid, and a due timer neither requires nor favors a change. CAT and HUMAN are equally complete natural living forms; HUMAN is not an upgrade and CAT is not a downgrade. CAT may naturally fit rest, sleep, warmth, play, sensory comfort, quiet or nonverbal closeness, privacy, solitude, tiredness, or ordinary feline preference. HUMAN may naturally fit conversation, human-scale activity, reading/handling objects, social interaction, or ordinary preference. Do not switch merely for novelty, but ordinary bodily or social preference is sufficient: no dramatic event, USER permission, or special milestone is needed. Never use form to change canon personality.`;
+                const formatFormLifecycleAuthority = (directives) => `[FORM LIFECYCLE AUTHORITY]\n${Object.entries(directives || {}).map(([id, directive]) => `${id} → current=${directive.currentForm}; target=${directive.targetForm}; automaticRoll=${directive.roll ?? 'none'}; transition=${directive.transitioned ? 'AUTHORIZED' : 'NONE'}`).join('\n') || 'None'}\nForm is local lifecycle authority. Copy the supplied target form exactly as compatibility metadata; never choose a form yourself. A transition may be narrated naturally only when transition=AUTHORIZED. When transition=NONE, the resident remains in the supplied form and must not spontaneously transform in prose. CAT and HUMAN expression rules remain binding and never change canon personality.`;
                 const validateFormDirectives = (entries, directives = {}) => {
                     for (const [id, directive] of Object.entries(directives || {})) {
                         const entry = (entries || []).find(item => String(item?.id ?? '') === String(id));
                         const parsed = parseCanonicalFormDecision(entry);
                         if (!parsed.valid) return `Form directive failed: id=${id}; ${parsed.error}`;
-                        if (directive?.requiredForm && parsed.form !== directive.requiredForm) {
-                            return `Form directive failed: id=${id}; required=${directive.requiredForm}; received=${parsed.form}.`;
+                        if (directive?.targetForm && parsed.form !== directive.targetForm) {
+                            return `Form directive failed: id=${id}; target=${directive.targetForm}; received=${parsed.form}.`;
                         }
                     }
                     return true;
@@ -11069,11 +11087,10 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const parsed = typeof decision === 'string' ? { valid: true, form: normalizeFormValue(decision) } : parseCanonicalFormDecision(decision);
                     if (!parsed.valid || !parsed.form || !cat) return false;
                     const current = getResidentForm(cat);
-                    if (directive?.requiredForm && parsed.form !== directive.requiredForm) return false;
-                    if (directive?.reconsideration !== 'ALLOWED') return parsed.form === current;
-                    const reconsiderationMode = parsed.form === current ? 'KEEP' : 'SWITCH';
-                    const changed = setResidentForm(cat, parsed.form, { now, scheduleNext: true, reconsiderationMode });
-                    addLog(`FORM RECONSIDERATION: resident=${String(cat.id)}; current=${current}; result=${parsed.form}; changed=${changed}`, 'info');
+                    if (directive?.targetForm && parsed.form !== directive.targetForm) return false;
+                    const target = directive?.targetForm || current;
+                    const changed = setResidentForm(cat, target, { now, scheduleNext: false });
+                    addLog(`FORM STATUS ROLL: resident=${String(cat.id)}; roll=${directive?.roll ?? 'locked'}; current=${current}; target=${target}; changed=${changed}`, 'info');
                     return true;
                 };
                 cats.value.forEach(cat => normalizeResidentFormState(cat));
@@ -12219,9 +12236,8 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         : taggedCount;
                 };
                 const getReservedEpisodeMailCountForOperationalDay = (dayKey, excludeMailId = '') =>
-                    normalizeAwayEpisodes(awayEpisodes.value).reduce((count, episode) => count + (episode.status === 'active'
-                        ? (episode.mailPlan || []).filter(mail => mail.state === 'planned' && mail.id !== excludeMailId && getOperationalDayKey(mail.sendAt) === dayKey).length
-                        : 0), 0);
+                    normalizeAwayEpisodes(awayEpisodes.value).reduce((count, episode) => count +
+                        (episode.mailPlan || []).filter(mail => mail.state === 'planned' && mail.id !== excludeMailId && getOperationalDayKey(mail.sendAt) === dayKey).length, 0);
                 const hasMailCapacityForLogicalTime = (logicalTime, excludeMailId = '') => {
                     const eventAt = parseLogicalDate(logicalTime);
                     if (!eventAt) return false;
@@ -12234,16 +12250,79 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const timestamps = [
                         ...(user.mailbox || []).map(mail => parseLogicalDate(mail.sentAt)?.getTime()).filter(Number.isFinite),
                         Number(user.lastMailAt) || 0,
-                        ...normalizeAwayEpisodes(awayEpisodes.value).flatMap(episode => (episode.status === 'active' ? episode.mailPlan || [] : []))
+                        ...normalizeAwayEpisodes(awayEpisodes.value).flatMap(episode => episode.mailPlan || [])
                             .filter(mail => mail.state === 'planned' && mail.id !== excludeMailId)
                             .map(mail => parseLogicalDate(mail.sendAt)?.getTime()).filter(Number.isFinite)
                     ].filter(Boolean);
                     return timestamps.every(timestamp => Math.abs(eventAt.getTime() - timestamp) >= 20 * 60 * 1000);
                 };
-                const canReservePlannedAwayMail = (plan, departedAt) => !(plan?.mailPlan || []).length || (() => {
-                    const logicalTime = new Date((parseLogicalDate(departedAt) || new Date()).getTime() + Number(plan.mailPlan[0].sendAfterMinutes) * 60 * 1000);
-                    return hasMailCapacityForLogicalTime(logicalTime) && hasMailSpacingAt(logicalTime);
-                })();
+                const findAvailablePlannedAwayMailTime = (episode, preferredAt, excludeMailId = '') => {
+                    const preferred = parseLogicalDate(preferredAt);
+                    const returnAt = parseLogicalDate(episode?.plannedReturnAt);
+                    if (!preferred || !returnAt || preferred.getTime() >= returnAt.getTime()) return null;
+                    const stepMs = 20 * 60 * 1000;
+                    for (let candidateAt = preferred.getTime(); candidateAt < returnAt.getTime(); candidateAt += stepMs) {
+                        const candidate = new Date(candidateAt);
+                        if (hasMailCapacityForLogicalTime(candidate, excludeMailId) && hasMailSpacingAt(candidate, excludeMailId)) {
+                            return candidate;
+                        }
+                    }
+                    return null;
+                };
+                const findGuaranteedAwayMailFallbackTime = (episode, preferredAt, excludeMailId = '') => {
+                    const returnAt = parseLogicalDate(episode?.plannedReturnAt);
+                    const preferred = parseLogicalDate(preferredAt);
+                    if (!returnAt) return null;
+                    const stepMs = 20 * 60 * 1000;
+                    const start = Math.max(
+                        returnAt.getTime() + stepMs,
+                        preferred?.getTime() || 0
+                    );
+                    const reservedTimes = normalizeAwayEpisodes(awayEpisodes.value)
+                        .flatMap(item => item.mailPlan || [])
+                        .filter(item => item.state === 'planned' && item.id !== excludeMailId)
+                        .map(item => parseLogicalDate(item.sendAt)?.getTime())
+                        .filter(Number.isFinite);
+                    const deliveredTimes = (user.mailbox || [])
+                        .map(item => parseLogicalDate(item.sentAt)?.getTime())
+                        .filter(Number.isFinite);
+                    const latestKnown = Math.max(start, Number(user.lastMailAt) || 0, ...reservedTimes, ...deliveredTimes);
+                    // All known reservations are finite persisted records. One day
+                    // beyond the latest one necessarily offers a normal mailbox day;
+                    // scan from return onward so capacity and spacing still choose the
+                    // earliest available deferred delivery.
+                    const hardStop = latestKnown + 24 * 60 * 60 * 1000;
+                    for (let candidateAt = start; candidateAt <= hardStop; candidateAt += stepMs) {
+                        const candidate = new Date(candidateAt);
+                        if (hasMailCapacityForLogicalTime(candidate, excludeMailId) && hasMailSpacingAt(candidate, excludeMailId)) {
+                            return candidate;
+                        }
+                    }
+                    // Defensive malformed-data fallback: preserve the letter and
+                    // let the next reconciliation re-evaluate spacing/capacity.
+                    // This is intentionally after every known reservation, never a
+                    // cancellation path for a positive authoritative decision.
+                    return new Date(hardStop + stepMs);
+                };
+                const reservePlannedAwayMailTime = (episode, mail, preferredAt, reason = 'creation') => {
+                    if (!episode || !mail || mail.state !== 'planned') return false;
+                    const availableAt = findAvailablePlannedAwayMailTime(episode, preferredAt, mail.id);
+                    const guaranteedFallbackAt = !availableAt && episode.mailDecision?.shouldWrite === true
+                        ? findGuaranteedAwayMailFallbackTime(episode, preferredAt, mail.id)
+                        : null;
+                    const scheduledAt = availableAt || guaranteedFallbackAt;
+                    if (!scheduledAt) {
+                        mail.state = 'cancelled';
+                        mail.cancelledAt = new Date().toISOString();
+                        addLog(`AWAY PLANNED MAIL CANCELLED: episode=${episode.id}; mail=${mail.id}; no delivery slot before return (${reason}).`, 'warn');
+                        return false;
+                    }
+                    mail.sendAt = scheduledAt.toISOString();
+                    if (guaranteedFallbackAt) {
+                        addLog(`AWAY PLANNED MAIL DEFERRED: episode=${episode.id}; mail=${mail.id}; sendAt=${mail.sendAt}; reason=${reason}.`, 'info');
+                    }
+                    return true;
+                };
                 const recordDeliveredMail = ({ senderCat, hall, content, attachment, sentAt, deliveredAt, plannedMailId = '', senderDisplayName = '' }) => {
                     const logicalSentAt = parseLogicalDate(sentAt);
                     const reconciledAt = parseLogicalDate(deliveredAt) || new Date();
@@ -12277,13 +12356,20 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     return true;
                 };
                 const deliverPlannedAwayMail = (episode, mail, sendAt, reconciledAt = new Date()) => {
-                    if (!episode || !mail || episode.status !== 'active' || mail.state !== 'planned') return false;
+                    if (!episode || !mail || !['active', 'completed'].includes(episode.status) || mail.state !== 'planned') return false;
                     const cat = cats.value.find(item => String(item.id) === String(episode.residentId));
                     const hall = halls.value.find(item => item.id === episode.hallId);
-                    if (!cat || !hasMailCapacityForLogicalTime(sendAt, mail.id) || !hasMailSpacingAt(sendAt, mail.id)) {
+                    if (!cat) {
                         mail.state = 'cancelled';
-                        addLog(`AWAY PLANNED MAIL CANCELLED: episode=${episode.id}; mail=${mail.id}; capacity or spacing unavailable.`, 'warn');
+                        addLog(`AWAY PLANNED MAIL CANCELLED: episode=${episode.id}; mail=${mail.id}; resident unavailable.`, 'warn');
                         return false;
+                    }
+                    if (!hasMailCapacityForLogicalTime(sendAt, mail.id) || !hasMailSpacingAt(sendAt, mail.id)) {
+                        const nextStart = new Date(Math.max(
+                            (parseLogicalDate(sendAt) || new Date()).getTime() + 20 * 60 * 1000,
+                            (parseLogicalDate(reconciledAt) || new Date()).getTime()
+                        ));
+                        return reservePlannedAwayMailTime(episode, mail, nextStart, 'due-collision');
                     }
                     const delivered = recordDeliveredMail({
                         senderCat: cat,
@@ -12507,6 +12593,19 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 
                 const openCuratorRoom = () => {
                     rememberHallScrollPosition();
+                    // A Hall Status request may keep updating world state after the
+                    // USER leaves, but it no longer owns any foreground Hall UI.
+                    hallEntryLoading.dismissed = true;
+                    hallEntryLoading.visible = false;
+                    hallEntryLoading.indeterminate = false;
+                    hallEntryLoading.requestHallId = '';
+                    hallEntryLoading.requestToken = '';
+                    hallStatusRetryModal.show = false;
+                    hallStatusRetryModal.requestHallId = '';
+                    hallStatusRetryModal.requestToken = '';
+                    isUpdatingStatus.value = false;
+                    hallSceneActive.value = false;
+                    clearHallSceneFocus();
                     currentTab.value = 'lounge';
                     loungeView.value = 'curator';
                     selectedCat.value = null;
@@ -12552,17 +12651,19 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     if (hall) hall.lastEnteredAt = Date.now();
                 };
 
-                const isCurrentHallEntryLoading = (requestHallId, requestToken) =>
-                    hallEntryLoading.visible &&
-                    !hallEntryLoading.dismissed &&
-                    hallEntryLoading.requestHallId === requestHallId &&
-                    hallEntryLoading.requestToken === requestToken &&
-                    activeHallId.value === requestHallId;
+                const ownsHallEntryPresentation = (hallId) =>
+                    activeHallId.value === hallId &&
+                    currentTab.value === 'lounge' &&
+                    loungeView.value === 'room';
 
                 const isCurrentHallEntryRequest = (requestHallId, requestToken) =>
+                    ownsHallEntryPresentation(requestHallId) &&
+                    !hallEntryLoading.dismissed &&
                     hallEntryLoading.requestHallId === requestHallId &&
-                    hallEntryLoading.requestToken === requestToken &&
-                    activeHallId.value === requestHallId;
+                    hallEntryLoading.requestToken === requestToken;
+
+                const isCurrentHallEntryLoading = (requestHallId, requestToken) =>
+                    hallEntryLoading.visible && isCurrentHallEntryRequest(requestHallId, requestToken);
 
                 const showHallEntryLoading = (hall, requestToken, recovery = false) => {
                     hallStatusRetryModal.show = false;
@@ -12654,6 +12755,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     const task = refreshAllStatus(true, `用户刚刚迈步进入${hall.name}，当前馆舍状态：${user.currentStatus}`, [], '', false, false, {
                         label: `ENTER HALL STATUS · ${hall.name}`,
                         priority: 'background',
+                        hallEntryPresentation: true,
                         maxAttempts: 2,
                         trackBackgroundPending: true,
                         sceneMode: 'ambient',
@@ -12678,7 +12780,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const retryHallArrivalStatus = () => {
                     const requestHallId = hallStatusRetryModal.requestHallId;
                     const requestToken = hallStatusRetryModal.requestToken;
-                    if (!hallStatusRetryModal.show || activeHallId.value !== requestHallId || hallEntryLoading.requestHallId !== requestHallId || hallEntryLoading.requestToken !== requestToken) {
+                    if (!hallStatusRetryModal.show || !isCurrentHallEntryRequest(requestHallId, requestToken)) {
                         dismissHallStatusRetryModal();
                         return;
                     }
@@ -15421,7 +15523,7 @@ ${buildCatMemoryContext(cat)}`;
 - The resident may use HUMAN form offscreen when appropriate, even if the USER has not witnessed it. Never describe a transformation, unlock visible HUMAN form, expose a hidden identity/name, or imply that the USER witnessed it. This boundary also applies to publicTrace and the completed archive narrative.
 - plannedActivities is required. Use exactly 1 activity for duration under 90 minutes, 2 for 90–179 minutes, 3 for 180–359 minutes, or 4 for 360 minutes or longer. Each item is {"afterMinutes":number,"plannedResidentActivity":"private fact that will only become true at that time","publicTrace":"limited public trace"}. Make the beats distinct moments in chronological order, not paraphrases of one task. plannedResidentActivity remains private resident truth; publicTrace remains limited USER-visible evidence.
 - plannedArchiveNarrative is required for every new departure: approximately 100–200 Chinese characters, first-person, personal, reflective, character-specific prose about this outing. It may be intimate, but must not expose unrevealed HUMAN-form or hidden-identity facts, and must not turn into a system report or bullet summary.
-- plannedReturnStatus and mailPlan remain optional. Their omission never makes the required activity plan or archive narrative incomplete. A physical mailPlan is an occasional, character-driven letter, note, postcard, or small written trace from independent Away life—not a departure notice, routine status update, or automatic “I am back” message. Short or simple outings may naturally have no mail. On a medium/long or otherwise meaningful outing, when a planned activity gives a concrete USER-relevant trigger—an encounter, found thing, private thought, postcard opportunity, or small moment to tease, reassure, surprise, or remember the USER—one physical mail is a normal option to consider. It must arise from that Away life and remain character-appropriate, never filler merely to populate an optional field; it is not expected by default and remains optional when no grounded reason exists.`;
+- plannedReturnStatus may be omitted without making the required activity plan or archive narrative incomplete. mailPlan is governed only by [AUTHORITATIVE AWAY MAIL]. When required, it is one physical, character-appropriate letter, note, postcard, or small written trace grounded in this Away life—not a departure notice, routine status update, or automatic “I am back” message.`;
                 const getResidentPublicName = (catOrId) => {
                     const cat = catOrId && typeof catOrId === 'object'
                         ? catOrId
@@ -17074,7 +17176,7 @@ ${buildCatMemoryContext(cat)}`;
                     }));
                 };
                 const setHallSceneFocus = (record) => {
-                    if (!record || record.type !== 'user-directed' || activeHallId.value !== record.hallId) return;
+                    if (!record || record.type !== 'user-directed' || !ownsHallEntryPresentation(record.hallId)) return;
                     hallSceneFocus.hallId = record.hallId;
                     hallSceneFocus.dateKey = record.dateKey;
                     hallSceneFocus.sceneId = record.id;
@@ -17135,9 +17237,10 @@ ${buildCatMemoryContext(cat)}`;
                 const validateAwayEpisodePlan = awayLifecycle.validatePlan;
                 const indexAwayPlans = awayLifecycle.indexPlans;
                 const classifyAwayPlanDiagnostic = awayLifecycle.classifyPlan;
-                const createAwayEpisode = (cat, plan, departedAt = new Date()) => {
+                const createAwayEpisode = (cat, plan, departedAt = new Date(), mailDecision = null) => {
                     if (!cat || isResidentInCuratorRoom(cat)) return null;
-                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt);
+                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt, mailDecision);
+                    (episode.mailPlan || []).forEach(mail => reservePlannedAwayMailTime(episode, mail, mail.sendAt, 'creation'));
                     awayEpisodes.value.push(episode);
                     return episode;
                 };
@@ -17146,7 +17249,21 @@ ${buildCatMemoryContext(cat)}`;
                     LEGACY_ONLY: 'LEGACY_ONLY',
                     FULL_DEPARTURE: 'FULL_DEPARTURE'
                 });
-                const buildAwayPromptContract = ({ residents, presenceDirectives, now = new Date(), carriedAwayPlans } = {}) => {
+                const buildAwayMailDecisions = (presenceDirectives = {}) => Object.entries(presenceDirectives)
+                    .filter(([, directive]) => directive === 'DEPARTING_NOW')
+                    .reduce((decisions, [id]) => {
+                        const roll = rollPercent();
+                        decisions[String(id)] = Object.freeze({ roll, shouldWrite: roll <= 50 });
+                        return decisions;
+                    }, {});
+                const formatAwayMailAuthority = (departingIds, mailDecisions = {}) => {
+                    const entries = (departingIds || []).map(id => {
+                        const decision = mailDecisions[String(id)];
+                        return `${String(id)} → shouldWrite=${decision?.shouldWrite === true ? 'true' : 'false'}`;
+                    });
+                    return `[AUTHORITATIVE AWAY MAIL]\n${entries.join('\n') || 'None'}\nFor each DEPARTING_NOW resident, this local decision is final. shouldWrite=true requires exactly one mailPlan entry: {"sendAfterMinutes":positive integer after the first activity and before return,"content":"short physical letter/note/postcard text grounded in this outing","attachment":null or a valid small attachment}. shouldWrite=false requires mailPlan: []. Do not choose, omit, add, or reinterpret mail yourself. Mail is not a departure/return notice.`;
+                };
+                const buildAwayPromptContract = ({ residents, presenceDirectives, now = new Date(), carriedAwayPlans, mailDecisions = {} } = {}) => {
                     const scopedResidents = Array.isArray(residents)
                         ? residents.filter(cat => cat && cat.id !== undefined && cat.id !== null)
                         : [];
@@ -17170,6 +17287,7 @@ ${buildCatMemoryContext(cat)}`;
                         return {
                             mode,
                             departingIds,
+                            mailDecisions,
                             eligibleLegacyIds,
                             awayPlansExample: '[]',
                             instructions: `[NO NEW AWAY WORK]\nThere is no new Away semantic work in this request. Do not invent a departure or legacy continuation. awayPlans must be exactly []. Resident physical presence remains governed by the supplied local lifecycle and presence authority; isOut is compatibility metadata only and never authorizes departure.`
@@ -17179,6 +17297,7 @@ ${buildCatMemoryContext(cat)}`;
                         return {
                             mode,
                             departingIds,
+                            mailDecisions,
                             eligibleLegacyIds,
                             awayPlansExample: '[{"residentId":"exact eligible legacy machine id","mode":"legacy-continuation","plannedDurationMinutes":210}]',
                             instructions: `[LEGACY AWAY CONTINUATION]\nOnly these frozen, locally identified unmanaged legacy Away residents may receive a plan: ${legacyEligibility}. For each such resident only, return a finite {"residentId":"exact eligible legacy machine id","mode":"legacy-continuation","plannedDurationMinutes":210} plan. Do not return legacy-continuation for any other resident. Do not include destination, plannedActivities, publicTrace, plannedArchiveNarrative, plannedReturnStatus, mailPlan, or other departure fields. Do not plan an already scheduled-away resident; its lifecycle is local.`
@@ -17187,10 +17306,26 @@ ${buildCatMemoryContext(cat)}`;
                     return {
                         mode,
                         departingIds,
+                        mailDecisions,
                         eligibleLegacyIds,
                         awayPlansExample: '[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]',
-                        instructions: `This HOME/DEPARTING_NOW pair illustrates the local contract only. isOut is required compatibility metadata, not a presence decision. A resident directed HOME remains home and has no departure plan. Every resident directed DEPARTING_NOW must include exactly one matching mode:"departure" plan with the required fields shown above; local code commits departure only after that plan is valid and an Away episode is created. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details. mailPlan may be [] or contain one {"sendAfterMinutes":95,"content":"路边那张旧明信片很像馆里的窗。","attachment":null}; for this 210-minute / first-activity-at-35 example, it is after the first activity and before return. A meaningful activity can make this one physical trace a normal option to consider; do not add filler, and mail remains optional for short, simple, or triggerless outings. It is never an automatic departure/return notice. Legacy-continuation is allowed only for these frozen, locally identified unmanaged legacy Away resident IDs: ${legacyEligibility}. A legacy-continuation plan is {"residentId":"exact eligible legacy id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not return legacy-continuation for any other resident. Do not plan an already scheduled-away resident; its lifecycle is local.`
+                        instructions: `This HOME/DEPARTING_NOW pair illustrates the local contract only. isOut is required compatibility metadata, not a presence decision. A resident directed HOME remains home and has no departure plan. Every resident directed DEPARTING_NOW must include exactly one matching mode:"departure" plan with the required fields shown above; local code commits departure only after that plan is valid and an Away episode is created. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details.\n${formatAwayMailAuthority(departingIds, mailDecisions)}\nLegacy-continuation is allowed only for these frozen, locally identified unmanaged legacy Away resident IDs: ${legacyEligibility}. A legacy-continuation plan is {"residentId":"exact eligible legacy id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not return legacy-continuation for any other resident. Do not plan an already scheduled-away resident; its lifecycle is local.`
                     };
+                };
+                const enforceAwayMailDecision = (diagnostic, mailDecision = null) => {
+                    if (!mailDecision) return diagnostic;
+                    const rawPlan = diagnostic?.candidates?.[0];
+                    const rawMailPlan = rawPlan?.mailPlan;
+                    const hasExactEmptyMailPlan = Array.isArray(rawMailPlan) && rawMailPlan.length === 0;
+                    const hasOneAcceptedMailPlan = diagnostic?.valid && diagnostic.mailResult === 'accepted' &&
+                        Array.isArray(diagnostic.plan?.mailPlan) && diagnostic.plan.mailPlan.length === 1;
+                    if (mailDecision.shouldWrite === true && !hasOneAcceptedMailPlan) {
+                        return { ...diagnostic, valid: false, plan: null, reason: 'authoritative mail decision requires one valid mailPlan' };
+                    }
+                    if (mailDecision.shouldWrite === false && !hasExactEmptyMailPlan) {
+                        return { ...diagnostic, valid: false, plan: null, reason: 'authoritative mail decision requires mailPlan: []' };
+                    }
+                    return diagnostic;
                 };
                 const reconcileAwayEpisodes = (reconciliationTime = new Date()) => {
                     const result = awayLifecycle.reconcileEpisodes({
@@ -18368,11 +18503,13 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             ]
                         });
                         const frozenPresenceDirectives = Object.freeze({ ...frozenDepartureSchedule.directives });
+                        const frozenAwayMailDecisions = Object.freeze(buildAwayMailDecisions(frozenPresenceDirectives));
                         const frozenFormDirectives = Object.freeze(buildFormDirectives(frozenBystanders, frozenNow));
                         const frozenAwayPromptContract = buildAwayPromptContract({
                             residents: frozenBystanders,
                             presenceDirectives: frozenPresenceDirectives,
-                            now: frozenNow
+                            now: frozenNow,
+                            mailDecisions: frozenAwayMailDecisions
                         });
                         const frozenFridgeNoteCandidates = buildFridgeNoteReactionCandidates({
                             hallId: requestHallId,
@@ -18411,7 +18548,7 @@ ${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContex
 [BYSTANDER RULES]
 - Return exactly one update for every supplied bystander ID.
 - Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
-- Form: follow [FORM LIFECYCLE AUTHORITY]. Only residents marked ALLOWED may choose CAT or HUMAN; LOCKED residents must copy their required current form.
+- Form: [FORM LIFECYCLE AUTHORITY] is final. Echo each supplied target form exactly; never choose a form. Narrate a CAT↔HUMAN transition only when its directive says transition=AUTHORIZED, and never invent one otherwise.
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the resident is still in that exact place or activity at this Status Sync time.
 - [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with the local directive, not a new presence decision.
 - Residents listed as currently away in the hall context are context only. Do not return updates or Away plans for them; never invent their location, destination, activity, return time, or mail.
@@ -18528,7 +18665,9 @@ ${getCompactMapPointPromptGuide()}`
                                 updates: payload.hallUpdates,
                                 awayPlans: payload.awayPlans,
                                 fridgeNoteReactions: payload.fridgeNoteReactions,
-                                presenceDirectives: frozenPresenceDirectives
+                                presenceDirectives: frozenPresenceDirectives,
+                                awayMailDecisions: frozenAwayMailDecisions,
+                                formDirectives: frozenFormDirectives
                             });
                         }
 
@@ -19186,7 +19325,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             ...protectedSceneParticipantIds,
                             ...((isFocusEnd || isExploreEnd) ? (activeCatIds || []).map(id => String(id)) : [])
                         ]);
-                        const formDirectives = buildFormDirectives(requestedCats, now, [...formLockedIds]);
+                        const formDirectives = requestOptions.formDirectives && typeof requestOptions.formDirectives === 'object'
+                            ? requestOptions.formDirectives
+                            : buildFormDirectives(requestedCats, now, [...formLockedIds]);
                         const curatorRoomResidentIds = new Set(requestedCats.filter(isResidentInCuratorRoom).map(cat => String(cat.id)));
                         if (sceneMode === 'ambient') sceneContext.physicalParticipantIds = requestedCats
                             .filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
@@ -19221,6 +19362,11 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             mutablePresenceDirectives[String(cat.id)] = 'CURATOR_ROOM';
                         });
                         const presenceDirectives = Object.freeze(mutablePresenceDirectives);
+                        const awayMailDecisions = Object.freeze(
+                            requestOptions.awayMailDecisions && typeof requestOptions.awayMailDecisions === 'object'
+                                ? { ...requestOptions.awayMailDecisions }
+                                : buildAwayMailDecisions(presenceDirectives)
+                        );
                         const fridgeNoteCandidates = buildFridgeNoteReactionCandidates({
                             hallId: requestHallId,
                             residents: requestedCats.filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
@@ -19236,7 +19382,8 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             residents: requestedCats,
                             presenceDirectives,
                             now,
-                            carriedAwayPlans: requestOptions.prevalidatedAwayPlans
+                            carriedAwayPlans: requestOptions.prevalidatedAwayPlans,
+                            mailDecisions: awayMailDecisions
                         });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
@@ -19312,7 +19459,7 @@ ${formatResidentFormExpressionContract()}
 - Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.
 - Stored canon and [STATUS SYNC CONTEXT] are binding. Cat form never changes personality. Low affinity means boundaries/independent rhythm, never default fear, hostility, or contempt toward the safe owner.
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
-- Form: follow [FORM LIFECYCLE AUTHORITY]. A locked resident must preserve the required form; only ALLOWED residents may choose CAT or HUMAN. Do not invent a form switch merely for novelty.
+- Form: [FORM LIFECYCLE AUTHORITY] is final. Echo each supplied target form exactly; never choose a form. Narrate a CAT↔HUMAN transition only when its directive says transition=AUTHORIZED, and never invent one otherwise.
 - Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic.
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the cat is still in that exact place or activity at this Status Sync time.
 - [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with [LOCAL PRESENCE AUTHORITY], not a new presence decision.
@@ -19421,7 +19568,10 @@ ${enrichedStatusOutputContract}`;
                                     awayDecisionDiagnostics.stayedHome++;
                                     return;
                                 }
-                                const diagnostic = classifyAwayPlanDiagnostic(plansByResident, catId, 'departure');
+                                const diagnostic = enforceAwayMailDecision(
+                                    classifyAwayPlanDiagnostic(plansByResident, catId, 'departure'),
+                                    awayMailDecisions[catId]
+                                );
                                 diagnostic.candidates.forEach(plan => awayDecisionDiagnostics.processedPlanReferences.add(plan));
                                 awayDecisionDiagnostics.proposedById.set(catId, diagnostic);
                                 awayDecisionDiagnostics.proposedAway++;
@@ -19527,7 +19677,10 @@ ${enrichedStatusOutputContract}`;
                                 const wasOut = originalPresenceById.get(catId);
                                 if (wasOut !== false || getLocalPresenceDirective(catId) !== 'DEPARTING_NOW' || isPermanentOutBuiltin(cat)) return;
                                 const diagnostic = awayDecisionDiagnostics.proposedById.get(catId) ||
-                                    classifyAwayPlanDiagnostic(plansByResident, catId, 'departure');
+                                    enforceAwayMailDecision(
+                                        classifyAwayPlanDiagnostic(plansByResident, catId, 'departure'),
+                                        awayMailDecisions[catId]
+                                    );
                                 if (diagnostic.valid && !awayDecisionDiagnostics.discardedIds.has(catId)) return;
                                 cat.isOut = false;
                                 cat.hasHackedThisPatrol = false;
@@ -19566,7 +19719,10 @@ ${enrichedStatusOutputContract}`;
                                 if (!wasOut) {
                                     if (localDirective !== 'DEPARTING_NOW' || awayDecisionDiagnostics.discardedIds.has(catId)) return;
                                     const diagnostic = awayDecisionDiagnostics.proposedById.get(catId) ||
-                                        classifyAwayPlanDiagnostic(plansByResident, catId, 'departure');
+                                        enforceAwayMailDecision(
+                                            classifyAwayPlanDiagnostic(plansByResident, catId, 'departure'),
+                                            awayMailDecisions[catId]
+                                        );
                                     const plan = diagnostic.plan;
                                     if (!diagnostic.valid || !plan) return;
                                     cat.hasHackedThisPatrol = false;
@@ -19575,15 +19731,10 @@ ${enrichedStatusOutputContract}`;
                                     } else if (diagnostic.mailResult === 'none') {
                                         addLog(`AWAY PLANNED MAIL: resident=${catId}; result=none`, 'info');
                                     }
-                                    const episodePlan = canReservePlannedAwayMail(plan, now)
-                                        ? plan
-                                        : { ...plan, mailPlan: [] };
-                                    if ((plan.mailPlan || []).length && !(episodePlan.mailPlan || []).length) {
-                                        addLog(`AWAY PLANNED MAIL OMITTED: resident=${catId}; capacity or spacing reserved by existing mail.`, 'warn');
-                                    } else if (diagnostic.mailResult === 'accepted') {
+                                    if (diagnostic.mailResult === 'accepted') {
                                         addLog(`AWAY PLANNED MAIL: resident=${catId}; result=accepted`, 'info');
                                     }
-                                    const episode = createAwayEpisode(cat, episodePlan, now);
+                                    const episode = createAwayEpisode(cat, plan, now, awayMailDecisions[catId] || null);
                                     if (!episode) return;
                                     cat.isOut = true;
                                     cat.nextAwayOpportunityAt = null;
@@ -19693,7 +19844,7 @@ ${enrichedStatusOutputContract}`;
                             }
 
                             localStorage.setItem('last_sync_time', Date.now().toString());
-                            if (activeHallId.value === requestHallId) {
+                            if ((!requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)) && activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
@@ -19717,7 +19868,7 @@ ${enrichedStatusOutputContract}`;
                     finally { isUpdatingStatus.value = false; }
                 };
 
-                const settleHallStatusRefresh = ({ requestHallId, didRefresh, trackBackgroundPending, statusCompletion, backgroundFailureToast }) => {
+                const settleHallStatusRefresh = ({ requestHallId, didRefresh, trackBackgroundPending, statusCompletion, backgroundFailureToast, presentationAllowed = true }) => {
                     if (didRefresh) {
                         if (hallStatusRefreshPending.delete(requestHallId)) {
                             addLog(`STATUS SYNC BACKGROUND RECOVERED: hall=${requestHallId}`, 'sent');
@@ -19728,12 +19879,12 @@ ${enrichedStatusOutputContract}`;
                     const wasPending = hallStatusRefreshPending.has(requestHallId);
                     hallStatusRefreshPending.set(requestHallId, true);
                     if (!wasPending) addLog(`STATUS SYNC BACKGROUND PENDING: hall=${requestHallId}`, 'warn');
-                    if (backgroundFailureToast && activeHallId.value === requestHallId) {
+                    if (backgroundFailureToast && presentationAllowed && activeHallId.value === requestHallId) {
                         showToast(backgroundFailureToast, 'warning');
                     }
                 };
 
-                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [], fridgeNoteReactions = [], presenceDirectives = {} }) => {
+                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [], fridgeNoteReactions = [], presenceDirectives = {}, awayMailDecisions = {}, formDirectives = {} }) => {
                     if (!frozenBystanders.length) return true;
                     const statusCompletion = {
                         requestHallId,
@@ -19757,6 +19908,8 @@ ${enrichedStatusOutputContract}`;
                         prevalidatedAwayPlans: awayPlans,
                         prevalidatedFridgeNoteReactions: fridgeNoteReactions,
                         presenceDirectives,
+                        awayMailDecisions,
+                        formDirectives,
                         priority: 'background',
                         statusCompletion
                     });
@@ -19821,7 +19974,8 @@ ${enrichedStatusOutputContract}`;
                             didRefresh,
                             trackBackgroundPending,
                             statusCompletion,
-                            backgroundFailureToast: requestOptions.backgroundFailureToast
+                            backgroundFailureToast: requestOptions.backgroundFailureToast,
+                            presentationAllowed: !requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)
                         });
                     };
 
@@ -20520,7 +20674,7 @@ ${episodicMemory}`;
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
-                    CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
+                    CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
