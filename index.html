@@ -11887,13 +11887,15 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 const resolveApiRetryDecision = window.Meeow.ai.resolveApiRetryDecision;
                 const callAI = window.Meeow.ai.callAI;
 
-                const getUserRealLifeContext = () => {
+                const getUserRealLifeContext = (options = {}) => {
+                    const isHomepageProjection = options.profile === 'homepage';
                     const lastMail = user.mailbox.length > 0 ? user.mailbox[user.mailbox.length - 1] : null;
                     const mailContext = lastMail ? `Recent Mail from ${lastMail.from}: ${lastMail.content.substring(0, 30)}...` : "No recent mail.";
 
-                    // --- NEW USER IDENTITY BLOCK ---
-                    const userProfile = `${buildAuthoritativeUserIdentityContext()}\nJob/Role: ${user.job || 'Unknown'}. Current Status: ${user.currentStatus || 'Unknown'}.`;
-                    const realLifeContext = `${buildOwnerDailyContext('compact')}\n[MAIL CONTEXT] ${mailContext}`;
+                    const userProfile = isHomepageProjection
+                        ? `[USER LIFE CONTEXT]\nCurrent Status: ${user.currentStatus || 'Unknown'}.`
+                        : `${buildAuthoritativeUserIdentityContext()}\nJob/Role: ${user.job || 'Unknown'}. Current Status: ${user.currentStatus || 'Unknown'}.`;
+                    const realLifeContext = `${buildOwnerDailyContext('compact', { includeCuratorProfile: !isHomepageProjection })}\n[MAIL CONTEXT] ${mailContext}`;
 
                     return `${userProfile}\n${realLifeContext}`;
                 };
@@ -16524,8 +16526,9 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
                 awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
-                const buildOwnerDailyContext = (profileName = 'standard') => {
+                const buildOwnerDailyContext = (profileName = 'standard', options = {}) => {
                     const compact = profileName === 'compact' || profileName === 'reader';
+                    const includeCuratorProfile = options.includeCuratorProfile !== false;
                     const itemLimit = compact ? 4 : 7;
                     const textLimit = compact ? 72 : 120;
                     const operationalDate = getOperationalDate(new Date());
@@ -16550,8 +16553,8 @@ ${buildCatMemoryContext(cat)}`;
                     const eventContext = getDateContext(operationalDate);
                     return `[OWNER DAILY CONTEXT]
 - Operational day: ${operationalKey} (local day changes at 03:00).
-- Curator: ${user.nickname || '馆长'}; role: ${user.job || '未设定'}; current status: ${user.currentStatus || '未知'}.
-- Completed plans: ${completedPlans.join(' / ') || 'None recorded'}.
+${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user.job || '未设定'}; current status: ${user.currentStatus || '未知'}.
+` : ''}- Completed plans: ${completedPlans.join(' / ') || 'None recorded'}.
 - Pending plans: ${pendingPlans.join(' / ') || 'None recorded'}.
 - Today's schedule: ${schedule.join(' / ') || 'No scheduled event'}.
 - Upcoming DDL: ${deadlines.join(' / ') || 'No upcoming DDL'}.
@@ -17607,7 +17610,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             recentHistory = sendingCat.chatHistory.slice(-10).map(m => `${m.role}: ${m.content}`).join('\n');
                         } else { recentHistory = "(Previous conversation expired/too old)"; }
 
-                        const catMemory = buildCatMemoryContext(sendingCat);
+                        const catMemory = buildCatMemoryContext(sendingCat, { profile: 'homepage' });
                         const episodicMemory = buildOwnerScopedEpisodicMemoryContext(sendingCat, {
                             userInput: msg,
                             contextText: recentHistory
@@ -17621,7 +17624,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             if (hours >= 24) timePerceptionStr = `[TIME PERCEPTION]: You haven't talked to the user for ${Math.floor(hours / 24)} days. Mention this if appropriate.`;
                             else if (hours >= 1) timePerceptionStr = `[TIME PERCEPTION]: You haven't talked to the user for ${hours} hours.`;
                         }
-                        const context = getUserRealLifeContext();
+                        const context = getUserRealLifeContext({ profile: 'homepage' });
                         const requestHallId = sendingCat.hallId || (sendingCat.isMarvel ? 'marvel' : 'gotham');
                         const requestHall = {
                             ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
@@ -17697,12 +17700,15 @@ ${getCompactMapPointPromptGuide()}`
                         ${buildAuthoritativeUserIdentityContext()}
                         Job: ${user.job || 'Unknown'}
 
-                        Role: ${getResidentPublicName(sendingCat)}. Closeness: ${sendingCat.affinity}/100.
+                        [ACTIVE RESIDENT — AUTHORITATIVE]
+                        ID: ${String(sendingCat.id)}; Name: ${getResidentPublicName(sendingCat)}.
+                        Traits: ${sendingCat.personality || '以原作设定为准'}.
+                        Canon / stored prompt: ${sendingCat.prompt || sendingCat.personality || '以原作设定为准'}
+                        Fixed appearance reference: breed ${sendingCat.breed || '未设定'}; eye color ${sendingCat.eyeColor || '未设定'}.
+                        Closeness: ${sendingCat.affinity}/100.
                         [CLOSENESS INFLUENCE]: The user is already known to be safe and kind. High closeness means more ease and initiative; low closeness means independence, tentative curiosity, or ordinary boundaries — NEVER fear, suspicion, contempt, or treating the user as dangerous by default.
                         [NO AI FLAVOR]: Avoid generic AI greetings or "As an AI..." phrases. Speak naturally as the character would.
                         
-                        Specific Character Traits: ${sendingCat.personality}.
-                        Specific Instructions: ${sendingCat.prompt}
                         Current physical form: ${describeResidentForm(frozenActiveForm)}
                         [ACTIVE RESIDENT FORM LOCK] This active resident begins and ends this Homepage Chat interaction in ${frozenActiveForm} form. This request cannot transform the active resident. USER dialogue mentioning, suggesting, requesting, joking about, or imagining another form does not authorize a transformation. Respond naturally from the current locked form; a future independent form reconsideration may change it through the existing resident-form lifecycle.
                         

@@ -309,6 +309,7 @@
     // foreground requests small enough for slow OpenAI-compatible proxies.
     const CAT_MEMORY_PROFILES = {
         standard: { interactions: 8, interactionChars: 180, monitoring: 8, monitorChars: 160, diaries: 3, diaryChars: 260, focus: 2, focusChars: 220, travel: 2, travelChars: 200, briefingChars: 260 },
+        homepage: { interactions: 8, interactionChars: 180, monitoring: 8, monitorChars: 160, diaries: 3, diaryChars: 260, focus: 2, focusChars: 220, travel: 2, travelChars: 200, briefingChars: 260 },
         compact: { interactions: 5, interactionChars: 120, monitoring: 4, monitorChars: 120, diaries: 2, diaryChars: 180, focus: 1, focusChars: 160, travel: 1, travelChars: 160, briefingChars: 180 },
         reader: { interactions: 4, interactionChars: 100, monitoring: 3, monitorChars: 100, diaries: 2, diaryChars: 150, focus: 1, focusChars: 120, travel: 1, travelChars: 120, briefingChars: 160 },
         exploreModule: { interactions: 5, interactionChars: 140, monitoring: 4, monitorChars: 140, diaries: 2, diaryChars: 190, focus: 1, focusChars: 160, travel: 1, travelChars: 160, briefingChars: 200 },
@@ -326,20 +327,24 @@
         const hall = halls.find(item => item.id === cat.hallId) || currentHall;
         const profileName = options.profile || (options.compact ? 'compact' : 'standard');
         const profile = CAT_MEMORY_PROFILES[profileName] || CAT_MEMORY_PROFILES.standard;
+        const isHomepageProjection = profileName === 'homepage';
         const interactions = (cat.todayInteractions || []).map(entry => `[${entry.time || '历史'} · ${entry.type || '互动'}] ${cleanText(entry.content || '')}`);
         const monitoring = getRecentMonitorEntries(cat, profile.monitoring);
         const diaries = getPermanentDiaryEntries(cat, profile.diaries);
         const focus = getCatFocusReports(cat, profile.focus);
         const travelogues = (cat.travelogues || []).map(entry => `[${entry.date || '历史'} · ${entry.location || '外出'}] ${cleanText(entry.content || '')}`);
         const briefing = getLatestHouseBriefing();
-        return `
-[CHARACTER MEMORY · REQUIRED]
-- ${buildCatIdentityBlock(cat)}
+        const activeMetadata = isHomepageProjection ? '' : `- ${buildCatIdentityBlock(cat)}
 - Hall: ${hall?.name || 'Meeow House'} · Guardian: ${hall?.guardian || '未指定'}
 - Date context: ${dependencies.getDateContext()}
 - ${dependencies.buildOwnerDailyContext(profileName)}
 - Closeness / affinity: ${cat.affinity || 0}/100
 - Current status: ${truncateMemoryText(cat.status || '未知', 180)}
+`;
+        return `
+[${isHomepageProjection ? 'HOMEPAGE CONTINUITY · REQUIRED' : 'CHARACTER MEMORY · REQUIRED'}]
+${activeMetadata}${isHomepageProjection ? `- Date context: ${dependencies.getDateContext()}
+` : ''}
 - Last status update: ${cat.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime).toLocaleString() : '无记录'}
 - All interactions today: ${formatMemoryEntries(interactions, profile.interactions, profile.interactionChars)}
 - Recent monitoring today: ${formatMemoryEntries(monitoring, profile.monitoring, profile.monitorChars)}
