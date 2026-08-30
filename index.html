@@ -6208,7 +6208,7 @@
                                                     暂无消息。去通讯录看看有没有新的朋友？
                                                 </div>
                                                 <div class="bg-white">
-                                                    <button v-for="cat in friendsList" :key="'phone-chat-' + cat.id" type="button"
+                                                    <button v-for="cat in phoneConversationList" :key="'phone-chat-' + cat.id" type="button"
                                                         @click="openPhoneChat(cat.id)"
                                                         class="w-full flex items-center gap-3 p-3 border-b border-gray-50 active:bg-gray-100 cursor-pointer text-left">
                                                         <img :src="phoneIdentities[cat.id].avatar"
@@ -6455,18 +6455,13 @@
                                                     <span class="text-[10px] text-green-600">在线</span>
                                                 </div>
                                             </div>
-                                            <div class="relative min-w-[104px] flex items-center justify-end gap-1.5">
-                                                <button type="button" @click="requestPhoneReply" :disabled="!hasPendingPhoneReply(phoneState.selectedContactId) || phoneState.isTyping"
-                                                    class="phone-chat-reply-trigger h-8 w-8 rounded-lg text-xs disabled:opacity-70"
-                                                    title="让 TA 回复" aria-label="让 TA 回复">
-                                                    <i :class="phoneState.isTyping ? 'fas fa-ellipsis animate-pulse' : 'fas fa-bolt'"></i>
-                                                </button>
+                                            <div class="relative min-w-[80px] flex items-center justify-end gap-1.5">
                                                 <button type="button" @click="phoneState.chatOptionsOpen = !phoneState.chatOptionsOpen" class="phone-chat-more-button px-2 py-1 rounded-lg text-[11px] font-bold" aria-label="更多聊天操作">
                                                     更多 <i class="fas fa-ellipsis-v ml-0.5"></i>
                                                 </button>
                                                 <div v-if="phoneState.chatOptionsOpen" class="phone-chat-menu absolute right-0 top-10 z-40 p-1.5 rounded-xl w-32 text-left">
                                                     <button @click="openPhoneChatArchive" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left"><i class="fas fa-clock-rotate-left mr-1.5"></i>聊天记录</button>
-                                                    <button @click="reRollLastPhoneMessage(); phoneState.chatOptionsOpen = false" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left"><i class="fas fa-rotate mr-1.5"></i>重抽回复</button>
+                                                    <button v-if="phoneReplyNeedsManualRetry(phoneState.selectedContactId)" @click="retryPhoneReplyOpportunity(phoneState.selectedContactId); phoneState.chatOptionsOpen = false" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left"><i class="fas fa-rotate mr-1.5"></i>重新尝试回复</button>
                                                     <button @click="closePhoneChat" class="w-full px-2.5 py-2 rounded-lg text-[11px] text-left mt-1"><i class="fas fa-comments mr-1.5"></i>返回列表</button>
                                                 </div>
                                             </div>
@@ -6575,13 +6570,6 @@
                                                                 <div v-else class="leading-relaxed message-text">{{
                                                                     cleanText(msg.content) }}</div>
 
-                                                                <!-- Re-roll for last AI message in phone chat -->
-                                                                <button
-                                                                    v-if="msg.role === 'assistant' && idx === getPhoneChatHistory(phoneState.selectedContactId).length - 1"
-                                                                    @click.stop="reRollLastPhoneMessage"
-                                                                    class="absolute -right-6 top-1/2 -translate-y-1/2 text-[10px] text-zinc-400 hover:text-green-500 transition-colors">
-                                                                    <i class="fas fa-redo-alt"></i>
-                                                                </button>
                                                             </div>
                                                             <div class="phone-chat-time mt-1 px-1 text-[9px]">{{ formatPhoneMessageTime(msg) }}</div>
                                                             <!-- Emoji reactions -->
@@ -9086,6 +9074,7 @@
                     phoneData: {
                         chats: [],
                         chatArchives: {},
+                        replyOpportunities: [],
                         nextPhonePresenceConsiderAt: null,
                         moments: [],
                         news: [],
@@ -9122,6 +9111,7 @@
                 };
 
                 const {
+                    DEFAULT_RESIDENT_AFFINITY,
                     defaultCats,
                     DEFAULT_HALLS,
                     makeHallCat,
@@ -11134,10 +11124,26 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 };
                 cats.value.forEach(cat => normalizeResidentFormState(cat));
 
+                const getPhoneContactDisplayName = (cat) => String(
+                    phoneIdentities.value?.[getCanonicalCatId(cat?.id)]?.name || cat?.humanName || cat?.name || ''
+                ).trim();
+                const comparePhoneContactsByName = (left, right) => {
+                    const nameOrder = getPhoneContactDisplayName(left).localeCompare(
+                        getPhoneContactDisplayName(right), undefined, { sensitivity: 'base', numeric: true }
+                    );
+                    return nameOrder || String(left?.id || '').localeCompare(String(right?.id || ''), undefined, { sensitivity: 'base', numeric: true });
+                };
                 const friendsList = computed(() => {
                     if (!user.phoneData || !user.phoneData.friends) return [];
-                    return cats.value.filter(cat => user.phoneData.friends.some(id => sameCatId(id, cat.id)));
+                    return cats.value
+                        .filter(cat => user.phoneData.friends.some(id => sameCatId(id, cat.id)))
+                        .slice()
+                        .sort(comparePhoneContactsByName);
                 });
+                const phoneConversationList = computed(() => friendsList.value.slice().sort((left, right) => {
+                    const recencyOrder = getLatestPhoneMessageTimestamp(right.id) - getLatestPhoneMessageTimestamp(left.id);
+                    return recencyOrder || comparePhoneContactsByName(left, right);
+                }));
 
                 const friendRequestInFlight = new Set();
         const createFriendRequestFallback = (cat, identity) => {
@@ -12625,6 +12631,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     if (tab === 'phone') {
                         resetPhoneTransientUI?.();
                         phoneState.fanfic.entryLocation = getFanficEntryLocation?.() || null;
+                        void reconcilePhoneReplyOpportunities?.(new Date());
                         addLog('NAVIGATION: 打开手机页面', 'info');
                     }
                     currentTab.value = tab;
@@ -14019,6 +14026,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     markPhonePresenceMessagesRead(catId);
                     addLog(`PHONE CHAT OPENED: ${cat.name}`, 'info');
                     restorePhoneChatScrollPosition(catId);
+                    void reconcilePhoneReplyOpportunities(new Date());
                 };
                 const collectRedPacket = (msg) => {
                     if (msg.collected) return;
@@ -14094,6 +14102,35 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         rememberPhoneChatScrollPosition();
                     });
                 };
+                const announcedIncomingPhoneMessageIds = new Set();
+                const isExactPhoneConversationOpen = (contactId) => currentTab.value === 'phone' &&
+                    phoneState.currentApp === 'chat' &&
+                    Boolean(phoneState.selectedContactId) &&
+                    sameCatId(phoneState.selectedContactId, getCanonicalCatId(contactId));
+                const announceIncomingPhoneMessage = (cat, message) => {
+                    if (!cat || !message?.id || message.role !== 'assistant' || message.type === 'system') return;
+                    const contactId = getCanonicalCatId(cat.id);
+                    if (isExactPhoneConversationOpen(contactId)) {
+                        // Wait until Vue has rendered the new bubble before measuring the
+                        // scroll height; iPhone Safari otherwise stops one message short.
+                        nextTick(() => {
+                            if (!isExactPhoneConversationOpen(contactId) || !phoneChatRef.value) return;
+                            phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
+                            rememberPhoneChatScrollPosition();
+                        });
+                        return;
+                    }
+                    // A generated reply bundle is one incoming event even when its
+                    // bubbles arrive sequentially.
+                    const notificationId = String(message.incomingNotificationId || message.id);
+                    if (announcedIncomingPhoneMessageIds.has(notificationId)) return;
+                    announcedIncomingPhoneMessageIds.add(notificationId);
+                    if (announcedIncomingPhoneMessageIds.size > 160) {
+                        announcedIncomingPhoneMessageIds.delete(announcedIncomingPhoneMessageIds.values().next().value);
+                    }
+                    const identity = phoneIdentities.value?.[contactId] || {};
+                    showNotification('喵信', '您收到了一条信息', identity.avatar || getCatAvatarSource(cat), 'info', () => openPhonePresenceConversation(contactId));
+                };
                 const appendPhoneChatMemory = (cat, message) => {
                     if (!cat || message.type === 'system') return;
                     const speaker = message.role === 'user' ? '馆长' : cat.name;
@@ -14118,10 +14155,13 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         dateKey: getOperationalDayKey(now),
                         ...extra
                     };
-                    const shouldFollow = isPhoneChatNearBottom();
                     ensurePhoneChatHistory(catId).push(message);
                     appendPhoneChatMemory(cat, message);
-                    scrollPhoneChatToBottom(shouldFollow);
+                    if (message.role === 'assistant') announceIncomingPhoneMessage(cat, message);
+                    else {
+                        queuePhoneReplyOpportunity?.(catId, message, now);
+                        scrollPhoneChatToBottom(isPhoneChatNearBottom());
+                    }
                     return message;
                 };
                 const getPhoneArchiveForContact = (contactId) => {
@@ -14399,7 +14439,6 @@ RULES:
                                     sourceKey,
                                     read: false
                                 });
-                                showNotification(identity.name, compactPhonePresenceText(parsed.message, 48), identity.avatar || getCatAvatarSource(resident), 'info', () => openPhonePresenceConversation(resident.id));
                                 addLog(`PHONE PRESENCE: result=message; resident=${String(resident.id)}; opportunity=${dueAt}`, 'info');
                             } else {
                                 addLog(`PHONE PRESENCE: result=${parsed.message === null ? 'null' : 'deduped'}; resident=${String(resident.id)}; opportunity=${dueAt}`, 'info');
@@ -14412,13 +14451,150 @@ RULES:
                         }
                     })();
                 };
-                const getPendingPhoneMessages = (contactId) => {
-                    const history = getPhoneChatHistory(contactId);
-                    let lastReplyIndex = -1;
-                    history.forEach((message, index) => { if (message.role === 'assistant') lastReplyIndex = index; });
-                    return history.slice(lastReplyIndex + 1).filter(message => message.role === 'user' && !message.recalled);
+                const PHONE_REPLY_MIN_DELAY_MS = 15 * 1000;
+                const PHONE_REPLY_MAX_DELAY_MS = 12 * 60 * 1000;
+                const PHONE_REPLY_RETRY_DELAYS_MS = [60 * 1000, 3 * 60 * 1000, 8 * 60 * 1000];
+                const PHONE_REPLY_BUBBLE_DELAY_MS = 750;
+                const PHONE_REPLY_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'delivering', 'completed', 'failed']);
+                const phoneReplyGenerationInFlight = new Set();
+                let phoneReplyReconciliationTimer = null;
+
+                const isValidPhoneReplyTime = (value) => Number.isFinite(new Date(value || '').getTime());
+                const getPhoneReplyOpportunities = () => {
+                    if (!user.phoneData || typeof user.phoneData !== 'object') user.phoneData = {};
+                    if (!Array.isArray(user.phoneData.replyOpportunities)) user.phoneData.replyOpportunities = [];
+                    return user.phoneData.replyOpportunities;
                 };
-                const hasPendingPhoneReply = (contactId) => Boolean(contactId && getPendingPhoneMessages(contactId).length);
+                const isAcceptedPhoneContact = (contactId) => Array.isArray(user.phoneData?.friends) &&
+                    user.phoneData.friends.some(id => sameCatId(id, getCanonicalCatId(contactId)));
+                const isEligiblePhoneReplySource = (message) => Boolean(message && message.role === 'user' &&
+                    message.type !== 'system' && message.type !== 'fanfic-share' && !message.recalled && message.id);
+                const normalizePhoneReplyOpportunities = ({ recoverInFlight = false, now = new Date() } = {}) => {
+                    const nowIso = now.toISOString();
+                    const knownMessages = new Map();
+                    (user.phoneData?.chats || []).forEach(chat => getAllStoredPhoneMessages(chat?.contactId).forEach(message => {
+                        if (message?.id) knownMessages.set(String(message.id), message);
+                    }));
+                    const normalized = getPhoneReplyOpportunities().map(raw => {
+                        if (!raw || typeof raw !== 'object' || !raw.id || !raw.contactId) return null;
+                        let status = PHONE_REPLY_STATUSES.has(raw.status) ? raw.status : 'scheduled';
+                        const claimedAt = isValidPhoneReplyTime(raw.claimedAt) ? raw.claimedAt : '';
+                        const rawSourceMessageIds = [...new Set((Array.isArray(raw.sourceMessageIds) ? raw.sourceMessageIds : [])
+                            .map(id => String(id)))];
+                        // A claimed turn never sheds its source IDs during reload
+                        // normalization. Unclaimed records may safely discard a
+                        // recalled/missing source before anyone has read it.
+                        const sourceMessageIds = claimedAt
+                            ? rawSourceMessageIds
+                            : rawSourceMessageIds.filter(id => knownMessages.has(id));
+                        if ((status === 'scheduled' || status === 'retryable') && !claimedAt && !sourceMessageIds.length) return null;
+                        if (recoverInFlight && status === 'in-flight') {
+                            status = 'retryable';
+                            // This is recovery, not a reroll: preserve every frozen
+                            // source and use a persisted immediate retry timestamp.
+                            raw.retryAt = isValidPhoneReplyTime(raw.retryAt) ? raw.retryAt : nowIso;
+                        }
+                        const dueAt = isValidPhoneReplyTime(raw.dueAt) ? raw.dueAt : nowIso;
+                        const retryAt = isValidPhoneReplyTime(raw.retryAt) ? raw.retryAt : '';
+                        const messages = Array.isArray(raw.messages)
+                            ? raw.messages.map(value => cleanText(String(value || ''))).filter(Boolean).slice(0, 4)
+                            : [];
+                        const nextDeliveryIndex = Math.max(0, Math.min(messages.length, Number(raw.nextDeliveryIndex) || 0));
+                        const nextDeliveryAt = isValidPhoneReplyTime(raw.nextDeliveryAt)
+                            ? raw.nextDeliveryAt
+                            : (status === 'delivering' && nextDeliveryIndex < messages.length ? nowIso : '');
+                        return {
+                            id: String(raw.id), contactId: getCanonicalCatId(raw.contactId), sourceMessageIds,
+                            createdAt: isValidPhoneReplyTime(raw.createdAt) ? raw.createdAt : nowIso,
+                            dueAt, status, attemptCount: Math.max(0, Number(raw.attemptCount) || 0), retryAt,
+                            claimedAt, responseBatchId: raw.responseBatchId ? String(raw.responseBatchId) : '',
+                            messages, nextDeliveryIndex, nextDeliveryAt,
+                            completedAt: isValidPhoneReplyTime(raw.completedAt) ? raw.completedAt : '',
+                            lastError: cleanText(String(raw.lastError || '')).slice(0, 240)
+                        };
+                    }).filter(Boolean);
+                    user.phoneData.replyOpportunities = normalized;
+                    return normalized;
+                };
+                const getPhoneReplySourceMessages = (opportunity) => {
+                    const available = new Map(getAllStoredPhoneMessages(opportunity.contactId)
+                        .map(message => [String(message?.id || ''), message]));
+                    return opportunity.sourceMessageIds.map(id => available.get(String(id))).filter(message => {
+                        return opportunity.claimedAt ? Boolean(message) : isEligiblePhoneReplySource(message);
+                    }).map(message => message?.originalPhoneReplySource
+                        ? { ...message, ...message.originalPhoneReplySource }
+                        : message);
+                };
+                const phoneReplyDueTime = (opportunity) => new Date(
+                    opportunity.status === 'retryable' && opportunity.retryAt ? opportunity.retryAt : opportunity.dueAt
+                ).getTime();
+                const schedulePhoneReplyReconciliation = () => {
+                    if (phoneReplyReconciliationTimer) clearTimeout(phoneReplyReconciliationTimer);
+                    const now = Date.now();
+                    const candidates = getPhoneReplyOpportunities().map(opportunity => {
+                        if (opportunity.status === 'delivering' && opportunity.nextDeliveryAt) return new Date(opportunity.nextDeliveryAt).getTime();
+                        if (opportunity.status === 'scheduled' || opportunity.status === 'retryable') return phoneReplyDueTime(opportunity);
+                        return null;
+                    }).filter(Number.isFinite);
+                    if (!candidates.length) { phoneReplyReconciliationTimer = null; return; }
+                    const delay = Math.max(0, Math.min(Math.min(...candidates) - now, 60 * 1000));
+                    phoneReplyReconciliationTimer = setTimeout(() => {
+                        phoneReplyReconciliationTimer = null;
+                        void reconcilePhoneReplyOpportunities(new Date());
+                    }, delay);
+                };
+                const queuePhoneReplyOpportunity = (contactId, message, now = new Date()) => {
+                    if (!isEligiblePhoneReplySource(message) || !isAcceptedPhoneContact(contactId)) return null;
+                    const catId = getCanonicalCatId(contactId);
+                    const opportunities = getPhoneReplyOpportunities();
+                    const coalescible = opportunities.find(item => sameCatId(item.contactId, catId) &&
+                        (item.status === 'scheduled' || item.status === 'retryable') && !item.claimedAt);
+                    if (coalescible) {
+                        if (!coalescible.sourceMessageIds.includes(message.id)) coalescible.sourceMessageIds.push(message.id);
+                        schedulePhoneReplyReconciliation();
+                        return coalescible;
+                    }
+                    const nowMs = now.getTime();
+                    const dueAt = new Date(nowMs + PHONE_REPLY_MIN_DELAY_MS + Math.floor(Math.random() * (PHONE_REPLY_MAX_DELAY_MS - PHONE_REPLY_MIN_DELAY_MS + 1))).toISOString();
+                    const opportunity = {
+                        id: `phone-reply-${catId}-${message.id}`,
+                        contactId: catId,
+                        sourceMessageIds: [message.id],
+                        createdAt: now.toISOString(), dueAt, status: 'scheduled', attemptCount: 0,
+                        retryAt: '', claimedAt: '', responseBatchId: '', messages: [],
+                        nextDeliveryIndex: 0, nextDeliveryAt: '', completedAt: '', lastError: ''
+                    };
+                    opportunities.push(opportunity);
+                    schedulePhoneReplyReconciliation();
+                    return opportunity;
+                };
+                const removePhoneReplySource = (contactId, messageId) => {
+                    const catId = getCanonicalCatId(contactId);
+                    const opportunities = getPhoneReplyOpportunities();
+                    for (let index = opportunities.length - 1; index >= 0; index -= 1) {
+                        const opportunity = opportunities[index];
+                        if (!sameCatId(opportunity.contactId, catId) || opportunity.claimedAt ||
+                            (opportunity.status !== 'scheduled' && opportunity.status !== 'retryable')) continue;
+                        opportunity.sourceMessageIds = opportunity.sourceMessageIds.filter(id => String(id) !== String(messageId));
+                        if (!opportunity.sourceMessageIds.length) opportunities.splice(index, 1);
+                    }
+                    schedulePhoneReplyReconciliation();
+                };
+                const phoneReplyNeedsManualRetry = (contactId) => getPhoneReplyOpportunities().some(opportunity =>
+                    sameCatId(opportunity.contactId, getCanonicalCatId(contactId)) && opportunity.status === 'failed');
+                const retryPhoneReplyOpportunity = (contactId) => {
+                    const opportunity = getPhoneReplyOpportunities().find(item =>
+                        sameCatId(item.contactId, getCanonicalCatId(contactId)) && item.status === 'failed');
+                    if (!opportunity || !isAcceptedPhoneContact(opportunity.contactId)) {
+                        showToast('这条消息目前不能重新发送。', 'info');
+                        return false;
+                    }
+                    opportunity.status = 'retryable';
+                    opportunity.retryAt = new Date().toISOString();
+                    opportunity.lastError = '';
+                    void reconcilePhoneReplyOpportunities(new Date());
+                    return true;
+                };
                 const insertEmoji = (emoji) => {
                     phoneChatInput.value = `${phoneChatInput.value || ''}${emoji}`;
                     phoneShowEmojiPicker.value = false;
@@ -14466,9 +14642,16 @@ RULES:
                     const history = getPhoneChatHistory(phoneState.selectedContactId);
                     const message = history[idx];
                     if (!message || message.role !== 'user') return;
+                    const belongsToClaimedTurn = getPhoneReplyOpportunities().some(opportunity =>
+                        sameCatId(opportunity.contactId, phoneState.selectedContactId) && opportunity.claimedAt &&
+                        opportunity.sourceMessageIds.includes(message.id));
+                    if (belongsToClaimedTurn && !message.originalPhoneReplySource) {
+                        message.originalPhoneReplySource = { type: message.type, content: message.content, desc: message.desc || '' };
+                    }
                     message.type = 'system';
                     message.content = '你撤回了一条消息';
                     message.recalled = true;
+                    removePhoneReplySource(phoneState.selectedContactId, message.id);
                 };
                 const closePhoneChat = () => {
                     rememberPhoneChatScrollPosition();
@@ -14487,29 +14670,83 @@ RULES:
                 };
                 const validatePhoneChatReply = (reply) => {
                     const messages = parsePhoneChatReply(reply);
-                    if (!messages.length || messages.length > 3) return '喵信回复必须是 1–3 条 JSON 消息。';
+                    if (!messages.length || messages.length > 4) return '喵信回复必须是 1–4 条 JSON 消息。';
                     const text = messages.join('');
-                    if (text.length > 180 || messages.some(message => message.length > 100)) return '喵信回复过长。';
+                    if (text.length > 220 || messages.some(message => message.length > 110)) return '喵信回复过长。';
                     if (/【[^】]{2,}】|\[[^\]\n]{3,}\]/.test(text)) return '喵信回复包含动作或旁白括号。';
                     if (/(?:^|\n)\s*(?:旁白|动作|场景|环境|镜头)\s*[:：]/.test(text)) return '喵信回复使用了旁白格式。';
                     return true;
                 };
-                const requestPhoneReply = async () => {
-                    const contactId = phoneState.selectedContactId;
-                    if (!contactId || phoneState.isTyping) return;
-                    const catId = getCanonicalCatId(contactId);
+                const formatPhoneReplySource = (message) => {
+                    if (message.type === 'image') return `馆长发来照片：${message.desc || '一张图片'}`;
+                    if (message.type === 'location') return `馆长分享了位置：${message.content}`;
+                    if (message.type === 'red-envelope' || message.type === 'transfer') return `馆长发送${message.type === 'red-envelope' ? '红包' : '转账'}：${message.content} G`;
+                    return `馆长：${message.content}`;
+                };
+                const hasDeliveredPhoneReplyBubble = (opportunity, index) => getAllStoredPhoneMessages(opportunity.contactId)
+                    .some(message => message?.phoneReplyOpportunityId === opportunity.id && Number(message?.phoneReplyBubbleIndex) === index);
+                const flushPhoneReplyDeliveries = (now = new Date()) => {
+                    const nowMs = now.getTime();
+                    const opportunities = getPhoneReplyOpportunities()
+                        .filter(item => item.status === 'delivering' && item.nextDeliveryAt && new Date(item.nextDeliveryAt).getTime() <= nowMs)
+                        .sort((left, right) => new Date(left.nextDeliveryAt).getTime() - new Date(right.nextDeliveryAt).getTime());
+                    opportunities.forEach(opportunity => {
+                        const cat = cats.value.find(item => sameCatId(item.id, opportunity.contactId));
+                        const index = opportunity.nextDeliveryIndex;
+                        if (!cat || !opportunity.messages[index]) {
+                            opportunity.status = 'completed';
+                            opportunity.completedAt = now.toISOString();
+                            opportunity.nextDeliveryAt = '';
+                            return;
+                        }
+                        if (!hasDeliveredPhoneReplyBubble(opportunity, index)) {
+                            appendPhoneMessage(opportunity.contactId, 'assistant', 'text', opportunity.messages[index], {
+                                batchId: opportunity.responseBatchId || opportunity.id,
+                                phoneReplyOpportunityId: opportunity.id,
+                                phoneReplyBubbleIndex: index,
+                                incomingNotificationId: opportunity.id
+                            });
+                        }
+                        opportunity.nextDeliveryIndex = index + 1;
+                        if (opportunity.nextDeliveryIndex >= opportunity.messages.length) {
+                            opportunity.status = 'completed';
+                            opportunity.completedAt = now.toISOString();
+                            opportunity.nextDeliveryAt = '';
+                        } else {
+                            opportunity.nextDeliveryAt = new Date(nowMs + PHONE_REPLY_BUBBLE_DELAY_MS).toISOString();
+                        }
+                    });
+                    schedulePhoneReplyReconciliation();
+                };
+                const markPhoneReplyFailure = (opportunity, error, now = new Date()) => {
+                    const message = cleanText(error?.message || '请求失败').slice(0, 220) || '请求失败';
+                    opportunity.lastError = message;
+                    opportunity.status = 'failed';
+                    opportunity.retryAt = '';
+                    const retryDelay = PHONE_REPLY_RETRY_DELAYS_MS[opportunity.attemptCount - 1];
+                    if (Number.isFinite(retryDelay)) {
+                        opportunity.status = 'retryable';
+                        opportunity.retryAt = new Date(now.getTime() + retryDelay).toISOString();
+                    }
+                    addLog(`PHONE REPLY: opportunity=${opportunity.id}; result=${opportunity.status}; attempt=${opportunity.attemptCount}; error=${message}`, 'warn');
+                };
+                const runPhoneReplyOpportunity = async (opportunity) => {
+                    const catId = getCanonicalCatId(opportunity.contactId);
                     const cat = cats.value.find(item => sameCatId(item.id, catId));
-                    const contact = phoneIdentities.value[catId];
-                    const pending = getPendingPhoneMessages(catId);
-                    if (!cat || !contact || !pending.length) return;
+                    const contact = phoneIdentities.value?.[catId];
+                    const pending = getPhoneReplySourceMessages(opportunity);
+                    if (!cat || !contact || !pending.length || !isAcceptedPhoneContact(catId)) {
+                        opportunity.status = 'failed';
+                        opportunity.retryAt = '';
+                        opportunity.lastError = '联系人或待回复消息已不可用。';
+                        phoneReplyGenerationInFlight.delete(opportunity.id);
+                        schedulePhoneReplyReconciliation();
+                        return;
+                    }
                     const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
-                    const pendingText = pending.map(message => {
-                        if (message.type === 'image') return `馆长发来照片：${message.desc || '一张图片'}`;
-                        if (message.type === 'location') return `馆长分享了位置：${message.content}`;
-                        if (message.type === 'red-envelope' || message.type === 'transfer') return `馆长发送${message.type === 'red-envelope' ? '红包' : '转账'}：${message.content} G`;
-                        return `馆长：${message.content}`;
-                    }).join('\n');
-                    phoneState.isTyping = true;
+                    const pendingText = pending.map(formatPhoneReplySource).join('\n');
+                    const wasOpen = isExactPhoneConversationOpen(catId);
+                    if (wasOpen) phoneState.isTyping = true;
                     const prompt = `
 【喵信私聊】
 你正在以 ${contact.name} 的公开身份，和馆长进行一对一文字聊天。馆长是安全、善意的共同生活者；你需要建立可靠的沟通方式，但不能泄露自己在喵喵馆中的猫形态或任何秘密。
@@ -14517,13 +14754,13 @@ RULES:
 ${pendingText}
 
 严格输出规则：
-1. 只写可直接发送到聊天软件里的自然文字消息，使用简体中文；可自然分成 1–3 条消息，每条都应像真人即时发送。
+1. 只写可直接发送到聊天软件里的自然文字消息，使用简体中文；返回 1–4 条有序消息气泡。即时聊天可有短句、追问、停顿或后续补充；一条消息也可以正确。
 2. 禁止动作括号、【动作】、舞台指示、环境描写、第三人称旁白、角色名加冒号、小说式心理或肢体描写。
 3. 不要解释设定，不要提及“猫”“馆舍秘密”“AI”或正在扮演角色；不以默认哥谭/夜巡/英雄任务作为理由。
-4. 语气必须贴合原作人格和 ${hall.name} 的作品边界，亲密度代表熟悉程度而非敌意。保持独立与边界，但默认相信馆长没有恶意。
+4. 保持 ${contact.name} 的原作人格、时代感、知识边界、关系语气和 ${hall.name} 的作品边界；即时通讯节奏不等于现代俚语，不得为了像聊天而改变角色声音。
 5. 必须参考角色此刻在馆内的真实状态与当天时间线，用一个正常人会说的、自然克制的方式让回复与状态相连（例如刚睡醒可说“刚醒”，正在吃东西可说“刚吃完”，外出可说“现在不太方便”）。不要旁白解释，也不要直接说自己是一只猫。
 6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
-7. 总长 20–120 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"]}。不要 Markdown、解释或任何 JSON 以外的文字。
+7. 总长 12–180 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"]}。不要 Markdown、解释或任何 JSON 以外的文字。
 
 ${buildAuthoritativeUserIdentityContext()}
 ${buildCatMemoryContext(cat)}`;
@@ -14535,28 +14772,43 @@ ${buildCatMemoryContext(cat)}`;
                         });
                         const messages = parsePhoneChatReply(reply);
                         if (!messages.length) throw new Error('喵信回复格式无效。');
-                        const batchId = `phone-reply-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-                        messages.forEach(message => appendPhoneMessage(catId, 'assistant', 'text', message, { batchId }));
+                        opportunity.messages = messages;
+                        opportunity.responseBatchId = opportunity.id;
+                        opportunity.nextDeliveryIndex = 0;
+                        opportunity.nextDeliveryAt = new Date().toISOString();
+                        opportunity.status = 'delivering';
+                        opportunity.lastError = '';
+                        flushPhoneReplyDeliveries(new Date());
                     } catch (error) {
-                        if (!(error instanceof AIRequestCancelledError)) showToast('这次没有收到回复，可以稍后再试。', 'error');
+                        markPhoneReplyFailure(opportunity, error, new Date());
+                        if (!(error instanceof AIRequestCancelledError) && wasOpen) showToast('这次没有收到回复，会稍后再试。', 'error');
                     } finally {
-                        phoneState.isTyping = false;
-                        scrollPhoneChatToBottom();
+                        phoneReplyGenerationInFlight.delete(opportunity.id);
+                        if (isExactPhoneConversationOpen(catId)) {
+                            phoneState.isTyping = false;
+                            scrollPhoneChatToBottom();
+                        }
+                        schedulePhoneReplyReconciliation();
                     }
                 };
-                const reRollLastPhoneMessage = async () => {
-                    const contactId = phoneState.selectedContactId;
-                    if (!contactId || phoneState.isTyping) return;
-                    const history = getPhoneChatHistory(contactId);
-                    if (history.at(-1)?.role !== 'assistant') {
-                        showToast('先让 TA 回复后才能重抽。', 'info');
-                        return;
-                    }
-                    const batchId = history.at(-1)?.batchId;
-                    if (batchId) {
-                        while (history.at(-1)?.role === 'assistant' && history.at(-1)?.batchId === batchId) history.pop();
-                    } else history.pop();
-                    await requestPhoneReply();
+                const reconcilePhoneReplyOpportunities = async (now = new Date()) => {
+                    normalizePhoneReplyOpportunities({ now });
+                    flushPhoneReplyDeliveries(now);
+                    const nowMs = now.getTime();
+                    const due = getPhoneReplyOpportunities()
+                        .filter(item => (item.status === 'scheduled' || item.status === 'retryable') && phoneReplyDueTime(item) <= nowMs)
+                        .sort((left, right) => phoneReplyDueTime(left) - phoneReplyDueTime(right))
+                        .find(item => !phoneReplyGenerationInFlight.has(item.id));
+                    if (!due) { schedulePhoneReplyReconciliation(); return false; }
+                    // Claim before assembling the request. From this point source IDs
+                    // are immutable, so later USER messages form a subsequent turn.
+                    due.status = 'in-flight';
+                    due.claimedAt = due.claimedAt || now.toISOString();
+                    due.retryAt = '';
+                    due.attemptCount = Math.max(0, Number(due.attemptCount) || 0) + 1;
+                    phoneReplyGenerationInFlight.add(due.id);
+                    void runPhoneReplyOpportunity(due);
+                    return true;
                 };
                 const sendPhoneMessage = (typeArg = 'text', contentArg = null, descArg = null) => {
                     const type = typeof typeArg === 'string' ? typeArg : 'text';
@@ -15622,6 +15874,7 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const AWAY_ACTIVITY_PLANNING_RULES = `[AWAY LIFE PLAN]
 - AWAY means the resident has left Meeow House and resumed a meaningful part of their independent life elsewhere: work, study, training, a social commitment, an errand, a relationship, a personal project, unfinished business, or private time. They are not normally wandering the courtyard, a nearby wall, or an alley like a stray cat. Avoid vague phrases such as “处理一些事情”, “出去转转”, or “随便走走” unless concrete character-specific context makes them meaningful.
+- [SOURCE-WORLD CONTINUITY] For this newly generated Away plan, every destination, activity beat, public trace, archive narrative, and planned mail must plausibly belong to this resident's supplied canon, world, era, geography, biography, and lifestyle. Never default to generic contemporary urban businesses, technology, culture, or infrastructure when their source world does not support them. Modern places remain valid when this resident's own canon supports them. When the supplied context is uncertain, prefer a neutral, timeless plausible environment rather than inventing an anachronistic venue. This rule plans new content only; it never rewrites prior travelogues, completed episodes, archives, or delivered mail.
 - The resident may use HUMAN form offscreen when appropriate, even if the USER has not witnessed it. Never describe a transformation, unlock visible HUMAN form, expose a hidden identity/name, or imply that the USER witnessed it. This boundary also applies to publicTrace and the completed archive narrative.
 - plannedActivities is required. Use exactly 1 activity for duration under 90 minutes, 2 for 90–179 minutes, 3 for 180–359 minutes, or 4 for 360 minutes or longer. Each item is {"afterMinutes":number,"plannedResidentActivity":"private fact that will only become true at that time","publicTrace":"limited public trace"}. Make the beats distinct moments in chronological order, not paraphrases of one task. plannedResidentActivity remains private resident truth; publicTrace remains limited USER-visible evidence.
 - plannedArchiveNarrative is required for every new departure: approximately 100–200 Chinese characters, first-person, personal, reflective, character-specific prose about this outing. It may be intimate, but must not expose unrevealed HUMAN-form or hidden-identity facts, and must not turn into a system report or bullet summary.
@@ -19734,10 +19987,10 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
                             ? `Return exactly one JSON object only:\n{"updates":[{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":[],"scene":null}`
                             : `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false},{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const statusHeader = curatorRoomStatusSync
-                            ? `[CURATOR ROOM STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}). The supplied resident is physically in the USER's private Curator Room.`
+                            ? `[CURATOR ROOM STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}). The supplied resident is physically in the USER's private Curator Room, the USER's normal home base outside Hall visits.`
                             : `[STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.`;
                         const statusScopeRules = curatorRoomStatusSync
-                            ? `- Update only the supplied Curator Room resident. This is not a Hall update: do not mention or use Hall residents, Hall scenes, Hall map topology, Away data, Fridge Notes, or local co-presence.\n- CURATOR_ROOM presence, current form, home hallId, relationships, Away, Visit, and all other lifecycle state are local authority and read-only here. Return only a plausible private-room status, inner voice, and valid curatorRoomAnchor.`
+                            ? `- Update only the supplied Curator Room resident. This is not a Hall update: do not mention or use Hall residents, Hall scenes, Hall map topology, Away data, Fridge Notes, or local co-presence.\n- CURATOR_ROOM presence, current form, home hallId, relationships, Away, Visit, and all other lifecycle state are local authority and read-only here. Return only a plausible private-room status, inner voice, and valid curatorRoomAnchor.\n- This sync is not a USER arrival. App startup, resume, reload, navigation, text/map switching, rerender, and this stale refresh never mean the USER has entered the room. The USER may already have shared this room for hours through sleep, rest, or work. Do not invent a door, greeting, arrival reaction, or required USER interaction. The resident may simply continue independent room life—sleeping, reading, resting, working, looking outside, or moving around—when that is natural.`
                             : `- Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.`;
                         const statusMapRules = curatorRoomStatusSync
                             ? `Only CURATOR_ROOM residents are supplied. Use a valid curatorRoomAnchor and never return Hall map fields.`
@@ -20413,6 +20666,8 @@ ${enrichedStatusOutputContract}`;
                             mergeBuiltInCats();
                             normalizeResidentRelationshipRoster();
                             normalizeCustomHallPresentation();
+                            normalizePhoneReplyOpportunities({ recoverInFlight: true });
+                            void reconcilePhoneReplyOpportunities(new Date());
                             if (data.settings) Object.assign(settings, data.settings);
                             if (data.catPaintAssets) await restoreCatPaintBackups(data.catPaintAssets);
                             if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
@@ -20523,7 +20778,7 @@ ${enrichedStatusOutputContract}`;
                                 status: data.status,
                                 innerVoice: data.innerVoice,
                                 isOut: false,
-                                affinity: 10,
+                                affinity: DEFAULT_RESIDENT_AFFINITY,
                                 isHuman: false,
                                 hasRevealedHumanForm: false,
                                 currentForm: 'CAT',
@@ -20558,7 +20813,7 @@ ${enrichedStatusOutputContract}`;
                     const existingNames = roomCats.value.map(c => c.name).join(', ');
                     const systemPrompt = `You are ${newCat.name} (${newCat.codename || newCat.name}). Personality traits: ${newCat.personality || 'unknown'}. Breed: ${newCat.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality at all times. Do NOT act tsundere or like a generic anime cat. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Your tone, humor, emotional expression, moral boundaries and important relationships must match your established character. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}.`;
                     const id = Date.now();
-                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住', isOut: false, affinity: 10, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false });
+                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住', isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false });
                     currentTab.value = 'lounge';
                 };
 
@@ -20567,7 +20822,7 @@ ${enrichedStatusOutputContract}`;
                         const existingNames = roomCats.value.map(c => c.name).join(', ');
                         const systemPrompt = `You are ${gachaResult.value.name}. Personality: ${gachaResult.value.personality || 'unknown'}. Breed: ${gachaResult.value.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality. Do NOT default to tsundere or generic cute-cat behavior. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Express your character\'s unique voice, emotional range, worldview, moral boundaries and important relationships authentically. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}. ${gachaResult.value.prompt}`;
                         const id = Date.now();
-                            cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: 10, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], residentRelationships: {}, innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
+                            cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], residentRelationships: {}, innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
                         currentTab.value = 'lounge';
                     }
                     gachaResult.value = null;
@@ -20945,14 +21200,16 @@ ${episodicMemory}`;
 
                     tempUserStatus.value = user.currentStatus;
                     ensurePhonePresenceConsiderationSchedule();
+                    normalizePhoneReplyOpportunities({ recoverInFlight: true });
+                    void reconcilePhoneReplyOpportunities(new Date());
                     checkSpecialEvent();
                     reconcileAwayEpisodes(new Date());
                     checkDailyInitialization();
                     applyUISettings();
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
-                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); currentTime.value = now; }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); checkDailyInitialization(); currentTime.value = now; } });
+                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); currentTime.value = now; }, 30000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });
@@ -20992,7 +21249,7 @@ ${episodicMemory}`;
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
                     showCatVisitModal, visitCat, visitTargetHallId, visitMessage, visitIsProcessing, openCatVisit, sendCatVisiting, returnVisitingCat,
                     handleImageUpload, adoptCat, wishAdoptCat, isWishLoading,
-                    friendsList, sendFriendRequest, acceptFriendRequest,
+                    friendsList, phoneConversationList, sendFriendRequest, acceptFriendRequest,
                     saveSettings: () => { settings.baseUrl = normalizeApiBaseUrl(settings.baseUrl); persistSettings(); showToast("数据已加密保存", "success"); },
                     persistSelectedModel,
                     persistSettings,
@@ -21033,7 +21290,7 @@ ${episodicMemory}`;
                     readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, readerTocRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
                     openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, confirmReaderCompanionChapters, continueReaderIndependently, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
-                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, getUnreadPhonePresenceCount, phonePresenceUnreadCount, sendPhoneMessage, requestPhoneReply, hasPendingPhoneReply, reRollLastPhoneMessage, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
+                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, getUnreadPhonePresenceCount, phonePresenceUnreadCount, sendPhoneMessage, retryPhoneReplyOpportunity, phoneReplyNeedsManualRetry, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
                     openPhoneImageComposer, openPhoneLocationComposer, openPhoneMoneyComposer, togglePhoneEmojiPicker, phoneShowEmojiPicker, insertEmoji,
                     showMsgMenu, startLongPress, cancelLongPress, replyToMsg, reactToMsg, copyMsg, recallMsg,
                     openMomentsSettings, saveMomentsSettings, likeMoment, addComment, postMoment,
