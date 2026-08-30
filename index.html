@@ -8161,10 +8161,14 @@
                         <template v-else-if="catArchiveTab === 'away'">
                             <article v-for="record in getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey)" :key="record.id" class="log-paper relative">
                                 <div class="border-b border-gray-400 pb-2 mb-3 flex flex-wrap justify-between gap-x-3 gap-y-1">
-                                    <span class="font-bold text-sm">离馆记录</span>
-                                    <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(record.item.returnedAt || record.item.plannedReturnAt) }}</span>
+                                    <span class="font-bold text-sm">{{ record.item.recoveredFromTravelogues ? '历史外出记录' : '离馆记录' }}</span>
+                                    <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(record.item.recoveredFromTravelogues ? record.item.lastTraceAt : (record.item.returnedAt || record.item.plannedReturnAt)) }}</span>
                                 </div>
-                                <dl class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
+                                <dl v-if="record.item.recoveredFromTravelogues" class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
+                                    <dt style="color: var(--ui-text-muted);">最早记录</dt><dd>{{ formatAwayArchiveTime(record.item.departedAt) }}</dd>
+                                    <dt style="color: var(--ui-text-muted);">最后记录</dt><dd>{{ formatAwayArchiveTime(record.item.lastTraceAt) }}</dd>
+                                </dl>
+                                <dl v-else class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
                                     <dt style="color: var(--ui-text-muted);">地点</dt><dd class="break-words">{{ cleanText(record.item.destination) || '未留下地点记录' }}</dd>
                                     <dt style="color: var(--ui-text-muted);">离馆时间</dt><dd>{{ formatAwayArchiveTime(record.item.departedAt) }}</dd>
                                     <dt style="color: var(--ui-text-muted);">回馆时间</dt><dd>{{ formatAwayArchiveTime(record.item.returnedAt || record.item.plannedReturnAt) }}</dd>
@@ -16487,6 +16491,55 @@ ${buildCatMemoryContext(cat)}`;
                     });
                     return timeline.sort((a, b) => new Date(a.at) - new Date(b.at) || a.id.localeCompare(b.id));
                 };
+                const getLegacyAwayArchiveEpisodes = (cat) => {
+                    if (!cat || !Array.isArray(cat.travelogues)) return [];
+                    const residentId = String(cat.id || '');
+                    const knownEpisodeIds = new Set(normalizeAwayEpisodes(awayEpisodes.value)
+                        .filter(episode => String(episode.residentId) === residentId)
+                        .map(episode => String(episode.id)));
+                    const tracesByEpisode = new Map();
+                    cat.travelogues.forEach(trace => {
+                        const episodeId = String(trace?.episodeId || '').trim();
+                        const at = parseLogicalDate(trace?.at);
+                        if (!episodeId || knownEpisodeIds.has(episodeId) || trace?.source !== 'away' || !at) return;
+                        const traces = tracesByEpisode.get(episodeId) || [];
+                        traces.push({ trace, at });
+                        tracesByEpisode.set(episodeId, traces);
+                    });
+                    return [...tracesByEpisode.entries()].map(([id, traces]) => {
+                        traces.sort((left, right) => left.at - right.at);
+                        const firstAt = traces[0].at.toISOString();
+                        const lastAt = traces[traces.length - 1].at.toISOString();
+                        const returnTrace = [...traces].reverse().find(({ trace }) =>
+                            /回到了\s*Meeow House/.test(cleanText(trace?.content || ''))
+                        );
+                        // This is an archive projection only. The resident's saved
+                        // trace times are the sole recovered facts; no destination,
+                        // activity plan, mail decision, or live Away state is created.
+                        return {
+                            id,
+                            residentId,
+                            hallId: String(cat.hallId || ''),
+                            departedAt: firstAt,
+                            plannedReturnAt: lastAt,
+                            returnedAt: returnTrace ? returnTrace.at.toISOString() : null,
+                            lastTraceAt: lastAt,
+                            destination: '',
+                            plannedReturnStatus: '',
+                            plannedArchiveNarrative: '',
+                            activityPlans: [],
+                            mailPlan: [],
+                            mailDecision: null,
+                            status: 'completed',
+                            legacy: true,
+                            recoveredFromTravelogues: true
+                        };
+                    }).sort((left, right) => new Date(right.departedAt) - new Date(left.departedAt) || String(left.id).localeCompare(String(right.id)));
+                };
+                const getAwayArchiveEpisodes = (cat) => [
+                    ...getCompletedAwayEpisodes(cat),
+                    ...getLegacyAwayArchiveEpisodes(cat)
+                ];
                 const CAT_ARCHIVE_TABS = ['relationship', 'daily', 'away', 'explore', 'visit'];
                 const isOperationalDayKey = (value) => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
                 const getArchiveOperationalDayKey = (record, { allowLegacyDate = false } = {}) => {
@@ -16503,7 +16556,7 @@ ${buildCatMemoryContext(cat)}`;
                 const getCatArchiveRecords = (cat, tab) => {
                     if (!cat) return [];
                     if (tab === 'away') {
-                        return getCompletedAwayEpisodes(cat)
+                        return getAwayArchiveEpisodes(cat)
                             .map(episode => ({
                                 id: String(episode.id),
                                 dateKey: getOperationalDayKey(episode.departedAt),
@@ -20072,6 +20125,7 @@ ${enrichedStatusOutputContract}`;
                         const data = JSON.stringify({
                             version: 2,
                             user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings,
+                            awayEpisodes: awayEpisodes.value,
                             catPaintAssets
                         });
                         const blob = new Blob([data], { type: 'application/json' });
@@ -20674,7 +20728,7 @@ ${episodicMemory}`;
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
-                    CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
+                    CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
