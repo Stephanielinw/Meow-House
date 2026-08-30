@@ -5889,9 +5889,25 @@
                                     <span v-else class="w-8"></span>
                                 </div>
                                 <div v-if="phoneState.fanfic.view === 'library'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-                                    <button type="button" @click="createFanficDraft" class="reader-panel w-full p-4 rounded-2xl text-left"><i class="fas fa-plus mr-2" style="color:var(--accent)"></i><span class="font-black text-sm">新建作品</span></button>
-                                    <div v-if="fanficWorks.length === 0" class="reader-panel rounded-2xl p-7 text-center text-xs" style="color:var(--ui-text-muted)">这里安静地收着你的故事。想写的时候再开始。</div>
-                                    <button v-for="work in fanficWorks" :key="work.id" type="button" @click="openFanficWork(work.id)" class="reader-book-card w-full p-4 text-left"><div class="font-black text-sm truncate">《{{ work.title || '未命名作品' }}》</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">第 {{ work.revision }} 版 · 最近编辑：{{ formatFanficTime(work.updatedAt) }}</div></button>
+                                    <div class="flex items-center gap-2 text-[11px]" style="color:var(--ui-text-muted)">
+                                        <button v-if="phoneState.fanfic.folderId" type="button" @click="goUpFanficFolder" class="font-black shrink-0" style="color:var(--accent)"><i class="fas fa-chevron-left mr-1"></i>返回</button>
+                                        <span class="truncate">{{ fanficFolderBreadcrumb }}</span>
+                                    </div>
+                                    <div class="grid grid-cols-[1fr_auto] gap-2">
+                                        <button type="button" @click="createFanficDraft" class="rounded-2xl px-4 py-3 text-left" style="background:var(--accent); color:var(--accent-contrast)"><i class="fas fa-plus mr-2"></i><span class="font-black text-sm">新建文章</span></button>
+                                        <button type="button" @click="createFanficFolder" class="reader-panel rounded-2xl px-3 py-3 text-xs font-black" title="新建文件夹"><i class="fas fa-folder-plus"></i></button>
+                                    </div>
+                                    <div v-if="fanficFolderChildren.length || fanficWorkChildren.length" class="space-y-2">
+                                        <div v-for="folder in fanficFolderChildren" :key="folder.id" class="reader-book-card flex items-center gap-2 p-3">
+                                            <button type="button" @click="openFanficFolder(folder.id)" class="min-w-0 flex-1 text-left"><div class="truncate text-sm font-black"><i class="fas fa-folder mr-2" style="color:var(--accent)"></i>{{ folder.name }}</div><div class="mt-1 text-[10px]" style="color:var(--ui-text-muted)">文件夹</div></button>
+                                            <button type="button" @click.stop="manageFanficFolder(folder.id)" class="h-9 w-9 shrink-0 rounded-xl text-xs" style="background:var(--ui-surface-hover); color:var(--ui-text-muted)" aria-label="管理文件夹"><i class="fas fa-ellipsis"></i></button>
+                                        </div>
+                                        <div v-for="work in fanficWorkChildren" :key="work.id" class="reader-book-card flex items-center gap-2 p-3">
+                                            <button type="button" @click="openFanficWork(work.id)" class="min-w-0 flex-1 text-left"><div class="truncate text-sm font-black">{{ work.title || '未命名文章' }}</div><div class="mt-1 text-[10px]" style="color:var(--ui-text-muted)">最近编辑：{{ formatFanficTime(work.updatedAt) }}<span v-if="getFanficWorkShareCount(work.id)"> · 已分享</span></div></button>
+                                            <button type="button" @click.stop="openFanficWorkOptions(work.id)" class="h-9 w-9 shrink-0 rounded-xl text-xs" style="background:var(--ui-surface-hover); color:var(--ui-text-muted)" aria-label="管理文章"><i class="fas fa-ellipsis"></i></button>
+                                        </div>
+                                    </div>
+                                    <div v-else class="reader-panel rounded-2xl p-7 text-center text-xs" style="color:var(--ui-text-muted)">这里安静地收着你的文章。想写的时候再开始。</div>
                                 </div>
                                 <div v-else-if="phoneState.fanfic.view === 'editor'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                                     <input v-model="phoneState.fanfic.draft.title" maxlength="120" class="w-full rounded-xl p-3 text-sm" style="background:var(--ui-surface-hover); color:var(--ui-text)" placeholder="作品标题">
@@ -5910,6 +5926,11 @@
                                 </div>
                                 <div v-else-if="phoneState.fanfic.view === 'channel'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar"><div class="reader-panel rounded-2xl p-4"><div class="font-black">分享给 {{ getResidentPublicName(getCatById(phoneState.fanfic.recipientId)) }}</div><div class="text-xs mt-2" style="color:var(--ui-text-muted)">选择这一次真实发生的分享方式。</div></div><button v-for="channel in selectedFanficRecipientChannels" :key="channel" type="button" @click="createFanficShare(channel)" class="reader-panel w-full rounded-2xl p-4 text-left"><div class="font-black text-sm">{{ getFanficChannelLabel(channel) }}</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">{{ channel === 'in-person' ? '仅限此刻真实同处一地。' : '仅限已互加的喵信好友。' }}</div></button></div>
                                 <div v-else-if="phoneState.fanfic.view === 'share' && activeFanficShare" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar"><div class="reader-panel rounded-2xl p-4"><div class="font-black text-base">{{ getResidentPublicName(getCatById(activeFanficShare.recipientId)) }}</div><div class="text-[10px] mt-1" style="color:var(--ui-text-muted)">{{ getFanficChannelLabel(activeFanficShare.channel) }} · {{ getFanficShareStatusLabel(activeFanficShare.status) }}</div><div class="mt-3 text-xs leading-relaxed whitespace-pre-wrap">{{ activeFanficShare.reaction || activeFanficShare.failureMessage || '正在等待这次阅读反应。' }}</div><button v-if="activeFanficShare.status === 'failed'" type="button" @click="retryFanficShare(activeFanficShare.id)" class="mt-4 rounded-xl px-3 py-2 text-xs font-black" style="background:var(--accent); color:var(--accent-contrast)">重新尝试阅读</button></div><details class="reader-panel rounded-2xl p-4"><summary class="text-xs font-black cursor-pointer">查看当时分享的冻结版本</summary><div class="mt-3"><div class="font-bold text-sm">《{{ activeFanficShare.titleSnapshot }}》</div><p class="whitespace-pre-wrap text-xs leading-relaxed mt-2">{{ activeFanficShare.bodySnapshot }}</p></div></details></div>
+                                <div v-else-if="phoneState.fanfic.view === 'move-work'" class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                                    <div class="reader-panel rounded-2xl p-4 text-xs" style="color:var(--ui-text-muted)">选择文章要放入的文件夹。整理不会改动作品版本或已分享的冻结内容。</div>
+                                    <button type="button" @click="moveFanficWorkToFolder(null)" class="reader-panel w-full rounded-2xl p-3 text-left"><i class="fas fa-house mr-2" style="color:var(--accent)"></i><span class="font-black text-sm">同人文</span></button>
+                                    <button v-for="folder in fanficWorkMoveTargets" :key="folder.id" type="button" @click="moveFanficWorkToFolder(folder.id)" class="reader-panel w-full rounded-2xl p-3 text-left"><i class="fas fa-folder mr-2" style="color:var(--accent)"></i><span class="font-black text-sm">{{ folder.path }}</span></button>
+                                </div>
                             </div>
 
                             <!-- Scanner App -->
@@ -9455,7 +9476,11 @@
                     const presence = cat?.curatorRoomPresence;
                     const anchor = String(presence?.anchor || '').trim();
                     return presence && typeof presence === 'object' && !Array.isArray(presence) && CURATOR_ROOM_ANCHORS[anchor]
-                        ? { anchor, enteredAt: typeof presence.enteredAt === 'string' ? presence.enteredAt : '' }
+                        ? {
+                            anchor,
+                            enteredAt: typeof presence.enteredAt === 'string' ? presence.enteredAt : '',
+                            lastStatusSyncAt: typeof presence.lastStatusSyncAt === 'string' ? presence.lastStatusSyncAt : ''
+                        }
                         : null;
                 };
                 const isResidentInCuratorRoom = (cat) => Boolean(getCuratorRoomPresence(cat));
@@ -9486,6 +9511,9 @@
                         }
                         if (!presence.enteredAt || Number.isNaN(new Date(presence.enteredAt).getTime())) {
                             cat.curatorRoomPresence = { anchor: presence.anchor, enteredAt: new Date(0).toISOString() };
+                            changed = true;
+                        } else if (presence.lastStatusSyncAt && Number.isNaN(new Date(presence.lastStatusSyncAt).getTime())) {
+                            cat.curatorRoomPresence = { anchor: presence.anchor, enteredAt: presence.enteredAt };
                             changed = true;
                         }
                         occupants.push(cat);
@@ -10331,6 +10359,11 @@
                 const activeAIRequestId = ref(null);
                 const statusRefreshInFlight = new Map();
                 const hallStatusRefreshPending = new Map();
+                const CURATOR_ROOM_STATUS_STALE_MS = 30 * 60 * 1000;
+                const curatorRoomStatusInFlight = new Map();
+                const curatorRoomStatusAttempts = new Set();
+                let curatorRoomVisitSequence = 0;
+                let activeCuratorRoomVisitId = 0;
                 let hallEntryRequestSequence = 0;
                 let statusRefreshTaskSequence = 0;
                 let dailyInitializationPromise = null;
@@ -10704,7 +10737,9 @@
                         activeWorkId: null,
                         activeShareId: null,
                         recipientId: null,
-                        draft: { id: null, title: '', body: '' },
+                        folderId: null,
+                        moveWorkId: null,
+                        draft: { id: null, title: '', body: '', folderId: null },
                         entryLocation: null,
                         isGenerating: false
                     },
@@ -12595,7 +12630,69 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     currentTab.value = tab;
                 };
 
+                const getCuratorRoomSyncKey = (cat, presence = getCuratorRoomPresence(cat)) =>
+                    cat && presence?.enteredAt ? `${String(cat.id)}:${presence.enteredAt}` : '';
+                const isCuratorRoomSyncOwner = (guard) => {
+                    const cat = cats.value.find(item => String(item.id) === String(guard?.residentId || ''));
+                    const presence = getCuratorRoomPresence(cat);
+                    return Boolean(presence && presence.enteredAt === guard?.enteredAt);
+                };
+                const isCuratorRoomStatusFresh = (presence, now = Date.now()) => {
+                    const lastSync = new Date(presence?.lastStatusSyncAt || '').getTime();
+                    return Number.isFinite(lastSync) && now - lastSync < CURATOR_ROOM_STATUS_STALE_MS;
+                };
+                const maybeRefreshCuratorRoomStatus = () => {
+                    const cat = curatorRoomResident.value;
+                    const presence = getCuratorRoomPresence(cat);
+                    const syncKey = getCuratorRoomSyncKey(cat, presence);
+                    if (!cat || !presence || !syncKey || isCuratorRoomStatusFresh(presence)) return Promise.resolve(false);
+                    const visitAttemptKey = `${activeCuratorRoomVisitId}:${syncKey}`;
+                    if (curatorRoomStatusAttempts.has(visitAttemptKey)) return curatorRoomStatusInFlight.get(syncKey) || Promise.resolve(false);
+                    curatorRoomStatusAttempts.add(visitAttemptKey);
+                    const existing = curatorRoomStatusInFlight.get(syncKey);
+                    if (existing) return existing;
+
+                    const now = new Date();
+                    const homeHallId = String(cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham'));
+                    const homeHall = { ...(halls.value.find(hall => String(hall.id) === homeHallId) || currentHall.value) };
+                    const form = getResidentForm(cat);
+                    const task = _refreshAllStatus(true, '', [], '', false, false, {
+                        requestHallId: homeHallId,
+                        requestHall: homeHall,
+                        frozenCatsToUpdate: [cat],
+                        frozenNow: now,
+                        presenceDirectives: { [String(cat.id)]: 'CURATOR_ROOM' },
+                        awayMailDecisions: {},
+                        formDirectives: {
+                            [String(cat.id)]: {
+                                currentForm: form,
+                                targetForm: form,
+                                requiredForm: form,
+                                roll: null,
+                                transitioned: false,
+                                automatic: false
+                            }
+                        },
+                        priority: 'background',
+                        curatorRoomStatusSync: {
+                            residentId: String(cat.id),
+                            enteredAt: presence.enteredAt,
+                            visitId: activeCuratorRoomVisitId
+                        },
+                        label: `CURATOR ROOM STATUS · ${getResidentPublicName(cat)}`,
+                        dedupeKey: `curator-room-status-${syncKey}`
+                    }).finally(() => {
+                        if (curatorRoomStatusInFlight.get(syncKey) === task) curatorRoomStatusInFlight.delete(syncKey);
+                    });
+                    curatorRoomStatusInFlight.set(syncKey, task);
+                    return task;
+                };
+
                 const openCuratorRoom = () => {
+                    const continuingCuratorVisit =
+                        (currentTab.value === 'lounge' && loungeView.value === 'curator') ||
+                        (currentTab.value === 'detail' && detailReturnOrigin.value === 'curator');
+                    if (!continuingCuratorVisit) activeCuratorRoomVisitId = ++curatorRoomVisitSequence;
                     rememberHallScrollPosition();
                     // A Hall Status request may keep updating world state after the
                     // USER leaves, but it no longer owns any foreground Hall UI.
@@ -12617,6 +12714,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     mapPreviewCat.value = null;
                     curatorRoomMapPreviewCat.value = null;
                     setContentScrollTop(0);
+                    if (!continuingCuratorVisit) void maybeRefreshCuratorRoomStatus();
                 };
                 const openCurrentHall = () => {
                     openCuratorRoom();
@@ -15950,26 +16048,74 @@ ${buildCatMemoryContext(cat)}`;
                 // resident/world prompt context as if their events were real.
                 const FANFIC_MAX_TITLE_LENGTH = 120;
                 const FANFIC_MAX_BODY_LENGTH = 12000;
+                const FANFIC_MAX_FOLDER_NAME_LENGTH = 60;
                 const createFanficId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                 const fanficWorks = computed(() => Array.isArray(user.fanfic?.works)
                     ? [...user.fanfic.works].sort((left, right) => String(right.updatedAt || '').localeCompare(String(left.updatedAt || '')))
                     : []);
                 const fanficShares = computed(() => Array.isArray(user.fanfic?.shares) ? user.fanfic.shares : []);
+                const fanficFolders = computed(() => Array.isArray(user.fanfic?.folders) ? user.fanfic.folders : []);
                 const activeFanficWork = computed(() => fanficWorks.value.find(work => String(work.id) === String(phoneState.fanfic.activeWorkId)) || null);
                 const activeFanficShares = computed(() => activeFanficWork.value
                     ? fanficShares.value.filter(share => String(share.workId) === String(activeFanficWork.value.id))
                     : []);
                 const activeFanficShare = computed(() => fanficShares.value.find(share => String(share.id) === String(phoneState.fanfic.activeShareId)) || null);
+                const getFanficFolderById = (folderId) => fanficFolders.value.find(folder => String(folder.id) === String(folderId)) || null;
+                const getNormalizedFanficFolderId = (folderId) => getFanficFolderById(folderId) ? String(folderId) : null;
+                const getFanficFolderPath = (folderId) => {
+                    const labels = []; const visited = new Set(); let cursor = getFanficFolderById(folderId);
+                    while (cursor && !visited.has(String(cursor.id))) {
+                        visited.add(String(cursor.id)); labels.unshift(cursor.name); cursor = getFanficFolderById(cursor.parentFolderId);
+                    }
+                    return labels.length ? `同人文 / ${labels.join(' / ')}` : '同人文';
+                };
+                const fanficFolderBreadcrumb = computed(() => getFanficFolderPath(phoneState.fanfic.folderId));
+                const fanficFolderChildren = computed(() => fanficFolders.value
+                    .filter(folder => (folder.parentFolderId || null) === getNormalizedFanficFolderId(phoneState.fanfic.folderId))
+                    .sort((left, right) => String(left.name).localeCompare(String(right.name), 'zh-CN')));
+                const fanficWorkChildren = computed(() => fanficWorks.value
+                    .filter(work => (work.folderId || null) === getNormalizedFanficFolderId(phoneState.fanfic.folderId)));
+                const fanficWorkMoveTargets = computed(() => fanficFolders.value
+                    .map(folder => ({ ...folder, path: getFanficFolderPath(folder.id) }))
+                    .sort((left, right) => left.path.localeCompare(right.path, 'zh-CN')));
                 const normalizeFanficText = (value, limit) => String(value || '').replace(/\r\n/g, '\n').trim().slice(0, limit);
+                const normalizeFanficFolderName = (value) => normalizeFanficText(value, FANFIC_MAX_FOLDER_NAME_LENGTH);
                 const ensureFanficData = () => {
-                    if (!user.fanfic || typeof user.fanfic !== 'object' || Array.isArray(user.fanfic)) user.fanfic = { works: [], shares: [] };
+                    if (!user.fanfic || typeof user.fanfic !== 'object' || Array.isArray(user.fanfic)) user.fanfic = { works: [], shares: [], folders: [] };
                     if (!Array.isArray(user.fanfic.works)) user.fanfic.works = [];
                     if (!Array.isArray(user.fanfic.shares)) user.fanfic.shares = [];
+                    if (!Array.isArray(user.fanfic.folders)) user.fanfic.folders = [];
                     return user.fanfic;
                 };
                 const normalizeFanficData = () => {
                     if (!user.fanfic || typeof user.fanfic !== 'object' || Array.isArray(user.fanfic)) return false;
                     const data = ensureFanficData(); let changed = false;
+                    const folderIds = new Set();
+                    data.folders = data.folders.filter(folder => {
+                        if (!folder || typeof folder !== 'object' || !String(folder.id || '').trim() || folderIds.has(String(folder.id))) { changed = true; return false; }
+                        const name = normalizeFanficFolderName(folder.name);
+                        const createdAt = !Number.isNaN(new Date(folder.createdAt).getTime()) ? folder.createdAt : new Date(0).toISOString();
+                        const updatedAt = !Number.isNaN(new Date(folder.updatedAt).getTime()) ? folder.updatedAt : createdAt;
+                        if (!name) { changed = true; return false; }
+                        folderIds.add(String(folder.id));
+                        if (name !== folder.name || createdAt !== folder.createdAt || updatedAt !== folder.updatedAt) changed = true;
+                        Object.assign(folder, { name, createdAt, updatedAt });
+                        return true;
+                    });
+                    data.folders.forEach(folder => {
+                        let parentId = String(folder.parentFolderId || '').trim();
+                        if (!parentId || parentId === String(folder.id) || !folderIds.has(parentId)) parentId = '';
+                        const ancestry = new Set([String(folder.id)]);
+                        let cursor = parentId;
+                        while (cursor) {
+                            if (ancestry.has(cursor)) { parentId = ''; break; }
+                            ancestry.add(cursor);
+                            const parent = data.folders.find(item => String(item.id) === cursor);
+                            cursor = parent ? String(parent.parentFolderId || '').trim() : '';
+                        }
+                        const normalizedParent = parentId || null;
+                        if (folder.parentFolderId !== normalizedParent) { folder.parentFolderId = normalizedParent; changed = true; }
+                    });
                     const workIds = new Set();
                     data.works = data.works.filter(work => {
                         if (!work || typeof work !== 'object' || !String(work.id || '').trim() || workIds.has(String(work.id))) { changed = true; return false; }
@@ -15979,8 +16125,9 @@ ${buildCatMemoryContext(cat)}`;
                         const revision = Math.max(1, Number.parseInt(work.revision, 10) || 1);
                         const createdAt = !Number.isNaN(new Date(work.createdAt).getTime()) ? work.createdAt : new Date(0).toISOString();
                         const updatedAt = !Number.isNaN(new Date(work.updatedAt).getTime()) ? work.updatedAt : createdAt;
-                        if (title !== work.title || body !== work.body || revision !== work.revision || createdAt !== work.createdAt || updatedAt !== work.updatedAt) changed = true;
-                        Object.assign(work, { title, body, revision, createdAt, updatedAt });
+                        const folderId = folderIds.has(String(work.folderId || '')) ? String(work.folderId) : null;
+                        if (title !== work.title || body !== work.body || revision !== work.revision || createdAt !== work.createdAt || updatedAt !== work.updatedAt || folderId !== (work.folderId || null)) changed = true;
+                        Object.assign(work, { title, body, revision, createdAt, updatedAt, folderId });
                         return true;
                     });
                     const seen = new Set();
@@ -16028,17 +16175,77 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const fanficRecipientCandidates = computed(() => cats.value.map(cat => ({ cat, channels: getFanficChannelsForResident(cat) })).filter(entry => entry.channels.length));
                 const selectedFanficRecipientChannels = computed(() => getFanficChannelsForResident(getCatById(phoneState.fanfic.recipientId)));
-                const openFanficLibrary = () => {
-                    resetPhoneTransientUI(); phoneState.currentApp = 'fanfic'; phoneState.fanfic.view = 'library'; phoneState.fanfic.activeWorkId = null; phoneState.fanfic.activeShareId = null; phoneState.fanfic.recipientId = null;
+                const getFanficWorkShareCount = (workId) => fanficShares.value.filter(share => String(share.workId) === String(workId)).length;
+                const openFanficLibrary = (folderId = phoneState.fanfic.folderId) => {
+                    ensureFanficData();
+                    resetPhoneTransientUI(); phoneState.currentApp = 'fanfic'; phoneState.fanfic.view = 'library'; phoneState.fanfic.activeWorkId = null; phoneState.fanfic.activeShareId = null; phoneState.fanfic.recipientId = null; phoneState.fanfic.moveWorkId = null;
+                    phoneState.fanfic.folderId = getNormalizedFanficFolderId(folderId);
                 };
                 const closeFanficApp = () => {
-                    phoneState.fanfic.view = 'library'; phoneState.fanfic.activeWorkId = null; phoneState.fanfic.activeShareId = null; phoneState.fanfic.recipientId = null; phoneState.fanfic.draft = { id: null, title: '', body: '' }; phoneState.currentApp = 'home';
+                    phoneState.fanfic.view = 'library'; phoneState.fanfic.activeWorkId = null; phoneState.fanfic.activeShareId = null; phoneState.fanfic.recipientId = null; phoneState.fanfic.folderId = null; phoneState.fanfic.moveWorkId = null; phoneState.fanfic.draft = { id: null, title: '', body: '', folderId: null }; phoneState.currentApp = 'home';
                 };
-                const createFanficDraft = () => { phoneState.fanfic.draft = { id: null, title: '', body: '' }; phoneState.fanfic.view = 'editor'; };
-                const openFanficWork = (workId) => { phoneState.fanfic.activeWorkId = workId; phoneState.fanfic.activeShareId = null; phoneState.fanfic.view = 'work'; };
+                const openFanficFolder = (folderId) => {
+                    const folder = getFanficFolderById(folderId); if (!folder) return;
+                    phoneState.fanfic.folderId = String(folder.id); phoneState.fanfic.view = 'library';
+                };
+                const goUpFanficFolder = () => {
+                    const folder = getFanficFolderById(phoneState.fanfic.folderId);
+                    phoneState.fanfic.folderId = folder?.parentFolderId || null;
+                };
+                const hasDuplicateFanficSiblingName = (name, parentFolderId, exceptId = '') => fanficFolders.value.some(folder =>
+                    String(folder.id) !== String(exceptId) &&
+                    (folder.parentFolderId || null) === (parentFolderId || null) &&
+                    folder.name.localeCompare(name, 'zh-CN', { sensitivity: 'accent' }) === 0
+                );
+                const createFanficFolder = () => {
+                    const name = normalizeFanficFolderName(window.prompt('文件夹名称') || '');
+                    if (!name) return;
+                    const parentFolderId = getNormalizedFanficFolderId(phoneState.fanfic.folderId);
+                    if (hasDuplicateFanficSiblingName(name, parentFolderId)) return showToast('当前位置已有同名文件夹。', 'warn');
+                    const now = new Date().toISOString();
+                    ensureFanficData().folders.push({ id: createFanficId('fanfic-folder'), name, parentFolderId, createdAt: now, updatedAt: now });
+                };
+                const manageFanficFolder = (folderId) => {
+                    const folder = getFanficFolderById(folderId); if (!folder) return;
+                    const action = window.prompt(`管理文件夹《${folder.name}》：输入“改名”或“删除”`, '改名');
+                    if (action === '改名') {
+                        const name = normalizeFanficFolderName(window.prompt('新的文件夹名称', folder.name) || '');
+                        if (!name || name === folder.name) return;
+                        if (hasDuplicateFanficSiblingName(name, folder.parentFolderId, folder.id)) return showToast('当前位置已有同名文件夹。', 'warn');
+                        folder.name = name; folder.updatedAt = new Date().toISOString();
+                    } else if (action === '删除') {
+                        const hasChildren = fanficFolders.value.some(item => String(item.parentFolderId || '') === String(folder.id)) || fanficWorks.value.some(work => String(work.folderId || '') === String(folder.id));
+                        if (hasChildren) return showToast('请先移走或整理文件夹内的内容。', 'warn');
+                        if (!window.confirm(`删除空文件夹《${folder.name}》？`)) return;
+                        const data = ensureFanficData(); data.folders.splice(data.folders.findIndex(item => String(item.id) === String(folder.id)), 1);
+                        if (String(phoneState.fanfic.folderId) === String(folder.id)) phoneState.fanfic.folderId = folder.parentFolderId || null;
+                    }
+                };
+                const createFanficDraft = () => { phoneState.fanfic.draft = { id: null, title: '', body: '', folderId: getNormalizedFanficFolderId(phoneState.fanfic.folderId) }; phoneState.fanfic.view = 'editor'; };
+                const openFanficWork = (workId) => {
+                    const work = fanficWorks.value.find(item => String(item.id) === String(workId)); if (!work) return;
+                    phoneState.fanfic.folderId = getNormalizedFanficFolderId(work.folderId); phoneState.fanfic.activeWorkId = work.id; phoneState.fanfic.activeShareId = null; phoneState.fanfic.view = 'work';
+                };
                 const editFanficWork = (workId) => {
                     const work = fanficWorks.value.find(item => String(item.id) === String(workId)); if (!work) return;
-                    phoneState.fanfic.draft = { id: work.id, title: work.title, body: work.body }; phoneState.fanfic.view = 'editor';
+                    phoneState.fanfic.draft = { id: work.id, title: work.title, body: work.body, folderId: getNormalizedFanficFolderId(work.folderId) }; phoneState.fanfic.view = 'editor';
+                };
+                const openFanficWorkOptions = (workId) => {
+                    const work = fanficWorks.value.find(item => String(item.id) === String(workId)); if (!work) return;
+                    const action = window.prompt(`管理文章《${work.title || '未命名文章'}》：输入“移动”或“删除”`, '移动');
+                    if (action === '移动') { phoneState.fanfic.moveWorkId = work.id; phoneState.fanfic.view = 'move-work'; }
+                    else if (action === '删除') {
+                        if (getFanficWorkShareCount(work.id)) return showToast('这篇文章已有阅读记录，不能删除。', 'warn');
+                        if (!window.confirm(`删除文章《${work.title || '未命名文章'}》？`)) return;
+                        const data = ensureFanficData(); data.works.splice(data.works.findIndex(item => String(item.id) === String(work.id)), 1);
+                    }
+                };
+                const moveFanficWorkToFolder = (folderId) => {
+                    const work = fanficWorks.value.find(item => String(item.id) === String(phoneState.fanfic.moveWorkId)); if (!work) return;
+                    work.folderId = getNormalizedFanficFolderId(folderId);
+                    phoneState.fanfic.folderId = work.folderId;
+                    phoneState.fanfic.moveWorkId = null;
+                    openFanficWork(work.id);
                 };
                 const saveFanficDraft = () => {
                     const title = normalizeFanficText(phoneState.fanfic.draft.title, FANFIC_MAX_TITLE_LENGTH);
@@ -16046,9 +16253,10 @@ ${buildCatMemoryContext(cat)}`;
                     if (!title || !body) return showToast('请先写下标题和正文。', 'error');
                     const data = ensureFanficData(); const now = new Date().toISOString();
                     let work = data.works.find(item => String(item.id) === String(phoneState.fanfic.draft.id));
-                    if (!work) { work = { id: createFanficId('fanfic-work'), title, body, revision: 1, createdAt: now, updatedAt: now }; data.works.push(work); }
+                    const folderId = getNormalizedFanficFolderId(phoneState.fanfic.draft.folderId);
+                    if (!work) { work = { id: createFanficId('fanfic-work'), title, body, revision: 1, createdAt: now, updatedAt: now, folderId }; data.works.push(work); }
                     else if (work.title !== title || work.body !== body) Object.assign(work, { title, body, revision: Number(work.revision || 1) + 1, updatedAt: now });
-                    phoneState.fanfic.activeWorkId = work.id; phoneState.fanfic.draft = { id: work.id, title: work.title, body: work.body }; phoneState.fanfic.view = 'work';
+                    phoneState.fanfic.folderId = work.folderId || null; phoneState.fanfic.activeWorkId = work.id; phoneState.fanfic.draft = { id: work.id, title: work.title, body: work.body, folderId: work.folderId || null }; phoneState.fanfic.view = 'work';
                     showToast('作品已保存。', 'success');
                 };
                 const openFanficSharePicker = (workId) => { phoneState.fanfic.activeWorkId = workId; phoneState.fanfic.recipientId = null; phoneState.fanfic.view = 'picker'; };
@@ -18442,9 +18650,6 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             return `Homepage Chat activeCat 缺少有效 ${field}。`;
                         }
                     }
-                    if (!Array.isArray(payload.awayPlans)) {
-                        return 'Homepage Chat 回包缺少 awayPlans 数组。';
-                    }
                     if (hasMechanicalAppearanceRepetition(active.reply, currentMessage, recentUserMessages)) {
                         return MECHANICAL_APPEARANCE_REPLY_ERROR;
                     }
@@ -18564,6 +18769,16 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             now: frozenNow,
                             mailDecisions: frozenAwayMailDecisions
                         });
+                        // Homepage chat itself never depends on a top-level Away array.
+                        // When local code has no frozen semantic plan work, omit the field
+                        // entirely so an otherwise valid active reply cannot be retried for it.
+                        const homepageHasAwayPlanWork = frozenAwayPromptContract.mode !== AWAY_PROMPT_MODES.NO_AWAY_WORK;
+                        const homepageAwayOutputSchema = homepageHasAwayPlanWork
+                            ? `,"awayPlans":${frozenAwayPromptContract.awayPlansExample}`
+                            : '';
+                        const homepageAwayOutputRules = homepageHasAwayPlanWork
+                            ? frozenAwayPromptContract.instructions
+                            : '[AWAY AUTHORITY] There is no frozen Away semantic work in this Homepage response. Do not include awayPlans or invent a departure; local lifecycle and presence state remain authoritative.';
                         const frozenFridgeNoteCandidates = buildFridgeNoteReactionCandidates({
                             hallId: requestHallId,
                             residents: frozenBystanders
@@ -18665,10 +18880,10 @@ ${getCompactMapPointPromptGuide()}`
                         Return exactly this JSON shape. All text values must be Simplified Chinese:
                         [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
                         [${frozenBystanderIds.join(', ')}]
-                        Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching hallUpdates[].id machine key.
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}],"awayPlans":${frozenAwayPromptContract.awayPlansExample}${frozenFridgeNoteOutputSchema}}
-                        ${frozenAwayPromptContract.instructions}
-                        Do not include the active cat in hallUpdates or awayPlans.
+                        Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name.${homepageHasAwayPlanWork ? ' For every requested awayPlans[] entry, residentId MUST exactly equal its matching frozen bystander machine key.' : ''}
+                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}]${homepageAwayOutputSchema}${frozenFridgeNoteOutputSchema}}
+                        ${homepageAwayOutputRules}
+                        Do not include the active cat in hallUpdates${homepageHasAwayPlanWork ? ' or awayPlans' : ''}.
                         `;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
@@ -18716,7 +18931,7 @@ ${getCompactMapPointPromptGuide()}`
                                 frozenNow,
                                 operationalDayKey: frozenOperationalDayKey,
                                 updates: payload.hallUpdates,
-                                awayPlans: payload.awayPlans,
+                                awayPlans: Array.isArray(payload.awayPlans) ? payload.awayPlans : [],
                                 fridgeNoteReactions: payload.fridgeNoteReactions,
                                 presenceDirectives: frozenPresenceDirectives,
                                 awayMailDecisions: frozenAwayMailDecisions,
@@ -19263,6 +19478,9 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         statusCompletion.unmatched = [];
                     }
                     const isBackgroundStatusSync = requestOptions.priority === 'background';
+                    const curatorRoomStatusSync = requestOptions.curatorRoomStatusSync && typeof requestOptions.curatorRoomStatusSync === 'object'
+                        ? requestOptions.curatorRoomStatusSync
+                        : null;
                     if (!settings.apiKey) {
                         if (statusCompletion) statusCompletion.lastError = '未配置 API 密钥。';
                         if (forceUpdate) {
@@ -19277,7 +19495,14 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         return false;
                     }
                     const now = requestOptions.frozenNow ? new Date(requestOptions.frozenNow) : new Date();
-                    const reconciliation = reconcileAwayEpisodes(now);
+                    if (curatorRoomStatusSync && !isCuratorRoomSyncOwner(curatorRoomStatusSync)) {
+                        addLog(`CURATOR ROOM STATUS DROPPED: resident=${String(curatorRoomStatusSync.residentId || '')}; reason=occupancy-no-longer-owned`, 'info');
+                        if (statusCompletion) statusCompletion.complete = true;
+                        return true;
+                    }
+                    const reconciliation = curatorRoomStatusSync
+                        ? { returnedResidentIds: [] }
+                        : reconcileAwayEpisodes(now);
                     const justSettledReturnIds = new Set(reconciliation.returnedResidentIds || []);
                     const fullHallCats = cats.value.filter(cat => getCatHallId(cat) === requestHallId);
                     const physicalHallCats = fullHallCats.filter(cat => !isResidentInCuratorRoom(cat));
@@ -19308,20 +19533,22 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const h = now.getHours();
                     const isNight = (h >= 22 || h < 6);
                     const operationalDayKey = requestOptions.operationalDayKey || getOperationalDayKey(now);
-                    const sceneMode = requestOptions.sceneMode === 'user-directed' || requestOptions.sceneMode === 'ambient'
+                    const sceneMode = !curatorRoomStatusSync && (requestOptions.sceneMode === 'user-directed' || requestOptions.sceneMode === 'ambient')
                         ? requestOptions.sceneMode
                         : '';
                     const sceneContext = sceneMode ? (requestOptions.sceneContext || {}) : null;
                     const protectedSceneParticipantIds = new Set((requestOptions.protectedSceneParticipantIds || [])
                         .map(id => String(id || '')).filter(Boolean));
                     let pendingStatusDayRefresh = false;
-                    try {
-                        pendingStatusDayRefresh = localStorage.getItem(STATUS_DAY_REFRESH_PENDING_KEY) === operationalDayKey;
-                    } catch (error) {
-                        addLog(`STATUS SYNC DAY MARKER READ FAILED: ${error.message}`, 'warn');
+                    if (!curatorRoomStatusSync) {
+                        try {
+                            pendingStatusDayRefresh = localStorage.getItem(STATUS_DAY_REFRESH_PENDING_KEY) === operationalDayKey;
+                        } catch (error) {
+                            addLog(`STATUS SYNC DAY MARKER READ FAILED: ${error.message}`, 'warn');
+                        }
                     }
                     const userContext = buildStatusSyncUserContext(additionalContext);
-                    const scheduledAwaySummary = fullHallCats
+                    const scheduledAwaySummary = curatorRoomStatusSync ? '' : fullHallCats
                         .filter(cat => getActiveAwayEpisode(cat, now))
                         .map(cat => `${getResidentPublicName(cat)} — currently away from Meeow House`)
                         .join('; ');
@@ -19420,24 +19647,28 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                 ? { ...requestOptions.awayMailDecisions }
                                 : buildAwayMailDecisions(presenceDirectives)
                         );
-                        const fridgeNoteCandidates = buildFridgeNoteReactionCandidates({
-                            hallId: requestHallId,
-                            residents: requestedCats.filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
-                        });
+                        const fridgeNoteCandidates = curatorRoomStatusSync
+                            ? []
+                            : buildFridgeNoteReactionCandidates({
+                                hallId: requestHallId,
+                                residents: requestedCats.filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
+                            });
                         const fridgeNotePromptContract = buildFridgeNoteReactionPromptContract(fridgeNoteCandidates);
                         const fridgeNoteOutputSchema = fridgeNoteCandidates.length
                             ? ',"fridgeNoteReactions":[{"noteId":"exact selected note id","residentId":"exact selected resident id","kind":"annotation|feline-trace","content":"short trace"}]'
                             : '';
-                        if (localDepartureSchedule) {
+                        if (localDepartureSchedule && !curatorRoomStatusSync) {
                             addLog(formatAwayLocalScheduleLog(requestHall.name, localDepartureSchedule), 'info');
                         }
-                        const awayPromptContract = buildAwayPromptContract({
-                            residents: requestedCats,
-                            presenceDirectives,
-                            now,
-                            carriedAwayPlans: requestOptions.prevalidatedAwayPlans,
-                            mailDecisions: awayMailDecisions
-                        });
+                        const awayPromptContract = curatorRoomStatusSync
+                            ? { awayPlansExample: '[]', instructions: '' }
+                            : buildAwayPromptContract({
+                                residents: requestedCats,
+                                presenceDirectives,
+                                now,
+                                carriedAwayPlans: requestOptions.prevalidatedAwayPlans,
+                                mailDecisions: awayMailDecisions
+                            });
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
                         if (statusCompletion) statusCompletion.expected = requestedIds.length;
@@ -19455,10 +19686,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         }
 
                         const homeCats = physicalHallCats.filter(cat => !cat.isOut);
-                        const hallSocialContext = homeCats.length >= 2
+                        const hallSocialContext = curatorRoomStatusSync
+                            ? ''
+                            : homeCats.length >= 2
                             ? `\n[HALL SOCIAL — HOME RESIDENTS ONLY]: At home: ${homeCats.map(cat => getResidentPublicName(cat)).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior. This never applies to a CURATOR_ROOM resident.`
                             : `\n[HALL SOCIAL — HOME RESIDENTS ONLY]: Fewer than two cats are home; do not invent cat-to-cat interaction. This never applies to a CURATOR_ROOM resident.`;
-                        const publicResidentNameContract = buildResidentPublicNameContract(physicalHallCats);
+                        const publicResidentNameContract = buildResidentPublicNameContract(curatorRoomStatusSync ? requestedCats : physicalHallCats);
 
                         const gnnTrendsGlobal = user.phoneData.gnn?.trending?.slice(0, 3)
                             .map(t => `#${truncateMemoryText(t.topic || '', 28)}`).filter(Boolean).join(', ') || 'None';
@@ -19497,37 +19730,49 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
 - Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is normal first-class communication for each HUMAN participant, not a rare exception: when a shared moment naturally involves questions, explanations, promises, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange, normally let brief natural dialogue carry that content, enriched by ears, tail, posture, gesture, and expression rather than replaced by them. Keep cohesive third-person prose, not dialogue-row screenplay formatting. Do not force speech: silence remains valid when it is an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice.
 - relationshipDeltas is optional metadata and never required for a valid scene. If supplied, use only frozen participant IDs and the bounded integer fields/tags described for the user-directed scene. Judge each direction only from visible shared-scene material and that resident's legitimate observable experience; ignore private/hidden context, inner voices, diaries, episodic memories, Away material, and other residents' private context. Do not force symmetry or relationship change for mundane presence.`
                                 : '';
-                        const enrichedStatusOutputContract = `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false},{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
-                        const prompt = `[STATUS SYNC]
-Time: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
+                        const enrichedStatusOutputContract = curatorRoomStatusSync
+                            ? `Return exactly one JSON object only:\n{"updates":[{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":[],"scene":null}`
+                            : `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false},{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
+                        const statusHeader = curatorRoomStatusSync
+                            ? `[CURATOR ROOM STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}). The supplied resident is physically in the USER's private Curator Room.`
+                            : `[STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.`;
+                        const statusScopeRules = curatorRoomStatusSync
+                            ? `- Update only the supplied Curator Room resident. This is not a Hall update: do not mention or use Hall residents, Hall scenes, Hall map topology, Away data, Fridge Notes, or local co-presence.\n- CURATOR_ROOM presence, current form, home hallId, relationships, Away, Visit, and all other lifecycle state are local authority and read-only here. Return only a plausible private-room status, inner voice, and valid curatorRoomAnchor.`
+                            : `- Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.`;
+                        const statusMapRules = curatorRoomStatusSync
+                            ? `Only CURATOR_ROOM residents are supplied. Use a valid curatorRoomAnchor and never return Hall map fields.`
+                            : `Only HOME residents use exactly one listed Hall mapPoint. CURATOR_ROOM residents use a valid curatorRoomAnchor only, never Hall map fields. Status must naturally match its location; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.\n${getCompactMapPointPromptGuide()}`;
+                        const statusOutputRules = curatorRoomStatusSync
+                            ? `Use these opaque machine keys exactly as shown. Every updates[].id MUST exactly equal one allowed key above; return each requested key exactly once. Return awayPlans:[] and scene:null.`
+                            : `Use these opaque machine keys exactly as shown. Every updates[].id MUST exactly equal one allowed key above; return each requested key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching updates[].id machine key. Return exactly ${requestedIds.length} status updates and never stop after a partial list.`;
+                        const prompt = `${statusHeader}
 GNN: ${gnnTrendsGlobal}
 ${publicResidentNameContract}
-${userContext}${newOperationalDayContext}${activeCatContext}${hallSocialContext}
+${userContext}${curatorRoomStatusSync ? '' : `${newOperationalDayContext}${activeCatContext}${hallSocialContext}`}
 
 ${formatLocalPresenceAuthority(presenceDirectives)}
 ${formatFormLifecycleAuthority(formDirectives)}
 ${formatResidentFormExpressionContract()}
 
 [RULES]
-- Update only supplied cats in this hall; never import another hall, DC/superhero premises, or unsupported relationships.
+${statusScopeRules}
 - Stored canon and [STATUS SYNC CONTEXT] are binding. Cat form never changes personality. Low affinity means boundaries/independent rhythm, never default fear, hostility, or contempt toward the safe owner.
 - Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
 - Form: [FORM LIFECYCLE AUTHORITY] is final. Echo each supplied target form exactly; never choose a form. Narrate a CAT↔HUMAN transition only when its directive says transition=AUTHORIZED, and never invent one otherwise.
 - Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic.
 - [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the cat is still in that exact place or activity at this Status Sync time.
-- [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with [LOCAL PRESENCE AUTHORITY], not a new presence decision.
-- [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. These residents are outside Meeow House for a locally scheduled absence. They are context only: do not output updates for them, do not invent their destination or activity, and do not place them in hall scenes.
+- [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action and inner voice. Do not independently decide, infer, or change HOME/AWAY.${curatorRoomStatusSync ? '' : ' A crossed operational day requires a fresh current activity consistent with [LOCAL PRESENCE AUTHORITY], not a new presence decision.'}
+${curatorRoomStatusSync ? '' : `- [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. These residents are outside Meeow House for a locally scheduled absence. They are context only: do not output updates for them, do not invent their destination or activity, and do not place them in hall scenes.`}
 - [CURATOR ROOM ISOLATION] A resident marked CURATOR_ROOM is physically in the USER's private Curator Room, not in this Hall. Their own [CURRENT-LIFE CONTEXT] is complete for current location: never place them in Hall scenes, Hall social life, Hall map topology, Fridge Notes, or local co-presence.
-${scenePrompt}
+${curatorRoomStatusSync ? '' : scenePrompt}
 
 [MAP]
-Only HOME residents use exactly one listed Hall mapPoint. CURATOR_ROOM residents use a valid curatorRoomAnchor only, never Hall map fields. Status must naturally match its location; never use stove/hearth/hot surfaces. sink-basin is safe-water scenes only.
-${getCompactMapPointPromptGuide()}
+${statusMapRules}
 
 [OUTPUT]
 [ALLOWED MACHINE IDS FOR THIS RESPONSE]
 [${requestedIds.join(', ')}]
-Use these opaque machine keys exactly as shown. Every updates[].id MUST exactly equal one allowed key above; return each requested key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching updates[].id machine key. Return exactly ${requestedIds.length} status updates and never stop after a partial list.
+${statusOutputRules}
 ${enrichedStatusOutputContract}`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
@@ -19582,6 +19827,11 @@ ${enrichedStatusOutputContract}`;
                         }
 
                         if (Array.isArray(updates)) {
+                            if (curatorRoomStatusSync && !isCuratorRoomSyncOwner(curatorRoomStatusSync)) {
+                                addLog(`CURATOR ROOM STATUS DROPPED: resident=${String(curatorRoomStatusSync.residentId || '')}; reason=occupancy-changed-before-apply`, 'info');
+                                if (statusCompletion) statusCompletion.complete = true;
+                                return true;
+                            }
                             const responseEntries = updates.filter(update => update && typeof update === 'object');
                             const receivedIds = responseEntries.map(update => String(update.id ?? '')).filter(Boolean);
                             const requestedIdSet = new Set(requestedIds);
@@ -19658,7 +19908,8 @@ ${enrichedStatusOutputContract}`;
                                             const existingPresence = getCuratorRoomPresence(cat);
                                             cat.curatorRoomPresence = {
                                                 anchor: String(update.curatorRoomAnchor || existingPresence?.anchor || 'floor'),
-                                                enteredAt: existingPresence?.enteredAt || new Date(now).toISOString()
+                                                enteredAt: existingPresence?.enteredAt || new Date(now).toISOString(),
+                                                lastStatusSyncAt: new Date(now).toISOString()
                                             };
                                         }
                                     } else if (originalPresenceById.get(updateId) !== false && update.isOut !== undefined) {
@@ -19896,8 +20147,8 @@ ${enrichedStatusOutputContract}`;
                                 }
                             }
 
-                            localStorage.setItem('last_sync_time', Date.now().toString());
-                            if ((!requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)) && activeHallId.value === requestHallId) {
+                            if (!curatorRoomStatusSync) localStorage.setItem('last_sync_time', Date.now().toString());
+                            if (!curatorRoomStatusSync && (!requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)) && activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
@@ -20777,8 +21028,8 @@ ${episodicMemory}`;
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef, rememberPhoneChatScrollPosition,
-                    fanficWorks, activeFanficWork, activeFanficShares, activeFanficShare, fanficRecipientCandidates, selectedFanficRecipientChannels, formatFanficTime, getFanficChannelLabel, getFanficShareStatusLabel,
-                    openFanficLibrary, closeFanficApp, createFanficDraft, openFanficWork, editFanficWork, saveFanficDraft, openFanficSharePicker, selectFanficRecipient, createFanficShare, openFanficShare, retryFanficShare,
+                    fanficWorks, fanficFolderChildren, fanficWorkChildren, fanficWorkMoveTargets, fanficFolderBreadcrumb, activeFanficWork, activeFanficShares, activeFanficShare, fanficRecipientCandidates, selectedFanficRecipientChannels, formatFanficTime, getFanficChannelLabel, getFanficShareStatusLabel, getFanficWorkShareCount,
+                    openFanficLibrary, closeFanficApp, openFanficFolder, goUpFanficFolder, createFanficFolder, manageFanficFolder, createFanficDraft, openFanficWork, editFanficWork, openFanficWorkOptions, moveFanficWorkToFolder, saveFanficDraft, openFanficSharePicker, selectFanficRecipient, createFanficShare, openFanficShare, retryFanficShare,
                     readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, readerTocRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
                     openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, confirmReaderCompanionChapters, continueReaderIndependently, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
