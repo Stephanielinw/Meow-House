@@ -9400,6 +9400,23 @@
                     }
                     migrateSceneRecords(payload.hallSceneRecords, idMap);
                     migrateResidentRecordArrays(payload.awayEpisodes, 'residentId', null, idMap);
+                    if (Array.isArray(payload.lifeThreads)) {
+                        payload.lifeThreads.forEach(thread => {
+                            if (thread && typeof thread === 'object') {
+                                migrateResidentIdArrayField(thread, 'participantIds', idMap);
+                                if (thread.continuation?.operation && typeof thread.continuation.operation === 'object') {
+                                    migrateResidentIdField(thread.continuation.operation, 'actorId', idMap);
+                                }
+                            }
+                        });
+                    }
+                    if (Array.isArray(payload.knowledgeLedger)) {
+                        payload.knowledgeLedger.forEach(edge => {
+                            if (edge?.knowerType === 'resident' && migrateResidentIdField(edge, 'knowerId', idMap)) {
+                                stats.migrated += 1;
+                            }
+                        });
+                    }
                     if (stats.migrated || stats.collisions) console.info(`GOTHAM ID MIGRATION: migrated=${stats.migrated}; collisions=${stats.collisions}`);
                     return Boolean(stats.migrated || stats.collisions);
                 };
@@ -9453,6 +9470,14 @@
                 // Away episodes are world-owned schedules. They keep a resident's
                 // planned absence independent from transient Status Sync output.
                 const awayEpisodes = ref([]);
+                // Life Threads are hidden, world-owned unresolved consequences. They
+                // deliberately sit outside resident memory and never imply knowledge.
+                const lifeThreads = ref([]);
+                let savedLifeThreads = [];
+                // Knowledge edges point at world-truth Life Thread facts. They are
+                // neither resident memory nor a second copy of those facts.
+                const knowledgeLedger = ref([]);
+                let savedKnowledgeLedger = [];
                 let rosterMigrationPendingSave = false;
                 const CURATOR_ROOM_ANCHORS = Object.freeze({
                     bed: Object.freeze({ label: '床边', x: 24, y: 73 }),
@@ -9627,6 +9652,8 @@
                         }
                         if (Array.isArray(parsed.hallSceneRecords)) hallSceneRecords.value = parsed.hallSceneRecords;
                         if (Array.isArray(parsed.awayEpisodes)) awayEpisodes.value = parsed.awayEpisodes;
+                        if (Array.isArray(parsed.lifeThreads)) savedLifeThreads = parsed.lifeThreads;
+                        if (Array.isArray(parsed.knowledgeLedger)) savedKnowledgeLedger = parsed.knowledgeLedger;
                         if (parsed.settings) {
                             // Keep a saved custom model. Older versions replaced
                             // any model containing "gpt" during migration, which
@@ -11243,7 +11270,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 const isWishLoading = ref(false);
 
                 window.Meeow.storage.configure({
-                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings, hallSceneRecords: hallSceneRecords.value, awayEpisodes: awayEpisodes.value }),
+                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings, hallSceneRecords: hallSceneRecords.value, awayEpisodes: awayEpisodes.value, lifeThreads: lifeThreads.value, knowledgeLedger: knowledgeLedger.value }),
                     storageKey: STORAGE_KEY,
                     modelStorageKey: MODEL_STORAGE_KEY,
                     addLog: (...args) => addLog(...args),
@@ -11255,7 +11282,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 const scheduleSave = window.Meeow.storage.scheduleSave;
                 // Coalesce legacy reactive changes into one write instead of
                 // serializing the whole archive for every intermediate field change.
-                watch([user, cats, halls, shopItems, settings, hallSceneRecords, awayEpisodes], scheduleSave, { deep: true, flush: 'post' });
+                watch([user, cats, halls, shopItems, settings, hallSceneRecords, awayEpisodes, lifeThreads, knowledgeLedger], scheduleSave, { deep: true, flush: 'post' });
                 if (rosterMigrationPendingSave) {
                     rosterMigrationPendingSave = false;
                     scheduleSave();
@@ -13317,13 +13344,39 @@ ${episodicMemory}
                     return { content, requestedCheck, shouldEnd };
                 };
 
-                const requestExploreNarration = (prompt, label) => callAI(
+                // Transport-only structured request helper. Callers own all
+                // presentation, navigation and lifecycle behavior through options;
+                // private world-engine work therefore never inherits Explore UI.
+                const requestStructuredEngine = (prompt, {
+                    systemPrompt,
+                    maxTokens = 1000,
+                    thinkingLevel = ThinkingLevel.LOW,
+                    label = 'MEEOW HOUSE STRUCTURED ENGINE',
+                    priority = 'foreground',
+                    validateResponse = null,
+                    maxAttempts = null,
+                    dedupeKey = ''
+                } = {}) => callAI(
                     prompt,
-                    EXPLORE_KP_SYSTEM_PROMPT,
-                    1000,
-                    ThinkingLevel.LOW,
-                    { label, priority: 'foreground', validateResponse: validateExploreNarration }
+                    systemPrompt,
+                    maxTokens,
+                    thinkingLevel,
+                    {
+                        label,
+                        priority,
+                        validateResponse,
+                        ...(Number.isInteger(maxAttempts) ? { maxAttempts } : {}),
+                        ...(dedupeKey ? { dedupeKey } : {})
+                    }
                 );
+                const requestExploreNarration = (prompt, label) => requestStructuredEngine(prompt, {
+                    systemPrompt: EXPLORE_KP_SYSTEM_PROMPT,
+                    maxTokens: 1000,
+                    thinkingLevel: ThinkingLevel.LOW,
+                    label,
+                    priority: 'foreground',
+                    validateResponse: validateExploreNarration
+                });
 
                 const getDiceResultClass = (res) => {
                     if (res === '大成功') return 'text-green-400 font-black';
@@ -17735,9 +17788,676 @@ ${buildCatMemoryContext(cat)}`;
                     addLog
                 });
                 const normalizeAwayEpisodes = awayLifecycle.normalizeEpisodes;
+                // --- Life Threads: hidden world-engine state only ---
+                // Persisted narrative text is evidence-only: every stored atom is copied
+                // from an accepted event, never invented as an unseen world fact.
+                const LIFE_THREAD_TEXT_LIMITS = Object.freeze({ title: 100, summary: 320, beat: 320, fact: 220 });
+                const LIFE_THREAD_CONTINUATION_DELAYS_MS = Object.freeze({
+                    short: Object.freeze([12 * 60 * 60 * 1000, 36 * 60 * 60 * 1000]),
+                    long: Object.freeze([3 * 24 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000])
+                });
+                const LIFE_THREAD_CONTINUATION_RETRY_MS = 60 * 60 * 1000;
+                let lifeThreadIdSequence = 0;
+                const makeLifeThreadId = (prefix = 'life-thread', at = Date.now()) =>
+                    `${prefix}-${at}-${(++lifeThreadIdSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+                const validLifeThreadDate = value => typeof value === 'string' && !Number.isNaN(new Date(value).getTime());
+                const lifeThreadText = (value, limit) => cleanText(value || '').slice(0, limit);
+                const rollLifeThreadContinuationAt = (kind, from = new Date()) => {
+                    const [minimum, maximum] = LIFE_THREAD_CONTINUATION_DELAYS_MS[kind === 'long' ? 'long' : 'short'];
+                    return new Date(from.getTime() + minimum + Math.floor(Math.random() * (maximum - minimum + 1))).toISOString();
+                };
+                const makeLifeThreadContinuationToken = (threadId, at = Date.now()) =>
+                    `life-thread-continuation-${String(threadId)}-${at}-${Math.random().toString(36).slice(2, 8)}`;
+                const normalizeLifeThreadContinuation = (raw, { id, kind, status, createdAt, lastAdvancedAt }, now = new Date()) => {
+                    if (status !== 'open') return {
+                        nextOpportunityAt: '', lastOpportunityAt: '', lastContinuationAt: '', actorCursor: 0, operation: null
+                    };
+                    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+                    const nextOpportunityAt = validLifeThreadDate(source.nextOpportunityAt)
+                        ? source.nextOpportunityAt
+                        // A pre-Continuation legacy Thread gets its first opportunity
+                        // from this installation time, never retroactively from an old beat.
+                        : rollLifeThreadContinuationAt(kind, now);
+                    const lastOpportunityAt = validLifeThreadDate(source.lastOpportunityAt) ? source.lastOpportunityAt : '';
+                    const lastContinuationAt = validLifeThreadDate(source.lastContinuationAt) ? source.lastContinuationAt : '';
+                    const actorCursor = Math.max(0, Math.trunc(Number(source.actorCursor) || 0));
+                    const rawOperation = source.operation && typeof source.operation === 'object' && !Array.isArray(source.operation)
+                        ? source.operation
+                        : null;
+                    if (!rawOperation || !String(rawOperation.token || '').trim() || !String(rawOperation.sourceEventId || '').trim()) {
+                        return { nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor, operation: null };
+                    }
+                    const actorId = String(rawOperation.actorId || '').trim();
+                    const factIds = [...new Set((Array.isArray(rawOperation.factIds) ? rawOperation.factIds : [])
+                        .map(value => String(value || '').trim()).filter(Boolean))];
+                    const startedAt = validLifeThreadDate(rawOperation.startedAt) ? rawOperation.startedAt : now.toISOString();
+                    const retryAt = validLifeThreadDate(rawOperation.retryAt)
+                        ? rawOperation.retryAt
+                        : new Date(new Date(startedAt).getTime() + LIFE_THREAD_CONTINUATION_RETRY_MS).toISOString();
+                    if (!actorId || !factIds.length) return { nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor, operation: null };
+                    return {
+                        nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor,
+                        operation: {
+                            token: String(rawOperation.token), sourceEventId: String(rawOperation.sourceEventId), actorId, factIds,
+                            // A restored page has no live request; even persisted in-flight
+                            // work becomes this same frozen retryable operation.
+                            status: 'retryable',
+                            startedAt, attemptCount: Math.max(1, Math.min(2, Math.trunc(Number(rawOperation.attemptCount) || 1))),
+                            retryAt, lastError: lifeThreadText(rawOperation.lastError, 240)
+                        }
+                    };
+                };
+                const normalizedLifeThreadIds = (ids, allowed) => [...new Set((Array.isArray(ids) ? ids : [])
+                    .map(id => String(id || '').trim()).filter(id => allowed.has(id)))];
+                const normalizeLifeThreadFacts = (facts, beatId, usedFactIds) => {
+                    const seen = new Set();
+                    return (Array.isArray(facts) ? facts : []).map((fact, index) => {
+                        const text = lifeThreadText(fact?.text, LIFE_THREAD_TEXT_LIMITS.fact);
+                        if (!text || seen.has(text)) return null;
+                        seen.add(text);
+                        let id = String(fact?.id || '').trim();
+                        if (!id || usedFactIds.has(id)) id = `${beatId}:fact:${index + 1}`;
+                        usedFactIds.add(id);
+                        return { id, text };
+                    }).filter(Boolean).slice(0, 4);
+                };
+                const normalizeLifeThreads = records => {
+                    const knownResidents = new Set(cats.value.map(cat => String(cat?.id || '')).filter(Boolean));
+                    const knownHalls = new Set(halls.value.map(hall => String(hall?.id || '')).filter(Boolean));
+                    const usedThreadIds = new Set();
+                    return (Array.isArray(records) ? records : []).map((raw, index) => {
+                        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+                        const participantIds = normalizedLifeThreadIds(raw.participantIds, knownResidents);
+                        const hallIds = normalizedLifeThreadIds(raw.hallIds, knownHalls);
+                        const kind = raw.kind === 'long' ? 'long' : raw.kind === 'short' ? 'short' : '';
+                        const status = ['open', 'resolved', 'expired'].includes(raw.status) ? raw.status : '';
+                        const createdAt = validLifeThreadDate(raw.createdAt) ? raw.createdAt : '';
+                        const title = lifeThreadText(raw.title, LIFE_THREAD_TEXT_LIMITS.title);
+                        const summary = lifeThreadText(raw.summary, LIFE_THREAD_TEXT_LIMITS.summary);
+                        if (!kind || !status || !createdAt || !title || !summary || !participantIds.length || !hallIds.length) return null;
+                        let id = String(raw.id || '').trim();
+                        if (!id || usedThreadIds.has(id)) id = makeLifeThreadId('life-thread-normalized', new Date(createdAt).getTime() || Date.now());
+                        usedThreadIds.add(id);
+                        const usedBeatIds = new Set(), usedFactIds = new Set(), sourceIds = new Set();
+                        const beats = (Array.isArray(raw.beats) ? raw.beats : []).map((beat, beatIndex) => {
+                            const sourceEventId = String(beat?.sourceEventId || '').trim();
+                            const happenedAt = validLifeThreadDate(beat?.happenedAt) ? beat.happenedAt : '';
+                            const summary = lifeThreadText(beat?.summary, LIFE_THREAD_TEXT_LIMITS.beat);
+                            if (!sourceEventId || sourceIds.has(sourceEventId) || !happenedAt || !summary) return null;
+                            let beatId = String(beat?.id || '').trim();
+                            if (!beatId || usedBeatIds.has(beatId)) beatId = `${id}:beat:${beatIndex + 1}`;
+                            usedBeatIds.add(beatId); sourceIds.add(sourceEventId);
+                            const facts = normalizeLifeThreadFacts(beat.facts, beatId, usedFactIds);
+                            return facts.length ? { id: beatId, sourceEventId, happenedAt, summary, facts } : null;
+                        }).filter(Boolean).slice(0, 32);
+                        if (!beats.length) return null;
+                        const resolvedAt = status === 'resolved' && validLifeThreadDate(raw.resolvedAt) ? raw.resolvedAt : null;
+                        if (status === 'resolved' && !resolvedAt) return null;
+                        const lastAdvancedAt = validLifeThreadDate(raw.lastAdvancedAt) ? raw.lastAdvancedAt : createdAt;
+                        const continuation = normalizeLifeThreadContinuation(raw.continuation, { id, kind, status, createdAt, lastAdvancedAt });
+                        return { id, kind, status, title, summary, hallIds, participantIds, createdAt,
+                            updatedAt: validLifeThreadDate(raw.updatedAt) ? raw.updatedAt : createdAt,
+                            lastAdvancedAt,
+                            resolvedAt, beats, idleWorldPasses: Math.max(0, Math.trunc(Number(raw.idleWorldPasses) || 0)), continuation };
+                    }).filter(Boolean).slice(-120);
+                };
+                const lifeThreadEvidenceContains = (evidenceText, proposedText, limit) => {
+                    const text = lifeThreadText(proposedText, limit);
+                    return text && cleanText(evidenceText || '').includes(text) ? text : '';
+                };
+                const lifeThreadFactsFromEvidence = (facts, event) => {
+                    const seen = new Set();
+                    return (Array.isArray(facts) ? facts : []).map(fact => {
+                        const text = lifeThreadEvidenceContains(event.evidenceText, fact?.evidence, LIFE_THREAD_TEXT_LIMITS.fact);
+                        if (!text || seen.has(text)) return null;
+                        seen.add(text);
+                        return {
+                            text,
+                            knowledgeClaims: Array.isArray(fact?.knowledgeClaims)
+                                ? fact.knowledgeClaims.filter(claim => claim && typeof claim === 'object' && !Array.isArray(claim)).slice(0, 8)
+                                : []
+                        };
+                    }).filter(Boolean).slice(0, 4);
+                };
+                const applyLifeThreadOperations = (event, operations) => {
+                    const knownResidents = new Set(cats.value.map(cat => String(cat?.id || '')).filter(Boolean));
+                    const knownHalls = new Set(halls.value.map(hall => String(hall?.id || '')).filter(Boolean));
+                    const scope = {
+                        sourceEventId: String(event?.sourceEventId || '').trim(),
+                        happenedAt: validLifeThreadDate(event?.happenedAt) ? event.happenedAt : '',
+                        participantIds: normalizedLifeThreadIds(event?.participantIds, knownResidents),
+                        hallIds: normalizedLifeThreadIds(event?.hallIds, knownHalls),
+                        evidenceText: cleanText(event?.evidenceText || '')
+                    };
+                    const result = { created: [], advanced: [], resolved: [], rejected: 0, touchedThreadIds: new Set() };
+                    if (!scope.sourceEventId || !scope.happenedAt || !scope.participantIds.length || !scope.hallIds.length || !scope.evidenceText) return result;
+                    const sourceAlreadyApplied = () => lifeThreads.value.some(thread => thread.beats.some(beat => beat.sourceEventId === scope.sourceEventId));
+                    for (const operation of (Array.isArray(operations) ? operations : []).slice(0, 1)) {
+                        if (!operation || typeof operation !== 'object' || Array.isArray(operation)) { result.rejected++; continue; }
+                        const action = String(operation.action || '').trim();
+                        if (action === 'create') {
+                            const kind = operation.kind === 'long' ? 'long' : operation.kind === 'short' ? 'short' : '';
+                            const participantIds = normalizedLifeThreadIds(operation.participantIds, knownResidents).filter(id => scope.participantIds.includes(id));
+                            const hallIds = normalizedLifeThreadIds(operation.hallIds, knownHalls).filter(id => scope.hallIds.includes(id));
+                            const title = lifeThreadEvidenceContains(scope.evidenceText, operation.titleEvidence, LIFE_THREAD_TEXT_LIMITS.title);
+                            const summary = lifeThreadEvidenceContains(scope.evidenceText, operation.summaryEvidence, LIFE_THREAD_TEXT_LIMITS.summary);
+                            const factEntries = lifeThreadFactsFromEvidence(operation.facts, scope);
+                            if (sourceAlreadyApplied() || !kind || !participantIds.length || !hallIds.length || !title || !summary || !factEntries.length) { result.rejected++; continue; }
+                            const id = makeLifeThreadId('life-thread', new Date(scope.happenedAt).getTime());
+                            const beatId = `${id}:beat:1`;
+                            const factBindings = factEntries.map((entry, index) => ({
+                                factId: `${beatId}:fact:${index + 1}`,
+                                factEvidence: entry.text,
+                                knowledgeClaims: entry.knowledgeClaims
+                            }));
+                            const thread = { id, kind, status: 'open', title, summary, hallIds, participantIds,
+                                createdAt: scope.happenedAt, updatedAt: scope.happenedAt, lastAdvancedAt: scope.happenedAt, resolvedAt: null,
+                                beats: [{ id: beatId, sourceEventId: scope.sourceEventId, happenedAt: scope.happenedAt, summary, facts: factEntries.map((entry, index) => ({ id: `${beatId}:fact:${index + 1}`, text: entry.text })) }],
+                                idleWorldPasses: 0,
+                                continuation: normalizeLifeThreadContinuation(null, { id, kind, status: 'open', createdAt: scope.happenedAt, lastAdvancedAt: scope.happenedAt }) };
+                            lifeThreads.value.push(thread); result.created.push({ threadId: id, factBindings }); result.touchedThreadIds.add(id); continue;
+                        }
+                        if (action !== 'advance' && action !== 'resolve') { result.rejected++; continue; }
+                        const thread = lifeThreads.value.find(item => String(item.id) === String(operation.threadId || ''));
+                        const scopeMatches = thread && (thread.hallIds.some(id => scope.hallIds.includes(id)) || thread.participantIds.some(id => scope.participantIds.includes(id)));
+                        const beatSummary = lifeThreadEvidenceContains(scope.evidenceText, operation.beatEvidence, LIFE_THREAD_TEXT_LIMITS.beat);
+                        const summary = lifeThreadEvidenceContains(scope.evidenceText, action === 'resolve' ? operation.finalSummaryEvidence : operation.updatedSummaryEvidence, LIFE_THREAD_TEXT_LIMITS.summary);
+                        const factEntries = lifeThreadFactsFromEvidence(operation.facts, scope);
+                        if (!thread || thread.status !== 'open' || !scopeMatches || thread.beats.some(beat => beat.sourceEventId === scope.sourceEventId) || !beatSummary || !summary || !factEntries.length) { result.rejected++; continue; }
+                        const beatId = `${thread.id}:beat:${thread.beats.length + 1}`;
+                        thread.beats.push({ id: beatId, sourceEventId: scope.sourceEventId, happenedAt: scope.happenedAt, summary: beatSummary, facts: factEntries.map((entry, index) => ({ id: `${beatId}:fact:${index + 1}`, text: entry.text })) });
+                        thread.summary = summary; thread.updatedAt = scope.happenedAt; thread.lastAdvancedAt = scope.happenedAt;
+                        if (action === 'resolve') { thread.status = 'resolved'; thread.resolvedAt = scope.happenedAt; result.resolved.push(thread.id); } else result.advanced.push(thread.id);
+                        result.touchedThreadIds.add(thread.id);
+                    }
+                    return result;
+                };
+                // --- Perspective Knowledge / Enigma: fact edges, not resident truth copies ---
+                const KNOWLEDGE_USER_ID = 'USER';
+                const KNOWLEDGE_ACCESS_MARKERS = Object.freeze({
+                    observed: ['看见', '看到', '目睹', '观察到', '察觉', '留意到', 'noticed', 'saw', 'observed'],
+                    heard: ['听见', '听到', '听闻', '听说', 'heard'],
+                    discovered: ['发现', '找到', '查明', '确认', '认出', 'discovered', 'found', 'confirmed'],
+                    told: ['告诉', '告知', '说明', '通知', '转告', 'told', 'informed'],
+                    shown: ['展示', '出示', '示给', 'shown', 'showed'],
+                    realized: ['意识到', '明白', '得知', '获悉', '领会', 'realized', 'learned'],
+                    'direct-discovery': ['共同发现', '一起发现', '协助查明', '共同确认', '参与发现', '发现', '找到', '查明', '确认']
+                });
+                let knowledgeEdgeIdSequence = 0;
+                const makeKnowledgeEdgeId = (at = Date.now()) =>
+                    `knowledge-edge-${at}-${(++knowledgeEdgeIdSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+                const getLifeThreadFactLocation = (factId) => {
+                    const targetId = String(factId || '').trim();
+                    if (!targetId) return null;
+                    for (const thread of lifeThreads.value) {
+                        for (const beat of (thread?.beats || [])) {
+                            const fact = (beat?.facts || []).find(item => String(item?.id || '') === targetId);
+                            if (fact) return { thread, beat, fact };
+                        }
+                    }
+                    return null;
+                };
+                const normalizeKnowledgeLedger = (records) => {
+                    const knownResidents = new Set(cats.value.map(cat => String(cat?.id || '')).filter(Boolean));
+                    const usedIds = new Set();
+                    const byEdge = new Map();
+                    (Array.isArray(records) ? records : []).forEach(raw => {
+                        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+                        const factId = String(raw.factId || '').trim();
+                        const knowerType = raw.knowerType === 'user' ? 'user' : raw.knowerType === 'resident' ? 'resident' : '';
+                        const knowerId = knowerType === 'user' ? KNOWLEDGE_USER_ID : String(raw.knowerId || '').trim();
+                        const learnedAt = validLifeThreadDate(raw.learnedAt) ? raw.learnedAt : '';
+                        const sourceEventId = String(raw.sourceEventId || '').trim();
+                        if (!factId || !getLifeThreadFactLocation(factId) || !knowerType || !learnedAt || !sourceEventId || (knowerType === 'resident' && !knownResidents.has(knowerId))) return;
+                        const edgeKey = `${factId}|${knowerType}|${knowerId}`;
+                        let id = String(raw.id || '').trim();
+                        if (!id || usedIds.has(id)) id = makeKnowledgeEdgeId(new Date(learnedAt).getTime() || Date.now());
+                        const candidate = { id, factId, knowerType, knowerId, learnedAt, sourceEventId };
+                        const existing = byEdge.get(edgeKey);
+                        if (!existing || new Date(candidate.learnedAt).getTime() < new Date(existing.learnedAt).getTime() ||
+                            (candidate.learnedAt === existing.learnedAt && candidate.id.localeCompare(existing.id) < 0)) {
+                            byEdge.set(edgeKey, candidate);
+                        }
+                        usedIds.add(id);
+                    });
+                    return [...byEdge.values()].sort((left, right) => new Date(left.learnedAt) - new Date(right.learnedAt) || left.id.localeCompare(right.id));
+                };
+                const knowledgeAccessMarkersFor = mode => KNOWLEDGE_ACCESS_MARKERS[String(mode || '')] || [];
+                const hasKnowledgeAccessMarker = (text, mode) => {
+                    const clean = cleanText(text || '').toLocaleLowerCase();
+                    return knowledgeAccessMarkersFor(mode).some(marker => clean.includes(String(marker).toLocaleLowerCase()));
+                };
+                const isNegatedKnowledgeAccess = (text, mode) => {
+                    const clean = cleanText(text || '');
+                    return knowledgeAccessMarkersFor(mode).some(marker => {
+                        const index = clean.toLocaleLowerCase().indexOf(String(marker).toLocaleLowerCase());
+                        return index >= 0 && /(?:没有|并未|未|不曾|没|not |never )$/i.test(clean.slice(Math.max(0, index - 5), index));
+                    });
+                };
+                const isNamedSceneKnowledgeAccess = (text, residentId, mode) => {
+                    const clean = cleanText(text || '');
+                    const name = getResidentPublicName(residentId);
+                    if (!clean || !name || !hasKnowledgeAccessMarker(clean, mode) || isNegatedKnowledgeAccess(clean, mode)) return false;
+                    return knowledgeAccessMarkersFor(mode).some(marker => {
+                        let markerIndex = clean.toLocaleLowerCase().indexOf(String(marker).toLocaleLowerCase());
+                        while (markerIndex >= 0) {
+                            const nameIndex = clean.indexOf(name);
+                            if (nameIndex >= 0 && Math.abs(nameIndex - markerIndex) <= 14) return true;
+                            markerIndex = clean.toLocaleLowerCase().indexOf(String(marker).toLocaleLowerCase(), markerIndex + String(marker).length);
+                        }
+                        return false;
+                    });
+                };
+                const claimHasGroundedKnowledgeAccess = (claim, event) => {
+                    const residentId = String(claim?.residentId || '').trim();
+                    const mode = String(claim?.accessMode || '').trim();
+                    const evidence = lifeThreadText(claim?.evidence, LIFE_THREAD_TEXT_LIMITS.fact);
+                    if (!residentId || !knowledgeAccessMarkersFor(mode).length || !evidence) return false;
+                    const ownEvidence = Array.isArray(event?.residentEvidence?.[residentId]) ? event.residentEvidence[residentId] : [];
+                    if (ownEvidence.some(source => cleanText(source || '').includes(evidence) && hasKnowledgeAccessMarker(evidence, mode) && !isNegatedKnowledgeAccess(evidence, mode))) return true;
+                    return cleanText(event?.sceneEvidence || '').includes(evidence) && isNamedSceneKnowledgeAccess(evidence, residentId, mode);
+                };
+                const applyKnowledgeClaims = (event, claims) => {
+                    const sourceEventId = String(event?.sourceEventId || '').trim();
+                    const learnedAt = validLifeThreadDate(event?.happenedAt) ? event.happenedAt : '';
+                    const validFactIds = new Set((event?.validFactIds || []).map(id => String(id || '').trim()).filter(Boolean));
+                    const factEvidenceById = event?.factEvidenceById && typeof event.factEvidenceById === 'object' ? event.factEvidenceById : {};
+                    const validResidentIds = new Set((event?.validResidentIds || []).map(id => String(id || '').trim()).filter(Boolean));
+                    const result = { applied: [], rejected: 0 };
+                    if (!sourceEventId || !learnedAt || !validFactIds.size) return result;
+                    (Array.isArray(claims) ? claims : []).forEach(claim => {
+                        const factId = String(claim?.factId || '').trim();
+                        const residentId = String(claim?.residentId || '').trim();
+                        const factLocation = getLifeThreadFactLocation(factId);
+                        const claimEvidence = lifeThreadText(claim?.evidence, LIFE_THREAD_TEXT_LIMITS.fact);
+                        const factEvidence = lifeThreadText(factEvidenceById[factId], LIFE_THREAD_TEXT_LIMITS.fact);
+                        if (!factId || !validFactIds.has(factId) || !residentId || !validResidentIds.has(residentId) || !factLocation || !factEvidence ||
+                            !claimEvidence.includes(factEvidence) ||
+                            String(factLocation.beat?.sourceEventId || '') !== sourceEventId || !claimHasGroundedKnowledgeAccess(claim, event)) {
+                            result.rejected++;
+                            return;
+                        }
+                        if (knowledgeLedger.value.some(edge => edge.factId === factId && edge.knowerType === 'resident' && edge.knowerId === residentId)) return;
+                        const edge = { id: makeKnowledgeEdgeId(new Date(learnedAt).getTime()), factId, knowerType: 'resident', knowerId: residentId, learnedAt, sourceEventId };
+                        knowledgeLedger.value.push(edge);
+                        result.applied.push(edge);
+                    });
+                    return result;
+                };
+                const residentKnowsFact = (residentId, factId) => knowledgeLedger.value.some(edge =>
+                    edge.knowerType === 'resident' && edge.knowerId === String(residentId || '') && edge.factId === String(factId || '')
+                );
+                const userKnowsFact = factId => knowledgeLedger.value.some(edge =>
+                    edge.knowerType === 'user' && edge.knowerId === KNOWLEDGE_USER_ID && edge.factId === String(factId || '')
+                );
+                const getKnownFactIdsForResident = residentId => knowledgeLedger.value.filter(edge =>
+                    edge.knowerType === 'resident' && edge.knowerId === String(residentId || '')
+                ).map(edge => edge.factId);
+                const getKnownFactIdsForUser = () => knowledgeLedger.value.filter(edge =>
+                    edge.knowerType === 'user' && edge.knowerId === KNOWLEDGE_USER_ID
+                ).map(edge => edge.factId);
+                const getKnownLifeThreadFactsForResident = (residentId, threadId) => {
+                    const thread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId || ''));
+                    const known = new Set(getKnownFactIdsForResident(residentId));
+                    return (thread?.beats || []).flatMap(beat => (beat?.facts || []).filter(fact => known.has(String(fact?.id || ''))));
+                };
+                const getKnowledgeHoldersForFact = factId => ({
+                    residentIds: knowledgeLedger.value.filter(edge => edge.factId === String(factId || '') && edge.knowerType === 'resident').map(edge => edge.knowerId),
+                    user: userKnowsFact(factId)
+                });
+                const buildPrivateLifeThreadKnowledgeProjection = (residentIds = [], threadIds = []) => {
+                    const wantedThreads = new Set((threadIds.length ? threadIds : lifeThreads.value.map(thread => thread.id)).map(String));
+                    return Object.fromEntries((residentIds || []).map(id => {
+                        const residentId = String(id || '');
+                        return [residentId, lifeThreads.value.filter(thread => wantedThreads.has(String(thread.id))).map(thread => ({
+                            threadId: thread.id,
+                            facts: getKnownLifeThreadFactsForResident(residentId, thread.id).map(fact => ({ id: fact.id, text: fact.text }))
+                        })).filter(entry => entry.facts.length)];
+                    }));
+                };
+                const incrementLifeThreadIdleWorldPasses = ({ hallId, touchedThreadIds = new Set(), happenedAt }) => {
+                    const at = validLifeThreadDate(happenedAt) ? happenedAt : new Date().toISOString();
+                    lifeThreads.value.forEach(thread => {
+                        if (thread.kind !== 'short' || thread.status !== 'open' || !thread.hallIds.includes(String(hallId)) || touchedThreadIds.has(thread.id)) return;
+                        thread.idleWorldPasses = Math.max(0, Math.trunc(Number(thread.idleWorldPasses) || 0)) + 1;
+                        thread.updatedAt = at;
+                    });
+                };
                 const getCompletedAwayEpisodes = (catOrId) => awayLifecycle.getCompletedEpisodes(awayEpisodes.value, catOrId);
                 const getRecentAwayReturn = (catOrId, now = new Date()) => awayLifecycle.getRecentReturn(awayEpisodes.value, catOrId, now);
                 const getActiveAwayEpisode = (catOrId, now = new Date()) => awayLifecycle.getActiveEpisode(awayEpisodes.value, catOrId, now);
+                // --- Life Thread Continuation: private, single-actor world work only ---
+                const lifeThreadContinuationInFlight = new Set();
+                let lifeThreadContinuationTimer = null;
+                const LIFE_THREAD_CONTINUATION_TRANSITION_PATTERN = /(?:离开(?:馆舍|喵喵馆|大厅)?|出馆|外出|出门|出发|旅行|赶路|串门|拜访(?:另一馆|别馆)?|进入馆长室|前往|去(?:了)?(?:码头|仓库|城市|街道|森林|岛|另一馆)|走进(?:码头|仓库|街道|森林|岛)|(?:went|left|travelled|traveled|visited)\s+(?:to|the))/i;
+                const hasLifeThreadContinuationPhysicalTransition = (text) => LIFE_THREAD_CONTINUATION_TRANSITION_PATTERN.test(cleanText(text || ''));
+                const mentionsOtherLifeThreadResident = (text, actorId) => cats.value.some(cat =>
+                    String(cat?.id || '') !== String(actorId || '') && getResidentPublicName(cat) && cleanText(text || '').includes(getResidentPublicName(cat))
+                );
+                const getLifeThreadContinuationState = (thread) => {
+                    if (!thread || typeof thread !== 'object') return null;
+                    if (!thread.continuation || typeof thread.continuation !== 'object') {
+                        thread.continuation = normalizeLifeThreadContinuation(null, thread);
+                    }
+                    return thread.continuation;
+                };
+                const scheduleNextLifeThreadContinuation = (thread, now = new Date(), { clearOperation = true } = {}) => {
+                    const continuation = getLifeThreadContinuationState(thread);
+                    if (!continuation || thread.status !== 'open') return;
+                    continuation.nextOpportunityAt = rollLifeThreadContinuationAt(thread.kind, now);
+                    if (clearOperation) continuation.operation = null;
+                };
+                const clearResolvedLifeThreadContinuation = (thread) => {
+                    const continuation = getLifeThreadContinuationState(thread);
+                    if (!continuation) return;
+                    continuation.nextOpportunityAt = '';
+                    continuation.operation = null;
+                };
+                const isLifeThreadContinuationActorEligible = (cat, thread, now = new Date()) => {
+                    if (!cat || !thread || thread.status !== 'open' || !thread.participantIds.includes(String(cat.id))) return false;
+                    if (isResidentAway(cat) || getActiveAwayEpisode(cat, now) || cat.isVisiting || isResidentInCuratorRoom(cat) || !isResidentInHall(cat)) return false;
+                    if (!thread.hallIds.includes(getResidentPhysicalHallId(cat))) return false;
+                    if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
+                    if (isFocusing.value && focusCats.value.some(item => String(item?.id || '') === String(cat.id))) return false;
+                    if (isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id)) return false;
+                    return getKnownLifeThreadFactsForResident(String(cat.id), thread.id).length > 0;
+                };
+                const selectLifeThreadContinuationActor = (thread, now = new Date()) => {
+                    const continuation = getLifeThreadContinuationState(thread);
+                    const participantIds = Array.isArray(thread?.participantIds) ? thread.participantIds.map(String) : [];
+                    if (!continuation || !participantIds.length) return null;
+                    const start = continuation.actorCursor % participantIds.length;
+                    for (let offset = 0; offset < participantIds.length; offset += 1) {
+                        const index = (start + offset) % participantIds.length;
+                        const actorId = participantIds[index];
+                        const actor = cats.value.find(cat => String(cat?.id || '') === actorId);
+                        if (!isLifeThreadContinuationActorEligible(actor, thread, now)) continue;
+                        const facts = getKnownLifeThreadFactsForResident(actorId, thread.id);
+                        if (!facts.length) continue;
+                        continuation.actorCursor = (index + 1) % participantIds.length;
+                        return { actor, actorId, factIds: facts.map(fact => String(fact.id)), facts };
+                    }
+                    return null;
+                };
+                const getFrozenLifeThreadContinuationScope = (thread, operation, now = new Date()) => {
+                    if (!thread || thread.status !== 'open' || !operation || !String(operation.actorId || '').trim()) return null;
+                    const actor = cats.value.find(cat => String(cat?.id || '') === String(operation.actorId));
+                    if (!isLifeThreadContinuationActorEligible(actor, thread, now)) return null;
+                    const knownById = new Map(getKnownLifeThreadFactsForResident(String(actor.id), thread.id)
+                        .map(fact => [String(fact.id), fact]));
+                    const facts = (operation.factIds || []).map(id => knownById.get(String(id))).filter(Boolean);
+                    return facts.length === (operation.factIds || []).length
+                        ? { actor, actorId: String(actor.id), factIds: facts.map(fact => String(fact.id)), facts }
+                        : null;
+                };
+                const parseLifeThreadContinuationCandidate = (raw) => {
+                    const payload = parseAIJSON(raw);
+                    return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
+                };
+                const validateLifeThreadContinuationCandidate = (raw, scope) => {
+                    const candidate = parseLifeThreadContinuationCandidate(raw);
+                    if (!candidate || !scope?.actorId || !Array.isArray(scope.factIds) || !scope.factIds.length) return 'Life Thread continuation response is invalid.';
+                    const outcome = String(candidate.outcome || '').trim();
+                    if (!['no-change', 'advance', 'resolve'].includes(outcome)) return 'Life Thread continuation outcome is invalid.';
+                    // Free narrative summary fields are deliberately not part of this
+                    // protocol. Program state derives stored summaries from tracked facts.
+                    if (['eventSummary', 'threadSummary', 'resolutionReason'].some(key => cleanText(candidate[key] || ''))) {
+                        return 'Continuation may not include untracked narrative fields.';
+                    }
+                    if (outcome === 'no-change') {
+                        if (candidate.actorAction || (Array.isArray(candidate.newFacts) && candidate.newFacts.length)) return 'No-change continuation may not contain an event.';
+                        return true;
+                    }
+                    const action = candidate.actorAction;
+                    if (!action || typeof action !== 'object' || Array.isArray(action) || String(action.residentId || '') !== scope.actorId) return 'Continuation actor is not authorized.';
+                    const basisFactIds = [...new Set((Array.isArray(action.basisFactIds) ? action.basisFactIds : [])
+                        .map(id => String(id || '').trim()).filter(Boolean))];
+                    const actionSummary = lifeThreadText(action.summary, LIFE_THREAD_TEXT_LIMITS.beat);
+                    if (!basisFactIds.length || basisFactIds.length > 4 || basisFactIds.some(id => !scope.factIds.includes(id)) || !actionSummary ||
+                        hasLifeThreadContinuationPhysicalTransition(actionSummary) || mentionsOtherLifeThreadResident(actionSummary, scope.actorId)) return 'Continuation action is not grounded in the selected actor knowledge.';
+                    const facts = Array.isArray(candidate.newFacts) ? candidate.newFacts : [];
+                    if (!facts.length || facts.length > 4) return 'Continuation requires one to four tracked new facts.';
+                    const seenFactText = new Set();
+                    for (const fact of facts) {
+                        const text = lifeThreadText(fact?.text, LIFE_THREAD_TEXT_LIMITS.fact);
+                        if (!text || seenFactText.has(text) || mentionsOtherLifeThreadResident(text, scope.actorId)) return 'Continuation new facts are invalid.';
+                        seenFactText.add(text);
+                        const claims = Array.isArray(fact?.knowledgeClaims) ? fact.knowledgeClaims : [];
+                        if (claims.length > 1) return 'Single-actor continuation cannot attribute other holders.';
+                        for (const claim of claims) {
+                            const residentId = String(claim?.residentId || '').trim();
+                            const mode = String(claim?.accessMode || '').trim();
+                            const evidence = lifeThreadText(claim?.evidence, LIFE_THREAD_TEXT_LIMITS.fact);
+                            if (residentId !== scope.actorId || !knowledgeAccessMarkersFor(mode).length || !evidence || !evidence.includes(text) || mentionsOtherLifeThreadResident(evidence, scope.actorId) ||
+                                !hasKnowledgeAccessMarker(evidence, mode) || isNegatedKnowledgeAccess(evidence, mode)) {
+                                return 'Continuation knowledge claim is not grounded.';
+                            }
+                        }
+                    }
+                    const summaryFactIndex = Number(candidate.summaryFactIndex);
+                    if (!Number.isInteger(summaryFactIndex) || summaryFactIndex < 0 || summaryFactIndex >= facts.length) return 'Continuation summary must reference a tracked new fact.';
+                    if (outcome === 'resolve') {
+                        const resolutionFactIndex = Number(candidate.resolutionFactIndex);
+                        if (!Number.isInteger(resolutionFactIndex) || resolutionFactIndex < 0 || resolutionFactIndex >= facts.length) return 'Resolution must reference a tracked new fact.';
+                    }
+                    return true;
+                };
+                const buildLifeThreadContinuationPrompt = (thread, operation, scope) => {
+                    const physicalHallId = getResidentPhysicalHallId(scope.actor);
+                    const hall = halls.value.find(item => String(item?.id || '') === physicalHallId);
+                    const knownFacts = scope.facts.map(fact => `- ${fact.id}: ${fact.text}`).join('\n');
+                    return [
+                        '[PRIVATE LIFE THREAD CONTINUATION ENGINE]',
+                        'This is hidden world-engine work, not resident dialogue and not a USER-facing scene.',
+                        '',
+                        buildCatIdentityBlock(scope.actor),
+                        '[SELECTED ACTOR — ONLY AUTHORIZED ACTOR]',
+                        `- Resident ID: ${scope.actorId}`,
+                        `- Current authoritative physical state: inside ${hall?.name || physicalHallId || 'the current Hall'} (hallId=${physicalHallId}); status=${cleanText(scope.actor.status || 'unknown')}.`,
+                        '- This event MUST remain inside that current Hall. Do not leave the Hall, travel, visit another Hall, enter Curator Room, begin Away, go to a dock/warehouse/street/forest/island, or imply any physical transition not already established by local state.',
+                        '- Only this actor is present in this request. No other resident perspective, knowledge, holder map, Thread title, Thread summary, or hidden world truth is available.',
+                        '',
+                        '[FACTS THIS ACTOR KNOWS ABOUT THE MATTER]',
+                        knownFacts,
+                        '',
+                        'Produce one cautious autonomous continuation only if this actor can plausibly act from the listed facts while remaining in the current Hall. Preserve source-world era, geography, biography, capability, personality, and lifestyle; do not default to generic modern infrastructure unless this actor canon supports it. Do not expand the arc with unsupported villains, organizations, motives, relationships, locations, objects, causes, secrets, future events, or catastrophes.',
+                        '',
+                        'Knowledge rule: actorAction.basisFactIds may reference ONLY listed fact IDs. Do not use information learned during this event to justify the action. New factual claims must appear only in newFacts. Do not put extra factual claims in summaries: the program derives all stored beat, Thread, and resolution prose from the accepted action and tracked facts.',
+                        '',
+                        'Return JSON only, exactly one of:',
+                        '{"outcome":"no-change"}',
+                        'OR',
+                        `{"outcome":"advance|resolve","actorAction":{"residentId":"${scope.actorId}","basisFactIds":["one listed fact id"],"summary":"brief action occurring inside the current Hall only"},"newFacts":[{"text":"one direct factual consequence/discovery","knowledgeClaims":[{"residentId":"${scope.actorId}","accessMode":"observed|heard|discovered|told|shown|realized|direct-discovery","evidence":"explicit access evidence containing the exact fact text"}]}],"summaryFactIndex":0,"resolutionFactIndex":0}`,
+                        '',
+                        'For advance/resolve, return 1–4 newFacts. knowledgeClaims is optional, but if present it may name only the selected actor and must prove explicit access. Resolve only when the accepted current event actually closes the matter. No-change is preferred to an invented progression.'
+                    ].join('\n');
+                };
+                const finishLifeThreadContinuationWithoutEvent = (thread, now = new Date(), reason = 'no-change') => {
+                    if (!thread || thread.status !== 'open') return;
+                    scheduleNextLifeThreadContinuation(thread, now);
+                    addLog(`LIFE THREAD CONTINUATION: thread=${thread.id}; result=${reason}; next=${thread.continuation.nextOpportunityAt}`, 'info');
+                };
+                const applyLifeThreadContinuationCandidate = (thread, operation, raw, now = new Date()) => {
+                    const continuation = getLifeThreadContinuationState(thread);
+                    if (!continuation || thread.status !== 'open' || continuation.operation?.token !== operation.token) return { applied: false, stale: true };
+                    const scope = getFrozenLifeThreadContinuationScope(thread, operation, now);
+                    if (!scope) return { applied: false, stale: true };
+                    const validation = validateLifeThreadContinuationCandidate(raw, scope);
+                    if (validation !== true) return { applied: false, invalid: true, error: validation };
+                    const candidate = parseLifeThreadContinuationCandidate(raw);
+                    if (candidate.outcome === 'no-change') {
+                        finishLifeThreadContinuationWithoutEvent(thread, now, 'no-change');
+                        return { applied: true, noChange: true };
+                    }
+                    if (thread.beats.some(beat => String(beat?.sourceEventId || '') === operation.sourceEventId)) return { applied: false, stale: true };
+                    const eventAt = validLifeThreadDate(operation.startedAt) ? operation.startedAt : now.toISOString();
+                    const actionSummary = lifeThreadText(candidate.actorAction.summary, LIFE_THREAD_TEXT_LIMITS.beat);
+                    const newFacts = candidate.newFacts.map(fact => ({
+                        text: lifeThreadText(fact.text, LIFE_THREAD_TEXT_LIMITS.fact),
+                        knowledgeClaims: Array.isArray(fact.knowledgeClaims) ? fact.knowledgeClaims : []
+                    }));
+                    const existingFactText = new Set(thread.beats.flatMap(beat => (beat.facts || []).map(fact => fact.text)));
+                    if (newFacts.some(fact => existingFactText.has(fact.text))) return { applied: false, invalid: true, error: 'Continuation attempted to add an existing fact.' };
+                    const beatId = `${thread.id}:beat:${thread.beats.length + 1}`;
+                    const factBindings = newFacts.map((fact, index) => ({
+                        factId: `${beatId}:fact:${index + 1}`,
+                        text: fact.text,
+                        claims: fact.knowledgeClaims
+                    }));
+                    const nextEdges = [];
+                    for (const binding of factBindings) {
+                        for (const claim of binding.claims) {
+                            if (knowledgeLedger.value.some(edge => edge.factId === binding.factId && edge.knowerType === 'resident' && edge.knowerId === scope.actorId)) {
+                                return { applied: false, invalid: true, error: 'Continuation attempted duplicate knowledge.' };
+                            }
+                            nextEdges.push({
+                                id: makeKnowledgeEdgeId(new Date(eventAt).getTime()), factId: binding.factId,
+                                knowerType: 'resident', knowerId: scope.actorId, learnedAt: eventAt, sourceEventId: operation.sourceEventId
+                            });
+                        }
+                    }
+                    const summaryFact = factBindings[Number(candidate.summaryFactIndex)];
+                    const resolutionFact = candidate.outcome === 'resolve' ? factBindings[Number(candidate.resolutionFactIndex)] : null;
+                    // All mutation is staged above. The only free narrative is the selected
+                    // actor's accepted in-Hall action; Thread summaries are exact tracked facts.
+                    thread.beats.push({ id: beatId, sourceEventId: operation.sourceEventId, happenedAt: eventAt, summary: actionSummary,
+                        facts: factBindings.map(binding => ({ id: binding.factId, text: binding.text })) });
+                    thread.summary = (resolutionFact || summaryFact).text;
+                    thread.updatedAt = eventAt;
+                    thread.lastAdvancedAt = eventAt;
+                    knowledgeLedger.value.push(...nextEdges);
+                    if (candidate.outcome === 'resolve') {
+                        thread.status = 'resolved';
+                        thread.resolvedAt = eventAt;
+                        clearResolvedLifeThreadContinuation(thread);
+                    } else {
+                        continuation.lastContinuationAt = eventAt;
+                        scheduleNextLifeThreadContinuation(thread, now);
+                    }
+                    addLog(`LIFE THREAD CONTINUATION APPLIED: thread=${thread.id}; source=${operation.sourceEventId}; outcome=${candidate.outcome}; facts=${factBindings.length}; knowledge=${nextEdges.length}`, 'info');
+                    return { applied: true, outcome: candidate.outcome, factBindings, knowledgeEdges: nextEdges };
+                };
+                const markLifeThreadContinuationFailure = (thread, operation, error, now = new Date()) => {
+                    const continuation = getLifeThreadContinuationState(thread);
+                    if (!continuation || continuation.operation?.token !== operation.token) return;
+                    operation.lastError = lifeThreadText(error?.message || 'private continuation request failed', 240);
+                    if (Number(operation.attemptCount) < 2) {
+                        operation.status = 'retryable';
+                        addLog(`LIFE THREAD CONTINUATION: thread=${thread.id}; result=retryable; retryAt=${operation.retryAt}; error=${operation.lastError}`, 'warn');
+                    } else {
+                        finishLifeThreadContinuationWithoutEvent(thread, now, 'failed');
+                    }
+                };
+                const scheduleLifeThreadContinuationReconciliation = () => {
+                    if (lifeThreadContinuationTimer) clearTimeout(lifeThreadContinuationTimer);
+                    const nowMs = Date.now();
+                    const dueTimes = lifeThreads.value.filter(thread => thread?.status === 'open').map(thread => {
+                        const continuation = getLifeThreadContinuationState(thread);
+                        if (!continuation) return null;
+                        if (continuation.operation?.status === 'retryable') return new Date(continuation.operation.retryAt).getTime();
+                        if (!continuation.operation) return new Date(continuation.nextOpportunityAt).getTime();
+                        return null;
+                    }).filter(Number.isFinite);
+                    if (!dueTimes.length) { lifeThreadContinuationTimer = null; return; }
+                    const delay = Math.max(0, Math.min(Math.min(...dueTimes) - nowMs, 60 * 1000));
+                    lifeThreadContinuationTimer = setTimeout(() => {
+                        lifeThreadContinuationTimer = null;
+                        void reconcileLifeThreadContinuations(new Date());
+                    }, delay);
+                };
+                const runLifeThreadContinuationOperation = async (threadId, token) => {
+                    const thread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
+                    const continuation = getLifeThreadContinuationState(thread);
+                    const operation = continuation?.operation;
+                    if (!thread || !operation || operation.token !== token) return;
+                    const now = new Date();
+                    const scope = getFrozenLifeThreadContinuationScope(thread, operation, now);
+                    if (!scope) {
+                        finishLifeThreadContinuationWithoutEvent(thread, now, 'stale-before-dispatch');
+                        lifeThreadContinuationInFlight.delete(token);
+                        scheduleLifeThreadContinuationReconciliation();
+                        return;
+                    }
+                    const prompt = buildLifeThreadContinuationPrompt(thread, operation, scope);
+                    try {
+                        const raw = await requestStructuredEngine(prompt, {
+                            systemPrompt: 'You are a private Meeow House world-continuation engine. Return only one valid JSON object. You never narrate to USER or change program-owned physical state.',
+                            maxTokens: 1200,
+                            thinkingLevel: ThinkingLevel.LOW,
+                            label: `LIFE THREAD CONTINUATION · ${scope.actorId}`,
+                            priority: 'background',
+                            maxAttempts: 1,
+                            dedupeKey: `life-thread-continuation:${token}`,
+                            validateResponse: content => validateLifeThreadContinuationCandidate(content, scope)
+                        });
+                        const latestThread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
+                        const result = applyLifeThreadContinuationCandidate(latestThread, operation, raw, new Date());
+                        if (result.stale) finishLifeThreadContinuationWithoutEvent(latestThread, new Date(), 'stale-after-response');
+                        else if (result.invalid) markLifeThreadContinuationFailure(latestThread, operation, new Error(result.error), new Date());
+                    } catch (error) {
+                        markLifeThreadContinuationFailure(thread, operation, error, new Date());
+                    } finally {
+                        lifeThreadContinuationInFlight.delete(token);
+                        scheduleLifeThreadContinuationReconciliation();
+                    }
+                };
+                const reconcileLifeThreadContinuations = async (now = new Date()) => {
+                    if (lifeThreadContinuationInFlight.size) { scheduleLifeThreadContinuationReconciliation(); return false; }
+                    const nowMs = now.getTime();
+                    const candidates = lifeThreads.value.filter(thread => thread?.status === 'open').map(thread => ({ thread, continuation: getLifeThreadContinuationState(thread) }))
+                        .filter(entry => entry.continuation)
+                        .sort((left, right) => {
+                            const leftAt = left.continuation.operation?.status === 'retryable' ? left.continuation.operation.retryAt : left.continuation.nextOpportunityAt;
+                            const rightAt = right.continuation.operation?.status === 'retryable' ? right.continuation.operation.retryAt : right.continuation.nextOpportunityAt;
+                            return new Date(leftAt).getTime() - new Date(rightAt).getTime() || String(left.thread.id).localeCompare(String(right.thread.id));
+                        });
+                    const due = candidates.find(({ continuation }) => {
+                        if (continuation.operation?.status === 'retryable') return new Date(continuation.operation.retryAt).getTime() <= nowMs;
+                        return !continuation.operation && new Date(continuation.nextOpportunityAt).getTime() <= nowMs;
+                    });
+                    if (!due) { scheduleLifeThreadContinuationReconciliation(); return false; }
+                    const { thread, continuation } = due;
+                    if (!settings.apiKey) {
+                        finishLifeThreadContinuationWithoutEvent(thread, now, 'no-provider');
+                        scheduleLifeThreadContinuationReconciliation();
+                        return false;
+                    }
+                    let operation = continuation.operation;
+                    if (operation?.status === 'retryable') {
+                        const scope = getFrozenLifeThreadContinuationScope(thread, operation, now);
+                        if (!scope) {
+                            finishLifeThreadContinuationWithoutEvent(thread, now, 'stale-before-retry');
+                            scheduleLifeThreadContinuationReconciliation();
+                            return false;
+                        }
+                        operation.status = 'in-flight';
+                        operation.attemptCount = Math.max(1, Number(operation.attemptCount) || 1) + 1;
+                    } else {
+                        const selected = selectLifeThreadContinuationActor(thread, now);
+                        if (!selected) {
+                            finishLifeThreadContinuationWithoutEvent(thread, now, 'no-eligible-actor');
+                            scheduleLifeThreadContinuationReconciliation();
+                            return false;
+                        }
+                        const token = makeLifeThreadContinuationToken(thread.id, nowMs);
+                        operation = {
+                            token,
+                            sourceEventId: `life-thread-continuation:${thread.id}:${token}`,
+                            actorId: selected.actorId,
+                            factIds: selected.factIds,
+                            status: 'in-flight',
+                            startedAt: now.toISOString(),
+                            attemptCount: 1,
+                            retryAt: new Date(nowMs + LIFE_THREAD_CONTINUATION_RETRY_MS).toISOString(),
+                            lastError: ''
+                        };
+                        continuation.operation = operation;
+                        continuation.lastOpportunityAt = now.toISOString();
+                    }
+                    lifeThreadContinuationInFlight.add(operation.token);
+                    void runLifeThreadContinuationOperation(thread.id, operation.token);
+                    return true;
+                };
                 const buildLocalAwayDepartureSchedule = (options) => awayLifecycle.buildDepartureSchedule({
                     ...options,
                     hall: options.hall || halls.value.find(hall => hall.id === options.hallId),
@@ -17884,6 +18604,10 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
                 awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
+                // Missing legacy data is intentionally an empty prospective world-engine store.
+                lifeThreads.value = normalizeLifeThreads(savedLifeThreads);
+                // Facts must be canonical before edges can safely validate against them.
+                knowledgeLedger.value = normalizeKnowledgeLedger(savedKnowledgeLedger);
                 const buildOwnerDailyContext = (profileName = 'standard', options = {}) => {
                     const compact = profileName === 'compact' || profileName === 'reader';
                     const includeCuratorProfile = options.includeCuratorProfile !== false;
@@ -19734,6 +20458,14 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const curatorRoomStatusSync = requestOptions.curatorRoomStatusSync && typeof requestOptions.curatorRoomStatusSync === 'object'
                         ? requestOptions.curatorRoomStatusSync
                         : null;
+                    // Only a normal, accepted Hall Status Sync may propose this hidden
+                    // sidecar. Homepage/Curator/prevalidated paths never receive it.
+                    const lifeThreadCaptureEnabled = !curatorRoomStatusSync &&
+                        requestOptions.lifeThreadCaptureEnabled !== false &&
+                        !Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates') &&
+                        !requestOptions.frozenCatsToUpdate && !activeCatIds.length && !isFocusEnd && !isExploreEnd;
+                    const lifeThreadSourceEventId = String(requestOptions.lifeThreadSourceEventId ||
+                        `status-life-thread:${String(statusCompletion?.requestToken || `${requestHallId}-${Date.now()}`)}`).trim();
                     if (!settings.apiKey) {
                         if (statusCompletion) statusCompletion.lastError = '未配置 API 密钥。';
                         if (forceUpdate) {
@@ -19910,6 +20642,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         const fridgeNoteOutputSchema = fridgeNoteCandidates.length
                             ? ',"fridgeNoteReactions":[{"noteId":"exact selected note id","residentId":"exact selected resident id","kind":"annotation|feline-trace","content":"short trace"}]'
                             : '';
+                        const lifeThreadOutputSchema = lifeThreadCaptureEnabled
+                            ? ',"lifeThreadCandidates":[{"action":"create","kind":"short|long","titleEvidence":"exact short excerpt from this response only","summaryEvidence":"exact supported excerpt from this response only","participantIds":["supplied resident id"],"hallIds":["current hall id"],"facts":[{"evidence":"exact supported excerpt from this response only","knowledgeClaims":[{"residentId":"resident who explicitly learned it","accessMode":"observed|heard|discovered|told|shown|realized|direct-discovery","evidence":"exact excerpt explicitly proving that resident accessed the fact"}]}]}]'
+                            : '';
+                        const lifeThreadPromptContract = lifeThreadCaptureEnabled
+                            ? `\n[LIFE THREAD CANDIDATE — PRIVATE ENGINE SIDECAR]\n- lifeThreadCandidates is hidden engine metadata, never resident dialogue. [] is the normal response. Return at most one action:create candidate only when this just-generated accepted Hall status/scene contains one genuinely unresolved consequence that could matter later. Never create one for routine activity.\n- Do not invent an event, actor, motive, secret, cause, relationship, location, future development, or threat. Each titleEvidence, summaryEvidence, and facts[].evidence MUST be an exact short excerpt copied from this response's own updates and/or scene. Evidence may only describe what happened now.\n- facts[].knowledgeClaims is optional and records only explicit knowledge gained in this same event. A named/present/nearby/scene-participant/thread-participant resident does NOT know a fact by default. Add a claim only when its exact evidence explicitly establishes that resident saw, heard, discovered, was told, was shown, realized, or directly participated in discovering the fact. If access is ambiguous, omit the claim. Never claim USER knowledge here.\n- A claim's evidence must be an exact excerpt from that resident's own update or reaction, or from scene prose that explicitly names the resident together with the access. It MUST include that fact's exact facts[].evidence verbatim. Do not use innerVoice, generic co-presence, friendship, affinity, or Hall membership as proof. Use only supplied resident IDs and this Hall ID. Do not propose advance or resolve: no existing thread state is supplied to you.`
+                            : '';
                         if (localDepartureSchedule && !curatorRoomStatusSync) {
                             addLog(formatAwayLocalScheduleLog(requestHall.name, localDepartureSchedule), 'info');
                         }
@@ -19985,7 +20723,7 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
                                 : '';
                         const enrichedStatusOutputContract = curatorRoomStatusSync
                             ? `Return exactly one JSON object only:\n{"updates":[{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":[],"scene":null}`
-                            : `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false},{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
+                            : `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false},{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}${lifeThreadOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}${lifeThreadPromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const statusHeader = curatorRoomStatusSync
                             ? `[CURATOR ROOM STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}). The supplied resident is physically in the USER's private Curator Room, the USER's normal home base outside Hall visits.`
                             : `[STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.`;
@@ -20039,6 +20777,7 @@ ${enrichedStatusOutputContract}`;
                         let optionalScene;
                         let awayPlans = [];
                         let fridgeNoteReactions = [];
+                        let lifeThreadCandidates = [];
                         if (Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates')) {
                             const updateValidation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
                             const validation = updateValidation === true
@@ -20060,6 +20799,7 @@ ${enrichedStatusOutputContract}`;
                             updates = requestOptions.prevalidatedStatusUpdates;
                             awayPlans = Array.isArray(requestOptions.prevalidatedAwayPlans) ? requestOptions.prevalidatedAwayPlans : [];
                             fridgeNoteReactions = Array.isArray(requestOptions.prevalidatedFridgeNoteReactions) ? requestOptions.prevalidatedFridgeNoteReactions : [];
+                            lifeThreadCandidates = Array.isArray(requestOptions.prevalidatedLifeThreadCandidates) ? requestOptions.prevalidatedLifeThreadCandidates : [];
                         } else {
                             const res = await callAI(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, 3600, ThinkingLevel.LOW, {
                                 ...requestOptions,
@@ -20077,6 +20817,9 @@ ${enrichedStatusOutputContract}`;
                             awayPlans = parsedResponse?.awayPlans;
                             fridgeNoteReactions = parsedResponse?.fridgeNoteReactions;
                             optionalScene = sceneMode ? parsedResponse?.scene : undefined;
+                            lifeThreadCandidates = lifeThreadCaptureEnabled && Array.isArray(parsedResponse?.lifeThreadCandidates)
+                                ? parsedResponse.lifeThreadCandidates
+                                : [];
                         }
 
                         if (Array.isArray(updates)) {
@@ -20340,6 +21083,7 @@ ${enrichedStatusOutputContract}`;
                                 legacyReturned: awayDecisionDiagnostics.legacyReturned
                             }), 'info');
 
+                            let appliedSceneRecord = null;
                             if (sceneMode) {
                                 const sceneValidation = validateOptionalHallScene({
                                     scene: optionalScene,
@@ -20365,6 +21109,7 @@ ${enrichedStatusOutputContract}`;
                                         participantForms: sceneValidation.scene.participantForms
                                     });
                                     if (record) {
+                                        appliedSceneRecord = record;
                                         storeSharedSceneEpisodicMemories(record, sceneValidation.scene.memoryMeta);
                                         applyResidentRelationshipDeltas(record, sceneValidation.scene.relationshipDeltas);
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
@@ -20390,6 +21135,72 @@ ${enrichedStatusOutputContract}`;
                                 reactions: fridgeNoteReactions,
                                 now
                             });
+
+                            if (lifeThreadCaptureEnabled) {
+                                const evidenceParts = responseEntries.map(update => {
+                                    const id = String(update?.id || '').trim();
+                                    const status = cleanText(update?.status || '');
+                                    const innerVoice = cleanText(update?.innerVoice || '');
+                                    return [id, status, innerVoice].filter(Boolean).join(' ');
+                                }).filter(Boolean);
+                                if (appliedSceneRecord) {
+                                    evidenceParts.push(cleanText(appliedSceneRecord.content || ''));
+                                    (appliedSceneRecord.reactions || []).forEach(reaction => evidenceParts.push(cleanText(reaction?.content || '')));
+                                }
+                                const lifeThreadResult = applyLifeThreadOperations({
+                                    sourceEventId: lifeThreadSourceEventId,
+                                    happenedAt: now.toISOString(),
+                                    hallIds: [requestHallId],
+                                    participantIds: requestedIds,
+                                    evidenceText: evidenceParts.join('\n')
+                                }, lifeThreadCandidates);
+                                const residentEvidence = Object.fromEntries(responseEntries.map(update => {
+                                    const id = String(update?.id || '').trim();
+                                    return [id, [cleanText(update?.status || '')].filter(Boolean)];
+                                }).filter(([id]) => id));
+                                if (appliedSceneRecord) {
+                                    (appliedSceneRecord.reactions || []).forEach(reaction => {
+                                        const id = String(reaction?.id || '').trim();
+                                        const content = cleanText(reaction?.content || '');
+                                        if (id && content) residentEvidence[id] = [...(residentEvidence[id] || []), content];
+                                    });
+                                }
+                                const initialKnowledgeClaims = lifeThreadResult.created.flatMap(created =>
+                                    (created.factBindings || []).flatMap(binding =>
+                                        (binding.knowledgeClaims || []).map(claim => ({ ...claim, factId: binding.factId }))
+                                    )
+                                );
+                                const knowledgeResult = applyKnowledgeClaims({
+                                    sourceEventId: lifeThreadSourceEventId,
+                                    happenedAt: now.toISOString(),
+                                    validFactIds: lifeThreadResult.created.flatMap(created => (created.factBindings || []).map(binding => binding.factId)),
+                                    factEvidenceById: Object.fromEntries(lifeThreadResult.created.flatMap(created =>
+                                        (created.factBindings || []).map(binding => [binding.factId, binding.factEvidence])
+                                    )),
+                                    validResidentIds: requestedIds,
+                                    residentEvidence,
+                                    sceneEvidence: cleanText(appliedSceneRecord?.content || '')
+                                }, initialKnowledgeClaims);
+                                if (lifeThreadResult.created.length || lifeThreadResult.advanced.length || lifeThreadResult.resolved.length) {
+                                    addLog(`LIFE THREAD APPLIED: source=${lifeThreadSourceEventId}; create=${lifeThreadResult.created.length}; advance=${lifeThreadResult.advanced.length}; resolve=${lifeThreadResult.resolved.length}`, 'info');
+                                }
+                                if (knowledgeResult.applied.length) {
+                                    addLog(`KNOWLEDGE APPLIED: source=${lifeThreadSourceEventId}; edges=${knowledgeResult.applied.length}`, 'info');
+                                }
+                                // A full normal Hall pass may retain diagnostic idle counts;
+                                // Foundation v1 deliberately never expires either kind by count.
+                                const isFullNormalHallPass = !requestOptions.frozenCatsToUpdate && !activeCatIds.length && !isFocusEnd && !isExploreEnd && requestedIds.length === catsToUpdate.length;
+                                if (isFullNormalHallPass) {
+                                    incrementLifeThreadIdleWorldPasses({
+                                        hallId: requestHallId,
+                                        touchedThreadIds: lifeThreadResult.touchedThreadIds,
+                                        happenedAt: now.toISOString()
+                                    });
+                                    // A completed Hall world pass may notice an already-due
+                                    // hidden opportunity, but never creates one from UI entry.
+                                    void reconcileLifeThreadContinuations(now);
+                                }
+                            }
 
                             if (pendingStatusDayRefresh) {
                                 try {
@@ -20464,6 +21275,7 @@ ${enrichedStatusOutputContract}`;
                         prevalidatedStatusUpdates: updates,
                         prevalidatedAwayPlans: awayPlans,
                         prevalidatedFridgeNoteReactions: fridgeNoteReactions,
+                        lifeThreadCaptureEnabled: false,
                         presenceDirectives,
                         awayMailDecisions,
                         formDirectives,
@@ -20517,6 +21329,7 @@ ${enrichedStatusOutputContract}`;
                         requestHallId,
                         requestHall,
                         statusCompletion,
+                        lifeThreadSourceEventId: requestOptions.lifeThreadSourceEventId || `status-life-thread:${statusCompletion.requestToken}`,
                         dedupeKey: requestOptions.dedupeKey || `status-sync-${requestHallId}-${requestPriority === 'background' ? 'background' : 'foreground'}`
                     };
                     const task = _refreshAllStatus(...normalizedArgs);
@@ -20630,6 +21443,8 @@ ${enrichedStatusOutputContract}`;
                             version: 2,
                             user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings,
                             awayEpisodes: awayEpisodes.value,
+                            lifeThreads: lifeThreads.value,
+                            knowledgeLedger: knowledgeLedger.value,
                             catPaintAssets
                         });
                         const blob = new Blob([data], { type: 'application/json' });
@@ -20665,6 +21480,8 @@ ${enrichedStatusOutputContract}`;
                             if (data.halls) halls.value = data.halls;
                             mergeBuiltInCats();
                             normalizeResidentRelationshipRoster();
+                            lifeThreads.value = normalizeLifeThreads(data.lifeThreads);
+                            knowledgeLedger.value = normalizeKnowledgeLedger(data.knowledgeLedger);
                             normalizeCustomHallPresentation();
                             normalizePhoneReplyOpportunities({ recoverInFlight: true });
                             void reconcilePhoneReplyOpportunities(new Date());
@@ -21204,12 +22021,13 @@ ${episodicMemory}`;
                     void reconcilePhoneReplyOpportunities(new Date());
                     checkSpecialEvent();
                     reconcileAwayEpisodes(new Date());
+                    void reconcileLifeThreadContinuations(new Date());
                     checkDailyInitialization();
                     applyUISettings();
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
-                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); currentTime.value = now; }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); checkDailyInitialization(); currentTime.value = now; } });
+                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); currentTime.value = now; }, 30000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });
