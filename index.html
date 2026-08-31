@@ -5741,13 +5741,13 @@
                                     </div>
                                     <span class="text-[10px] text-gray-300">喵信</span>
                                 </div>
-                                <div @click="phoneState.currentApp = 'news'"
+                                <div @click="openNewsApp"
                                     class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    <div class="relative w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
                                         <i class="fas fa-newspaper"></i>
+                                        <span v-if="unreadNewsCount" class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 border-2 border-zinc-950 text-[9px] leading-3 text-center font-black text-white">{{ unreadNewsCount > 9 ? '9+' : unreadNewsCount }}</span>
                                     </div>
-                                    <span class="text-[10px] text-gray-300">馆报</span>
+                                    <span class="text-[10px] text-gray-300">新闻</span>
                                 </div>
                                 <div @click="phoneState.currentApp = 'tarot'"
                                     class="flex flex-col items-center gap-2 cursor-pointer">
@@ -7278,37 +7278,33 @@
                                 </div>
                             </div>
 
-                            <!-- News App -->
-                            <div v-if="phoneState.currentApp === 'news'"
-                                class="flex flex-col h-full bg-white text-black absolute inset-0 z-20">
-                                <div
-                                    class="p-4 border-b-2 border-red-600 flex justify-between items-center bg-white sticky top-0 z-10">
-                                    <h1 class="font-black text-xl italic tracking-tighter">MEEOW HOUSE GAZETTE</h1>
-                                    <div class="text-[10px] font-bold text-gray-500">{{ new Date().toLocaleDateString()
-                                        }}</div>
-                                </div>
-                                <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
-                                    <div v-if="user.phoneData.news.length === 0"
-                                        class="text-center py-20 text-gray-400 italic text-sm">今日暂无重大新闻。</div>
-                                    <div v-for="newsItem in user.phoneData.news" :key="newsItem.id"
-                                        class="border-b border-zinc-100 pb-6 last:border-0">
-                                        <div class="flex items-center gap-2 mb-2">
-                                            <span
-                                                class="bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">{{
-                                                newsItem.type }}</span>
-                                            <span
-                                                class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{{
-                                                newsItem.source }}</span>
-                                        </div>
-                                        <h2
-                                            class="text-lg font-black leading-tight mb-2 hover:text-red-700 cursor-pointer transition-colors">
-                                            {{ newsItem.title }}</h2>
-                                        <p class="text-xs text-gray-600 leading-relaxed">{{ newsItem.summary }}</p>
-                                        <div class="mt-3 flex justify-end">
-                                            <span class="text-[10px] text-gray-400">阅读全文 <i
-                                                    class="fas fa-chevron-right ml-1"></i></span>
-                                        </div>
+                            <!-- News App: immutable public projections only. Legacy Gazette data stays hidden. -->
+                            <div v-if="phoneState.currentApp === 'news'" class="flex flex-col h-full bg-white text-black absolute inset-0 z-20">
+                                <div class="p-4 border-b border-zinc-200 flex items-center gap-3 bg-white sticky top-0 z-10">
+                                    <button @click="activeNewsProjection ? closeNewsProjection() : phoneState.currentApp = 'home'" class="w-8 h-8 text-zinc-500 text-lg" aria-label="返回"><i class="fas fa-chevron-left"></i></button>
+                                    <div class="min-w-0 flex-1">
+                                        <h1 class="font-black text-lg tracking-tight">{{ activeNewsProjection ? '新闻详情' : '新闻' }}</h1>
+                                        <p v-if="!activeNewsProjection" class="text-[10px] text-zinc-400 mt-0.5">公开可见的世界片段</p>
                                     </div>
+                                    <span v-if="!activeNewsProjection && unreadNewsCount" class="text-[10px] font-bold text-red-600">{{ unreadNewsCount }} 条未读</span>
+                                </div>
+                                <div v-if="activeNewsProjection" class="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                                    <div class="text-[10px] text-zinc-400 mb-3">{{ formatFanficTime(activeNewsProjection.publishedAt) }}</div>
+                                    <h2 class="text-xl font-black leading-tight mb-5">{{ activeNewsProjection.headline }}</h2>
+                                    <p class="text-sm text-zinc-700 leading-7 whitespace-pre-wrap break-words">{{ activeNewsProjection.body }}</p>
+                                </div>
+                                <div v-else class="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                                    <div v-if="publishedNewsProjections.length === 0" class="text-center py-20 text-zinc-400 italic text-sm">暂时没有新的公开消息。</div>
+                                    <button v-for="newsItem in publishedNewsProjections" :key="newsItem.id" @click="openNewsProjection(newsItem.id)" class="w-full text-left rounded-2xl border border-zinc-100 p-4 shadow-sm active:bg-zinc-50 transition-colors">
+                                        <div class="flex items-start gap-2">
+                                            <span v-if="!newsItem.readAt" class="mt-1.5 w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
+                                            <div class="min-w-0 flex-1">
+                                                <h2 class="text-base font-black leading-snug">{{ newsItem.headline }}</h2>
+                                                <p class="mt-2 text-xs text-zinc-600 leading-5 line-clamp-3">{{ newsItem.body }}</p>
+                                                <div class="mt-3 text-[10px] text-zinc-400">{{ formatFanficTime(newsItem.publishedAt) }}</div>
+                                            </div>
+                                        </div>
+                                    </button>
                                 </div>
                             </div>
 
@@ -9486,6 +9482,11 @@
                 // neither resident memory nor a second copy of those facts.
                 const knowledgeLedger = ref([]);
                 let savedKnowledgeLedger = [];
+                // News is a public-facing projection of a narrowly validated subset
+                // of world facts. It is not resident memory, a Thread recap, or a
+                // replacement for the legacy Phone Gazette data.
+                const newsProjections = ref([]);
+                let savedNewsProjections = [];
                 let rosterMigrationPendingSave = false;
                 const CURATOR_ROOM_ANCHORS = Object.freeze({
                     bed: Object.freeze({ label: '床边', x: 24, y: 73 }),
@@ -9662,6 +9663,7 @@
                         if (Array.isArray(parsed.awayEpisodes)) awayEpisodes.value = parsed.awayEpisodes;
                         if (Array.isArray(parsed.lifeThreads)) savedLifeThreads = parsed.lifeThreads;
                         if (Array.isArray(parsed.knowledgeLedger)) savedKnowledgeLedger = parsed.knowledgeLedger;
+                        if (Array.isArray(parsed.newsProjections)) savedNewsProjections = parsed.newsProjections;
                         if (parsed.settings) {
                             // Keep a saved custom model. Older versions replaced
                             // any model containing "gpt" during migration, which
@@ -10785,6 +10787,9 @@
                         entryLocation: null,
                         isGenerating: false
                     },
+                    news: {
+                        selectedProjectionId: null
+                    },
                     codexSelected: null,
                     gnnTab: 'trending'
                 });
@@ -11316,7 +11321,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 const isWishLoading = ref(false);
 
                 window.Meeow.storage.configure({
-                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings, hallSceneRecords: hallSceneRecords.value, awayEpisodes: awayEpisodes.value, lifeThreads: lifeThreads.value, knowledgeLedger: knowledgeLedger.value }),
+                    getState: () => ({ user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings, hallSceneRecords: hallSceneRecords.value, awayEpisodes: awayEpisodes.value, lifeThreads: lifeThreads.value, knowledgeLedger: knowledgeLedger.value, newsProjections: newsProjections.value }),
                     storageKey: STORAGE_KEY,
                     modelStorageKey: MODEL_STORAGE_KEY,
                     addLog: (...args) => addLog(...args),
@@ -11328,7 +11333,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 const scheduleSave = window.Meeow.storage.scheduleSave;
                 // Coalesce legacy reactive changes into one write instead of
                 // serializing the whole archive for every intermediate field change.
-                watch([user, cats, halls, shopItems, settings, hallSceneRecords, awayEpisodes, lifeThreads, knowledgeLedger], scheduleSave, { deep: true, flush: 'post' });
+                watch([user, cats, halls, shopItems, settings, hallSceneRecords, awayEpisodes, lifeThreads, knowledgeLedger, newsProjections], scheduleSave, { deep: true, flush: 'post' });
                 if (rosterMigrationPendingSave) {
                     rosterMigrationPendingSave = false;
                     scheduleSave();
@@ -17970,6 +17975,9 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const normalizedLifeThreadIds = (ids, allowed) => [...new Set((Array.isArray(ids) ? ids : [])
                     .map(id => String(id || '').trim()).filter(id => allowed.has(id)))];
+                const LIFE_THREAD_PUBLIC_FACT_CATEGORIES = new Set([
+                    'incident', 'damage', 'disruption', 'public-activity', 'official-response', 'environmental', 'other'
+                ]);
                 const normalizeLifeThreadFacts = (facts, beatId, usedFactIds) => {
                     const seen = new Set();
                     return (Array.isArray(facts) ? facts : []).map((fact, index) => {
@@ -17979,7 +17987,11 @@ ${buildCatMemoryContext(cat)}`;
                         let id = String(fact?.id || '').trim();
                         if (!id || usedFactIds.has(id)) id = `${beatId}:fact:${index + 1}`;
                         usedFactIds.add(id);
-                        return { id, text };
+                        const projectionVisibility = fact?.projectionVisibility === 'public-observable' ? 'public-observable' : 'private';
+                        const publicCategory = projectionVisibility === 'public-observable' && LIFE_THREAD_PUBLIC_FACT_CATEGORIES.has(String(fact?.publicCategory || ''))
+                            ? String(fact.publicCategory)
+                            : null;
+                        return { id, text, projectionVisibility, publicCategory };
                     }).filter(Boolean).slice(0, 4);
                 };
                 const normalizeLifeThreads = records => {
@@ -18236,6 +18248,285 @@ ${buildCatMemoryContext(cat)}`;
                         })).filter(entry => entry.facts.length)];
                     }));
                 };
+                // --- News Projection: public surface evidence, never Thread truth ---
+                const NEWS_PUBLICATION_DELAY_MS = Object.freeze([15 * 60 * 1000, 6 * 60 * 60 * 1000]);
+                const NEWS_RETRY_DELAYS_MS = Object.freeze([5 * 60 * 1000, 30 * 60 * 1000, 2 * 60 * 60 * 1000]);
+                const NEWS_MAX_ATTEMPTS = 4;
+                const NEWS_PUBLIC_FACT_LIMIT = 2;
+                let newsProjectionIdSequence = 0;
+                let newsProjectionTimer = null;
+                const newsProjectionInFlight = new Set();
+                const makeNewsProjectionId = (at = Date.now()) =>
+                    `news-projection-${at}-${(++newsProjectionIdSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+                const getNewsMediaStyle = (hallId) => {
+                    const hall = halls.value.find(item => String(item?.id || '') === String(hallId || ''));
+                    const source = cleanText(hall?.source || '').toLocaleLowerCase();
+                    const modern = ['gotham', 'marvel', 'dc comics', 'modern', 'contemporary'].some(token => source.includes(token));
+                    return {
+                        hallId: hall ? String(hall.id) : '',
+                        sourceLabel: cleanText(hall?.name || '当地'),
+                        mediaStyle: modern ? 'modern-brief' : 'local-notice'
+                    };
+                };
+                const getNewsProjectionFactEntries = projection => {
+                    const ids = Array.isArray(projection?.publicFactIds) ? projection.publicFactIds : [];
+                    return ids.map(id => getLifeThreadFactLocation(String(id))).filter(location =>
+                        location?.fact?.projectionVisibility === 'public-observable' &&
+                        String(location?.beat?.sourceEventId || '') === String(projection?.sourceEventId || '')
+                    );
+                };
+                const getNewsProjectionActor = projection => {
+                    const episode = normalizeAwayEpisodes(awayEpisodes.value).find(item =>
+                        String(item?.provenance?.outcomeSourceEventId || '') === String(projection?.sourceEventId || '') &&
+                        isLifeThreadAwayEpisode(item)
+                    );
+                    return episode ? cats.value.find(cat => String(cat?.id || '') === String(episode.provenance?.actorId || '')) || null : null;
+                };
+                const getResidentIdentityMarkers = resident => {
+                    if (!resident) return [];
+                    return [...new Set([
+                        resident.id, resident.name, resident.humanName, resident.codename,
+                        resident.trickArchetype, resident.sourceRole, resident.alias, resident.title,
+                        resident.occupation, resident.profession
+                    ].map(value => cleanText(value || '')).filter(value => value.length >= 2))];
+                };
+                const NEWS_ACTOR_INDIRECT_MARKERS = Object.freeze([
+                    'masked vigilante', 'young prince', 'famous billionaire', '蒙面义警', '年轻王子', '著名亿万富翁',
+                    '超级英雄', '义警', '王子殿下', '富豪', '披风', '面具人', '猫形', '兽耳'
+                ]);
+                const hasNewsActorIdentityLeak = (text, actor) => {
+                    const normalized = cleanText(text || '').toLocaleLowerCase();
+                    return [...getResidentIdentityMarkers(actor), ...NEWS_ACTOR_INDIRECT_MARKERS]
+                        .some(marker => normalized.includes(String(marker).toLocaleLowerCase()));
+                };
+                const hasUnsafeNewsPrivateClaim = text => /(?:秘密|机密|幕后|真相|动机|受谁指使|组织|阴谋|调查结果|发现了|查明了|because|culprit|secret organization)/i.test(cleanText(text || ''));
+                const getValidatedPublicFactMetadata = (rawFact, actor) => {
+                    if (rawFact?.projectionVisibility !== 'public-observable') return { projectionVisibility: 'private', publicCategory: null };
+                    const category = String(rawFact?.publicCategory || '');
+                    const text = lifeThreadText(rawFact?.text, LIFE_THREAD_TEXT_LIMITS.fact);
+                    if (!LIFE_THREAD_PUBLIC_FACT_CATEGORIES.has(category) || !text || hasNewsActorIdentityLeak(text, actor) || hasUnsafeNewsPrivateClaim(text)) {
+                        return { projectionVisibility: 'private', publicCategory: null };
+                    }
+                    return { projectionVisibility: 'public-observable', publicCategory: category };
+                };
+                const normalizeNewsProjections = (records, { recoverGenerating = true } = {}) => {
+                    const usedIds = new Set();
+                    const bySource = new Map();
+                    (Array.isArray(records) ? records : []).forEach(raw => {
+                        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+                        const sourceThreadId = String(raw.sourceThreadId || '').trim();
+                        const sourceEventId = String(raw.sourceEventId || '').trim();
+                        const thread = lifeThreads.value.find(item => String(item?.id || '') === sourceThreadId);
+                        const createdAt = validLifeThreadDate(raw.createdAt) ? raw.createdAt : '';
+                        const publishAt = validLifeThreadDate(raw.publishAt) ? raw.publishAt : '';
+                        if (!thread || !sourceEventId || !sourceEventId.startsWith('life-thread-excursion-outcome:') || !createdAt || !publishAt) return;
+                        let id = String(raw.id || '').trim();
+                        if (!id || usedIds.has(id)) id = makeNewsProjectionId(new Date(createdAt).getTime() || Date.now());
+                        usedIds.add(id);
+                        const publicFactIds = [...new Set((Array.isArray(raw.publicFactIds) ? raw.publicFactIds : [])
+                            .map(value => String(value || '').trim()).filter(Boolean))].filter(factId => {
+                                const location = getLifeThreadFactLocation(factId);
+                                return location?.thread?.id === thread.id && String(location?.beat?.sourceEventId || '') === sourceEventId &&
+                                    location?.fact?.projectionVisibility === 'public-observable';
+                            }).slice(0, NEWS_PUBLIC_FACT_LIMIT);
+                        if (!publicFactIds.length) return;
+                        const context = getNewsMediaStyle(raw?.projectionContext?.hallId || thread.hallIds?.[0]);
+                        let status = ['pending', 'generating', 'published', 'failed'].includes(raw.status) ? raw.status : 'pending';
+                        const attemptCount = Math.max(0, Math.min(NEWS_MAX_ATTEMPTS, Math.trunc(Number(raw?.generation?.attemptCount) || 0)));
+                        let retryAt = validLifeThreadDate(raw?.generation?.retryAt) ? raw.generation.retryAt : '';
+                        const token = String(raw?.generation?.token || '').trim() || `news-generation:${id}`;
+                        const headline = lifeThreadText(raw.headline, 120);
+                        const body = lifeThreadText(raw.body, 700);
+                        const publishedAt = validLifeThreadDate(raw.publishedAt) ? raw.publishedAt : null;
+                        if (status === 'generating' && recoverGenerating) {
+                            status = 'pending';
+                            // A persisted generating operation has no live request after
+                            // reload. Preserve its identity and use the normal finite
+                            // retry cadence instead of immediately dispatching a duplicate.
+                            if (!retryAt) {
+                                const delay = NEWS_RETRY_DELAYS_MS[Math.max(0, attemptCount - 1)] || NEWS_RETRY_DELAYS_MS.at(-1);
+                                retryAt = new Date(Date.now() + delay).toISOString();
+                            }
+                        }
+                        if (status === 'generating' || status === 'pending') {
+                            if (attemptCount >= NEWS_MAX_ATTEMPTS && !body) status = 'failed';
+                        }
+                        const projectionActor = getNewsProjectionActor({ sourceEventId });
+                        if (status === 'published' && (!headline || !body || !publishedAt ||
+                            hasNewsActorIdentityLeak(`${headline}\n${body}`, projectionActor) || hasUnsafeNewsPrivateClaim(`${headline}\n${body}`))) status = 'failed';
+                        const disclosedPublicFactIds = status === 'published'
+                            ? publicFactIds.filter(factId => body.includes(getLifeThreadFactLocation(factId)?.fact?.text || ''))
+                            : [];
+                        const candidate = {
+                            id, sourceThreadId, sourceEventId, publicFactIds,
+                            projectionContext: context, createdAt, publishAt, status,
+                            generation: { token, attemptCount, retryAt, lastError: lifeThreadText(raw?.generation?.lastError, 240) },
+                            headline: status === 'published' ? headline : '', body: status === 'published' ? body : '',
+                            disclosedPublicFactIds,
+                            publishedAt: status === 'published' ? publishedAt : null,
+                            readAt: status === 'published' && validLifeThreadDate(raw.readAt) ? raw.readAt : null
+                        };
+                        const prior = bySource.get(sourceEventId);
+                        if (!prior || new Date(candidate.createdAt).getTime() < new Date(prior.createdAt).getTime() ||
+                            (candidate.createdAt === prior.createdAt && candidate.id.localeCompare(prior.id) < 0)) bySource.set(sourceEventId, candidate);
+                    });
+                    return [...bySource.values()].sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt) || left.id.localeCompare(right.id));
+                };
+                const createNewsProjectionForExcursionOutcome = ({ thread, sourceEventId, eventAt, bindings, hallId }) => {
+                    if (!thread || !sourceEventId || newsProjections.value.some(item => String(item.sourceEventId) === String(sourceEventId))) return null;
+                    const publicFactIds = (bindings || []).filter(binding => binding.projectionVisibility === 'public-observable')
+                        .map(binding => String(binding.factId)).slice(0, NEWS_PUBLIC_FACT_LIMIT);
+                    if (!publicFactIds.length) return null;
+                    const happenedAt = validLifeThreadDate(eventAt) ? new Date(eventAt) : new Date();
+                    const [minimum, maximum] = NEWS_PUBLICATION_DELAY_MS;
+                    const publishAt = new Date(happenedAt.getTime() + minimum + Math.floor(Math.random() * (maximum - minimum + 1))).toISOString();
+                    const projection = {
+                        id: makeNewsProjectionId(happenedAt.getTime()), sourceThreadId: thread.id, sourceEventId,
+                        publicFactIds, projectionContext: getNewsMediaStyle(hallId || thread.hallIds?.[0]),
+                        createdAt: happenedAt.toISOString(), publishAt, status: 'pending',
+                        generation: { token: `news-generation:${sourceEventId}`, attemptCount: 0, retryAt: '', lastError: '' },
+                        headline: '', body: '', disclosedPublicFactIds: [], publishedAt: null, readAt: null
+                    };
+                    newsProjections.value.push(projection);
+                    scheduleNewsProjectionReconciliation();
+                    addLog(`NEWS PROJECTION QUEUED: source=${sourceEventId}; projection=${projection.id}; publishAt=${publishAt}`, 'info');
+                    return projection;
+                };
+                const getNewsProjectionDueAt = projection => {
+                    const retry = validLifeThreadDate(projection?.generation?.retryAt) ? new Date(projection.generation.retryAt).getTime() : 0;
+                    return retry || new Date(projection?.publishAt || 0).getTime();
+                };
+                const scheduleNewsProjectionReconciliation = () => {
+                    if (newsProjectionTimer) clearTimeout(newsProjectionTimer);
+                    const times = newsProjections.value.filter(item => item?.status === 'pending')
+                        .map(getNewsProjectionDueAt).filter(Number.isFinite);
+                    if (!times.length) { newsProjectionTimer = null; return; }
+                    const delay = Math.max(0, Math.min(Math.min(...times) - Date.now(), 60 * 1000));
+                    newsProjectionTimer = setTimeout(() => { newsProjectionTimer = null; void reconcileNewsProjections(new Date()); }, delay);
+                };
+                const buildNewsProjectionPrompt = projection => {
+                    const facts = getNewsProjectionFactEntries(projection).map(location => location.fact.text);
+                    const context = projection.projectionContext || getNewsMediaStyle('');
+                    const styleInstruction = context.mediaStyle === 'modern-brief'
+                        ? 'Use a concise modern local news brief only where supported by the supplied public facts.'
+                        : 'Use a concise local notice, harbor report, civic bulletin, or witnessed-disturbance style. Do not invent modern media, police, television, subway, corporate, or emergency infrastructure.';
+                    return [
+                        '[PUBLIC NEWS PROJECTION]',
+                        'Write only a public-facing surface report. These are the complete public facts; do not infer or add cause, culprit, motive, hidden actor, investigation, organization, identity, private destination, or secret context.',
+                        `[PUBLIC SOURCE STYLE] ${context.sourceLabel || '当地'} · ${context.mediaStyle || 'local-notice'}`,
+                        `[PUBLIC EVENT TIME] ${projection.createdAt}`,
+                        '[PUBLIC FACTS — reproduce each fact exactly in the body if you disclose it]',
+                        ...facts.map(text => `- ${text}`),
+                        styleInstruction,
+                        'Do not describe any person from Meeow House directly or indirectly. No names, aliases, titles, occupations, costumes, equipment, appearance, species, form, or distinctive biographical labels. Preserve uncertainty where cause is not supplied.',
+                        'Return JSON only: {"headline":"short headline","body":"1-3 concise sentences"}'
+                    ].join('\n');
+                };
+                const validateNewsProjectionArticle = (raw, projection) => {
+                    const payload = parseAIJSON(raw);
+                    const headline = lifeThreadText(payload?.headline, 120);
+                    const body = lifeThreadText(payload?.body, 700);
+                    const actor = getNewsProjectionActor(projection);
+                    if (!headline || !body || hasNewsActorIdentityLeak(`${headline}\n${body}`, actor) || hasUnsafeNewsPrivateClaim(`${headline}\n${body}`)) {
+                        return { valid: false, error: 'News article contains invalid or unsafe public content.' };
+                    }
+                    const validFacts = getNewsProjectionFactEntries(projection);
+                    if (!validFacts.length) return { valid: false, error: 'News projection has no valid public facts.' };
+                    return {
+                        valid: true, headline, body,
+                        disclosedPublicFactIds: validFacts.filter(location => body.includes(location.fact.text)).map(location => location.fact.id)
+                    };
+                };
+                const buildNewsFallbackArticle = projection => {
+                    const facts = getNewsProjectionFactEntries(projection).map(location => location.fact.text);
+                    if (!facts.length) return null;
+                    const localLabel = cleanText(projection?.projectionContext?.sourceLabel || '当地');
+                    return {
+                        headline: `${localLabel}简报`,
+                        body: `${facts.join('。')}。目前尚无更多公开信息。`,
+                        disclosedPublicFactIds: getNewsProjectionFactEntries(projection).map(location => location.fact.id)
+                    };
+                };
+                const markNewsProjectionFailed = (projection, error, now = new Date()) => {
+                    projection.generation.lastError = lifeThreadText(error?.message || 'news generation failed', 240);
+                    if (Number(projection.generation.attemptCount) >= NEWS_MAX_ATTEMPTS) {
+                        const fallback = buildNewsFallbackArticle(projection);
+                        if (fallback) {
+                            projection.status = 'published'; projection.headline = fallback.headline; projection.body = fallback.body;
+                            projection.disclosedPublicFactIds = fallback.disclosedPublicFactIds; projection.publishedAt = now.toISOString();
+                            projection.generation.retryAt = ''; addLog(`NEWS PROJECTION FALLBACK PUBLISHED: projection=${projection.id}`, 'warn');
+                        } else { projection.status = 'failed'; projection.generation.retryAt = ''; }
+                        return;
+                    }
+                    const retryDelay = NEWS_RETRY_DELAYS_MS[Math.max(0, Number(projection.generation.attemptCount) - 1)] || NEWS_RETRY_DELAYS_MS.at(-1);
+                    projection.status = 'pending';
+                    projection.generation.retryAt = new Date(now.getTime() + retryDelay).toISOString();
+                };
+                const runNewsProjectionGeneration = async (projectionId, token) => {
+                    const projection = newsProjections.value.find(item => String(item?.id || '') === String(projectionId));
+                    if (!projection || projection.status !== 'generating' || projection.generation?.token !== token) { newsProjectionInFlight.delete(token); return; }
+                    try {
+                        const raw = await requestStructuredEngine(buildNewsProjectionPrompt(projection), {
+                            systemPrompt: 'You are a public Meeow House news projection engine. Return one safe compact JSON article only. You never see or reveal hidden world truth.',
+                            maxTokens: 650, thinkingLevel: ThinkingLevel.LOW, label: `NEWS PROJECTION · ${projection.id}`,
+                            priority: 'background', maxAttempts: 1, dedupeKey: `news-projection:${token}`,
+                            validateResponse: content => {
+                                const validation = validateNewsProjectionArticle(content, projection);
+                                return validation.valid ? true : validation.error;
+                            }
+                        });
+                        const latest = newsProjections.value.find(item => String(item?.id || '') === String(projectionId));
+                        if (!latest || latest.status !== 'generating' || latest.generation?.token !== token) return;
+                        const article = validateNewsProjectionArticle(raw, latest);
+                        if (!article.valid) throw new Error(article.error);
+                        latest.status = 'published'; latest.headline = article.headline; latest.body = article.body;
+                        latest.disclosedPublicFactIds = article.disclosedPublicFactIds; latest.publishedAt = new Date().toISOString();
+                        latest.generation.retryAt = ''; latest.generation.lastError = '';
+                        addLog(`NEWS PROJECTION PUBLISHED: projection=${latest.id}; disclosedFacts=${article.disclosedPublicFactIds.length}`, 'info');
+                    } catch (error) {
+                        const latest = newsProjections.value.find(item => String(item?.id || '') === String(projectionId));
+                        if (latest && latest.status === 'generating' && latest.generation?.token === token) markNewsProjectionFailed(latest, error, new Date());
+                    } finally {
+                        newsProjectionInFlight.delete(token); scheduleNewsProjectionReconciliation();
+                    }
+                };
+                const reconcileNewsProjections = async (now = new Date()) => {
+                    if (newsProjectionInFlight.size) { scheduleNewsProjectionReconciliation(); return false; }
+                    const due = newsProjections.value.filter(item => item?.status === 'pending' && getNewsProjectionDueAt(item) <= now.getTime())
+                        .sort((left, right) => getNewsProjectionDueAt(left) - getNewsProjectionDueAt(right) || String(left.id).localeCompare(String(right.id)))[0];
+                    if (!due) { scheduleNewsProjectionReconciliation(); return false; }
+                    due.status = 'generating'; due.generation.attemptCount = Math.max(0, Number(due.generation.attemptCount) || 0) + 1;
+                    due.generation.retryAt = ''; newsProjectionInFlight.add(due.generation.token);
+                    void runNewsProjectionGeneration(due.id, due.generation.token);
+                    return true;
+                };
+                const ensureNewsReadKnowledge = projection => {
+                    if (!projection || projection.status !== 'published' || !validLifeThreadDate(projection.readAt)) return [];
+                    const sourceEventId = `news-read:${projection.id}`;
+                    const learnedAt = projection.readAt;
+                    const edges = [];
+                    (projection.disclosedPublicFactIds || []).forEach(factId => {
+                        const location = getLifeThreadFactLocation(factId);
+                        if (!location || location.fact?.projectionVisibility !== 'public-observable' ||
+                            !projection.body.includes(location.fact.text) || userKnowsFact(factId)) return;
+                        const edge = { id: makeKnowledgeEdgeId(new Date(learnedAt).getTime()), factId, knowerType: 'user', knowerId: KNOWLEDGE_USER_ID, learnedAt, sourceEventId };
+                        knowledgeLedger.value.push(edge); edges.push(edge);
+                    });
+                    return edges;
+                };
+                const reconcileNewsReadKnowledge = () => newsProjections.value.forEach(ensureNewsReadKnowledge);
+                const publishedNewsProjections = computed(() => newsProjections.value.filter(item => item?.status === 'published')
+                    .slice().sort((left, right) => String(right.publishedAt || '').localeCompare(String(left.publishedAt || '')) || String(right.id).localeCompare(String(left.id))));
+                const unreadNewsCount = computed(() => publishedNewsProjections.value.filter(item => !item.readAt).length);
+                const openNewsApp = () => { resetPhoneTransientUI(); phoneState.currentApp = 'news'; phoneState.news.selectedProjectionId = null; };
+                const activeNewsProjection = computed(() => publishedNewsProjections.value.find(item => String(item.id) === String(phoneState.news.selectedProjectionId)) || null);
+                const openNewsProjection = (projectionId) => {
+                    const projection = publishedNewsProjections.value.find(item => String(item.id) === String(projectionId));
+                    if (!projection) return;
+                    phoneState.news.selectedProjectionId = projection.id;
+                    if (!projection.readAt) { projection.readAt = new Date().toISOString(); ensureNewsReadKnowledge(projection); }
+                };
+                const closeNewsProjection = () => { phoneState.news.selectedProjectionId = null; };
                 const incrementLifeThreadIdleWorldPasses = ({ hallId, touchedThreadIds = new Set(), happenedAt }) => {
                     const at = validLifeThreadDate(happenedAt) ? happenedAt : new Date().toISOString();
                     lifeThreads.value.forEach(thread => {
@@ -18808,9 +19099,10 @@ ${buildCatMemoryContext(cat)}`;
                     '[ONLY FACTS THE ACTOR KNEW BEFORE DEPARTURE]', scope.facts.map(fact => `- ${fact.id}: ${fact.text}`).join('\n'),
                     `[PURPOSE] ${intent.purposeMode} fact ${intent.purposeFactId}.`,
                     'The trip really occurred. Return no-change if it produced no grounded progression. New world facts must be direct bounded results of this actor pursuing only the listed known facts. Do not add free event summaries, motives, organizations, locations, relationships, future events, or hidden actors.',
+                    'A new fact may optionally be public-observable only when it is a bounded external incident, damage, disruption, public activity, official response, environmental consequence, or other plainly observable surface evidence. Such a fact must never name, describe, hint at, or identify this actor (including title, job, costume, equipment, appearance, species, form, biography, alias, or codename), and must not reveal the private purpose, cause, discovery, organization, or Thread.',
                     '{"outcome":"no-change"}',
                     'OR',
-                    `{"outcome":"advance|resolve","actorAction":{"residentId":"${scope.actorId}","basisFactIds":["one listed fact id"],"summary":"brief completed purpose-aligned action"},"newFacts":[{"text":"one direct discovered fact","knowledgeClaims":[{"residentId":"${scope.actorId}","accessMode":"observed|heard|discovered|told|shown|realized|direct-discovery","evidence":"explicit access evidence containing the exact fact text"}]}],"summaryFactIndex":0,"resolutionFactIndex":0}`
+                    `{"outcome":"advance|resolve","actorAction":{"residentId":"${scope.actorId}","basisFactIds":["one listed fact id"],"summary":"brief completed purpose-aligned action"},"newFacts":[{"text":"one direct discovered fact","projectionVisibility":"private|public-observable","publicCategory":"incident|damage|disruption|public-activity|official-response|environmental|other|null","knowledgeClaims":[{"residentId":"${scope.actorId}","accessMode":"observed|heard|discovered|told|shown|realized|direct-discovery","evidence":"explicit access evidence containing the exact fact text"}]}],"summaryFactIndex":0,"resolutionFactIndex":0}`
                 ].join('\n');
                 const validateThreadExcursionOutcome = (raw, scope) => {
                     const candidate = parseLifeThreadContinuationCandidate(raw);
@@ -18965,12 +19257,19 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     const sourceEventId = scope.provenance.outcomeSourceEventId;
                     if (thread.beats.some(beat => String(beat?.sourceEventId || '') === sourceEventId)) return { stale: true };
-                    const newFacts = candidate.newFacts.map(fact => ({ text: lifeThreadText(fact.text, LIFE_THREAD_TEXT_LIMITS.fact), claims: Array.isArray(fact.knowledgeClaims) ? fact.knowledgeClaims : [] }));
+                    const newFacts = candidate.newFacts.map(fact => ({
+                        text: lifeThreadText(fact.text, LIFE_THREAD_TEXT_LIMITS.fact),
+                        claims: Array.isArray(fact.knowledgeClaims) ? fact.knowledgeClaims : [],
+                        ...getValidatedPublicFactMetadata(fact, scope.actor)
+                    }));
                     const existingFactTexts = new Set(thread.beats.flatMap(beat => (beat.facts || []).map(fact => fact.text)));
                     if (newFacts.some(fact => existingFactTexts.has(fact.text))) return { invalid: true, error: 'Excursion outcome repeats a tracked fact.' };
                     const eventAt = validLifeThreadDate(scope.episode.returnedAt) ? scope.episode.returnedAt : scope.episode.plannedReturnAt;
                     const beatId = `${thread.id}:beat:${thread.beats.length + 1}`;
-                    const bindings = newFacts.map((fact, index) => ({ factId: `${beatId}:fact:${index + 1}`, text: fact.text, claims: fact.claims }));
+                    const bindings = newFacts.map((fact, index) => ({
+                        factId: `${beatId}:fact:${index + 1}`, text: fact.text, claims: fact.claims,
+                        projectionVisibility: fact.projectionVisibility, publicCategory: fact.publicCategory
+                    }));
                     const edges = bindings.flatMap(binding => binding.claims.map(() => ({
                         id: makeKnowledgeEdgeId(new Date(eventAt).getTime()), factId: binding.factId,
                         knowerType: 'resident', knowerId: scope.actorId, learnedAt: eventAt, sourceEventId
@@ -18978,7 +19277,10 @@ ${buildCatMemoryContext(cat)}`;
                     const summaryFact = bindings[Number(candidate.summaryFactIndex)];
                     const resolutionFact = candidate.outcome === 'resolve' ? bindings[Number(candidate.resolutionFactIndex)] : null;
                     thread.beats.push({ id: beatId, sourceEventId, happenedAt: eventAt,
-                        summary: lifeThreadText(candidate.actorAction.summary, LIFE_THREAD_TEXT_LIMITS.beat), facts: bindings.map(binding => ({ id: binding.factId, text: binding.text })) });
+                        summary: lifeThreadText(candidate.actorAction.summary, LIFE_THREAD_TEXT_LIMITS.beat), facts: bindings.map(binding => ({
+                            id: binding.factId, text: binding.text,
+                            projectionVisibility: binding.projectionVisibility, publicCategory: binding.publicCategory
+                        })) });
                     thread.summary = (resolutionFact || summaryFact).text;
                     thread.updatedAt = eventAt; thread.lastAdvancedAt = eventAt;
                     knowledgeLedger.value.push(...edges);
@@ -18987,6 +19289,9 @@ ${buildCatMemoryContext(cat)}`;
                     } else {
                         clearThreadExcursionIntent(thread, now, 'advanced');
                     }
+                    createNewsProjectionForExcursionOutcome({
+                        thread, sourceEventId, eventAt, bindings, hallId: scope.episode.hallId || thread.hallIds?.[0]
+                    });
                     addLog(`LIFE THREAD EXCURSION OUTCOME APPLIED: thread=${thread.id}; episode=${scope.episode.id}; outcome=${candidate.outcome}; facts=${bindings.length}`, 'info');
                     return { applied: true, outcome: candidate.outcome };
                 };
@@ -19237,6 +19542,10 @@ ${buildCatMemoryContext(cat)}`;
                 lifeThreads.value = normalizeLifeThreads(savedLifeThreads);
                 // Facts must be canonical before edges can safely validate against them.
                 knowledgeLedger.value = normalizeKnowledgeLedger(savedKnowledgeLedger);
+                // News validates only against canonical public facts. Legacy saves do
+                // not receive invented articles when this collection is absent.
+                newsProjections.value = normalizeNewsProjections(savedNewsProjections, { recoverGenerating: true });
+                reconcileNewsReadKnowledge();
                 const buildOwnerDailyContext = (profileName = 'standard', options = {}) => {
                     const compact = profileName === 'compact' || profileName === 'reader';
                     const includeCuratorProfile = options.includeCuratorProfile !== false;
@@ -19898,14 +20207,10 @@ ${JSON.stringify(diaryContext)}
                     const completedBackfillKeys = new Set(diaryWrites
                         .filter(row => row.task.kind === 'backfill')
                         .map(row => row.task.pendingKey));
+                    // The old generic Gazette payload is retained only as hidden
+                    // legacy Phone data. Daily archival prose must not overwrite it
+                    // or become a second source for prospective News projections.
                     if (!user.phoneData) user.phoneData = {};
-                    user.phoneData.news = payload.news.map((item, index) => ({
-                        id: item.id || `daily-news-${Date.now()}-${index}`,
-                        type: item.type || 'HOUSE',
-                        title: cleanText(item.title),
-                        summary: cleanText(item.summary),
-                        source: cleanText(item.source || 'Meeow House Gazette')
-                    }));
                     if (!Array.isArray(user.phoneData.moments)) user.phoneData.moments = [];
                     user.phoneData.moments.push({
                         id: `daily-moment-${Date.now()}`,
@@ -22161,6 +22466,7 @@ ${enrichedStatusOutputContract}`;
                             awayEpisodes: awayEpisodes.value,
                             lifeThreads: lifeThreads.value,
                             knowledgeLedger: knowledgeLedger.value,
+                            newsProjections: newsProjections.value,
                             catPaintAssets
                         });
                         const blob = new Blob([data], { type: 'application/json' });
@@ -22198,9 +22504,12 @@ ${enrichedStatusOutputContract}`;
                             normalizeResidentRelationshipRoster();
                             lifeThreads.value = normalizeLifeThreads(data.lifeThreads);
                             knowledgeLedger.value = normalizeKnowledgeLedger(data.knowledgeLedger);
+                            newsProjections.value = normalizeNewsProjections(data.newsProjections, { recoverGenerating: true });
+                            reconcileNewsReadKnowledge();
                             normalizeCustomHallPresentation();
                             normalizePhoneReplyOpportunities({ recoverInFlight: true });
                             void reconcilePhoneReplyOpportunities(new Date());
+                            void reconcileNewsProjections(new Date());
                             if (data.settings) Object.assign(settings, data.settings);
                             if (data.catPaintAssets) await restoreCatPaintBackups(data.catPaintAssets);
                             if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
@@ -22738,12 +23047,13 @@ ${episodicMemory}`;
                     checkSpecialEvent();
                     reconcileAwayEpisodes(new Date());
                     void reconcileLifeThreadContinuations(new Date());
+                    void reconcileNewsProjections(new Date());
                     checkDailyInitialization();
                     applyUISettings();
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
-                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); currentTime.value = now; }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); checkDailyInitialization(); currentTime.value = now; } });
+                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); currentTime.value = now; }, 30000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });
@@ -22819,6 +23129,7 @@ ${episodicMemory}`;
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef, rememberPhoneChatScrollPosition,
+                    newsProjections, publishedNewsProjections, unreadNewsCount, activeNewsProjection, openNewsApp, openNewsProjection, closeNewsProjection,
                     fanficWorks, fanficFolderChildren, fanficWorkChildren, fanficWorkMoveTargets, fanficFolderBreadcrumb, activeFanficWork, activeFanficShares, activeFanficShare, fanficRecipientCandidates, selectedFanficRecipientChannels, formatFanficTime, getFanficChannelLabel, getFanficShareStatusLabel, getFanficWorkShareCount,
                     openFanficLibrary, closeFanficApp, openFanficFolder, goUpFanficFolder, createFanficFolder, manageFanficFolder, createFanficDraft, openFanficWork, editFanficWork, openFanficWorkOptions, moveFanficWorkToFolder, saveFanficDraft, openFanficSharePicker, selectFanficRecipient, createFanficShare, openFanficShare, retryFanficShare,
                     readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, readerTocRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
