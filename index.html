@@ -14563,6 +14563,11 @@ RULES:
                 const PHONE_REPLY_MAX_DELAY_MS = 12 * 60 * 1000;
                 const PHONE_REPLY_RETRY_DELAYS_MS = [60 * 1000, 3 * 60 * 1000, 8 * 60 * 1000];
                 const PHONE_REPLY_BUBBLE_DELAY_MS = 750;
+                // This is deliberately a hard budget for exact, whole Life Thread
+                // facts. Partial facts can change their epistemic meaning, so a fact
+                // that does not fit is omitted rather than truncated.
+                const PHONE_REPLY_KNOWLEDGE_MAX_FACTS = 4;
+                const PHONE_REPLY_KNOWLEDGE_MAX_CHARS = 520;
                 const PHONE_REPLY_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'delivering', 'completed', 'failed']);
                 const phoneReplyGenerationInFlight = new Set();
                 let phoneReplyReconciliationTimer = null;
@@ -14577,6 +14582,23 @@ RULES:
                     user.phoneData.friends.some(id => sameCatId(id, getCanonicalCatId(contactId)));
                 const isEligiblePhoneReplySource = (message) => Boolean(message && message.role === 'user' &&
                     message.type !== 'system' && message.type !== 'fanfic-share' && !message.recalled && message.id);
+                const normalizePhoneReplyKnowledgeSnapshots = (records) => {
+                    const snapshots = [];
+                    const seen = new Set();
+                    let totalChars = 0;
+                    (Array.isArray(records) ? records : []).forEach(raw => {
+                        const factId = String(raw?.factId || '').trim();
+                        // Keep the exact persisted snapshot text. Do not clean, trim,
+                        // or otherwise rewrite a claimed turn's private fact wording.
+                        const text = typeof raw?.text === 'string' ? raw.text : '';
+                        if (!factId || !text || seen.has(factId) || snapshots.length >= PHONE_REPLY_KNOWLEDGE_MAX_FACTS) return;
+                        if (text.length > PHONE_REPLY_KNOWLEDGE_MAX_CHARS || totalChars + text.length > PHONE_REPLY_KNOWLEDGE_MAX_CHARS) return;
+                        seen.add(factId);
+                        totalChars += text.length;
+                        snapshots.push({ factId, text });
+                    });
+                    return snapshots;
+                };
                 const normalizePhoneReplyOpportunities = ({ recoverInFlight = false, now = new Date() } = {}) => {
                     const nowIso = now.toISOString();
                     const knownMessages = new Map();
@@ -14611,11 +14633,19 @@ RULES:
                         const nextDeliveryAt = isValidPhoneReplyTime(raw.nextDeliveryAt)
                             ? raw.nextDeliveryAt
                             : (status === 'delivering' && nextDeliveryIndex < messages.length ? nowIso : '');
+                        const knowledgeScopeFrozen = raw.knowledgeScopeFrozen === true;
+                        const rawKnowledgeFactIds = [...new Set((Array.isArray(raw.knowledgeFactIds) ? raw.knowledgeFactIds : [])
+                            .map(id => String(id || '').trim()).filter(Boolean))];
+                        const knowledgeFactSnapshots = knowledgeScopeFrozen
+                            ? normalizePhoneReplyKnowledgeSnapshots(raw.knowledgeFactSnapshots)
+                            : [];
                         return {
                             id: String(raw.id), contactId: getCanonicalCatId(raw.contactId), sourceMessageIds,
                             createdAt: isValidPhoneReplyTime(raw.createdAt) ? raw.createdAt : nowIso,
                             dueAt, status, attemptCount: Math.max(0, Number(raw.attemptCount) || 0), retryAt,
                             claimedAt, responseBatchId: raw.responseBatchId ? String(raw.responseBatchId) : '',
+                            knowledgeFactIds: knowledgeScopeFrozen ? knowledgeFactSnapshots.map(item => item.factId) : rawKnowledgeFactIds,
+                            knowledgeFactSnapshots, knowledgeScopeFrozen,
                             messages, nextDeliveryIndex, nextDeliveryAt,
                             completedAt: isValidPhoneReplyTime(raw.completedAt) ? raw.completedAt : '',
                             lastError: cleanText(String(raw.lastError || '')).slice(0, 240)
@@ -14669,7 +14699,9 @@ RULES:
                         contactId: catId,
                         sourceMessageIds: [message.id],
                         createdAt: now.toISOString(), dueAt, status: 'scheduled', attemptCount: 0,
-                        retryAt: '', claimedAt: '', responseBatchId: '', messages: [],
+                        retryAt: '', claimedAt: '', responseBatchId: '',
+                        knowledgeFactIds: [], knowledgeFactSnapshots: [], knowledgeScopeFrozen: false,
+                        messages: [],
                         nextDeliveryIndex: 0, nextDeliveryAt: '', completedAt: '', lastError: ''
                     };
                     opportunities.push(opportunity);
@@ -14853,11 +14885,21 @@ RULES:
                     }
                     const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
                     const pendingText = pending.map(formatPhoneReplySource).join('\n');
+                    // Claim-time snapshots, never live ledger data, are the only
+                    // private Knowledge source for this asynchronous turn.
+                    const conversationKnowledge = opportunity.knowledgeScopeFrozen
+                        ? buildResidentConversationKnowledgeContext(catId, {
+                            channel: 'phone-reply',
+                            intentionalConversation: true,
+                            hasOtherResidentOutput: false,
+                            frozenSnapshots: opportunity.knowledgeFactSnapshots
+                        })
+                        : { prompt: '' };
                     const wasOpen = isExactPhoneConversationOpen(catId);
                     if (wasOpen) phoneState.isTyping = true;
                     const prompt = `
 【喵信私聊】
-你正在以 ${contact.name} 的公开身份，和馆长进行一对一文字聊天。馆长是安全、善意的共同生活者；你需要建立可靠的沟通方式，但不能泄露自己在喵喵馆中的猫形态或任何秘密。
+你正在以 ${contact.name} 的公开身份，和馆长进行一对一文字聊天。馆长是安全、善意的共同生活者；你需要建立可靠的沟通方式，但不能泄露自己在喵喵馆中的猫形态或馆舍秘密。其他私密事实是否提及，必须遵守下方的私有事实规则与角色判断。
 本轮待回复的分段消息：
 ${pendingText}
 
@@ -14870,6 +14912,7 @@ ${pendingText}
 6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
 7. 总长 12–180 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"]}。不要 Markdown、解释或任何 JSON 以外的文字。
 
+${conversationKnowledge.prompt || ''}
 ${buildAuthoritativeUserIdentityContext()}
 ${buildCatMemoryContext(cat)}`;
                     try {
@@ -14912,6 +14955,7 @@ ${buildCatMemoryContext(cat)}`;
                     // are immutable, so later USER messages form a subsequent turn.
                     due.status = 'in-flight';
                     due.claimedAt = due.claimedAt || now.toISOString();
+                    freezePhoneReplyKnowledgeScope(due);
                     due.retryAt = '';
                     due.attemptCount = Math.max(0, Number(due.attemptCount) || 0) + 1;
                     phoneReplyGenerationInFlight.add(due.id);
@@ -18247,6 +18291,76 @@ ${buildCatMemoryContext(cat)}`;
                             facts: getKnownLifeThreadFactsForResident(residentId, thread.id).map(fact => ({ id: fact.id, text: fact.text }))
                         })).filter(entry => entry.facts.length)];
                     }));
+                };
+                // Private Knowledge is deliberately capability-gated. A caller must
+                // prove that the entire request is one resident's intentional private
+                // conversation, not merely that it happens to mention one resident.
+                const canInjectPrivateResidentKnowledge = ({ channel, residentIds, intentionalConversation, hasOtherResidentOutput } = {}) => {
+                    const ids = [...new Set((Array.isArray(residentIds) ? residentIds : [])
+                        .map(id => String(id || '').trim()).filter(Boolean))];
+                    return channel === 'phone-reply' && intentionalConversation === true &&
+                        hasOtherResidentOutput === false && ids.length === 1;
+                };
+                const buildResidentConversationKnowledgeContext = (residentId, options = {}) => {
+                    const canonicalResidentId = String(residentId || '').trim();
+                    const allowed = canInjectPrivateResidentKnowledge({
+                        channel: options.channel,
+                        residentIds: [canonicalResidentId],
+                        intentionalConversation: options.intentionalConversation === true,
+                        hasOtherResidentOutput: options.hasOtherResidentOutput === true
+                    });
+                    if (!allowed || !canonicalResidentId) return { factIds: [], snapshots: [], prompt: '' };
+
+                    let snapshots = [];
+                    if (Array.isArray(options.frozenSnapshots)) {
+                        // A frozen turn retains its exact text even if a later import
+                        // normalizes the canonical fact wording. Missing fact IDs are
+                        // the one exception: omit that malformed reference safely.
+                        snapshots = normalizePhoneReplyKnowledgeSnapshots(options.frozenSnapshots)
+                            .filter(snapshot => Boolean(getLifeThreadFactLocation(snapshot.factId)));
+                    } else {
+                        const candidates = knowledgeLedger.value
+                            .filter(edge => edge?.knowerType === 'resident' && String(edge.knowerId || '') === canonicalResidentId)
+                            .map(edge => ({ edge, location: getLifeThreadFactLocation(edge.factId) }))
+                            .filter(entry => entry.location?.fact && typeof entry.location.fact.text === 'string')
+                            .sort((left, right) => {
+                                const leftOpen = left.location.thread?.status === 'open' ? 0 : 1;
+                                const rightOpen = right.location.thread?.status === 'open' ? 0 : 1;
+                                if (leftOpen !== rightOpen) return leftOpen - rightOpen;
+                                const learnedDelta = new Date(right.edge.learnedAt || 0).getTime() - new Date(left.edge.learnedAt || 0).getTime();
+                                if (learnedDelta) return learnedDelta;
+                                return String(left.location.fact.id).localeCompare(String(right.location.fact.id));
+                            });
+                        let totalChars = 0;
+                        const seen = new Set();
+                        for (const { location } of candidates) {
+                            const factId = String(location.fact.id || '').trim();
+                            const text = location.fact.text;
+                            if (!factId || !text || seen.has(factId) || snapshots.length >= PHONE_REPLY_KNOWLEDGE_MAX_FACTS) continue;
+                            // Whole facts only: an oversized or remaining-budget-exceeding
+                            // fact is deliberately skipped, never shortened.
+                            if (text.length > PHONE_REPLY_KNOWLEDGE_MAX_CHARS || totalChars + text.length > PHONE_REPLY_KNOWLEDGE_MAX_CHARS) continue;
+                            seen.add(factId);
+                            totalChars += text.length;
+                            snapshots.push({ factId, text });
+                        }
+                    }
+                    const factIds = snapshots.map(snapshot => snapshot.factId);
+                    const prompt = snapshots.length ? `[PRIVATE FACTS THIS RESIDENT KNOWS]
+These are authoritative facts known privately by this resident. Use them only for internal continuity and epistemic consistency. Knowing a fact does not require telling the USER: preserve character voice and stakes; the resident may answer honestly, reveal only part, evade, refuse, redirect, conceal, or mislead by omission when character-consistent. Do not dump unrelated facts. Do not portray genuine ignorance of a listed fact unless the resident is intentionally pretending not to know it.
+${snapshots.map(snapshot => `- ${snapshot.text}`).join('\n')}
+[END PRIVATE FACTS]` : '';
+                    return { factIds, snapshots, prompt };
+                };
+                const freezePhoneReplyKnowledgeScope = (opportunity) => {
+                    if (!opportunity || opportunity.knowledgeScopeFrozen === true) return opportunity?.knowledgeFactSnapshots || [];
+                    const context = buildResidentConversationKnowledgeContext(opportunity.contactId, {
+                        channel: 'phone-reply', intentionalConversation: true, hasOtherResidentOutput: false
+                    });
+                    opportunity.knowledgeFactIds = context.factIds;
+                    opportunity.knowledgeFactSnapshots = context.snapshots;
+                    opportunity.knowledgeScopeFrozen = true;
+                    return context.snapshots;
                 };
                 // --- News Projection: public surface evidence, never Thread truth ---
                 const NEWS_PUBLICATION_DELAY_MS = Object.freeze([15 * 60 * 1000, 6 * 60 * 60 * 1000]);
