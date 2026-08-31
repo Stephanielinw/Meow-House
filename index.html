@@ -6469,7 +6469,7 @@
 
                                         <!-- MESSAGES AREA -->
                                         <div class="phone-chat-message-area flex-1 overflow-y-auto p-3 pb-2 space-y-1 custom-scrollbar"
-                                            ref="phoneChatRef" @scroll.passive="rememberPhoneChatScrollPosition()">
+                                            ref="phoneChatRef" @scroll.passive="handlePhoneChatScroll()">
                                             <template
                                                 v-for="(msg, idx) in getPhoneChatHistory(phoneState.selectedContactId)"
                                                 :key="idx">
@@ -6501,6 +6501,7 @@
                                                             </div>
                                                             <!-- Bubble -->
                                                             <div :class="msg.role === 'user' ? 'phone-chat-user-bubble' : 'phone-chat-cat-bubble'"
+                                                                :data-phone-message-id="msg.id || ''"
                                                                 @contextmenu.prevent="showMsgMenu($event, msg, idx)"
                                                                 @touchstart="startLongPress($event, msg, idx)"
                                                                 @touchend="cancelLongPress"
@@ -6692,15 +6693,15 @@
                                                     <button type="button" @click="phoneState.showChatArchive = false" class="phone-chat-more-button h-8 w-8 rounded-lg" aria-label="关闭聊天记录"><i class="fas fa-xmark"></i></button>
                                                 </header>
                                                 <div v-if="getPhoneArchiveDays(phoneState.selectedContactId).length" class="shrink-0 flex gap-2 overflow-x-auto px-4 py-3 border-b custom-scrollbar" style="border-color: var(--ui-border);">
-                                                    <button v-for="day in getPhoneArchiveDays(phoneState.selectedContactId)" :key="day" type="button" @click="phoneState.archiveDateKey = day" class="px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap" :style="phoneState.archiveDateKey === day ? { background: 'var(--accent)', color: 'var(--ui-button-text, #182116)' } : { background: 'var(--ui-surface-hover)', color: 'var(--ui-text-muted)', border: '1px solid var(--ui-border)' }">{{ day }}</button>
+                                                    <button v-for="day in getPhoneArchiveDays(phoneState.selectedContactId)" :key="day" type="button" @click="selectPhoneArchiveDate(day)" class="px-3 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap" :style="phoneState.archiveDateKey === day ? { background: 'var(--accent)', color: 'var(--ui-button-text, #182116)' } : { background: 'var(--ui-surface-hover)', color: 'var(--ui-text-muted)', border: '1px solid var(--ui-border)' }">{{ day }}</button>
                                                 </div>
-                                                <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3 custom-scrollbar">
+                                                <div class="flex-1 overflow-y-auto px-4 py-4 space-y-3 custom-scrollbar" ref="phoneArchiveRef" @scroll.passive="handlePhoneArchiveScroll()">
                                                     <p v-if="!getPhoneArchiveDays(phoneState.selectedContactId).length" class="py-12 text-center text-sm" style="color: var(--ui-text-muted);">还没有已归档的聊天记录。</p>
                                                     <template v-else>
                                                         <p class="text-center text-[10px]" style="color: var(--ui-text-subtle);">{{ phoneState.archiveDateKey }} · 03:00 归档</p>
                                                         <div v-for="msg in getPhoneArchiveMessages(phoneState.selectedContactId, phoneState.archiveDateKey)" :key="msg.id || (msg.at + msg.content)" class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
                                                             <div class="max-w-[78%]">
-                                                                <div :class="msg.role === 'user' ? 'phone-chat-user-bubble' : 'phone-chat-cat-bubble'" class="text-sm leading-relaxed break-words">{{ msg.type === 'system' ? msg.content : cleanText(msg.content) }}</div>
+                                                                <div :class="msg.role === 'user' ? 'phone-chat-user-bubble' : 'phone-chat-cat-bubble'" :data-phone-message-id="msg.id || ''" class="text-sm leading-relaxed break-words">{{ msg.type === 'system' ? msg.content : cleanText(msg.content) }}</div>
                                                                 <p class="phone-chat-time mt-1 text-[9px]" :class="msg.role === 'user' ? 'text-right' : 'text-left'">{{ formatPhoneMessageTime(msg) }}</p>
                                                             </div>
                                                         </div>
@@ -11329,6 +11330,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 });
                 const buildSaveData = window.Meeow.storage.buildSaveData;
                 const persistSettings = window.Meeow.storage.persistSettings;
+                const persistNow = window.Meeow.storage.persistNow;
                 const persistSelectedModel = window.Meeow.storage.persistSelectedModel;
                 const scheduleSave = window.Meeow.storage.scheduleSave;
                 // Coalesce legacy reactive changes into one write instead of
@@ -14029,6 +14031,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const currentPhotoDesc = ref('');
                 const phoneImageDesc = ref('');
                 const phoneChatRef = ref(null);
+                const phoneArchiveRef = ref(null);
                 const phoneShowEmojiPicker = ref(false);
                 const phoneChatScrollPositions = reactive({});
                 const isPhoneChatNearBottom = () => {
@@ -14044,6 +14047,10 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         nearBottom: isPhoneChatNearBottom()
                     };
                 };
+                const handlePhoneChatScroll = () => {
+                    rememberPhoneChatScrollPosition();
+                    schedulePhoneDisclosureObservation?.({ surface: 'chat', contactId: phoneState.selectedContactId });
+                };
                 const restorePhoneChatScrollPosition = (contactId = phoneState.selectedContactId) => {
                     const canonicalId = getCanonicalCatId(contactId);
                     const savedPosition = canonicalId ? phoneChatScrollPositions[canonicalId] : null;
@@ -14055,6 +14062,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         } else {
                             element.scrollTop = element.scrollHeight;
                         }
+                        schedulePhoneDisclosureObservation?.({ surface: 'chat', contactId: canonicalId });
                     }));
                 };
 
@@ -14204,11 +14212,12 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 };
                 const scrollPhoneChatToBottom = (force = false) => {
                     const shouldFollow = force || isPhoneChatNearBottom();
-                    nextTick(() => {
+                    nextTick(() => requestAnimationFrame(() => {
                         if (!phoneChatRef.value) return;
                         if (shouldFollow) phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
                         rememberPhoneChatScrollPosition();
-                    });
+                        schedulePhoneDisclosureObservation?.({ surface: 'chat', contactId: phoneState.selectedContactId });
+                    }));
                 };
                 const announcedIncomingPhoneMessageIds = new Set();
                 const isExactPhoneConversationOpen = (contactId) => currentTab.value === 'phone' &&
@@ -14221,11 +14230,12 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     if (isExactPhoneConversationOpen(contactId)) {
                         // Wait until Vue has rendered the new bubble before measuring the
                         // scroll height; iPhone Safari otherwise stops one message short.
-                        nextTick(() => {
+                        nextTick(() => requestAnimationFrame(() => {
                             if (!isExactPhoneConversationOpen(contactId) || !phoneChatRef.value) return;
                             phoneChatRef.value.scrollTop = phoneChatRef.value.scrollHeight;
                             rememberPhoneChatScrollPosition();
-                        });
+                            schedulePhoneDisclosureObservation?.({ surface: 'chat', contactId });
+                        }));
                         return;
                     }
                     // A generated reply bundle is one incoming event even when its
@@ -14291,6 +14301,16 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     phoneState.archiveDateKey = days[0] || '';
                     phoneState.chatOptionsOpen = false;
                     phoneState.showChatArchive = true;
+                    schedulePhoneDisclosureObservation?.({ surface: 'archive', contactId, dateKey: phoneState.archiveDateKey });
+                };
+                const selectPhoneArchiveDate = (dateKey) => {
+                    phoneState.archiveDateKey = String(dateKey || '');
+                    schedulePhoneDisclosureObservation?.({ surface: 'archive', contactId: phoneState.selectedContactId, dateKey: phoneState.archiveDateKey });
+                };
+                const handlePhoneArchiveScroll = () => {
+                    schedulePhoneDisclosureObservation?.({
+                        surface: 'archive', contactId: phoneState.selectedContactId, dateKey: phoneState.archiveDateKey
+                    });
                 };
                 const archivePhoneChatsForOperationalDay = (dateKey, archivedBefore) => {
                     if (!dateKey || !Array.isArray(user.phoneData?.chats)) return;
@@ -14363,6 +14383,65 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     ...getPhoneChatHistory(contactId),
                     ...getStoredPhoneArchiveMessages(contactId)
                 ];
+                const phoneMessageVisibleInContainer = (container, messageId) => {
+                    if (!container || !messageId) return false;
+                    const escapedId = typeof CSS !== 'undefined' && CSS.escape
+                        ? CSS.escape(String(messageId))
+                        : String(messageId).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+                    const element = container.querySelector(`[data-phone-message-id="${escapedId}"]`);
+                    if (!element) return false;
+                    const messageRect = element.getBoundingClientRect();
+                    const viewportRect = container.getBoundingClientRect();
+                    return messageRect.bottom > viewportRect.top && messageRect.top < viewportRect.bottom &&
+                        messageRect.right > viewportRect.left && messageRect.left < viewportRect.right;
+                };
+                const getValidatedPhoneMessageDisclosureFactIds = (message) => {
+                    if (!message || message.role !== 'assistant' || message.type !== 'text' || !message.id ||
+                        !message.phoneReplyOpportunityId || !Number.isInteger(Number(message.phoneReplyBubbleIndex))) return [];
+                    const opportunity = getPhoneReplyOpportunities().find(item => String(item.id) === String(message.phoneReplyOpportunityId));
+                    const bubbleIndex = Number(message.phoneReplyBubbleIndex);
+                    const recorded = Array.isArray(message.knowledgeDisclosureFactIds) ? message.knowledgeDisclosureFactIds : [];
+                    const validated = Array.isArray(opportunity?.knowledgeDisclosureFactIdsByBubble)
+                        ? opportunity.knowledgeDisclosureFactIdsByBubble[bubbleIndex]
+                        : [];
+                    const deliveredBubble = Array.isArray(opportunity?.messages) ? opportunity.messages[bubbleIndex] : '';
+                    const snapshotTextByFactId = new Map((Array.isArray(opportunity?.knowledgeFactSnapshots) ? opportunity.knowledgeFactSnapshots : [])
+                        .map(snapshot => [String(snapshot?.factId || ''), typeof snapshot?.text === 'string' ? snapshot.text : '']));
+                    const allowed = new Set((Array.isArray(validated) ? validated : []).map(id => String(id || '').trim()).filter(Boolean));
+                    return [...new Set(recorded.map(id => String(id || '').trim()).filter(id =>
+                        allowed.has(id) && Boolean(getLifeThreadFactLocation(id)) &&
+                        typeof deliveredBubble === 'string' && String(message.content || '') === deliveredBubble &&
+                        Boolean(snapshotTextByFactId.get(id)) && deliveredBubble.includes(snapshotTextByFactId.get(id))
+                    ))];
+                };
+                const isSelectedPhoneObservationSurface = ({ surface, contactId, dateKey }) => {
+                    const canonicalId = getCanonicalCatId(contactId);
+                    if (!canonicalId || currentTab.value !== 'phone' || phoneState.currentApp !== 'chat' ||
+                        !sameCatId(phoneState.selectedContactId, canonicalId)) return false;
+                    if (surface === 'archive') return phoneState.showChatArchive === true && String(phoneState.archiveDateKey || '') === String(dateKey || '');
+                    return phoneState.showChatArchive !== true;
+                };
+                const observeVisiblePhoneDisclosureMessages = ({ surface, contactId, dateKey } = {}) => {
+                    if (!isSelectedPhoneObservationSurface({ surface, contactId, dateKey })) return 0;
+                    const container = surface === 'archive' ? phoneArchiveRef.value : phoneChatRef.value;
+                    const messages = surface === 'archive'
+                        ? getPhoneArchiveMessages(contactId, dateKey)
+                        : getPhoneChatHistory(contactId);
+                    let observed = 0;
+                    messages.forEach(message => {
+                        if (message?.observedAt || !getValidatedPhoneMessageDisclosureFactIds(message).length ||
+                            !phoneMessageVisibleInContainer(container, message.id)) return;
+                        message.observedAt = new Date().toISOString();
+                        ensurePhoneObservedMessageKnowledge?.(message);
+                        observed++;
+                    });
+                    return observed;
+                };
+                const schedulePhoneDisclosureObservation = ({ surface = 'chat', contactId = phoneState.selectedContactId, dateKey = '' } = {}) => {
+                    nextTick(() => requestAnimationFrame(() => {
+                        observeVisiblePhoneDisclosureMessages({ surface, contactId, dateKey });
+                    }));
+                };
                 const getPhoneMessageTimestamp = (message) => {
                     const raw = Number(message?.ts) || new Date(message?.at || message?.createdAt || message?.timestamp || 0).getTime();
                     return Number.isFinite(raw) && raw > 0 ? raw : 0;
@@ -14599,6 +14678,15 @@ RULES:
                     });
                     return snapshots;
                 };
+                const makePhoneReplyKnowledgeFactRefs = (snapshots) => normalizePhoneReplyKnowledgeSnapshots(snapshots)
+                    .map((snapshot, index) => ({ ref: `K${index + 1}`, factId: snapshot.factId }));
+                const normalizePhoneReplyDisclosureFactIdsByBubble = (records, snapshots, messageCount = null) => {
+                    const allowed = new Set(normalizePhoneReplyKnowledgeSnapshots(snapshots).map(snapshot => snapshot.factId));
+                    const raw = Array.isArray(records) ? records : [];
+                    const length = Number.isFinite(messageCount) ? Math.max(0, messageCount) : raw.length;
+                    return Array.from({ length }, (_, index) => [...new Set((Array.isArray(raw[index]) ? raw[index] : [])
+                        .map(id => String(id || '').trim()).filter(id => allowed.has(id)))]);
+                };
                 const normalizePhoneReplyOpportunities = ({ recoverInFlight = false, now = new Date() } = {}) => {
                     const nowIso = now.toISOString();
                     const knownMessages = new Map();
@@ -14639,13 +14727,27 @@ RULES:
                         const knowledgeFactSnapshots = knowledgeScopeFrozen
                             ? normalizePhoneReplyKnowledgeSnapshots(raw.knowledgeFactSnapshots)
                             : [];
+                        // Existing already-claimed records predate transfer v1. Mark
+                        // them empty/frozen rather than mining old private chats later.
+                        const userDisclosureScopeFrozen = raw.userDisclosureScopeFrozen === true ||
+                            (Boolean(claimedAt) && raw.userDisclosureScopeFrozen !== false);
+                        const userDisclosedFactIds = [...new Set((Array.isArray(raw.userDisclosedFactIds) ? raw.userDisclosedFactIds : [])
+                            .map(id => String(id || '').trim()).filter(id => Boolean(getLifeThreadFactLocation(id))))];
+                        const knowledgeFactRefs = knowledgeScopeFrozen
+                            ? makePhoneReplyKnowledgeFactRefs(knowledgeFactSnapshots)
+                            : [];
+                        const knowledgeDisclosureFactIdsByBubble = normalizePhoneReplyDisclosureFactIdsByBubble(
+                            raw.knowledgeDisclosureFactIdsByBubble, knowledgeFactSnapshots, messages.length || null
+                        );
                         return {
                             id: String(raw.id), contactId: getCanonicalCatId(raw.contactId), sourceMessageIds,
                             createdAt: isValidPhoneReplyTime(raw.createdAt) ? raw.createdAt : nowIso,
                             dueAt, status, attemptCount: Math.max(0, Number(raw.attemptCount) || 0), retryAt,
                             claimedAt, responseBatchId: raw.responseBatchId ? String(raw.responseBatchId) : '',
                             knowledgeFactIds: knowledgeScopeFrozen ? knowledgeFactSnapshots.map(item => item.factId) : rawKnowledgeFactIds,
-                            knowledgeFactSnapshots, knowledgeScopeFrozen,
+                            knowledgeFactSnapshots, knowledgeScopeFrozen, knowledgeFactRefs,
+                            userDisclosedFactIds, userDisclosureScopeFrozen,
+                            knowledgeDisclosureFactIdsByBubble,
                             messages, nextDeliveryIndex, nextDeliveryAt,
                             completedAt: isValidPhoneReplyTime(raw.completedAt) ? raw.completedAt : '',
                             lastError: cleanText(String(raw.lastError || '')).slice(0, 240)
@@ -14700,7 +14802,8 @@ RULES:
                         sourceMessageIds: [message.id],
                         createdAt: now.toISOString(), dueAt, status: 'scheduled', attemptCount: 0,
                         retryAt: '', claimedAt: '', responseBatchId: '',
-                        knowledgeFactIds: [], knowledgeFactSnapshots: [], knowledgeScopeFrozen: false,
+                        knowledgeFactIds: [], knowledgeFactSnapshots: [], knowledgeScopeFrozen: false, knowledgeFactRefs: [],
+                        userDisclosedFactIds: [], userDisclosureScopeFrozen: false, knowledgeDisclosureFactIdsByBubble: [],
                         messages: [],
                         nextDeliveryIndex: 0, nextDeliveryAt: '', completedAt: '', lastError: ''
                     };
@@ -14801,12 +14904,18 @@ RULES:
                     phoneState.chatTab = 'chat';
                 };
                 const parsePhoneChatReply = (reply) => {
+                    return parsePhoneChatReplyEnvelope(reply).messages;
+                };
+                const parsePhoneChatReplyEnvelope = (reply) => {
                     const raw = String(reply || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
                     try {
                         const parsed = JSON.parse(raw);
                         const messages = Array.isArray(parsed) ? parsed : parsed?.messages;
-                        return Array.isArray(messages) ? messages.map(item => cleanText(typeof item === 'string' ? item : item?.text || '')).filter(Boolean) : [];
-                    } catch (_) { return []; }
+                        return {
+                            messages: Array.isArray(messages) ? messages.map(item => cleanText(typeof item === 'string' ? item : item?.text || '')).filter(Boolean) : [],
+                            knowledgeDisclosures: Array.isArray(parsed?.knowledgeDisclosures) ? parsed.knowledgeDisclosures : []
+                        };
+                    } catch (_) { return { messages: [], knowledgeDisclosures: [] }; }
                 };
                 const validatePhoneChatReply = (reply) => {
                     const messages = parsePhoneChatReply(reply);
@@ -14816,6 +14925,77 @@ RULES:
                     if (/【[^】]{2,}】|\[[^\]\n]{3,}\]/.test(text)) return '喵信回复包含动作或旁白括号。';
                     if (/(?:^|\n)\s*(?:旁白|动作|场景|环境|镜头)\s*[:：]/.test(text)) return '喵信回复使用了旁白格式。';
                     return true;
+                };
+                const validatePhoneReplyKnowledgeDisclosures = (opportunity, messages, rawClaims) => {
+                    const refs = new Map((Array.isArray(opportunity?.knowledgeFactRefs) ? opportunity.knowledgeFactRefs : [])
+                        .map(item => [String(item?.ref || ''), String(item?.factId || '')]));
+                    const snapshotByFactId = new Map((Array.isArray(opportunity?.knowledgeFactSnapshots) ? opportunity.knowledgeFactSnapshots : [])
+                        .map(item => [String(item?.factId || ''), typeof item?.text === 'string' ? item.text : '']));
+                    const disclosed = Array.from({ length: messages.length }, () => new Set());
+                    (Array.isArray(rawClaims) ? rawClaims : []).forEach(claim => {
+                        const ref = String(claim?.factRef || '').trim();
+                        const factId = refs.get(ref);
+                        const bubbleIndex = Number(claim?.bubbleIndex);
+                        const evidence = typeof claim?.evidence === 'string' ? claim.evidence : '';
+                        const factText = snapshotByFactId.get(factId);
+                        const bubble = Number.isInteger(bubbleIndex) ? messages[bubbleIndex] : '';
+                        // Exact full fact text must be visible in the named delivered
+                        // bubble. Optional malformed sidecars are simply discarded.
+                        if (!factId || !factText || !bubble || !evidence || !bubble.includes(factText) ||
+                            !bubble.includes(evidence) || !evidence.includes(factText)) return;
+                        disclosed[bubbleIndex].add(factId);
+                    });
+                    return disclosed.map(set => [...set]);
+                };
+                const normalizePhoneKnowledgeTransferText = value => String(value ?? '')
+                    .normalize('NFKC').toLocaleLowerCase()
+                    .replace(/[，、]/g, ',').replace(/[。]/g, '.').replace(/[！]/g, '!').replace(/[？]/g, '?')
+                    .replace(/[；]/g, ';').replace(/[：]/g, ':').replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+                    .replace(/[（）]/g, char => char === '（' ? '(' : ')').replace(/[【】]/g, char => char === '【' ? '[' : ']')
+                    .replace(/\s+/g, ' ').trim();
+                const selectFrozenPhoneUserDisclosureFacts = (opportunity) => {
+                    const sourceMessages = getPhoneReplySourceMessages(opportunity).filter(message =>
+                        message?.role === 'user' && message?.type === 'text' && !message?.recalled && typeof message?.content === 'string'
+                    );
+                    const sourceTexts = sourceMessages.map(message => normalizePhoneKnowledgeTransferText(message.content)).filter(Boolean);
+                    if (!sourceTexts.length) return [];
+                    const candidates = knowledgeLedger.value.filter(edge => edge?.knowerType === 'user' && edge.knowerId === KNOWLEDGE_USER_ID)
+                        .map(edge => ({ edge, location: getLifeThreadFactLocation(edge.factId) }))
+                        .filter(entry => entry.location?.fact?.text)
+                        .sort((left, right) => new Date(right.edge.learnedAt || 0).getTime() - new Date(left.edge.learnedAt || 0).getTime() ||
+                            String(left.location.fact.id).localeCompare(String(right.location.fact.id)));
+                    const selected = [];
+                    const seen = new Set();
+                    candidates.forEach(({ location }) => {
+                        const factId = String(location.fact.id || '');
+                        const normalizedFact = normalizePhoneKnowledgeTransferText(location.fact.text);
+                        if (!factId || !normalizedFact || seen.has(factId) || selected.length >= PHONE_REPLY_KNOWLEDGE_MAX_FACTS) return;
+                        if (!sourceTexts.some(text => text.includes(normalizedFact))) return;
+                        seen.add(factId); selected.push(factId);
+                    });
+                    return selected;
+                };
+                const freezePhoneReplyUserDisclosureScope = (opportunity) => {
+                    if (!opportunity || opportunity.userDisclosureScopeFrozen === true) return opportunity?.userDisclosedFactIds || [];
+                    opportunity.userDisclosedFactIds = selectFrozenPhoneUserDisclosureFacts(opportunity);
+                    opportunity.userDisclosureScopeFrozen = true;
+                    return opportunity.userDisclosedFactIds;
+                };
+                const applyFrozenPhoneUserDisclosureKnowledge = (opportunity) => {
+                    if (!opportunity?.userDisclosureScopeFrozen || !isValidPhoneReplyTime(opportunity.claimedAt)) return [];
+                    const residentId = getCanonicalCatId(opportunity.contactId);
+                    const sourceEventId = `phone-read-user:${opportunity.id}`;
+                    const applied = [];
+                    (Array.isArray(opportunity.userDisclosedFactIds) ? opportunity.userDisclosedFactIds : []).forEach(factId => {
+                        const canonicalFactId = String(factId || '').trim();
+                        if (!canonicalFactId || !getLifeThreadFactLocation(canonicalFactId) || residentKnowsFact(residentId, canonicalFactId)) return;
+                        const edge = {
+                            id: makeKnowledgeEdgeId(new Date(opportunity.claimedAt).getTime()), factId: canonicalFactId,
+                            knowerType: 'resident', knowerId: residentId, learnedAt: opportunity.claimedAt, sourceEventId
+                        };
+                        knowledgeLedger.value.push(edge); applied.push(edge);
+                    });
+                    return applied;
                 };
                 const formatPhoneReplySource = (message) => {
                     if (message.type === 'image') return `馆长发来照片：${message.desc || '一张图片'}`;
@@ -14844,6 +15024,8 @@ RULES:
                                 batchId: opportunity.responseBatchId || opportunity.id,
                                 phoneReplyOpportunityId: opportunity.id,
                                 phoneReplyBubbleIndex: index,
+                                knowledgeDisclosureFactIds: Array.isArray(opportunity.knowledgeDisclosureFactIdsByBubble?.[index])
+                                    ? opportunity.knowledgeDisclosureFactIdsByBubble[index] : [],
                                 incomingNotificationId: opportunity.id
                             });
                         }
@@ -14910,7 +15092,7 @@ ${pendingText}
 4. 保持 ${contact.name} 的原作人格、时代感、知识边界、关系语气和 ${hall.name} 的作品边界；即时通讯节奏不等于现代俚语，不得为了像聊天而改变角色声音。
 5. 必须参考角色此刻在馆内的真实状态与当天时间线，用一个正常人会说的、自然克制的方式让回复与状态相连（例如刚睡醒可说“刚醒”，正在吃东西可说“刚吃完”，外出可说“现在不太方便”）。不要旁白解释，也不要直接说自己是一只猫。
 6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
-7. 总长 12–180 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"]}。不要 Markdown、解释或任何 JSON 以外的文字。
+7. 总长 12–180 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"],"knowledgeDisclosures":[{"factRef":"K1","bubbleIndex":0,"evidence":"含完整事实的该气泡原文片段"}]}。knowledgeDisclosures 是可选的；只有当你在指定 0 起始编号的消息气泡中逐字完整写出了某个 K 编号事实时才可列出它。不要概括、改写或猜测；否则返回 []。不要 Markdown、解释或任何 JSON 以外的文字。
 
 ${conversationKnowledge.prompt || ''}
 ${buildAuthoritativeUserIdentityContext()}
@@ -14921,9 +15103,13 @@ ${buildCatMemoryContext(cat)}`;
                             priority: 'foreground',
                             validateResponse: validatePhoneChatReply
                         });
-                        const messages = parsePhoneChatReply(reply);
+                        const envelope = parsePhoneChatReplyEnvelope(reply);
+                        const messages = envelope.messages;
                         if (!messages.length) throw new Error('喵信回复格式无效。');
                         opportunity.messages = messages;
+                        opportunity.knowledgeDisclosureFactIdsByBubble = validatePhoneReplyKnowledgeDisclosures(
+                            opportunity, messages, envelope.knowledgeDisclosures
+                        );
                         opportunity.responseBatchId = opportunity.id;
                         opportunity.nextDeliveryIndex = 0;
                         opportunity.nextDeliveryAt = new Date().toISOString();
@@ -14955,9 +15141,28 @@ ${buildCatMemoryContext(cat)}`;
                     // are immutable, so later USER messages form a subsequent turn.
                     due.status = 'in-flight';
                     due.claimedAt = due.claimedAt || now.toISOString();
-                    freezePhoneReplyKnowledgeScope(due);
                     due.retryAt = '';
                     due.attemptCount = Math.max(0, Number(due.attemptCount) || 0) + 1;
+                    // Freeze and durably save the USER's exact disclosure scope
+                    // before it can alter the resident's prompt knowledge. A reload
+                    // resumes these IDs and this claimedAt; it never rereads prose.
+                    freezePhoneReplyUserDisclosureScope(due);
+                    if (!persistNow()) {
+                        due.status = 'retryable';
+                        due.retryAt = new Date(now.getTime() + PHONE_REPLY_RETRY_DELAYS_MS[0]).toISOString();
+                        due.lastError = '回复知识声明未能写入本地存档。';
+                        schedulePhoneReplyReconciliation();
+                        return false;
+                    }
+                    applyFrozenPhoneUserDisclosureKnowledge(due);
+                    freezePhoneReplyKnowledgeScope(due);
+                    if (!persistNow()) {
+                        due.status = 'retryable';
+                        due.retryAt = new Date(now.getTime() + PHONE_REPLY_RETRY_DELAYS_MS[0]).toISOString();
+                        due.lastError = '回复知识上下文未能写入本地存档。';
+                        schedulePhoneReplyReconciliation();
+                        return false;
+                    }
                     phoneReplyGenerationInFlight.add(due.id);
                     void runPhoneReplyOpportunity(due);
                     return true;
@@ -18346,11 +18551,12 @@ ${buildCatMemoryContext(cat)}`;
                         }
                     }
                     const factIds = snapshots.map(snapshot => snapshot.factId);
+                    const refs = makePhoneReplyKnowledgeFactRefs(snapshots);
                     const prompt = snapshots.length ? `[PRIVATE FACTS THIS RESIDENT KNOWS]
-These are authoritative facts known privately by this resident. Use them only for internal continuity and epistemic consistency. Knowing a fact does not require telling the USER: preserve character voice and stakes; the resident may answer honestly, reveal only part, evade, refuse, redirect, conceal, or mislead by omission when character-consistent. Do not dump unrelated facts. Do not portray genuine ignorance of a listed fact unless the resident is intentionally pretending not to know it.
-${snapshots.map(snapshot => `- ${snapshot.text}`).join('\n')}
+These are authoritative facts known privately by this resident. Use them only for internal continuity and epistemic consistency. Knowing a fact does not require telling the USER: preserve character voice and stakes; the resident may answer honestly, reveal only part, evade, refuse, redirect, conceal, or mislead by omission when character-consistent. Do not dump unrelated facts. Do not portray genuine ignorance of a listed fact unless the resident is intentionally pretending not to know it. K aliases are request-local only; never mention them in the chat.
+${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('\n')}
 [END PRIVATE FACTS]` : '';
-                    return { factIds, snapshots, prompt };
+                    return { factIds, snapshots, refs, prompt };
                 };
                 const freezePhoneReplyKnowledgeScope = (opportunity) => {
                     if (!opportunity || opportunity.knowledgeScopeFrozen === true) return opportunity?.knowledgeFactSnapshots || [];
@@ -18359,6 +18565,7 @@ ${snapshots.map(snapshot => `- ${snapshot.text}`).join('\n')}
                     });
                     opportunity.knowledgeFactIds = context.factIds;
                     opportunity.knowledgeFactSnapshots = context.snapshots;
+                    opportunity.knowledgeFactRefs = context.refs || makePhoneReplyKnowledgeFactRefs(context.snapshots);
                     opportunity.knowledgeScopeFrozen = true;
                     return context.snapshots;
                 };
@@ -18629,6 +18836,32 @@ ${snapshots.map(snapshot => `- ${snapshot.text}`).join('\n')}
                     return edges;
                 };
                 const reconcileNewsReadKnowledge = () => newsProjections.value.forEach(ensureNewsReadKnowledge);
+                const ensurePhoneObservedMessageKnowledge = (message) => {
+                    const observedAt = isValidPhoneReplyTime(message?.observedAt) ? message.observedAt : '';
+                    const factIds = getValidatedPhoneMessageDisclosureFactIds(message);
+                    if (!observedAt || !message?.id || !factIds.length) return [];
+                    const sourceEventId = `phone-read:${message.id}`;
+                    const applied = [];
+                    factIds.forEach(factId => {
+                        if (!getLifeThreadFactLocation(factId) || userKnowsFact(factId)) return;
+                        const edge = {
+                            id: makeKnowledgeEdgeId(new Date(observedAt).getTime()), factId,
+                            knowerType: 'user', knowerId: KNOWLEDGE_USER_ID, learnedAt: observedAt, sourceEventId
+                        };
+                        knowledgeLedger.value.push(edge);
+                        applied.push(edge);
+                    });
+                    return applied;
+                };
+                const reconcilePhoneObservedMessageKnowledge = () => {
+                    const contactIds = new Set([
+                        ...(user.phoneData?.chats || []).map(chat => getCanonicalCatId(chat?.contactId)),
+                        ...Object.keys(user.phoneData?.chatArchives || {}).map(getCanonicalCatId)
+                    ].filter(Boolean));
+                    contactIds.forEach(contactId => getAllStoredPhoneMessages(contactId).forEach(message => {
+                        if (message?.observedAt) ensurePhoneObservedMessageKnowledge(message);
+                    }));
+                };
                 const publishedNewsProjections = computed(() => newsProjections.value.filter(item => item?.status === 'published')
                     .slice().sort((left, right) => String(right.publishedAt || '').localeCompare(String(left.publishedAt || '')) || String(right.id).localeCompare(String(left.id))));
                 const unreadNewsCount = computed(() => publishedNewsProjections.value.filter(item => !item.readAt).length);
@@ -22622,6 +22855,7 @@ ${enrichedStatusOutputContract}`;
                             reconcileNewsReadKnowledge();
                             normalizeCustomHallPresentation();
                             normalizePhoneReplyOpportunities({ recoverInFlight: true });
+                            reconcilePhoneObservedMessageKnowledge();
                             void reconcilePhoneReplyOpportunities(new Date());
                             void reconcileNewsProjections(new Date());
                             if (data.settings) Object.assign(settings, data.settings);
@@ -23157,6 +23391,7 @@ ${episodicMemory}`;
                     tempUserStatus.value = user.currentStatus;
                     ensurePhonePresenceConsiderationSchedule();
                     normalizePhoneReplyOpportunities({ recoverInFlight: true });
+                    reconcilePhoneObservedMessageKnowledge();
                     void reconcilePhoneReplyOpportunities(new Date());
                     checkSpecialEvent();
                     reconcileAwayEpisodes(new Date());
@@ -23242,7 +23477,7 @@ ${episodicMemory}`;
                     showCalendarManager, deleteCalendarSource, currentBagTab, currentBagItems,
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
-                    phoneState, phoneIdentities, phoneChatInput, phoneChatRef, rememberPhoneChatScrollPosition,
+                    phoneState, phoneIdentities, phoneChatInput, phoneChatRef, phoneArchiveRef, rememberPhoneChatScrollPosition, handlePhoneChatScroll, handlePhoneArchiveScroll, selectPhoneArchiveDate,
                     newsProjections, publishedNewsProjections, unreadNewsCount, activeNewsProjection, openNewsApp, openNewsProjection, closeNewsProjection,
                     fanficWorks, fanficFolderChildren, fanficWorkChildren, fanficWorkMoveTargets, fanficFolderBreadcrumb, activeFanficWork, activeFanficShares, activeFanficShare, fanficRecipientCandidates, selectedFanficRecipientChannels, formatFanficTime, getFanficChannelLabel, getFanficShareStatusLabel, getFanficWorkShareCount,
                     openFanficLibrary, closeFanficApp, openFanficFolder, goUpFanficFolder, createFanficFolder, manageFanficFolder, createFanficDraft, openFanficWork, editFanficWork, openFanficWorkOptions, moveFanficWorkToFolder, saveFanficDraft, openFanficSharePicker, selectFanficRecipient, createFanficShare, openFanficShare, retryFanficShare,

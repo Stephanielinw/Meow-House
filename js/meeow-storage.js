@@ -26,17 +26,21 @@
 
     storage.buildSaveData = () => dependencies.getState();
 
-    storage.persistSettings = () => {
+    storage.persistNow = () => {
         const { getState, storageKey, modelStorageKey, addLog, showToast } = dependencies;
         const state = getState();
         try {
             localStorage.setItem(storageKey, JSON.stringify(storage.buildSaveData()));
             if (String(state.settings.model || '').trim()) localStorage.setItem(modelStorageKey, String(state.settings.model).trim());
+            return true;
         } catch (error) {
             addLog(`SETTINGS SAVE FAILED: ${error.message}`, 'error');
             showToast('模型设置保存失败，请检查浏览器存储空间。', 'error');
+            return false;
         }
     };
+
+    storage.persistSettings = () => storage.persistNow();
 
     storage.persistSelectedModel = () => {
         const { getState, modelStorageKey, addLog, showToast } = dependencies;
