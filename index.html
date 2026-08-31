@@ -4946,7 +4946,7 @@
                             <div class="min-w-0 flex-1">
                                 <div class="text-sm font-black truncate">{{ getResidentPublicName(curatorRoomResident) }}</div>
                                 <p class="mt-1 text-[10px]" style="color: var(--ui-text-muted);"><i class="fas fa-location-dot mr-1" style="color: var(--accent);"></i>{{ getCuratorRoomAnchorLabel(curatorRoomResident) }}</p>
-                                <p class="mt-1 text-[11px] leading-relaxed" style="color: var(--ui-text-muted);">{{ cleanText(curatorRoomResident.status) || '正在房间里安静待着。' }}</p>
+                                <p class="mt-1 text-[11px] leading-relaxed" style="color: var(--ui-text-muted);">{{ getResidentLiveStatus(curatorRoomResident, '正在房间里安静待着。') }}</p>
                             </div>
                         </div>
                         <button type="button" class="sully-btn mt-3 w-full py-2 text-xs font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text);" @click.stop="returnResidentFromCuratorRoom(curatorRoomResident)"><i class="fas fa-house mr-1"></i>送回喵喵馆</button>
@@ -4961,14 +4961,14 @@
                 <template v-else>
                     <section class="curator-room-map-stage" aria-label="馆长室地图">
                         <span v-for="(anchor, id) in CURATOR_ROOM_ANCHORS" :key="id" class="curator-room-map-anchor" :style="{ left: anchor.x + '%', top: anchor.y + '%' }">{{ anchor.label }}</span>
-                        <button v-if="curatorRoomResident" type="button" class="curator-room-map-resident" :style="getCuratorRoomMarkerStyle(curatorRoomResident)" :title="cleanText(curatorRoomResident.status)" @click.stop="handleCuratorRoomResidentTap(curatorRoomResident)" @dblclick.stop.prevent="openCuratorResidentDetail(curatorRoomResident)">
+                        <button v-if="curatorRoomResident" type="button" class="curator-room-map-resident" :style="getCuratorRoomMarkerStyle(curatorRoomResident)" :title="getResidentLiveStatus(curatorRoomResident)" @click.stop="handleCuratorRoomResidentTap(curatorRoomResident)" @dblclick.stop.prevent="openCuratorResidentDetail(curatorRoomResident)">
                             <img :src="getMapCatAvatarSource(curatorRoomResident)" :alt="getResidentPublicName(curatorRoomResident) + ' 的馆长室标记'" @error="handleMapAvatarError($event, curatorRoomResident)">
                         </button>
                         <p v-if="!curatorRoomResident" class="curator-room-map-empty">房间里暂时没有居民。</p>
                     </section>
                     <aside v-if="curatorRoomMapPreviewCat" class="meeow-map-status-card" @click.stop>
                         <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ getResidentPublicName(curatorRoomMapPreviewCat) }}</strong><span class="text-[9px]" style="color: var(--accent);">{{ getCuratorRoomAnchorLabel(curatorRoomMapPreviewCat) }}</span></div>
-                        <p>{{ cleanText(curatorRoomMapPreviewCat.status) || '正在房间里安静待着。' }}</p>
+                        <p>{{ getResidentLiveStatus(curatorRoomMapPreviewCat, '正在房间里安静待着。') }}</p>
                         <div class="flex gap-2 mt-2">
                             <button type="button" class="sully-btn flex-1 py-2 text-[10px] font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text);" @click="openCuratorResidentDetail(curatorRoomMapPreviewCat)">进入主页</button>
                             <button type="button" class="sully-btn flex-1 py-2 text-[10px] font-bold" style="background: var(--ui-surface-hover); color: var(--ui-text);" @click="returnResidentFromCuratorRoom(curatorRoomMapPreviewCat)">送回馆里</button>
@@ -5179,8 +5179,8 @@
                         </div>
                         
                         <!-- Status text -->
-                        <p @click.stop class="cat-status-preview text-[11px] text-gray-400 text-center w-full leading-relaxed mt-0.5 px-1 custom-scrollbar" :title="cleanText(cat.status)">
-                            {{ cleanText(cat.status) }}
+                        <p @click.stop class="cat-status-preview text-[11px] text-gray-400 text-center w-full leading-relaxed mt-0.5 px-1 custom-scrollbar" :title="getResidentLiveStatus(cat)">
+                            {{ getResidentLiveStatus(cat) }}
                         </p>
 
                         <div v-if="cat.isVisiting" class="w-full text-center text-[9px] text-sky-300 bg-sky-950/40 border border-sky-500/20 rounded-lg px-2 py-1 mt-1">
@@ -5245,7 +5245,7 @@
                     <div class="meeow-map-stage" :class="'meeow-map-room-' + activeMapRoom">
                         <img class="meeow-map-background" :src="getMapAssetPath(activeMapRoom, 'background')" :alt="activeMapRoomDefinition.name + '地图背景'">
                         <img v-for="layer in activeMapRoomDefinition.groundLayers" :key="'ground-' + layer" class="meeow-map-layer is-ground" :src="getMapAssetPath(activeMapRoom, layer)" alt="">
-                        <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" :class="['meeow-map-cat', marker.depthClass]" :style="marker.position" :title="cleanText(marker.cat.status)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
+                        <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" :class="['meeow-map-cat', marker.depthClass]" :style="marker.position" :title="getResidentLiveStatus(marker.cat)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
                             <span class="meeow-map-cat-avatar">
                                 <img :src="getMapCatAvatarSource(marker.cat)" :alt="getResidentPublicName(marker.cat) + ' 的馆内标记'" @error="handleMapAvatarError($event, marker.cat)">
                             </span>
@@ -5270,7 +5270,7 @@
                     </div>
                     <aside v-if="mapPreviewCat" class="meeow-map-status-card" @click.stop>
                         <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ getResidentPublicName(mapPreviewCat) }}</strong><span class="text-[9px]" style="color: var(--accent);">单击查看 · 双击进入</span></div>
-                        <p>{{ cleanText(mapPreviewCat.status) || '正在馆内安静活动。' }}</p>
+                        <p>{{ getResidentLiveStatus(mapPreviewCat, '正在馆内安静活动。') }}</p>
                         <button type="button" @click="openMapCatDetail(mapPreviewCat)" class="mt-2 text-[10px] font-black" style="color: var(--accent);"><i class="fas fa-arrow-right mr-1"></i>进入小猫主页</button>
                     </aside>
                     <div v-if="mapOutCats.length" class="meeow-map-away-card">
@@ -5594,7 +5594,7 @@
                                 </span>
                             </div>
                             <p class="text-[10px] text-yellow-500/90 mt-1 font-mono leading-relaxed break-words">
-                                动态: {{ cleanText(selectedCat.status) }}
+                                动态: {{ getResidentLiveStatus(selectedCat) }}
                             </p>
                             <p v-if="isResidentAway(selectedCat)" class="text-[10px] mt-1 leading-relaxed" style="color: var(--ui-text-muted);">
                                 正在外出，可能无法及时回应；这不代表它不想联系你。
@@ -8178,7 +8178,7 @@
                                     <dt style="color: var(--ui-text-muted);">最后记录</dt><dd>{{ formatAwayArchiveTime(record.item.lastTraceAt) }}</dd>
                                 </dl>
                                 <dl v-else class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
-                                    <dt style="color: var(--ui-text-muted);">地点</dt><dd class="break-words">{{ cleanText(record.item.destination) || '未留下地点记录' }}</dd>
+                                    <dt style="color: var(--ui-text-muted);">地点</dt><dd class="break-words">{{ getAwayArchiveDestination(record.item) || '未留下地点记录' }}</dd>
                                     <dt style="color: var(--ui-text-muted);">离馆时间</dt><dd>{{ formatAwayArchiveTime(record.item.departedAt) }}</dd>
                                     <dt style="color: var(--ui-text-muted);">回馆时间</dt><dd>{{ formatAwayArchiveTime(record.item.returnedAt || record.item.plannedReturnAt) }}</dd>
                                     <dt style="color: var(--ui-text-muted);">总时长</dt><dd>{{ formatAwayArchiveDuration(record.item) }}</dd>
@@ -9400,12 +9400,20 @@
                     }
                     migrateSceneRecords(payload.hallSceneRecords, idMap);
                     migrateResidentRecordArrays(payload.awayEpisodes, 'residentId', null, idMap);
+                    if (Array.isArray(payload.awayEpisodes)) {
+                        payload.awayEpisodes.forEach(episode => {
+                            if (episode?.provenance?.origin === 'life-thread') migrateResidentIdField(episode.provenance, 'actorId', idMap);
+                        });
+                    }
                     if (Array.isArray(payload.lifeThreads)) {
                         payload.lifeThreads.forEach(thread => {
                             if (thread && typeof thread === 'object') {
                                 migrateResidentIdArrayField(thread, 'participantIds', idMap);
                                 if (thread.continuation?.operation && typeof thread.continuation.operation === 'object') {
                                     migrateResidentIdField(thread.continuation.operation, 'actorId', idMap);
+                                }
+                                if (thread.continuation?.excursionIntent && typeof thread.continuation.excursionIntent === 'object') {
+                                    migrateResidentIdField(thread.continuation.excursionIntent, 'actorId', idMap);
                                 }
                             }
                         });
@@ -10024,7 +10032,7 @@
                     return Math.abs(hash) % Math.max(1, length);
                 };
                 const getMapCatAction = (cat) => {
-                    const status = cleanText(cat?.status || '');
+                    const status = getResidentLiveStatus(cat, '');
                     if (isResidentAway(cat) || /外出|出门|旅行|赶路|走|踱|跑|巡/.test(status)) return 'walk';
                     if (/睡|休息|打盹|蜷|补眠/.test(status)) return 'sleep';
                     if (/吃|食|饭|零食|喂/.test(status)) return 'eat';
@@ -10073,7 +10081,7 @@
                     if (/软垫|打盹|睡|休息|蜷|补眠|猫窝/.test(text)) return { room: 'dorm', spot: /猫窝/.test(text) ? 'cat-house-door' : 'flower-cushion' };
                     return null;
                 };
-                const getCatMapSemanticText = (cat) => [cat?.status, cat?.mapFurniture, cat?.mapPositionLabel]
+                const getCatMapSemanticText = (cat) => [getResidentLiveStatus(cat, ''), cat?.mapFurniture, cat?.mapPositionLabel]
                     .filter(Boolean)
                     .join(' ');
                 const inferMapRoomFromStatus = (status) => getSemanticMapTarget(status)?.room || 'living';
@@ -10087,7 +10095,7 @@
                     if (storedPoint?.roomId) return storedPoint.roomId;
                     return MAP_ROOM_DEFINITIONS.some(room => room.id === cat?.mapRoom)
                         ? cat.mapRoom
-                        : inferMapRoomFromStatus(cat?.status || '');
+                        : inferMapRoomFromStatus(getResidentLiveStatus(cat, ''));
                 };
                 const getMapSpotForCat = (cat, room) => {
                     const validRoom = MAP_ROOM_DEFINITIONS.find(item => item.id === room);
@@ -10375,6 +10383,23 @@
                 });
                 const activeAIRequestId = ref(null);
                 const statusRefreshInFlight = new Map();
+                // A DEPARTING_NOW directive belongs to one already-frozen normal
+                // Status request. Keep that short-lived claim separate from an
+                // active Away episode so a due Thread excursion cannot race it.
+                const frozenOrdinaryAwayDepartureClaims = new Map();
+                const claimFrozenOrdinaryAwayDeparture = (residentId) => {
+                    const id = String(residentId || '');
+                    if (!id) return;
+                    frozenOrdinaryAwayDepartureClaims.set(id, (frozenOrdinaryAwayDepartureClaims.get(id) || 0) + 1);
+                };
+                const releaseFrozenOrdinaryAwayDeparture = (residentId) => {
+                    const id = String(residentId || '');
+                    const count = frozenOrdinaryAwayDepartureClaims.get(id) || 0;
+                    if (count <= 1) frozenOrdinaryAwayDepartureClaims.delete(id);
+                    else frozenOrdinaryAwayDepartureClaims.set(id, count - 1);
+                };
+                const hasFrozenOrdinaryAwayDepartureClaim = residentId =>
+                    (frozenOrdinaryAwayDepartureClaims.get(String(residentId || '')) || 0) > 0;
                 const hallStatusRefreshPending = new Map();
                 const CURATOR_ROOM_STATUS_STALE_MS = 30 * 60 * 1000;
                 const curatorRoomStatusInFlight = new Map();
@@ -10850,7 +10875,7 @@
                     if (!settings.apiKey) return alert("需要API连接");
                     if (cat.hasHackedThisPatrol) return showToast("这段馆舍观察记录今天已经整理过了。", "error");
                     showToast("正在调取馆舍观察记录…", "loading");
-                    const prompt = `[MEEOW HOUSE OBSERVATION LOG] Character: ${cat.name}. Hall: ${currentHall.value.name}. Current status: ${cat.status}. Task: Generate a vivid but grounded observation log of what this cat did while the user was away. The activity must fit this exact character's original canon and current hall. Do not force crime-fighting, surveillance, DC references, or action scenes. Output only the log, ~60 Chinese words.\n${buildAuthoritativeUserIdentityContext()}\n${buildCatMemoryContext(cat)}`;
+                    const prompt = `[MEEOW HOUSE OBSERVATION LOG] Character: ${cat.name}. Hall: ${currentHall.value.name}. Current status: ${getResidentLiveStatus(cat, '未知')}. Task: Generate a vivid but grounded observation log of what this cat did while the user was away. The activity must fit this exact character's original canon and current hall. Do not force crime-fighting, surveillance, DC references, or action scenes. Output only the log, ~60 Chinese words.\n${buildAuthoritativeUserIdentityContext()}\n${buildCatMemoryContext(cat)}`;
                     try {
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1500, ThinkingLevel.HIGH);
                         appendMonitorEvent(cat, `[监控截获] ${cleanText(res)}`, 'manual-camera');
@@ -11034,6 +11059,10 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     cat.currentForm = unlocked && (requestedForm === 'HUMAN' || legacyHuman) ? 'HUMAN' : 'CAT';
                     cat.isHuman = cat.currentForm === 'HUMAN';
                     cat.lastFormChangeAt = parseFormTimestamp(cat.lastFormChangeAt) ? cat.lastFormChangeAt : null;
+                    // Presentation provenance is intentionally separate from form
+                    // authority. Legacy statuses without a marker remain visible;
+                    // only a later unsafe form-mismatched update can mark one stale.
+                    cat.statusPresentationForm = normalizeFormValue(cat.statusPresentationForm) || null;
                     const reconsiderAt = parseFormTimestamp(cat.nextFormReconsiderAt);
                     cat.nextFormReconsiderAt = reconsiderAt ? reconsiderAt.toISOString() : null;
                     if (!unlocked) cat.nextFormReconsiderAt = null;
@@ -11129,22 +11158,39 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 };
                 const formatFormLifecycleAuthority = (directives) => `[FORM LIFECYCLE AUTHORITY]\n${Object.entries(directives || {}).map(([id, directive]) => `${id} → current=${directive.currentForm}; target=${directive.targetForm}; automaticRoll=${directive.roll ?? 'none'}; transition=${directive.transitioned ? 'AUTHORIZED' : 'NONE'}`).join('\n') || 'None'}\nForm is local lifecycle authority. Copy the supplied target form exactly as compatibility metadata; never choose a form yourself. A transition may be narrated naturally only when transition=AUTHORIZED. When transition=NONE, the resident remains in the supplied form and must not spontaneously transform in prose. CAT and HUMAN expression rules remain binding and never change canon personality.`;
                 const validateFormDirectives = (entries, directives = {}) => {
-                    for (const [id, directive] of Object.entries(directives || {})) {
-                        const entry = (entries || []).find(item => String(item?.id ?? '') === String(id));
-                        const parsed = parseCanonicalFormDecision(entry);
-                        if (!parsed.valid) return `Form directive failed: id=${id}; ${parsed.error}`;
-                        if (directive?.targetForm && parsed.form !== directive.targetForm) {
-                            return `Form directive failed: id=${id}; target=${directive.targetForm}; received=${parsed.form}.`;
-                        }
-                    }
+                    // Form echoes are compatibility signals, not AI authority. Keep
+                    // this compatibility shim non-fatal; callers classify every slice
+                    // before application and quarantine unsafe generated prose there.
                     return true;
                 };
+                const classifyFormDirectiveCompatibility = (entries, directives = {}) => {
+                    const byId = new Map((entries || []).map(entry => [String(entry?.id ?? ''), entry]));
+                    return Object.keys(directives || {}).reduce((result, rawId) => {
+                        const id = String(rawId);
+                        const directive = directives[id] || {};
+                        const cat = cats.value.find(item => String(item?.id) === id);
+                        const priorForm = normalizeFormValue(directive.currentForm) || getResidentForm(cat);
+                        const targetForm = normalizeFormValue(directive.targetForm) || priorForm;
+                        const parsed = parseCanonicalFormDecision(byId.get(id));
+                        const received = parsed.valid ? parsed.form : '';
+                        const safe = Boolean(parsed.valid && received === targetForm);
+                        result.set(id, {
+                            id,
+                            safe,
+                            priorForm,
+                            targetForm,
+                            received,
+                            error: parsed.valid ? '' : parsed.error,
+                            directive,
+                            transitioned: Boolean(directive.automatic && directive.transitioned && priorForm !== targetForm)
+                        });
+                        return result;
+                    }, new Map());
+                };
                 const applyFormDecision = (cat, decision, directive, now = new Date(), source = 'status-sync') => {
-                    const parsed = typeof decision === 'string' ? { valid: true, form: normalizeFormValue(decision) } : parseCanonicalFormDecision(decision);
-                    if (!parsed.valid || !parsed.form || !cat) return false;
+                    if (!cat || !directive?.automatic || !directive?.transitioned) return false;
                     const current = getResidentForm(cat);
-                    if (directive?.targetForm && parsed.form !== directive.targetForm) return false;
-                    const target = directive?.targetForm || current;
+                    const target = normalizeFormValue(directive.targetForm) || current;
                     const changed = setResidentForm(cat, target, { now, scheduleNext: false });
                     addLog(`FORM STATUS ROLL: resident=${String(cat.id)}; roll=${directive?.roll ?? 'locked'}; current=${current}; target=${target}; changed=${changed}`, 'info');
                     return true;
@@ -13196,6 +13242,7 @@ JSON 格式：
                     const requestHall = { ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value) };
                     const frozenNow = new Date();
                     const previousFocusIds = getValidHallSceneFocusIds(requestHallId, frozenNow);
+                    const sceneOutcome = { quarantined: false };
                     showToast(`正在编织${requestHall.name}的馆内片段...`, 'loading');
                     const success = await refreshAllStatus(true, `USER shared scene action: ${rawUserText}`, [], '', false, false, {
                         priority: 'foreground',
@@ -13206,6 +13253,7 @@ JSON 格式：
                         operationalDayKey: getOperationalDayKey(frozenNow),
                         sceneMode: 'user-directed',
                         sceneRequired: true,
+                        sceneOutcome,
                         protectedSceneParticipantIds: selectedIds,
                         sceneContext: {
                             rawUserText,
@@ -13219,13 +13267,15 @@ JSON 格式：
                             }))
                         }
                     });
-                    if (success) {
+                    if (success && !sceneOutcome.quarantined) {
                         sharedSceneComposer.text = '';
                         showToast('馆内片段已写下。', 'success');
+                    } else if (success && sceneOutcome.quarantined) {
+                        showToast('本次馆内片段因形态回包不安全而未写入；已保留原文。', 'warning');
                     } else {
                         showToast('这段馆内片段没有完整写成，请稍后重试。', 'error');
                     }
-                    return success;
+                    return success && !sceneOutcome.quarantined;
                 };
 
                 // --- EXPLORE SYSTEM METHODS ---
@@ -13579,7 +13629,7 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     const recentInteractions = (cat?.todayInteractions || []).slice(-2)
                         .map(item => short(item.content || item.text)).filter(Boolean).join('；') || '无直接互动';
                     const recentMonitoring = (cat?.diary || []).slice(-2)
-                        .map(item => short(item.content)).filter(Boolean).join('；') || short(cat?.status, 120) || '无';
+                        .map(item => short(item.content)).filter(Boolean).join('；') || short(getResidentLiveStatus(cat, ''), 120) || '无';
                     const latestDiary = (cat?.logs || []).slice(-1)
                         .map(item => short(item.content, 180)).filter(Boolean).join('') || '无';
                     return [
@@ -15874,12 +15924,27 @@ ${buildCatMemoryContext(cat)}`;
                     cat.diary.push(event);
                     return event;
                 };
+                const isResidentPresentationFormCompatible = (cat) => {
+                    const presentationForm = normalizeFormValue(cat?.statusPresentationForm);
+                    return !presentationForm || presentationForm === getResidentForm(cat);
+                };
+                const getResidentLiveStatus = (cat, fallback = '正在安静适应当前状态。') => {
+                    if (!cat || !isResidentPresentationFormCompatible(cat)) return fallback;
+                    return cleanText(cat.status || '') || fallback;
+                };
+                const getResidentLiveInnerVoice = (cat, fallback = '') => {
+                    if (!cat || !isResidentPresentationFormCompatible(cat)) return fallback;
+                    return cleanText(cat.innerVoice || '') || fallback;
+                };
                 const setCatStatus = (cat, status, options = {}) => {
                     if (!cat || !status) return false;
                     const clean = cleanText(String(status));
                     const changed = clean !== cleanText(cat.status || '');
                     cat.status = clean;
                     if (options.innerVoice) cat.innerVoice = cleanText(options.innerVoice);
+                    if (options.presentationForm !== false) {
+                        cat.statusPresentationForm = normalizeFormValue(options.presentationForm) || getResidentForm(cat);
+                    }
                     // Curator Room is a physical location outside any Hall. Its status may
                     // refresh through the home-Hall scheduler, but must never overwrite the
                     // resident's stored Hall-map position.
@@ -16179,10 +16244,10 @@ ${buildCatMemoryContext(cat)}`;
                     const continuityLines = [
                         `Last known presence: ${cat?.isOut ? 'AWAY' : (curatorPresence ? 'CURATOR_ROOM' : 'HOME')}`,
                         `Last observation: ${lastObservationLabel}; Observation age / Δt: ${observationAgeMinutes}m (${tier})`,
-                        `Last observed status: ${truncateMemoryText(cat?.status || '未知', observedStatusLimit)}`
+                        `Last observed status: ${truncateMemoryText(getResidentLiveStatus(cat, '未知'), observedStatusLimit)}`
                     ];
                     if (tier === 'short') {
-                        continuityLines.push(`Last observed inner voice: ${truncateMemoryText(cat?.innerVoice || '无记录', 24)}`);
+                        continuityLines.push(`Last observed inner voice: ${truncateMemoryText(getResidentLiveInnerVoice(cat, '无记录'), 24)}`);
                     }
                     continuityLines.push(`Historical monitoring / recent observations: ${historicalMonitoring}`);
                     continuityLines.push(`Continuity evidence: ${truncateMemoryText(continuity || 'None', tier === 'short' ? 34 : 22)}`);
@@ -16968,9 +17033,12 @@ ${buildCatMemoryContext(cat)}`;
                     return date ? date.toLocaleString() : new Date().toLocaleString();
                 };
                 const getUsablePlannedArchiveNarrative = (episode) => {
+                    if (isLifeThreadAwayEpisode(episode)) return '';
                     const narrative = cleanText(episode?.plannedArchiveNarrative || '');
                     return narrative.length >= 20 && narrative.length <= 600 ? narrative : '';
                 };
+                const getAwayArchiveDestination = (episode) => isLifeThreadAwayEpisode(episode)
+                    ? '' : cleanText(episode?.destination || '');
                 const formatAwayArchiveTime = (value) => formatLogicalDisplayDate(value);
                 const formatAwayArchiveDuration = (episode) => {
                     const departedAt = parseLogicalDate(episode?.departedAt);
@@ -17797,6 +17865,13 @@ ${buildCatMemoryContext(cat)}`;
                     long: Object.freeze([3 * 24 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000])
                 });
                 const LIFE_THREAD_CONTINUATION_RETRY_MS = 60 * 60 * 1000;
+                const LIFE_THREAD_EXCURSION_NOT_BEFORE_MS = Object.freeze([6 * 60 * 60 * 1000, 24 * 60 * 60 * 1000]);
+                const LIFE_THREAD_EXCURSION_BLOCK_RECHECK_MS = 60 * 60 * 1000;
+                const LIFE_THREAD_EXCURSION_OUTCOME_RETRY_MS = Object.freeze([
+                    60 * 60 * 1000, 3 * 60 * 60 * 1000, 8 * 60 * 60 * 1000,
+                    24 * 60 * 60 * 1000, 24 * 60 * 60 * 1000
+                ]);
+                const LIFE_THREAD_EXCURSION_MAX_OUTCOME_ATTEMPTS = 6;
                 let lifeThreadIdSequence = 0;
                 const makeLifeThreadId = (prefix = 'life-thread', at = Date.now()) =>
                     `${prefix}-${at}-${(++lifeThreadIdSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -17808,9 +17883,54 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const makeLifeThreadContinuationToken = (threadId, at = Date.now()) =>
                     `life-thread-continuation-${String(threadId)}-${at}-${Math.random().toString(36).slice(2, 8)}`;
+                const makeLifeThreadExcursionId = (threadId, at = Date.now()) =>
+                    `life-thread-excursion-${String(threadId)}-${at}-${Math.random().toString(36).slice(2, 8)}`;
+                const rollLifeThreadExcursionNotBefore = (from = new Date()) => {
+                    const [minimum, maximum] = LIFE_THREAD_EXCURSION_NOT_BEFORE_MS;
+                    return new Date(from.getTime() + minimum + Math.floor(Math.random() * (maximum - minimum + 1))).toISOString();
+                };
+                const normalizeLifeThreadExcursionOperation = (raw, now = new Date(), maxAttempts = 1) => {
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !String(raw.token || '').trim()) return null;
+                    const status = raw.status === 'in-flight' ? 'retryable' : raw.status === 'retryable' ? 'retryable' : '';
+                    const startedAt = validLifeThreadDate(raw.startedAt) ? raw.startedAt : now.toISOString();
+                    const retryAt = validLifeThreadDate(raw.retryAt) ? raw.retryAt : new Date(now.getTime() + LIFE_THREAD_EXCURSION_BLOCK_RECHECK_MS).toISOString();
+                    if (!status) return null;
+                    return {
+                        token: String(raw.token), status, startedAt,
+                        attemptCount: Math.max(1, Math.min(maxAttempts, Math.trunc(Number(raw.attemptCount) || 1))),
+                        retryAt, lastError: lifeThreadText(raw.lastError, 240)
+                    };
+                };
+                const normalizeLifeThreadExcursionIntent = (raw, now = new Date()) => {
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+                    const status = ['pending', 'authorized', 'active', 'awaiting-outcome'].includes(raw.status) ? raw.status : '';
+                    const id = String(raw.id || '').trim();
+                    const actorId = String(raw.actorId || '').trim();
+                    const basisFactIds = [...new Set((Array.isArray(raw.basisFactIds) ? raw.basisFactIds : [])
+                        .map(id => String(id || '').trim()).filter(Boolean))].slice(0, 4);
+                    const purposeFactId = String(raw.purposeFactId || '').trim();
+                    const purposeMode = ['investigate', 'verify', 'follow-up'].includes(raw.purposeMode) ? raw.purposeMode : '';
+                    const createdAt = validLifeThreadDate(raw.createdAt) ? raw.createdAt : '';
+                    const notBefore = validLifeThreadDate(raw.notBefore) ? raw.notBefore : '';
+                    const operationToken = String(raw.operationToken || '').trim();
+                    const sourceContinuationEventId = String(raw.sourceContinuationEventId || '').trim();
+                    if (!status || !id || !actorId || !basisFactIds.length || !basisFactIds.includes(purposeFactId) || !purposeMode || !createdAt || !notBefore || !operationToken || !sourceContinuationEventId) return null;
+                    const mailDecision = raw.mailDecision && Number.isInteger(Number(raw.mailDecision.roll)) && Number(raw.mailDecision.roll) >= 1 && Number(raw.mailDecision.roll) <= 100
+                        ? { roll: Number(raw.mailDecision.roll), shouldWrite: raw.mailDecision.shouldWrite === true }
+                        : null;
+                    return {
+                        id, actorId, basisFactIds, purposeFactId, purposeMode, createdAt, notBefore, status,
+                        operationToken, sourceContinuationEventId,
+                        mailDecision,
+                        nextCheckAt: validLifeThreadDate(raw.nextCheckAt) ? raw.nextCheckAt : notBefore,
+                        awayEpisodeId: String(raw.awayEpisodeId || '').trim(),
+                        departureOperation: normalizeLifeThreadExcursionOperation(raw.departureOperation, now, 2),
+                        outcomeOperation: normalizeLifeThreadExcursionOperation(raw.outcomeOperation, now, LIFE_THREAD_EXCURSION_MAX_OUTCOME_ATTEMPTS)
+                    };
+                };
                 const normalizeLifeThreadContinuation = (raw, { id, kind, status, createdAt, lastAdvancedAt }, now = new Date()) => {
                     if (status !== 'open') return {
-                        nextOpportunityAt: '', lastOpportunityAt: '', lastContinuationAt: '', actorCursor: 0, operation: null
+                        nextOpportunityAt: '', lastOpportunityAt: '', lastContinuationAt: '', actorCursor: 0, operation: null, excursionIntent: null
                     };
                     const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
                     const nextOpportunityAt = validLifeThreadDate(source.nextOpportunityAt)
@@ -17825,7 +17945,7 @@ ${buildCatMemoryContext(cat)}`;
                         ? source.operation
                         : null;
                     if (!rawOperation || !String(rawOperation.token || '').trim() || !String(rawOperation.sourceEventId || '').trim()) {
-                        return { nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor, operation: null };
+                        return { nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor, operation: null, excursionIntent: normalizeLifeThreadExcursionIntent(source.excursionIntent, now) };
                     }
                     const actorId = String(rawOperation.actorId || '').trim();
                     const factIds = [...new Set((Array.isArray(rawOperation.factIds) ? rawOperation.factIds : [])
@@ -17834,9 +17954,10 @@ ${buildCatMemoryContext(cat)}`;
                     const retryAt = validLifeThreadDate(rawOperation.retryAt)
                         ? rawOperation.retryAt
                         : new Date(new Date(startedAt).getTime() + LIFE_THREAD_CONTINUATION_RETRY_MS).toISOString();
-                    if (!actorId || !factIds.length) return { nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor, operation: null };
+                    if (!actorId || !factIds.length) return { nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor, operation: null, excursionIntent: normalizeLifeThreadExcursionIntent(source.excursionIntent, now) };
                     return {
                         nextOpportunityAt, lastOpportunityAt, lastContinuationAt, actorCursor,
+                        excursionIntent: normalizeLifeThreadExcursionIntent(source.excursionIntent, now),
                         operation: {
                             token: String(rawOperation.token), sourceEventId: String(rawOperation.sourceEventId), actorId, factIds,
                             // A restored page has no live request; even persisted in-flight
@@ -18198,7 +18319,7 @@ ${buildCatMemoryContext(cat)}`;
                     const candidate = parseLifeThreadContinuationCandidate(raw);
                     if (!candidate || !scope?.actorId || !Array.isArray(scope.factIds) || !scope.factIds.length) return 'Life Thread continuation response is invalid.';
                     const outcome = String(candidate.outcome || '').trim();
-                    if (!['no-change', 'advance', 'resolve'].includes(outcome)) return 'Life Thread continuation outcome is invalid.';
+                    if (!['no-change', 'advance', 'resolve', 'request-excursion'].includes(outcome)) return 'Life Thread continuation outcome is invalid.';
                     // Free narrative summary fields are deliberately not part of this
                     // protocol. Program state derives stored summaries from tracked facts.
                     if (['eventSummary', 'threadSummary', 'resolutionReason'].some(key => cleanText(candidate[key] || ''))) {
@@ -18206,6 +18327,19 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     if (outcome === 'no-change') {
                         if (candidate.actorAction || (Array.isArray(candidate.newFacts) && candidate.newFacts.length)) return 'No-change continuation may not contain an event.';
+                        return true;
+                    }
+                    if (outcome === 'request-excursion') {
+                        const intent = candidate.excursionIntent;
+                        if (!intent || typeof intent !== 'object' || Array.isArray(intent) || candidate.actorAction || (Array.isArray(candidate.newFacts) && candidate.newFacts.length)) return 'Excursion request must contain only a bounded intent.';
+                        const basisFactIds = [...new Set((Array.isArray(intent.basisFactIds) ? intent.basisFactIds : [])
+                            .map(id => String(id || '').trim()).filter(Boolean))];
+                        const purposeFactId = String(intent.purposeFactId || '').trim();
+                        const purposeMode = String(intent.purposeMode || '').trim();
+                        if (!basisFactIds.length || basisFactIds.length > 4 || basisFactIds.some(id => !scope.factIds.includes(id)) ||
+                            !basisFactIds.includes(purposeFactId) || !['investigate', 'verify', 'follow-up'].includes(purposeMode)) {
+                            return 'Excursion intent is not grounded in selected actor knowledge.';
+                        }
                         return true;
                     }
                     const action = candidate.actorAction;
@@ -18253,23 +18387,25 @@ ${buildCatMemoryContext(cat)}`;
                         buildCatIdentityBlock(scope.actor),
                         '[SELECTED ACTOR — ONLY AUTHORIZED ACTOR]',
                         `- Resident ID: ${scope.actorId}`,
-                        `- Current authoritative physical state: inside ${hall?.name || physicalHallId || 'the current Hall'} (hallId=${physicalHallId}); status=${cleanText(scope.actor.status || 'unknown')}.`,
+                        `- Current authoritative physical state: inside ${hall?.name || physicalHallId || 'the current Hall'} (hallId=${physicalHallId}); status=${getResidentLiveStatus(scope.actor, 'unknown')}.`,
                         '- This event MUST remain inside that current Hall. Do not leave the Hall, travel, visit another Hall, enter Curator Room, begin Away, go to a dock/warehouse/street/forest/island, or imply any physical transition not already established by local state.',
                         '- Only this actor is present in this request. No other resident perspective, knowledge, holder map, Thread title, Thread summary, or hidden world truth is available.',
                         '',
                         '[FACTS THIS ACTOR KNOWS ABOUT THE MATTER]',
                         knownFacts,
                         '',
-                        'Produce one cautious autonomous continuation only if this actor can plausibly act from the listed facts while remaining in the current Hall. Preserve source-world era, geography, biography, capability, personality, and lifestyle; do not default to generic modern infrastructure unless this actor canon supports it. Do not expand the arc with unsupported villains, organizations, motives, relationships, locations, objects, causes, secrets, future events, or catastrophes.',
+                        'Produce one cautious autonomous continuation only if this actor can plausibly act from the listed facts while remaining in the current Hall. If the actor can only progress by a real off-site action, request an excursion instead of narrating travel. Preserve source-world era, geography, biography, capability, personality, and lifestyle; do not default to generic modern infrastructure unless this actor canon supports it. Do not expand the arc with unsupported villains, organizations, motives, relationships, locations, objects, causes, secrets, future events, or catastrophes.',
                         '',
                         'Knowledge rule: actorAction.basisFactIds may reference ONLY listed fact IDs. Do not use information learned during this event to justify the action. New factual claims must appear only in newFacts. Do not put extra factual claims in summaries: the program derives all stored beat, Thread, and resolution prose from the accepted action and tracked facts.',
                         '',
                         'Return JSON only, exactly one of:',
                         '{"outcome":"no-change"}',
                         'OR',
+                        `{"outcome":"request-excursion","excursionIntent":{"basisFactIds":["one listed fact id"],"purposeFactId":"one listed fact id","purposeMode":"investigate|verify|follow-up"}}`,
+                        'OR',
                         `{"outcome":"advance|resolve","actorAction":{"residentId":"${scope.actorId}","basisFactIds":["one listed fact id"],"summary":"brief action occurring inside the current Hall only"},"newFacts":[{"text":"one direct factual consequence/discovery","knowledgeClaims":[{"residentId":"${scope.actorId}","accessMode":"observed|heard|discovered|told|shown|realized|direct-discovery","evidence":"explicit access evidence containing the exact fact text"}]}],"summaryFactIndex":0,"resolutionFactIndex":0}`,
                         '',
-                        'For advance/resolve, return 1–4 newFacts. knowledgeClaims is optional, but if present it may name only the selected actor and must prove explicit access. Resolve only when the accepted current event actually closes the matter. No-change is preferred to an invented progression.'
+                        'An excursion request establishes no world fact and does not mean the actor left. It may use only listed facts. For advance/resolve, return 1–4 newFacts. knowledgeClaims is optional, but if present it may name only the selected actor and must prove explicit access. Resolve only when the accepted current event actually closes the matter. No-change is preferred to an invented progression.'
                     ].join('\n');
                 };
                 const finishLifeThreadContinuationWithoutEvent = (thread, now = new Date(), reason = 'no-change') => {
@@ -18288,6 +18424,33 @@ ${buildCatMemoryContext(cat)}`;
                     if (candidate.outcome === 'no-change') {
                         finishLifeThreadContinuationWithoutEvent(thread, now, 'no-change');
                         return { applied: true, noChange: true };
+                    }
+                    if (candidate.outcome === 'request-excursion') {
+                        const intent = candidate.excursionIntent;
+                        const eventAt = validLifeThreadDate(operation.startedAt) ? operation.startedAt : now.toISOString();
+                        const notBefore = rollLifeThreadExcursionNotBefore(now);
+                        continuation.excursionIntent = {
+                            id: makeLifeThreadExcursionId(thread.id, new Date(eventAt).getTime()),
+                            actorId: scope.actorId,
+                            basisFactIds: [...new Set(intent.basisFactIds.map(String))],
+                            purposeFactId: String(intent.purposeFactId),
+                            purposeMode: String(intent.purposeMode),
+                            createdAt: eventAt,
+                            notBefore,
+                            status: 'pending',
+                            operationToken: makeLifeThreadContinuationToken(`${thread.id}-excursion`, new Date(eventAt).getTime()),
+                            sourceContinuationEventId: operation.sourceEventId,
+                            mailDecision: null,
+                            nextCheckAt: notBefore,
+                            awayEpisodeId: '',
+                            departureOperation: null,
+                            outcomeOperation: null
+                        };
+                        continuation.operation = null;
+                        continuation.nextOpportunityAt = '';
+                        continuation.lastContinuationAt = eventAt;
+                        addLog(`LIFE THREAD EXCURSION REQUESTED: thread=${thread.id}; actor=${scope.actorId}; notBefore=${continuation.excursionIntent.notBefore}`, 'info');
+                        return { applied: true, requestedExcursion: true };
                     }
                     if (thread.beats.some(beat => String(beat?.sourceEventId || '') === operation.sourceEventId)) return { applied: false, stale: true };
                     const eventAt = validLifeThreadDate(operation.startedAt) ? operation.startedAt : now.toISOString();
@@ -18354,6 +18517,17 @@ ${buildCatMemoryContext(cat)}`;
                     const dueTimes = lifeThreads.value.filter(thread => thread?.status === 'open').map(thread => {
                         const continuation = getLifeThreadContinuationState(thread);
                         if (!continuation) return null;
+                        const intent = continuation.excursionIntent;
+                        if (intent) {
+                            if (intent.status === 'active') {
+                                const episode = normalizeAwayEpisodes(awayEpisodes.value).find(item => String(item.id) === String(intent.awayEpisodeId));
+                                return episode?.status === 'active' ? new Date(episode.plannedReturnAt).getTime() : Date.now();
+                            }
+                            if (intent.status === 'awaiting-outcome') return intent.outcomeOperation?.status === 'retryable'
+                                ? new Date(intent.outcomeOperation.retryAt).getTime() : Date.now();
+                            if (intent.status === 'authorized' && intent.departureOperation?.status === 'retryable') return new Date(intent.departureOperation.retryAt).getTime();
+                            if (intent.status === 'pending' || intent.status === 'authorized') return new Date(intent.nextCheckAt || intent.notBefore).getTime();
+                        }
                         if (continuation.operation?.status === 'retryable') return new Date(continuation.operation.retryAt).getTime();
                         if (!continuation.operation) return new Date(continuation.nextOpportunityAt).getTime();
                         return null;
@@ -18403,9 +18577,10 @@ ${buildCatMemoryContext(cat)}`;
                 };
                 const reconcileLifeThreadContinuations = async (now = new Date()) => {
                     if (lifeThreadContinuationInFlight.size) { scheduleLifeThreadContinuationReconciliation(); return false; }
+                    if (reconcileLifeThreadExcursions(now)) { scheduleLifeThreadContinuationReconciliation(); return true; }
                     const nowMs = now.getTime();
                     const candidates = lifeThreads.value.filter(thread => thread?.status === 'open').map(thread => ({ thread, continuation: getLifeThreadContinuationState(thread) }))
-                        .filter(entry => entry.continuation)
+                        .filter(entry => entry.continuation && !hasLiveLifeThreadExcursionIntent(entry.thread))
                         .sort((left, right) => {
                             const leftAt = left.continuation.operation?.status === 'retryable' ? left.continuation.operation.retryAt : left.continuation.nextOpportunityAt;
                             const rightAt = right.continuation.operation?.status === 'retryable' ? right.continuation.operation.retryAt : right.continuation.nextOpportunityAt;
@@ -18458,11 +18633,64 @@ ${buildCatMemoryContext(cat)}`;
                     void runLifeThreadContinuationOperation(thread.id, operation.token);
                     return true;
                 };
-                const buildLocalAwayDepartureSchedule = (options) => awayLifecycle.buildDepartureSchedule({
-                    ...options,
-                    hall: options.hall || halls.value.find(hall => hall.id === options.hallId),
-                    episodes: awayEpisodes.value
-                });
+                const buildLocalAwayDepartureSchedule = (options) => {
+                    const claimedIds = (options?.departureCandidateIds || []).map(String).filter(id => hasLifeThreadExcursionDepartureClaim(id));
+                    return awayLifecycle.buildDepartureSchedule({
+                        ...options,
+                        departureCandidateIds: (options?.departureCandidateIds || []).map(String).filter(id => !claimedIds.includes(id)),
+                        excluded: [...(options?.excluded || []), ...claimedIds.map(id => `${id}:life-thread-excursion-claim`)],
+                        hall: options.hall || halls.value.find(hall => hall.id === options.hallId),
+                        episodes: awayEpisodes.value
+                    });
+                };
+                const normalizeDeferredOrdinaryAwayDeparture = (cat) => {
+                    const raw = cat?.deferredOrdinaryAwayDeparture;
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                        if (cat?.deferredOrdinaryAwayDeparture) cat.deferredOrdinaryAwayDeparture = null;
+                        return null;
+                    }
+                    const hallId = String(raw.hallId || '').trim();
+                    const claimId = String(raw.claimId || '').trim();
+                    const decision = raw.mailDecision;
+                    const roll = Number(decision?.roll);
+                    if (!hallId || !claimId || !Number.isInteger(roll) || roll < 1 || roll > 100 || typeof decision?.shouldWrite !== 'boolean') {
+                        cat.deferredOrdinaryAwayDeparture = null;
+                        return null;
+                    }
+                    const normalized = {
+                        claimId,
+                        hallId,
+                        mailDecision: { roll, shouldWrite: decision.shouldWrite === true },
+                        createdAt: parseLogicalDate(raw.createdAt)?.toISOString() || new Date(0).toISOString()
+                    };
+                    cat.deferredOrdinaryAwayDeparture = normalized;
+                    return normalized;
+                };
+                const deferOrdinaryAwayDeparture = (cat, hallId, mailDecision, now = new Date()) => {
+                    if (!cat || !mailDecision || !Number.isInteger(Number(mailDecision.roll))) return null;
+                    const existing = normalizeDeferredOrdinaryAwayDeparture(cat);
+                    if (existing) return existing;
+                    const deferred = {
+                        claimId: `ordinary-away-deferred:${String(cat.id)}:${now.getTime()}:${Math.random().toString(36).slice(2, 8)}`,
+                        hallId: String(hallId || getCatHallId(cat)),
+                        mailDecision: { roll: Number(mailDecision.roll), shouldWrite: mailDecision.shouldWrite === true },
+                        createdAt: now.toISOString()
+                    };
+                    cat.deferredOrdinaryAwayDeparture = deferred;
+                    return deferred;
+                };
+                const getEligibleDeferredOrdinaryAwayDeparture = ({ requestedCats, physicalHallCats, hallId, now, schedule, protectedIds = new Set() } = {}) => {
+                    if (schedule?.departureGateUntil || !Array.isArray(requestedCats)) return null;
+                    const reserve = getAwayHomeReserve((physicalHallCats || requestedCats || []).filter(cat => !isResidentInCuratorRoom(cat)));
+                    for (const cat of requestedCats) {
+                        const deferred = normalizeDeferredOrdinaryAwayDeparture(cat);
+                        if (!deferred || deferred.hallId !== String(hallId) || protectedIds.has(String(cat.id))) continue;
+                        if (!isResidentInHall(cat) || cat.isOut || cat.isVisiting || isResidentInCuratorRoom(cat) || getActiveAwayEpisode(cat, now)) continue;
+                        if (reserve.currentHomeCount - 1 < reserve.minimumHome) continue;
+                        return { cat, deferred };
+                    }
+                    return null;
+                };
                 const getAwayHomeReserve = (hallCats) => awayLifecycle.getHomeReserve(hallCats);
                 const scheduleIndependentAwayDepartureGate = (hall, establishedAt = new Date()) =>
                     awayLifecycle.scheduleIndependentDepartureGate(hall, establishedAt);
@@ -18471,21 +18699,414 @@ ${buildCatMemoryContext(cat)}`;
                 const validateAwayEpisodePlan = awayLifecycle.validatePlan;
                 const indexAwayPlans = awayLifecycle.indexPlans;
                 const classifyAwayPlanDiagnostic = awayLifecycle.classifyPlan;
-                const createAwayEpisode = (cat, plan, departedAt = new Date(), mailDecision = null) => {
-                    if (!cat || isResidentInCuratorRoom(cat)) return null;
-                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt, mailDecision);
+                const isLifeThreadAwayEpisode = episode => episode?.provenance?.origin === 'life-thread' && episode.provenance.visibility === 'thread-private';
+                const createAwayEpisode = (cat, plan, departedAt = new Date(), mailDecision = null, provenance = null) => {
+                    if (!cat || isResidentInCuratorRoom(cat) || getActiveAwayEpisode(cat, departedAt)) return null;
+                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt, mailDecision, provenance);
                     (episode.mailPlan || []).forEach(mail => reservePlannedAwayMailTime(episode, mail, mail.sendAt, 'creation'));
                     awayEpisodes.value.push(episode);
                     return episode;
+                };
+                const getLifeThreadExcursionIntent = thread => getLifeThreadContinuationState(thread)?.excursionIntent || null;
+                const hasLiveLifeThreadExcursionIntent = thread => {
+                    const intent = getLifeThreadExcursionIntent(thread);
+                    return Boolean(intent && ['pending', 'authorized', 'active', 'awaiting-outcome'].includes(intent.status));
+                };
+                const hasLifeThreadExcursionDepartureClaim = (residentId) => lifeThreads.value.some(thread => {
+                    const intent = getLifeThreadExcursionIntent(thread);
+                    return thread?.status === 'open' && intent && String(intent.actorId) === String(residentId) &&
+                        ['authorized', 'active', 'awaiting-outcome'].includes(intent.status);
+                });
+                const getThreadExcursionKnownFacts = (thread, intent) => {
+                    const allFacts = new Map((thread?.beats || []).flatMap(beat => beat?.facts || []).map(fact => [String(fact?.id || ''), fact]));
+                    const facts = (intent?.basisFactIds || []).map(id => allFacts.get(String(id))).filter(Boolean);
+                    return facts.length === (intent?.basisFactIds || []).length ? facts : [];
+                };
+                const getThreadExcursionHistoricalScope = (thread, intent) => {
+                    if (!thread || thread.status !== 'open' || !intent || !String(intent.awayEpisodeId || '').trim()) return null;
+                    const episode = normalizeAwayEpisodes(awayEpisodes.value).find(item => String(item.id) === String(intent.awayEpisodeId));
+                    const actor = cats.value.find(cat => String(cat?.id || '') === String(intent.actorId));
+                    const facts = getThreadExcursionKnownFacts(thread, intent);
+                    if (!episode || episode.status !== 'completed' || !isLifeThreadAwayEpisode(episode) || !actor || !facts.length) return null;
+                    const provenance = episode.provenance;
+                    if (provenance.threadId !== thread.id || provenance.threadExcursionId !== intent.id || provenance.actorId !== String(intent.actorId) ||
+                        provenance.operationToken !== intent.operationToken || provenance.continuationSourceEventId !== intent.sourceContinuationEventId ||
+                        provenance.outcomeSourceEventId !== `life-thread-excursion-outcome:${thread.id}:${intent.id}` || !intent.basisFactIds.every(id => provenance.basisFactIds.includes(String(id)))) return null;
+                    return { actor, actorId: String(actor.id), episode, facts, factIds: facts.map(fact => String(fact.id)), provenance };
+                };
+                const getThreadExcursionDepartureScope = (thread, intent, now = new Date()) => {
+                    if (!thread || thread.status !== 'open' || !intent || !['pending', 'authorized'].includes(intent.status)) return { scope: null, reason: 'not-pending' };
+                    const actor = cats.value.find(cat => String(cat?.id || '') === String(intent.actorId));
+                    const facts = getThreadExcursionKnownFacts(thread, intent);
+                    if (!actor || !facts.length || !thread.participantIds.includes(String(intent.actorId))) return { scope: null, reason: 'invalid-actor' };
+                    const knownFactIds = new Set(getKnownFactIdsForResident(String(intent.actorId)));
+                    if (!intent.basisFactIds.every(id => knownFactIds.has(String(id)))) return { scope: null, reason: 'invalid-actor' };
+                    if (hasFrozenOrdinaryAwayDepartureClaim(actor.id)) return { scope: null, reason: 'ordinary-departure-claim' };
+                    if (isResidentAway(actor) || getActiveAwayEpisode(actor, now)) return { scope: null, reason: 'active-away' };
+                    if (actor.isVisiting || isResidentInCuratorRoom(actor) || !isResidentInHall(actor)) return { scope: null, reason: 'physical-state' };
+                    if (!thread.hallIds.includes(getResidentPhysicalHallId(actor))) return { scope: null, reason: 'wrong-hall' };
+                    if (exploreState.active && String(exploreState.companion?.id || '') === String(actor.id)) return { scope: null, reason: 'explore' };
+                    if (isFocusing.value && focusCats.value.some(cat => String(cat?.id || '') === String(actor.id))) return { scope: null, reason: 'focus' };
+                    if (isInteracting.value && String(selectedCat.value?.id || '') === String(actor.id)) return { scope: null, reason: 'interaction' };
+                    if (getRecentAwayReturn(actor, now)) return { scope: null, reason: 'recent-return' };
+                    const hallId = getResidentPhysicalHallId(actor);
+                    const hall = halls.value.find(item => String(item?.id || '') === hallId);
+                    if (!hall) return { scope: null, reason: 'missing-hall' };
+                    const gateAt = awayLifecycle.getIndependentDepartureGate(hall);
+                    if (gateAt && gateAt > now) return { scope: null, reason: 'hall-gate' };
+                    const hallCats = cats.value.filter(cat => getCatHallId(cat) === hallId && !isPermanentOutBuiltin(cat));
+                    const reserve = getAwayHomeReserve(hallCats);
+                    if (reserve.currentHomeCount - 1 < reserve.minimumHome) return { scope: null, reason: 'minimum-home' };
+                    return { scope: { actor, actorId: String(actor.id), facts, factIds: facts.map(fact => String(fact.id)), hall, hallId }, reason: '' };
+                };
+                const makeThreadExcursionOperation = (token, now = new Date(), attemptCount = 1) => ({
+                    token, status: 'in-flight', startedAt: now.toISOString(), attemptCount,
+                    retryAt: new Date(now.getTime() + LIFE_THREAD_EXCURSION_BLOCK_RECHECK_MS).toISOString(), lastError: ''
+                });
+                const scheduleThreadExcursionCheck = (intent, now = new Date(), delayMs = LIFE_THREAD_EXCURSION_BLOCK_RECHECK_MS) => {
+                    if (!intent) return;
+                    intent.nextCheckAt = new Date(now.getTime() + delayMs).toISOString();
+                };
+                const buildThreadExcursionAwayPlanPrompt = (thread, intent, scope) => {
+                    const knownFacts = scope.facts.map(fact => `- ${fact.id}: ${fact.text}`).join('\n');
+                    const purposeFact = scope.facts.find(fact => String(fact.id) === String(intent.purposeFactId));
+                    return [
+                        '[PRIVATE LIFE THREAD EXCURSION AWAY PLAN]',
+                        'This is hidden world-engine work. It authorizes no movement by itself and is never USER-facing.',
+                        buildCatIdentityBlock(scope.actor),
+                        `[ACTOR] ${scope.actorId}; physically departing from ${scope.hall.name} (hallId=${scope.hallId}).`,
+                        '[ONLY FACTS THIS ACTOR KNOWS]', knownFacts,
+                        `[EXCURSION PURPOSE] ${intent.purposeMode} the known matter: ${purposeFact?.text || ''}`,
+                        'Plan a source-world-compatible external trip that genuinely pursues that purpose. Do not use unknown facts, other residents, holder maps, USER knowledge, or unrelated modern venues unsupported by this actor canon.',
+                        'The stored episode is thread-private: destination, activities, archive narrative, and public trace will never be shown to USER. Still make every field internally coherent. Do not create mail here: mailPlan must be [] exactly. A separate purpose-blind mail step owns the optional physical letter.',
+                        'Return JSON only:',
+                        `{"residentId":"${scope.actorId}","mode":"departure","plannedDurationMinutes":210,"destination":"private source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"},{"afterMinutes":100,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"},{"afterMinutes":170,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"}],"plannedArchiveNarrative":"100-200 Chinese characters, private purpose-aligned recollection","plannedReturnStatus":"optional concise return status","mailPlan":[]}`
+                    ].join('\n');
+                };
+                const getThreadExcursionPlanDiagnostic = (raw, actorId, mailDecision) => {
+                    const payload = typeof raw === 'string' ? parseAIJSON(raw) : raw;
+                    const plans = indexAwayPlans([payload]);
+                    return enforceAwayMailDecision(classifyAwayPlanDiagnostic(plans, actorId, 'departure'), mailDecision);
+                };
+                const buildThreadExcursionMailPrompt = (scope, plan) => {
+                    const firstActivityAt = Number(plan?.plannedActivities?.[0]?.afterMinutes) || 1;
+                    const duration = Number(plan?.plannedDurationMinutes) || 210;
+                    return [
+                        '[PRIVATE AWAY MAIL COMPOSITION]',
+                        'This is a narrow physical-mail composition task for an already-authorized private Away episode. Return JSON only; do not narrate to USER or create state.',
+                        buildCatIdentityBlock(scope.actor),
+                        `[ACTOR] ${scope.actorId}; away duration=${duration} minutes; letter must be sent after minute ${firstActivityAt} and before return.`,
+                        'Write exactly one short, character-appropriate physical note, postcard, letter, or small written trace. You are intentionally NOT told why the resident is Away, where they are, what they did, or any Life Thread facts. Do not invent or imply a destination, investigation, hidden matter, Thread, purpose, or outcome. Mail is not Phone chat and not a departure/return notice.',
+                        '{"sendAfterMinutes":90,"content":"short physical note","attachment":null}'
+                    ].join('\n');
+                };
+                const buildThreadExcursionOutcomePrompt = (intent, scope) => [
+                    '[PRIVATE LIFE THREAD EXCURSION OUTCOME]',
+                    'This is a completed hidden physical event. Do not narrate to USER and do not alter physical state.',
+                    buildCatIdentityBlock(scope.actor),
+                    `[ACTOR] ${scope.actorId}; authoritative Away episode=${scope.episode.id}; completedAt=${scope.episode.returnedAt || scope.episode.plannedReturnAt}.`,
+                    '[ONLY FACTS THE ACTOR KNEW BEFORE DEPARTURE]', scope.facts.map(fact => `- ${fact.id}: ${fact.text}`).join('\n'),
+                    `[PURPOSE] ${intent.purposeMode} fact ${intent.purposeFactId}.`,
+                    'The trip really occurred. Return no-change if it produced no grounded progression. New world facts must be direct bounded results of this actor pursuing only the listed known facts. Do not add free event summaries, motives, organizations, locations, relationships, future events, or hidden actors.',
+                    '{"outcome":"no-change"}',
+                    'OR',
+                    `{"outcome":"advance|resolve","actorAction":{"residentId":"${scope.actorId}","basisFactIds":["one listed fact id"],"summary":"brief completed purpose-aligned action"},"newFacts":[{"text":"one direct discovered fact","knowledgeClaims":[{"residentId":"${scope.actorId}","accessMode":"observed|heard|discovered|told|shown|realized|direct-discovery","evidence":"explicit access evidence containing the exact fact text"}]}],"summaryFactIndex":0,"resolutionFactIndex":0}`
+                ].join('\n');
+                const validateThreadExcursionOutcome = (raw, scope) => {
+                    const candidate = parseLifeThreadContinuationCandidate(raw);
+                    if (!candidate || !scope?.actorId) return 'Excursion outcome is invalid.';
+                    const outcome = String(candidate.outcome || '').trim();
+                    if (!['no-change', 'advance', 'resolve'].includes(outcome) || ['eventSummary', 'threadSummary', 'resolutionReason'].some(key => cleanText(candidate[key] || ''))) return 'Excursion outcome has an invalid shape.';
+                    if (outcome === 'no-change') return !candidate.actorAction && !(Array.isArray(candidate.newFacts) && candidate.newFacts.length) ? true : 'No-change may not create an event.';
+                    const action = candidate.actorAction;
+                    if (!action || typeof action !== 'object' || Array.isArray(action) || String(action.residentId || '') !== scope.actorId) return 'Excursion outcome actor is unauthorized.';
+                    const basisFactIds = [...new Set((Array.isArray(action.basisFactIds) ? action.basisFactIds : [])
+                        .map(id => String(id || '').trim()).filter(Boolean))];
+                    const actionSummary = lifeThreadText(action.summary, LIFE_THREAD_TEXT_LIMITS.beat);
+                    if (!basisFactIds.length || basisFactIds.length > 4 || basisFactIds.some(id => !scope.factIds.includes(id)) || !actionSummary || mentionsOtherLifeThreadResident(actionSummary, scope.actorId)) return 'Excursion action is not knowledge-bound.';
+                    const facts = Array.isArray(candidate.newFacts) ? candidate.newFacts : [];
+                    if (!facts.length || facts.length > 4) return 'Excursion outcome requires tracked facts.';
+                    const seen = new Set();
+                    for (const fact of facts) {
+                        const text = lifeThreadText(fact?.text, LIFE_THREAD_TEXT_LIMITS.fact);
+                        if (!text || seen.has(text) || mentionsOtherLifeThreadResident(text, scope.actorId)) return 'Excursion fact is invalid.';
+                        seen.add(text);
+                        const claims = Array.isArray(fact?.knowledgeClaims) ? fact.knowledgeClaims : [];
+                        if (claims.length > 1) return 'Single-actor excursion cannot attribute another holder.';
+                        for (const claim of claims) {
+                            const mode = String(claim?.accessMode || '').trim();
+                            const evidence = lifeThreadText(claim?.evidence, LIFE_THREAD_TEXT_LIMITS.fact);
+                            if (String(claim?.residentId || '') !== scope.actorId || !knowledgeAccessMarkersFor(mode).length || !evidence || !evidence.includes(text) ||
+                                !hasKnowledgeAccessMarker(evidence, mode) || isNegatedKnowledgeAccess(evidence, mode) || mentionsOtherLifeThreadResident(evidence, scope.actorId)) return 'Excursion knowledge claim is invalid.';
+                        }
+                    }
+                    const summaryFactIndex = Number(candidate.summaryFactIndex);
+                    if (!Number.isInteger(summaryFactIndex) || summaryFactIndex < 0 || summaryFactIndex >= facts.length) return 'Excursion summary must reference a tracked fact.';
+                    if (outcome === 'resolve') {
+                        const resolutionFactIndex = Number(candidate.resolutionFactIndex);
+                        if (!Number.isInteger(resolutionFactIndex) || resolutionFactIndex < 0 || resolutionFactIndex >= facts.length) return 'Excursion resolution must reference a tracked fact.';
+                    }
+                    return true;
+                };
+                const clearThreadExcursionIntent = (thread, now = new Date(), reason = 'completed') => {
+                    const continuation = getLifeThreadContinuationState(thread);
+                    if (!continuation || thread?.status !== 'open') return;
+                    continuation.excursionIntent = null;
+                    scheduleNextLifeThreadContinuation(thread, now);
+                    addLog(`LIFE THREAD EXCURSION: thread=${thread.id}; result=${reason}; next=${continuation.nextOpportunityAt}`, 'info');
+                };
+                const markThreadExcursionDepartureFailure = (thread, intent, operation, error, now = new Date()) => {
+                    if (!thread || getLifeThreadExcursionIntent(thread) !== intent || intent.departureOperation?.token !== operation.token) return;
+                    operation.lastError = lifeThreadText(error?.message || 'private excursion plan failed', 240);
+                    if (Number(operation.attemptCount) < 2) {
+                        operation.status = 'retryable';
+                        operation.retryAt = new Date(now.getTime() + LIFE_THREAD_EXCURSION_BLOCK_RECHECK_MS).toISOString();
+                    } else {
+                        intent.status = 'pending';
+                        intent.departureOperation = null;
+                        scheduleThreadExcursionCheck(intent, now);
+                    }
+                    addLog(`LIFE THREAD EXCURSION PLAN: thread=${thread.id}; result=retryable; error=${operation.lastError}`, 'warn');
+                };
+                const runThreadExcursionDepartureOperation = async (threadId, intentId, token) => {
+                    const thread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
+                    const intent = getLifeThreadExcursionIntent(thread);
+                    const operation = intent?.departureOperation;
+                    if (!thread || !intent || intent.id !== intentId || !operation || operation.token !== token) {
+                        lifeThreadContinuationInFlight.delete(token);
+                        scheduleLifeThreadContinuationReconciliation();
+                        return;
+                    }
+                    const now = new Date();
+                    const availability = getThreadExcursionDepartureScope(thread, intent, now);
+                    if (!availability.scope) {
+                        intent.status = 'pending'; intent.departureOperation = null; scheduleThreadExcursionCheck(intent, now);
+                        lifeThreadContinuationInFlight.delete(token); scheduleLifeThreadContinuationReconciliation(); return;
+                    }
+                    const scope = availability.scope;
+                    try {
+                        const raw = await requestStructuredEngine(buildThreadExcursionAwayPlanPrompt(thread, intent, scope), {
+                            systemPrompt: 'You are a private Meeow House excursion planner. Return one valid JSON object only. Never narrate to USER or create physical state directly.',
+                            maxTokens: 1400, thinkingLevel: ThinkingLevel.LOW, label: `LIFE THREAD EXCURSION PLAN · ${scope.actorId}`,
+                            priority: 'background', maxAttempts: 1, dedupeKey: `life-thread-excursion-plan:${token}`,
+                            validateResponse: content => {
+                                const diagnostic = getThreadExcursionPlanDiagnostic(content, scope.actorId, { shouldWrite: false });
+                                return diagnostic.valid ? true : `Excursion Away plan is invalid: ${diagnostic.reason || 'validator rejected plan'}`;
+                            }
+                        });
+                        const latestThread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
+                        const latestIntent = getLifeThreadExcursionIntent(latestThread);
+                        const latestOperation = latestIntent?.departureOperation;
+                        if (!latestThread || !latestIntent || latestIntent.id !== intentId || latestOperation?.token !== token) return;
+                        const latestAvailability = getThreadExcursionDepartureScope(latestThread, latestIntent, new Date());
+                        if (!latestAvailability.scope) {
+                            latestIntent.status = 'pending'; latestIntent.departureOperation = null; scheduleThreadExcursionCheck(latestIntent, new Date()); return;
+                        }
+                        const physicalDiagnostic = getThreadExcursionPlanDiagnostic(raw, latestAvailability.scope.actorId, { shouldWrite: false });
+                        if (!physicalDiagnostic.valid || !physicalDiagnostic.plan) throw new Error(physicalDiagnostic.reason || 'private Away plan invalid after response');
+                        let finalizedPlan = physicalDiagnostic.plan;
+                        if (latestIntent.mailDecision?.shouldWrite === true) {
+                            const mailRaw = await requestStructuredEngine(buildThreadExcursionMailPrompt(latestAvailability.scope, physicalDiagnostic.plan), {
+                                systemPrompt: 'You compose one safe physical Away mail item. Return one valid JSON object only. You have no hidden Thread context.',
+                                maxTokens: 420, thinkingLevel: ThinkingLevel.LOW, label: `LIFE THREAD EXCURSION MAIL · ${latestAvailability.scope.actorId}`,
+                                priority: 'background', maxAttempts: 1, dedupeKey: `life-thread-excursion-mail:${token}`,
+                                validateResponse: content => {
+                                    const mail = parseAIJSON(content);
+                                    const diagnostic = getThreadExcursionPlanDiagnostic({ ...physicalDiagnostic.plan, mailPlan: [mail] }, latestAvailability.scope.actorId, latestIntent.mailDecision);
+                                    return diagnostic.valid ? true : `Excursion mail is invalid: ${diagnostic.reason || 'validator rejected mail'}`;
+                                }
+                            });
+                            const mail = parseAIJSON(mailRaw);
+                            const mailDiagnostic = getThreadExcursionPlanDiagnostic({ ...physicalDiagnostic.plan, mailPlan: [mail] }, latestAvailability.scope.actorId, latestIntent.mailDecision);
+                            if (!mailDiagnostic.valid || !mailDiagnostic.plan) throw new Error(mailDiagnostic.reason || 'private Away mail invalid after response');
+                            finalizedPlan = mailDiagnostic.plan;
+                        }
+                        const finalThread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
+                        const finalIntent = getLifeThreadExcursionIntent(finalThread);
+                        if (!finalThread || !finalIntent || finalIntent.id !== intentId || finalIntent.departureOperation?.token !== token) return;
+                        const finalAvailability = getThreadExcursionDepartureScope(finalThread, finalIntent, new Date());
+                        if (!finalAvailability.scope) {
+                            finalIntent.status = 'pending'; finalIntent.departureOperation = null; scheduleThreadExcursionCheck(finalIntent, new Date()); return;
+                        }
+                        const provenance = {
+                            origin: 'life-thread', threadId: finalThread.id, threadExcursionId: finalIntent.id,
+                            actorId: finalIntent.actorId, operationToken: finalIntent.operationToken, basisFactIds: finalIntent.basisFactIds,
+                            continuationSourceEventId: finalIntent.sourceContinuationEventId,
+                            outcomeSourceEventId: `life-thread-excursion-outcome:${finalThread.id}:${finalIntent.id}`,
+                            visibility: 'thread-private'
+                        };
+                        const episode = createAwayEpisode(finalAvailability.scope.actor, finalizedPlan, new Date(), finalIntent.mailDecision, provenance);
+                        if (!episode) {
+                            finalIntent.status = 'pending'; finalIntent.departureOperation = null; scheduleThreadExcursionCheck(finalIntent, new Date()); return;
+                        }
+                        finalAvailability.scope.actor.isOut = true;
+                        finalAvailability.scope.actor.nextAwayOpportunityAt = null;
+                        scheduleIndependentAwayDepartureGate(finalAvailability.scope.hall, new Date());
+                        finalIntent.status = 'active'; finalIntent.awayEpisodeId = episode.id; finalIntent.departureOperation = null;
+                        appendMonitorEvent(finalAvailability.scope.actor, '离开馆舍，开始处理一段未公开的行程。', 'life-thread-excursion', { episodeId: episode.id }, new Date());
+                        appendAwayTransitionTravelogue(finalAvailability.scope.actor, true, new Date(), { episodeId: episode.id });
+                        addLog(`LIFE THREAD EXCURSION DEPARTED: thread=${finalThread.id}; actor=${finalIntent.actorId}; episode=${episode.id}`, 'sent');
+                    } catch (error) {
+                        markThreadExcursionDepartureFailure(thread, intent, operation, error, new Date());
+                    } finally {
+                        lifeThreadContinuationInFlight.delete(token);
+                        scheduleLifeThreadContinuationReconciliation();
+                    }
+                };
+                const applyThreadExcursionOutcome = (thread, intent, operation, raw, now = new Date()) => {
+                    const scope = getThreadExcursionHistoricalScope(thread, intent);
+                    if (!scope || intent.outcomeOperation?.token !== operation.token) return { stale: true };
+                    const validation = validateThreadExcursionOutcome(raw, scope);
+                    if (validation !== true) return { invalid: true, error: validation };
+                    const candidate = parseLifeThreadContinuationCandidate(raw);
+                    if (candidate.outcome === 'no-change') {
+                        clearThreadExcursionIntent(thread, now, 'no-change');
+                        return { applied: true, noChange: true };
+                    }
+                    const sourceEventId = scope.provenance.outcomeSourceEventId;
+                    if (thread.beats.some(beat => String(beat?.sourceEventId || '') === sourceEventId)) return { stale: true };
+                    const newFacts = candidate.newFacts.map(fact => ({ text: lifeThreadText(fact.text, LIFE_THREAD_TEXT_LIMITS.fact), claims: Array.isArray(fact.knowledgeClaims) ? fact.knowledgeClaims : [] }));
+                    const existingFactTexts = new Set(thread.beats.flatMap(beat => (beat.facts || []).map(fact => fact.text)));
+                    if (newFacts.some(fact => existingFactTexts.has(fact.text))) return { invalid: true, error: 'Excursion outcome repeats a tracked fact.' };
+                    const eventAt = validLifeThreadDate(scope.episode.returnedAt) ? scope.episode.returnedAt : scope.episode.plannedReturnAt;
+                    const beatId = `${thread.id}:beat:${thread.beats.length + 1}`;
+                    const bindings = newFacts.map((fact, index) => ({ factId: `${beatId}:fact:${index + 1}`, text: fact.text, claims: fact.claims }));
+                    const edges = bindings.flatMap(binding => binding.claims.map(() => ({
+                        id: makeKnowledgeEdgeId(new Date(eventAt).getTime()), factId: binding.factId,
+                        knowerType: 'resident', knowerId: scope.actorId, learnedAt: eventAt, sourceEventId
+                    })));
+                    const summaryFact = bindings[Number(candidate.summaryFactIndex)];
+                    const resolutionFact = candidate.outcome === 'resolve' ? bindings[Number(candidate.resolutionFactIndex)] : null;
+                    thread.beats.push({ id: beatId, sourceEventId, happenedAt: eventAt,
+                        summary: lifeThreadText(candidate.actorAction.summary, LIFE_THREAD_TEXT_LIMITS.beat), facts: bindings.map(binding => ({ id: binding.factId, text: binding.text })) });
+                    thread.summary = (resolutionFact || summaryFact).text;
+                    thread.updatedAt = eventAt; thread.lastAdvancedAt = eventAt;
+                    knowledgeLedger.value.push(...edges);
+                    if (candidate.outcome === 'resolve') {
+                        thread.status = 'resolved'; thread.resolvedAt = eventAt; clearResolvedLifeThreadContinuation(thread);
+                    } else {
+                        clearThreadExcursionIntent(thread, now, 'advanced');
+                    }
+                    addLog(`LIFE THREAD EXCURSION OUTCOME APPLIED: thread=${thread.id}; episode=${scope.episode.id}; outcome=${candidate.outcome}; facts=${bindings.length}`, 'info');
+                    return { applied: true, outcome: candidate.outcome };
+                };
+                const markThreadExcursionOutcomeFailure = (thread, intent, operation, error, now = new Date()) => {
+                    if (getLifeThreadExcursionIntent(thread) !== intent || intent.outcomeOperation?.token !== operation.token) return;
+                    operation.lastError = lifeThreadText(error?.message || 'private excursion outcome failed', 240);
+                    if (Number(operation.attemptCount) >= LIFE_THREAD_EXCURSION_MAX_OUTCOME_ATTEMPTS) {
+                        clearThreadExcursionIntent(thread, now, 'outcome-exhausted');
+                        return;
+                    }
+                    operation.status = 'retryable';
+                    const delay = LIFE_THREAD_EXCURSION_OUTCOME_RETRY_MS[Math.min(Number(operation.attemptCount) - 1, LIFE_THREAD_EXCURSION_OUTCOME_RETRY_MS.length - 1)];
+                    operation.retryAt = new Date(now.getTime() + delay).toISOString();
+                    addLog(`LIFE THREAD EXCURSION OUTCOME: thread=${thread.id}; result=retryable; retryAt=${operation.retryAt}; error=${operation.lastError}`, 'warn');
+                };
+                const runThreadExcursionOutcomeOperation = async (threadId, intentId, token) => {
+                    const thread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
+                    const intent = getLifeThreadExcursionIntent(thread);
+                    const operation = intent?.outcomeOperation;
+                    const scope = getThreadExcursionHistoricalScope(thread, intent);
+                    if (!thread || !intent || intent.id !== intentId || !operation || operation.token !== token) {
+                        lifeThreadContinuationInFlight.delete(token);
+                        scheduleLifeThreadContinuationReconciliation();
+                        return;
+                    }
+                    if (!scope) {
+                        if (thread.status === 'open' && getLifeThreadExcursionIntent(thread) === intent) clearThreadExcursionIntent(thread, new Date(), 'outcome-stale');
+                        lifeThreadContinuationInFlight.delete(token);
+                        scheduleLifeThreadContinuationReconciliation();
+                        return;
+                    }
+                    try {
+                        const raw = await requestStructuredEngine(buildThreadExcursionOutcomePrompt(intent, scope), {
+                            systemPrompt: 'You are a private Meeow House excursion-outcome engine. Return one valid JSON object only. Never narrate to USER or change physical state.',
+                            maxTokens: 1200, thinkingLevel: ThinkingLevel.LOW, label: `LIFE THREAD EXCURSION OUTCOME · ${scope.actorId}`,
+                            priority: 'background', maxAttempts: 1, dedupeKey: `life-thread-excursion-outcome:${token}`,
+                            validateResponse: content => validateThreadExcursionOutcome(content, scope)
+                        });
+                        const latestThread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
+                        const latestIntent = getLifeThreadExcursionIntent(latestThread);
+                        const result = applyThreadExcursionOutcome(latestThread, latestIntent, operation, raw, new Date());
+                        if (result.invalid) markThreadExcursionOutcomeFailure(latestThread, latestIntent, operation, new Error(result.error), new Date());
+                        if (result.stale && latestThread?.status === 'open' && getLifeThreadExcursionIntent(latestThread) === latestIntent && latestIntent?.outcomeOperation?.token === token) {
+                            // A completed physical trip can never be retried as a new
+                            // trip. If its historical ownership vanished or was already
+                            // consumed, release only the live intent and resume ordinary
+                            // Thread scheduling rather than leaving an immortal in-flight
+                            // outcome record.
+                            clearThreadExcursionIntent(latestThread, new Date(), 'outcome-stale');
+                        }
+                    } catch (error) {
+                        markThreadExcursionOutcomeFailure(thread, intent, operation, error, new Date());
+                    } finally {
+                        lifeThreadContinuationInFlight.delete(token);
+                        scheduleLifeThreadContinuationReconciliation();
+                    }
+                };
+                const reconcileLifeThreadExcursions = (now = new Date()) => {
+                    const nowMs = now.getTime();
+                    const candidates = lifeThreads.value.filter(thread => thread?.status === 'open').map(thread => ({ thread, intent: getLifeThreadExcursionIntent(thread) }))
+                        .filter(entry => entry.intent).sort((a, b) => String(a.intent.createdAt).localeCompare(String(b.intent.createdAt)) || String(a.thread.id).localeCompare(String(b.thread.id)));
+                    for (const { thread, intent } of candidates) {
+                        if (intent.status === 'active') {
+                            const episode = normalizeAwayEpisodes(awayEpisodes.value).find(item => String(item.id) === String(intent.awayEpisodeId));
+                            if (!episode) { intent.status = 'pending'; intent.awayEpisodeId = ''; scheduleThreadExcursionCheck(intent, now); continue; }
+                            if (episode.status !== 'completed') continue;
+                            intent.status = 'awaiting-outcome'; intent.outcomeOperation = null;
+                        }
+                        if (intent.status === 'awaiting-outcome') {
+                            const historical = getThreadExcursionHistoricalScope(thread, intent);
+                            if (!historical) { clearThreadExcursionIntent(thread, now, 'outcome-stale'); continue; }
+                            const operation = intent.outcomeOperation;
+                            if (operation?.status === 'retryable' && new Date(operation.retryAt).getTime() > nowMs) continue;
+                            if (operation?.status === 'in-flight') continue;
+                            if (!settings.apiKey) continue;
+                            const next = operation || makeThreadExcursionOperation(`${intent.operationToken}:outcome`, now, 1);
+                            if (operation) { next.status = 'in-flight'; next.attemptCount = Number(next.attemptCount) + 1; }
+                            intent.outcomeOperation = next;
+                            lifeThreadContinuationInFlight.add(next.token);
+                            void runThreadExcursionOutcomeOperation(thread.id, intent.id, next.token);
+                            return true;
+                        }
+                        if (intent.status === 'pending' && new Date(intent.nextCheckAt || intent.notBefore).getTime() > nowMs) continue;
+                        if (intent.status === 'pending' || intent.status === 'authorized') {
+                            const availability = getThreadExcursionDepartureScope(thread, intent, now);
+                            if (!availability.scope) {
+                                if (availability.reason === 'invalid-actor' || availability.reason === 'wrong-hall' || availability.reason === 'missing-hall') clearThreadExcursionIntent(thread, now, 'cancelled');
+                                else scheduleThreadExcursionCheck(intent, now);
+                                continue;
+                            }
+                            const operation = intent.departureOperation;
+                            if (operation?.status === 'retryable' && new Date(operation.retryAt).getTime() > nowMs) continue;
+                            if (operation?.status === 'in-flight') continue;
+                            if (!settings.apiKey) { scheduleThreadExcursionCheck(intent, now); continue; }
+                            intent.status = 'authorized';
+                            if (!intent.mailDecision) { const roll = rollPercent(); intent.mailDecision = { roll, shouldWrite: roll <= 50 }; }
+                            const next = operation || makeThreadExcursionOperation(`${intent.operationToken}:departure`, now, 1);
+                            if (operation) { next.status = 'in-flight'; next.attemptCount = Number(next.attemptCount) + 1; }
+                            intent.departureOperation = next;
+                            lifeThreadContinuationInFlight.add(next.token);
+                            void runThreadExcursionDepartureOperation(thread.id, intent.id, next.token);
+                            return true;
+                        }
+                    }
+                    return false;
                 };
                 const AWAY_PROMPT_MODES = Object.freeze({
                     NO_AWAY_WORK: 'NO_AWAY_WORK',
                     LEGACY_ONLY: 'LEGACY_ONLY',
                     FULL_DEPARTURE: 'FULL_DEPARTURE'
                 });
-                const buildAwayMailDecisions = (presenceDirectives = {}) => Object.entries(presenceDirectives)
+                const buildAwayMailDecisions = (presenceDirectives = {}, carriedDecisions = {}) => Object.entries(presenceDirectives)
                     .filter(([, directive]) => directive === 'DEPARTING_NOW')
                     .reduce((decisions, [id]) => {
+                        const carried = carriedDecisions?.[String(id)];
+                        const carriedRoll = Number(carried?.roll);
+                        if (Number.isInteger(carriedRoll) && carriedRoll >= 1 && carriedRoll <= 100 && typeof carried?.shouldWrite === 'boolean') {
+                            decisions[String(id)] = Object.freeze({ roll: carriedRoll, shouldWrite: carried.shouldWrite === true });
+                            return decisions;
+                        }
                         const roll = rollPercent();
                         decisions[String(id)] = Object.freeze({ roll, shouldWrite: roll <= 50 });
                         return decisions;
@@ -18567,6 +19188,10 @@ ${buildCatMemoryContext(cat)}`;
                         cats: cats.value,
                         reconciliationTime,
                         onMaterializeActivity: ({ cat, episode, plan, logicalAt }) => {
+                            // A Thread excursion is a real absence, but its activity
+                            // details are hidden world truth until a later projection
+                            // safely establishes them. Do not create a public trace.
+                            if (isLifeThreadAwayEpisode(episode)) return true;
                             if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
                             cat.travelogues.push({
                                 source: 'away',
@@ -18584,9 +19209,12 @@ ${buildCatMemoryContext(cat)}`;
                         onDeliverMail: (episode, mail, logicalAt, reconciledAt) =>
                             deliverPlannedAwayMail(episode, mail, logicalAt, reconciledAt),
                         onSettleReturn: ({ cat, episode, logicalReturnAt, reconciledAt, returnStatus }) => {
+                            const safeReturnStatus = isLifeThreadAwayEpisode(episode)
+                                ? '刚回到馆内，正在安静整理一路的疲惫。'
+                                : returnStatus;
                             const room = getMapRoomForCat(cat);
                             const spot = getMapSpotForCat(cat, room);
-                            setCatStatus(cat, returnStatus, {
+                            setCatStatus(cat, safeReturnStatus, {
                                 source: 'away-episode-return',
                                 forceLog: true,
                                 mapRoom: room,
@@ -18600,6 +19228,7 @@ ${buildCatMemoryContext(cat)}`;
                         onDiaryReady: (episode) => markAwayEpisodeDiaryReady(episode)
                     });
                     awayEpisodes.value = result.episodes;
+                    if (result.returnedResidentIds?.length) void reconcileLifeThreadContinuations(reconciliationTime);
                     return { count: result.count, returnedResidentIds: result.returnedResidentIds };
                 };
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
@@ -18738,13 +19367,13 @@ ${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user
                 const serializeCompletedAwayDiaryEpisode = (episode) => ({
                     id: episode.id,
                     residentId: String(episode.residentId),
-                    destination: cleanText(episode.destination || ''),
+                    destination: isLifeThreadAwayEpisode(episode) ? '' : cleanText(episode.destination || ''),
                     departedAt: episode.departedAt,
                     plannedReturnAt: episode.plannedReturnAt,
                     returnedAt: episode.returnedAt || episode.plannedReturnAt,
-                    returnStatus: cleanText(episode.plannedReturnStatus || ''),
-                    plannedArchiveNarrative: cleanText(episode.plannedArchiveNarrative || ''),
-                    activityPlans: (episode.activityPlans || []).filter(plan => plan?.state === 'materialized').map(plan => ({
+                    returnStatus: isLifeThreadAwayEpisode(episode) ? '' : cleanText(episode.plannedReturnStatus || ''),
+                    plannedArchiveNarrative: isLifeThreadAwayEpisode(episode) ? '' : cleanText(episode.plannedArchiveNarrative || ''),
+                    activityPlans: (isLifeThreadAwayEpisode(episode) ? [] : (episode.activityPlans || [])).filter(plan => plan?.state === 'materialized').map(plan => ({
                         activityAt: plan.activityAt,
                         plannedResidentActivity: cleanText(plan.plannedResidentActivity || '')
                     }))
@@ -18992,6 +19621,8 @@ ${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user
                 const getPrivateAwayExperiences = (snapshotCat, archiveDateKey) => (snapshotCat?.travelogues || [])
                     .filter(record => {
                         if (!record || record.source !== 'away' || record.kind !== 'activity' || !cleanText(record.residentActivity || '') || !record.at) return false;
+                        const episode = normalizeAwayEpisodes(awayEpisodes.value).find(item => String(item.id) === String(record.episodeId || ''));
+                        if (isLifeThreadAwayEpisode(episode)) return false;
                         const timestamp = new Date(record.at);
                         return !Number.isNaN(timestamp.getTime()) && getOperationalDayKey(record.at) === archiveDateKey;
                     })
@@ -20042,7 +20673,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         participants.forEach(cat => {
                             const fallback = '仍留在专注现场，以自己的方式陪伴馆长。';
                             logParts.push(`${cat.name}：${fallback}`);
-                            const voice = cleanText(cat.innerVoice || '先守住这一小段时间。');
+                            const voice = getResidentLiveInnerVoice(cat, '先守住这一小段时间。');
                             setCatStatus(cat, fallback, { innerVoice: voice, source: 'focus-fallback', forceLog: true });
                             nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
                         });
@@ -20292,7 +20923,10 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         ['status', 'innerVoice'].forEach(field => {
                             if (typeof update[field] !== 'string') entryErrors.push(`entry ${index} has invalid ${field}`);
                         });
-                        ['isOut', 'isHuman'].forEach(field => {
+                        // isHuman/formDecision is compatibility-only form echo data.
+                        // It is classified per resident after structural validation so a
+                        // wrong anatomy echo never burns a whole provider retry.
+                        ['isOut'].forEach(field => {
                             if (typeof update[field] !== 'boolean') entryErrors.push(`entry ${index} has invalid ${field}`);
                         });
                     });
@@ -20337,9 +20971,12 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         ? validateLocalPresenceDirectives(payload.updates, presenceDirectives)
                         : updateValidation;
                     if (directiveValidation !== true) return directiveValidation;
-                    const formValidation = validateFormDirectives(payload.updates, formDirectives);
-                    if (formValidation !== true) return formValidation;
+                    // Form compatibility mismatches are intentionally soft-salvaged
+                    // during application; they never reject this otherwise valid JSON.
                     if (!sceneOptions?.sceneMode) return true;
+                    const hasUnsafeFormSlice = [...classifyFormDirectiveCompatibility(payload.updates, formDirectives).values()]
+                        .some(result => !result.safe);
+                    if (hasUnsafeFormSlice) return true;
                     const sceneValidation = validateOptionalHallScene({
                         scene: payload.scene,
                         sceneMode: sceneOptions.sceneMode,
@@ -20445,6 +21082,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                     };
                     const statusCompletion = requestOptions.statusCompletion;
+                    let frozenOrdinaryAwayClaimIds = [];
                     if (statusCompletion) {
                         statusCompletion.complete = false;
                         statusCompletion.partial = false;
@@ -20453,6 +21091,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         statusCompletion.expected = 0;
                         statusCompletion.matched = 0;
                         statusCompletion.unmatched = [];
+                        statusCompletion.softFormMismatchIds = [];
                     }
                     const isBackgroundStatusSync = requestOptions.priority === 'background';
                     const curatorRoomStatusSync = requestOptions.curatorRoomStatusSync && typeof requestOptions.curatorRoomStatusSync === 'object'
@@ -20616,6 +21255,25 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                                     ...requestedCats.filter(cat => protectedSceneParticipantIds.has(String(cat.id))).map(cat => `${String(cat.id)}:shared-scene`)
                                 ]
                             });
+                        const deferredOrdinaryDeparture = localDepartureSchedule
+                            ? getEligibleDeferredOrdinaryAwayDeparture({
+                                requestedCats,
+                                physicalHallCats,
+                                hallId: requestHallId,
+                                now,
+                                schedule: localDepartureSchedule,
+                                protectedIds: protectedSceneParticipantIds
+                            })
+                            : null;
+                        if (deferredOrdinaryDeparture) {
+                            Object.keys(localDepartureSchedule.directives).forEach(id => {
+                                if (localDepartureSchedule.directives[id] === 'DEPARTING_NOW') localDepartureSchedule.directives[id] = 'HOME';
+                            });
+                            localDepartureSchedule.directives[String(deferredOrdinaryDeparture.cat.id)] = 'DEPARTING_NOW';
+                            localDepartureSchedule.selectedIds = [String(deferredOrdinaryDeparture.cat.id)];
+                            localDepartureSchedule.blocked.push(`${String(deferredOrdinaryDeparture.cat.id)}:deferred-ordinary-departure-claim`);
+                            addLog(`AWAY DEPARTURE DEFERRED CLAIM: resident=${String(deferredOrdinaryDeparture.cat.id)}; claim=${deferredOrdinaryDeparture.deferred.claimId}; result=prioritized`, 'info');
+                        }
                         const mutablePresenceDirectives = {
                             ...(requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
                                 ? requestOptions.presenceDirectives
@@ -20627,10 +21285,23 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                             mutablePresenceDirectives[String(cat.id)] = 'CURATOR_ROOM';
                         });
                         const presenceDirectives = Object.freeze(mutablePresenceDirectives);
+                        // A normal DEPARTING_NOW request owns the departure attempt
+                        // until its accepted plan is applied or this request settles.
+                        // A Thread intent that becomes due in this small window waits;
+                        // it cannot create a second competing physical departure.
+                        if (!curatorRoomStatusSync) {
+                            frozenOrdinaryAwayClaimIds = Object.entries(presenceDirectives)
+                                .filter(([, directive]) => directive === 'DEPARTING_NOW')
+                                .map(([id]) => String(id));
+                            frozenOrdinaryAwayClaimIds.forEach(claimFrozenOrdinaryAwayDeparture);
+                        }
+                        const carriedAwayMailDecisions = deferredOrdinaryDeparture
+                            ? { [String(deferredOrdinaryDeparture.cat.id)]: deferredOrdinaryDeparture.deferred.mailDecision }
+                            : {};
                         const awayMailDecisions = Object.freeze(
                             requestOptions.awayMailDecisions && typeof requestOptions.awayMailDecisions === 'object'
                                 ? { ...requestOptions.awayMailDecisions }
-                                : buildAwayMailDecisions(presenceDirectives)
+                                : buildAwayMailDecisions(presenceDirectives, carriedAwayMailDecisions)
                         );
                         const fridgeNoteCandidates = curatorRoomStatusSync
                             ? []
@@ -20783,9 +21454,7 @@ ${enrichedStatusOutputContract}`;
                             const validation = updateValidation === true
                                 ? (() => {
                                     const presenceValidation = validateLocalPresenceDirectives(requestOptions.prevalidatedStatusUpdates, presenceDirectives);
-                                    return presenceValidation === true
-                                        ? validateFormDirectives(requestOptions.prevalidatedStatusUpdates, formDirectives)
-                                        : presenceValidation;
+                                    return presenceValidation;
                                 })()
                                 : updateValidation;
                             if (validation !== true) {
@@ -20831,6 +21500,26 @@ ${enrichedStatusOutputContract}`;
                             const responseEntries = updates.filter(update => update && typeof update === 'object');
                             const receivedIds = responseEntries.map(update => String(update.id ?? '')).filter(Boolean);
                             const requestedIdSet = new Set(requestedIds);
+                            const formCompatibility = classifyFormDirectiveCompatibility(responseEntries, formDirectives);
+                            const unsafeFormIds = new Set([...formCompatibility.values()]
+                                .filter(result => !result.safe)
+                                .map(result => result.id));
+                            if (statusCompletion) statusCompletion.softFormMismatchIds = [...unsafeFormIds];
+                            unsafeFormIds.forEach(id => {
+                                const result = formCompatibility.get(id);
+                                const received = result?.received || (result?.error ? `invalid(${result.error})` : 'missing');
+                                addLog(`FORM DIRECTIVE SOFT MISMATCH: id=${id}; target=${result?.targetForm || 'unchanged'}; received=${received}; authoritative form applied where authorized; resident presentation skipped; request accepted.`, 'warn');
+                            });
+                            // Only a genuine frozen automatic transition can mutate the
+                            // canonical form. Curator/keep/no-directive paths remain
+                            // read-only even when their compatibility echo is unusable.
+                            requestedIds.forEach(id => {
+                                const cat = catsToUpdate.find(item => String(item.id) === String(id));
+                                const compatibility = formCompatibility.get(String(id));
+                                if (!cat || !compatibility?.transitioned) return;
+                                applyFormDecision(cat, null, compatibility.directive, now, 'status-sync');
+                                if (!compatibility.safe) cat.statusPresentationForm = compatibility.priorForm;
+                            });
                             const originalPresenceById = new Map(catsToUpdate
                                 .filter(cat => requestedIdSet.has(String(cat.id)))
                                 .map(cat => [String(cat.id), Boolean(cat.isOut)]));
@@ -20853,6 +21542,7 @@ ${enrichedStatusOutputContract}`;
                                 legacyReturned: 0,
                                 proposedById: new Map(),
                                 discardedIds: new Set(),
+                                quarantinedIds: new Set(),
                                 processedPlanReferences: new Set()
                             };
                             const updatesByRequestedId = new Map(responseEntries
@@ -20861,10 +21551,18 @@ ${enrichedStatusOutputContract}`;
                             requestedIds.forEach(catId => {
                                 const wasOut = originalPresenceById.get(catId);
                                 const update = updatesByRequestedId.get(catId);
-                                if (wasOut !== false || !update || isPermanentOutBuiltin(catsToUpdate.find(cat => String(cat.id) === catId))) return;
+                                const cat = catsToUpdate.find(item => String(item.id) === catId);
+                                if (wasOut !== false || !update || !cat || isPermanentOutBuiltin(cat)) return;
                                 const localDirective = getLocalPresenceDirective(catId);
                                 if (localDirective !== 'DEPARTING_NOW') {
                                     awayDecisionDiagnostics.stayedHome++;
+                                    return;
+                                }
+                                if (unsafeFormIds.has(catId)) {
+                                    const deferred = deferOrdinaryAwayDeparture(cat, requestHallId, awayMailDecisions[catId], now);
+                                    (plansByResident.get(catId) || []).forEach(plan => awayDecisionDiagnostics.processedPlanReferences.add(plan));
+                                    awayDecisionDiagnostics.quarantinedIds.add(catId);
+                                    addLog(`AWAY PLAN QUARANTINED: resident=${catId}; reason=form-presentation-unsafe; deferredClaim=${deferred?.claimId || 'unavailable'}; authority=preserved`, 'warn');
                                     return;
                                 }
                                 const diagnostic = enforceAwayMailDecision(
@@ -20883,7 +21581,6 @@ ${enrichedStatusOutputContract}`;
                             let innerVoiceChanged = 0;
                             const staleStatusIds = [];
                             const staleVoiceIds = [];
-                            const pendingFormApplications = [];
 
                             addLog(`STATUS SYNC RESPONSE: expected=${requestedIds.length}; received=${responseEntries.length}; ids=[${receivedIds.join(', ')}]`, "info");
 
@@ -20895,8 +21592,20 @@ ${enrichedStatusOutputContract}`;
                                     const oldStatus = cat.status;
                                     const oldInnerVoice = cat.innerVoice;
                                     matchedIds.add(updateId);
+                                    if (unsafeFormIds.has(updateId)) {
+                                        staleStatusIds.push(updateId);
+                                        staleVoiceIds.push(updateId);
+                                        return;
+                                    }
                                     if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
-                                    else if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
+                                    else {
+                                        if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
+                                        // A structurally valid, form-compatible slice still
+                                        // counts as a presentation sync even when its status
+                                        // text is intentionally empty. Unsafe slices returned
+                                        // above keep their truthful stale timestamp instead.
+                                        cat.lastStatusUpdateTime = Date.now();
+                                    }
                                     const localDirective = getLocalPresenceDirective(updateId);
                                     if (localDirective === 'HOME' || localDirective === 'DEPARTING_NOW' || localDirective === 'CURATOR_ROOM') {
                                         if (!isPermanentOutBuiltin(cat)) cat.isOut = false;
@@ -20913,9 +21622,6 @@ ${enrichedStatusOutputContract}`;
                                         cat.isOut = nextIsOut;
                                     }
 
-                                    pendingFormApplications.push({ cat, decision: update, directive: formDirectives[updateId] });
-
-                                    cat.lastStatusUpdateTime = Date.now();
                                     if (cat.status !== oldStatus) statusChanged++;
                                     else staleStatusIds.push(updateId);
                                     if (cat.innerVoice !== oldInnerVoice) innerVoiceChanged++;
@@ -20966,6 +21672,7 @@ ${enrichedStatusOutputContract}`;
                             // A final new departure is valid only with its own plan. A bad
                             // plan cancels that resident alone; it never rerolls the hall.
                             awayDecisionDiagnostics.proposedById.forEach((diagnostic, catId) => {
+                                if (awayDecisionDiagnostics.quarantinedIds.has(catId)) return;
                                 if (!diagnostic.valid && !awayDecisionDiagnostics.discardedIds.has(catId)) {
                                     awayDecisionDiagnostics.discardedIds.add(catId);
                                     awayDecisionDiagnostics.discarded++;
@@ -20976,6 +21683,7 @@ ${enrichedStatusOutputContract}`;
                                 const catId = String(cat.id);
                                 const wasOut = originalPresenceById.get(catId);
                                 if (wasOut !== false || getLocalPresenceDirective(catId) !== 'DEPARTING_NOW' || isPermanentOutBuiltin(cat)) return;
+                                if (awayDecisionDiagnostics.quarantinedIds.has(catId)) return;
                                 const diagnostic = awayDecisionDiagnostics.proposedById.get(catId) ||
                                     enforceAwayMailDecision(
                                         classifyAwayPlanDiagnostic(plansByResident, catId, 'departure'),
@@ -21017,7 +21725,7 @@ ${enrichedStatusOutputContract}`;
                                 const isOut = Boolean(cat.isOut);
                                 const localDirective = getLocalPresenceDirective(catId);
                                 if (!wasOut) {
-                                    if (localDirective !== 'DEPARTING_NOW' || awayDecisionDiagnostics.discardedIds.has(catId)) return;
+                                    if (localDirective !== 'DEPARTING_NOW' || awayDecisionDiagnostics.discardedIds.has(catId) || awayDecisionDiagnostics.quarantinedIds.has(catId)) return;
                                     const diagnostic = awayDecisionDiagnostics.proposedById.get(catId) ||
                                         enforceAwayMailDecision(
                                             classifyAwayPlanDiagnostic(plansByResident, catId, 'departure'),
@@ -21036,6 +21744,7 @@ ${enrichedStatusOutputContract}`;
                                     }
                                     const episode = createAwayEpisode(cat, plan, now, awayMailDecisions[catId] || null);
                                     if (!episode) return;
+                                    cat.deferredOrdinaryAwayDeparture = null;
                                     cat.isOut = true;
                                     cat.nextAwayOpportunityAt = null;
                                     const establishedHall = halls.value.find(hall => hall.id === requestHallId);
@@ -21084,8 +21793,11 @@ ${enrichedStatusOutputContract}`;
                             }), 'info');
 
                             let appliedSceneRecord = null;
+                            const hasUnsafeFormSlice = unsafeFormIds.size > 0;
                             if (sceneMode) {
-                                const sceneValidation = validateOptionalHallScene({
+                                const sceneValidation = hasUnsafeFormSlice
+                                    ? { valid: true, scene: null, quarantined: true }
+                                    : validateOptionalHallScene({
                                     scene: optionalScene,
                                     sceneMode,
                                     sceneContext,
@@ -21093,6 +21805,10 @@ ${enrichedStatusOutputContract}`;
                                     requestHallId,
                                     sceneRequired: Boolean(requestOptions.sceneRequired)
                                 });
+                                if (sceneValidation.quarantined) {
+                                    addLog(`HALL SCENE QUARANTINED: hall=${requestHallId}; reason=form-presentation-unsafe; authority=not-consumed`, 'warn');
+                                    if (requestOptions.sceneOutcome && typeof requestOptions.sceneOutcome === 'object') requestOptions.sceneOutcome.quarantined = true;
+                                }
                                 if (!sceneValidation.valid) {
                                     addLog(`HALL SCENE INVALID: hall=${requestHallId}; ${sceneValidation.error}`, 'warn');
                                     if (requestOptions.sceneRequired) return false;
@@ -21120,23 +21836,20 @@ ${enrichedStatusOutputContract}`;
                                         addLog(`HALL SCENE WRITE FAILED: hall=${requestHallId}; required scene was not persisted.`, 'warn');
                                         return false;
                                     }
-                                } else if (sceneMode === 'user-directed' && activeHallId.value === requestHallId) {
+                                } else if (!sceneValidation.quarantined && sceneMode === 'user-directed' && activeHallId.value === requestHallId) {
                                     clearHallSceneFocus();
                                 }
                             }
 
-                            pendingFormApplications.forEach(({ cat, decision, directive }) => {
-                                applyFormDecision(cat, decision, directive, now, 'status-sync');
-                            });
-
                             commitFridgeNoteReactionOpportunities({
                                 hallId: requestHallId,
-                                candidates: fridgeNoteCandidates,
-                                reactions: fridgeNoteReactions,
+                                candidates: fridgeNoteCandidates.filter(candidate => !unsafeFormIds.has(String(candidate.residentId))),
+                                reactions: fridgeNoteReactions.filter(reaction => !unsafeFormIds.has(String(reaction?.residentId))),
                                 now
                             });
 
                             if (lifeThreadCaptureEnabled) {
+                                if (hasUnsafeFormSlice) lifeThreadCandidates = [];
                                 const evidenceParts = responseEntries.map(update => {
                                     const id = String(update?.id || '').trim();
                                     const status = cleanText(update?.status || '');
@@ -21233,7 +21946,10 @@ ${enrichedStatusOutputContract}`;
                         addLog(`STATUS SYNC ERROR: ${e.message}`, "error");
                         return false;
                     }
-                    finally { isUpdatingStatus.value = false; }
+                    finally {
+                        frozenOrdinaryAwayClaimIds.forEach(releaseFrozenOrdinaryAwayDeparture);
+                        isUpdatingStatus.value = false;
+                    }
                 };
 
                 const settleHallStatusRefresh = ({ requestHallId, didRefresh, trackBackgroundPending, statusCompletion, backgroundFailureToast, presentationAllowed = true }) => {
@@ -22053,7 +22769,7 @@ ${episodicMemory}`;
                 };
 
                 return {
-                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
+                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
                     CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
@@ -22061,7 +22777,7 @@ ${episodicMemory}`;
                     fridgeNoteComposer, showArchivedFridgeNotes, visibleFridgeNotes, createFridgeNote, archiveFridgeNote, formatFridgeNoteTime, showFridgeNotesModal, openFridgeNotes, closeFridgeNotes,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveDestination, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,

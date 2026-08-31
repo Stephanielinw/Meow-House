@@ -55,6 +55,27 @@
         return narrative;
     };
 
+    // Provenance is intentionally episode-local: it explains why an ordinary
+    // Away episode exists without creating a second physical-presence system.
+    // Only the normalized, opaque linkage survives persistence; purpose and
+    // hidden facts remain in the Life Thread store.
+    const normalizeLifeThreadProvenance = (raw) => {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw) || raw.origin !== 'life-thread') return null;
+        const threadId = String(raw.threadId || '').trim();
+        const threadExcursionId = String(raw.threadExcursionId || '').trim();
+        const actorId = String(raw.actorId || '').trim();
+        const operationToken = String(raw.operationToken || '').trim();
+        const continuationSourceEventId = String(raw.continuationSourceEventId || '').trim();
+        const outcomeSourceEventId = String(raw.outcomeSourceEventId || '').trim();
+        const basisFactIds = [...new Set((Array.isArray(raw.basisFactIds) ? raw.basisFactIds : [])
+            .map(id => String(id || '').trim()).filter(Boolean))].slice(0, 4);
+        if (!threadId || !threadExcursionId || !actorId || !operationToken || !continuationSourceEventId || !outcomeSourceEventId || !basisFactIds.length) return null;
+        return {
+            origin: 'life-thread', threadId, threadExcursionId, actorId, operationToken, basisFactIds,
+            continuationSourceEventId, outcomeSourceEventId, visibility: 'thread-private'
+        };
+    };
+
     const normalizeEpisodes = (episodes) => (Array.isArray(episodes) ? episodes : [])
         .filter(episode => episode && typeof episode === 'object')
         .map(episode => {
@@ -101,6 +122,7 @@
                     Number.isInteger(Number(episode.mailDecision.roll)) && Number(episode.mailDecision.roll) >= 1 && Number(episode.mailDecision.roll) <= 100
                     ? { roll: Number(episode.mailDecision.roll), shouldWrite: episode.mailDecision.shouldWrite === true }
                     : null,
+                provenance: normalizeLifeThreadProvenance(episode.provenance),
                 status: episode.status === 'completed' ? 'completed' : 'active',
                 returnedAt: parseLogicalDate(episode.returnedAt)?.toISOString() || null,
                 settledAt: parseLogicalDate(episode.settledAt)?.toISOString() || null,
@@ -340,7 +362,7 @@
             : { candidates, plan: null, valid: false, reason: 'existing validator rejected plan' };
     };
 
-    const createEpisode = (cat, plan, departedAt = new Date(), mailDecision = null) => {
+    const createEpisode = (cat, plan, departedAt = new Date(), mailDecision = null, provenance = null) => {
         const departure = parseLogicalDate(departedAt) || new Date();
         const durationMs = Number(plan.plannedDurationMinutes) * 60 * 1000;
         return {
@@ -370,6 +392,7 @@
             mailDecision: mailDecision && Number.isInteger(Number(mailDecision.roll))
                 ? { roll: Number(mailDecision.roll), shouldWrite: mailDecision.shouldWrite === true }
                 : null,
+            provenance: normalizeLifeThreadProvenance(provenance),
             status: 'active',
             returnedAt: null,
             settledAt: null,
@@ -462,6 +485,7 @@
         getRecentReturn,
         getCompletedEpisodes,
         getHomeReserve,
+        getIndependentDepartureGate,
         buildDepartureSchedule,
         scheduleIndependentDepartureGate,
         validatePlan,
