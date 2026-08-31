@@ -5396,6 +5396,12 @@
 
                 <!-- Location Selection -->
                 <div v-if="!exploreState.active" class="space-y-4">
+                    <div v-for="caseRecord in (user.exploreCases || []).filter(item => ['open', 'paused'].includes(item.status))" :key="'resume-explore-' + caseRecord.id" class="meeow-explore-card p-4 rounded-xl border border-yellow-600/30">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0"><div class="text-[10px] font-black text-yellow-500 uppercase tracking-widest">未完调查</div><div class="text-sm font-bold text-gray-100 mt-1">{{ caseRecord.blueprint?.locationName }}</div><p class="text-[11px] leading-relaxed text-gray-400 mt-1">{{ caseRecord.blueprint?.coreQuestion }}</p></div>
+                            <button @click="resumeExploreCase(caseRecord.id)" class="shrink-0 px-3 py-2 rounded-lg text-xs font-black bg-yellow-600 text-black">继续</button>
+                        </div>
+                    </div>
                     <div class="meeow-explore-card p-4 rounded-xl">
                             <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider">第一步：选择目的馆舍</h3>
                             <span class="text-[10px] text-yellow-500/80">进入目标馆舍的世界</span>
@@ -5449,7 +5455,7 @@
                     class="meeow-explore-session flex flex-col rounded-xl overflow-hidden relative">
                     <div class="p-3 bg-zinc-900 border-b border-zinc-800 flex justify-between items-center shrink-0">
                         <div class="flex items-center gap-3">
-                            <button @click="exploreState.active = false"
+                            <button @click="exploreState.showExitMenu = true"
                                 class="text-gray-500 hover:text-white transition-colors">
                                 <i class="fas fa-chevron-left"></i>
                             </button>
@@ -5466,9 +5472,25 @@
                                 <span class="text-[10px] font-bold text-gray-400">{{ getResidentPublicName(exploreState.companion)
                                     }}</span>
                             </div>
-                            <span class="text-[10px] text-zinc-600 font-mono">RND_{{ exploreState.rounds }}</span>
+                            <button @click="exploreState.showNotebook = !exploreState.showNotebook" class="text-[10px] text-yellow-500 font-bold">调查记录</button>
                         </div>
                     </div>
+
+                    <div v-if="getExploreCase()" class="px-4 py-3 bg-yellow-950/15 border-b border-yellow-600/15">
+                        <div class="text-[9px] font-black text-yellow-600 uppercase tracking-widest">为什么来这里</div>
+                        <p class="text-xs text-gray-300 mt-1">{{ getExploreCase().blueprint.publicHook }}</p>
+                        <div class="text-[9px] font-black text-yellow-600 uppercase tracking-widest mt-2">当前问题</div>
+                        <p class="text-xs text-gray-300 mt-1">{{ getExploreCase().blueprint.coreQuestion }}</p>
+                    </div>
+
+                    <section v-if="exploreState.showNotebook && getExploreCase()" class="p-3 border-b border-zinc-800 bg-zinc-950/70 space-y-2">
+                        <div class="text-[10px] font-black text-yellow-600">当前问题</div><p class="text-xs text-gray-300">{{ getExploreCase().blueprint.coreQuestion }}</p>
+                        <div class="text-[10px] font-black text-yellow-600 pt-1">已发现线索</div>
+                        <p v-for="id in getExploreCase().state.discoveredClueIds" :key="id" class="text-[11px] text-gray-400">• {{ getExploreClue(getExploreCase(), id)?.revealText }}</p>
+                        <p v-if="!getExploreCase().state.discoveredClueIds.length" class="text-[11px] text-zinc-600">尚未发现明确线索。</p>
+                        <div v-if="getExploreCase().state.revealedRevelationIds.length" class="text-[10px] font-black text-yellow-600 pt-1">已确认信息</div>
+                        <p v-for="id in getExploreCase().state.revealedRevelationIds" :key="'revelation-' + id" class="text-[11px] text-gray-300">• {{ getExploreCase().blueprint.revelations.find(item => item.id === id)?.text }}</p>
+                    </section>
 
                     <div class="meeow-explore-chat flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar"
                         ref="exploreChatRef">
@@ -5551,6 +5573,12 @@
                                 class="bg-yellow-600 text-black w-12 h-12 flex items-center justify-center rounded-xl disabled:opacity-30 hover:bg-yellow-500 active:scale-90 transition-all shadow-lg">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
+                        </div>
+                        <div v-if="getExploreCase()?.state?.suggestedActions?.length" class="flex gap-2 overflow-x-auto pt-2">
+                            <button v-for="action in getExploreCase().state.suggestedActions" :key="action" @click="applyExploreSuggestedAction(action)" class="shrink-0 px-3 py-1.5 rounded-full text-[10px] border border-yellow-600/30 text-yellow-400">{{ action }}</button>
+                        </div>
+                        <div v-if="getExploreCase()?.status === 'solved'" class="mt-2 p-3 rounded-xl bg-emerald-950/30 border border-emerald-600/30 flex items-center justify-between gap-3">
+                            <span class="text-xs text-emerald-200">调查已确认。你可以继续看看，或在准备好后离开。</span><button @click="leaveSolvedExploreCase" class="shrink-0 px-3 py-2 rounded-lg text-xs font-black bg-emerald-500 text-black">结束并结算</button>
                         </div>
                     </div>
                 </div>
@@ -8648,9 +8676,9 @@
                         </div>
                     </div>
                     <div v-else class="space-y-3">
-                        <button v-for="goal in exploreState.suggestedGoals" :key="goal" @click="selectGoal(goal)"
+                        <button v-for="goal in exploreState.suggestedGoals" :key="goal.id || goal.label || goal" @click="selectGoal(goal)"
                             class="w-full p-4 bg-zinc-800 border border-zinc-700 rounded-xl text-left text-sm text-gray-200 hover:border-yellow-600 hover:bg-zinc-700 transition-all group flex items-center justify-between">
-                            <span>{{ goal }}</span>
+                            <span>{{ goal.label || goal }}</span>
                             <i
                                 class="fas fa-chevron-right text-zinc-600 group-hover:text-yellow-600 transition-colors"></i>
                         </button>
@@ -8746,6 +8774,15 @@
         </div>
 
         <!-- Explore Settlement Modal -->
+        <div v-if="exploreState.showExitMenu" class="fixed inset-0 z-[116] flex items-end justify-center p-4 bg-black/55" @click.self="exploreState.showExitMenu = false">
+            <div class="w-full max-w-sm rounded-2xl p-4 space-y-3 bg-zinc-900 border border-zinc-700">
+                <h3 class="text-sm font-black text-gray-100">结束本次行动</h3>
+                <p class="text-xs text-gray-400">离开房间、逃离危险或转移地点仍是调查中的普通行动；只有这里会改变调查状态。</p>
+                <button @click="pauseExploreCase" class="w-full py-3 rounded-xl text-sm font-bold bg-yellow-600 text-black">暂时撤离（以后可以继续）</button>
+                <button @click="abandonExploreCase" class="w-full py-3 rounded-xl text-sm font-bold border border-red-500/40 text-red-300">放弃调查</button>
+                <button @click="exploreState.showExitMenu = false" class="w-full py-2 text-xs text-gray-400">取消</button>
+            </div>
+        </div>
         <div v-if="showExploreSettlement"
             class="meeow-explore-settlement-overlay fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div
@@ -9393,6 +9430,11 @@
                                 phoneData.chatArchives = remapResidentIdKeys(phoneData.chatArchives, idMap);
                             }
                             if (phoneData.reader && typeof phoneData.reader === 'object') migrateResidentRecordArrays(phoneData.reader.annotations, 'catId', null, idMap);
+                        }
+                        if (Array.isArray(userPayload.exploreCases)) {
+                            userPayload.exploreCases.forEach(caseRecord => {
+                                if (caseRecord?.state && typeof caseRecord.state === 'object') migrateResidentIdField(caseRecord.state, 'companionId', idMap);
+                            });
                         }
                     }
                     migrateSceneRecords(payload.hallSceneRecords, idMap);
@@ -10272,6 +10314,7 @@
 
                 const exploreState = reactive({
                     active: false,
+                    caseId: '',
                     location: null,
                     companion: null,
                     history: [],
@@ -10290,13 +10333,16 @@
                     showGoalModal: false,
                     customGoal: '',
                     module: null,
+                    source: null,
                     isGeneratingModule: false,
                     isReturning: false,
                     sessionForm: null,
                     returnMessage: '',
                     returnPhase: '',
                     returnProgress: 8,
-                    returnIndeterminate: false
+                    returnIndeterminate: false,
+                    showNotebook: false,
+                    showExitMenu: false
                 });
                 const exploreInput = ref('');
                 const showExploreSettlement = ref(false);
@@ -13292,7 +13338,7 @@ JSON 格式：
                 };
 
                 const selectExploreCompanion = (cat) => {
-                    if (isResidentAway(cat)) return showToast("这只猫正在外面忙呢", "error");
+                    if (isResidentAway(cat) || getActiveAwayEpisode(cat) || cat?.isVisiting || isResidentInCuratorRoom(cat)) return showToast("这位居民目前无法同行。", "error");
                     exploreState.companion = cat;
                 };
 
@@ -13315,90 +13361,271 @@ JSON 格式：
                     }
                 };
 
-                const EXPLORE_KP_SYSTEM_PROMPT = `
-你是喵喵馆外出探索的隐形 CoC 守秘人。你不自称 KP、GM、主持人，也不讨论模组或规则。
+                const EXPLORE_CASE_VERSION = 2;
+                const EXPLORE_HISTORY_LIMIT = 18;
+                const EXPLORE_VISIBLE_TURN_LIMIT = 3;
+                const EXPLORE_THREAT_MAX = 5;
+                let exploreCaseSequence = 0;
+                const makeExploreCaseId = (prefix = 'explore-case') => `${prefix}-${Date.now()}-${(++exploreCaseSequence).toString(36)}`;
+                const compactExploreText = (value, limit = 240) => cleanText(value || '').slice(0, limit);
+                const validExploreDate = value => !Number.isNaN(new Date(value).getTime());
+                const exploreCaseStatusValues = new Set(['open', 'paused', 'solved', 'abandoned']);
 
-【叙事视角】
-- 你是镜头外的第三人称场景旁白，不是场景里的任何角色。
-- 用户只能被称为“你”；绝对不能把用户的行动写成“我/我们/本人/咱们”。正确示例：“你俯下身，将手掌虚放在裂缝入口。”
-- 猫咪、NPC、环境均用第三人称描述。NPC 的直接引语可以使用第一人称，但引语必须置于中文引号内。
-- 不凭空改变用户性别、身份、已建立关系或馆舍世界观；严格遵循当前馆舍和角色原作。
+                const getExploreLocationById = id => EXPLORE_LOCATIONS.find(location => String(location?.id || '') === String(id || '')) || null;
+                const getExploreCase = (caseId = exploreState.caseId || user.activeExploreCaseId) =>
+                    (Array.isArray(user.exploreCases) ? user.exploreCases : []).find(item => String(item?.id || '') === String(caseId || '')) || null;
+                const getExploreCompanion = caseRecord => cats.value.find(cat => String(cat?.id || '') === String(caseRecord?.state?.companionId || '')) || null;
+                const getExploreNode = (caseRecord, nodeId = caseRecord?.state?.currentNodeId) =>
+                    (caseRecord?.blueprint?.nodes || []).find(node => String(node?.id || '') === String(nodeId || '')) || null;
+                const getExploreClue = (caseRecord, clueId) =>
+                    (caseRecord?.blueprint?.clues || []).find(clue => String(clue?.id || '') === String(clueId || '')) || null;
 
-【CoC 带团原则】
-- 严格遵循调用方提供的模组、线索与结局；不要突然跳到无关阴谋。
-- 日常出行先呈现合理日常与细微异常，再随玩家选择逐渐展开风险。
-- 只在失败确实有代价的行动上请求检定；失败推进代价、危险或替代线索，绝不堵死故事。
-- 同行居民始终保持调用方提供的冻结可见形态，不在探索中途变化，也不得暴露身份；CAT FORM 为完整猫身、不能说人话，HUMAN FORM 为人形身体并保留自然猫耳与猫尾、可以说人话。危机时可按其原作性格和该形态自然行动，但不得强行抢走玩家选择。
-
-【控制标记】
-- 需要检定时，仅在正文末尾另起一行输出：[请求检定：技能名]
-- 只有满足模组结局或用户明确撤退时，才在正文末尾另起一行输出：<END_OF_EXPLORATION>
-- 除这两个控制标记外，不得输出任何元叙事或格式说明。`;
-
-                const buildExploreKPContext = ({ phase = 'scene', userAction = '', dice = null, compact = false } = {}) => {
-                    const companion = exploreState.companion;
-                    const hall = halls.value.find(item => item.id === companion?.hallId) || currentHall.value;
-                    const profile = [
-                        buildAuthoritativeUserIdentityContext(),
-                        `身份：${user.job || user.occupation || '普通市民'}`,
-                        `属性：${JSON.stringify(user.stats || {})}`,
-                        `技能：${JSON.stringify(user.skills || {})}`
-                    ].join('；');
-                    const recentHistory = (exploreState.history || []).slice(compact ? -3 : -6).map(entry => {
-                        const speaker = entry.role === 'user' ? '馆长行动' : '场景旁白';
-                        const diceInfo = entry.dice ? `（掷骰 ${entry.dice}，${entry.result || ''}）` : '';
-                        return `${speaker}${diceInfo}：${cleanText(entry.content)}`;
-                    }).join('\n') || '刚刚出发，尚无前情。';
-                    const diceContext = dice
-                        ? `本次检定：${dice.skill}，目标值 ${dice.target}，掷骰 ${dice.roll}，结果 ${dice.result}。`
-                        : '本轮尚无已结算检定。';
-                    const episodicMemory = companion && cleanText(userAction)
-                        ? buildOwnerScopedEpisodicMemoryContext(companion, { userAction })
-                        : '';
-
-                    return `[KP CONTEXT]
-阶段：${phase}
-当前馆舍：${hall?.name || '喵喵馆'}。
-地点：${exploreState.location?.name || '未知地点'}；地点氛围：${exploreState.location?.atmosphere || '未提供'}；常驻 NPC：${exploreState.location?.npcs || '无'}。
-${profile}
-同行居民：${companion?.name || '无'}；冻结可见形态：${describeResidentForm(exploreState.sessionForm || (companion ? getResidentForm(companion) : 'CAT'))}；外貌/品种：${companion?.breed || '未提供'}；好感度：${companion?.affinity ?? 0}；人格：${companion?.personality || '以原作设定为准'}。
-表面出行目的：${exploreState.goal || '未设定'}。
-本次馆舍化 CoC 模组：
-${compact ? '正在设计模组，暂不提供既有正文。' : (exploreState.module || '未生成')}
-最近跑团记录：
-${recentHistory}
-${userAction ? `馆长本轮行动：${userAction}` : ''}
-${diceContext}
-同行猫记忆与连续性：
-${companion ? buildCatMemoryContext(companion, { profile: compact ? 'exploreModule' : 'exploreScene' }) : '无同行猫'}
-${episodicMemory}
-[/KP CONTEXT]`;
+                const normalizeExploreCaseBlueprint = (raw, caseId, location) => {
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+                    const publicHook = compactExploreText(raw.publicHook, 760);
+                    const coreQuestion = compactExploreText(raw.coreQuestion, 180);
+                    const hiddenTruth = compactExploreText(raw.hiddenTruth, 420);
+                    const rawNodes = Array.isArray(raw.nodes) ? raw.nodes.slice(0, 4) : [];
+                    const nodes = rawNodes.map((node, index) => {
+                        const name = compactExploreText(node?.name, 80);
+                        const visibleDescription = compactExploreText(node?.visibleDescription, 180);
+                        return name && visibleDescription ? { id: `${caseId}:node:${index + 1}`, name, visibleDescription, exits: [] } : null;
+                    }).filter(Boolean);
+                    if (!publicHook || !coreQuestion || !hiddenTruth || nodes.length < 2) return null;
+                    nodes.forEach((node, index) => {
+                        const exits = Array.isArray(rawNodes[index]?.exitIndexes) ? rawNodes[index].exitIndexes : [];
+                        node.exits = [...new Set(exits.map(Number).filter(value => Number.isInteger(value) && value >= 0 && value < nodes.length && value !== index).map(value => nodes[value].id))];
+                    });
+                    const rawClues = Array.isArray(raw.clues) ? raw.clues.slice(0, 9) : [];
+                    const clues = rawClues.map((clue, index) => {
+                        const revealText = compactExploreText(clue?.revealText, 160);
+                        const nodeIndexes = [...new Set((Array.isArray(clue?.nodeIndexes) ? clue.nodeIndexes : [clue?.nodeIndex])
+                            .map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 0 && value < nodes.length))];
+                        const discoveryModes = [...new Set((Array.isArray(clue?.discoveryModes) ? clue.discoveryModes : ['observe'])
+                            .map(value => String(value || '').trim()).filter(value => ['observe', 'ask', 'search', 'follow', 'check'].includes(value)))];
+                        if (!revealText || !nodeIndexes.length) return null;
+                        return { id: `${caseId}:clue:${index + 1}`, nodeIds: nodeIndexes.map(value => nodes[value].id), revealText,
+                            discoveryModes: discoveryModes.length ? discoveryModes : ['observe'], check: compactExploreText(clue?.check, 16) || null };
+                    }).filter(Boolean);
+                    const rawRevelations = Array.isArray(raw.revelations) ? raw.revelations.slice(0, 4) : [];
+                    const revelations = rawRevelations.map((revelation, index) => {
+                        const text = compactExploreText(revelation?.text, 180);
+                        const minEvidence = Math.max(1, Math.min(3, Math.trunc(Number(revelation?.minEvidence) || 2)));
+                        const mapPath = path => [...new Set((Array.isArray(path) ? path : [])
+                            .map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 0 && value < clues.length)
+                            .map(value => clues[value].id))];
+                        const evidencePaths = (Array.isArray(revelation?.evidencePaths) ? revelation.evidencePaths : []).map(mapPath)
+                            .filter(path => path.length >= minEvidence);
+                        const decisiveClueIds = [...new Set((Array.isArray(revelation?.decisiveClueIndexes) ? revelation.decisiveClueIndexes : [])
+                            .map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 0 && value < clues.length)
+                            .map(value => clues[value].id))];
+                        return text && (evidencePaths.length || decisiveClueIds.length) ? {
+                            id: `${caseId}:revelation:${index + 1}`, text, minEvidence,
+                            evidencePaths, decisiveClueIds
+                        } : null;
+                    }).filter(Boolean);
+                    const requiredRevelationIds = [...new Set((Array.isArray(raw?.solution?.requiredRevelationIndexes) ? raw.solution.requiredRevelationIndexes : [])
+                        .map(value => Number(value)).filter(value => Number.isInteger(value) && revelations[value]).map(value => revelations[value].id))];
+                    if (clues.length < 3 || revelations.length < 1 || !requiredRevelationIds.length) return null;
+                    const rawThreats = Array.isArray(raw.threatEvents) ? raw.threatEvents.slice(0, 5) : [];
+                    const threatEvents = rawThreats.map((event, index) => {
+                        const visibleEffect = compactExploreText(event?.visibleEffect, 120);
+                        const nodeIndex = Number(event?.nodeIndex);
+                        const delta = Math.max(0, Math.min(2, Math.trunc(Number(event?.delta) || 0)));
+                        return visibleEffect && Number.isInteger(nodeIndex) && nodes[nodeIndex] && delta ? {
+                            id: `${caseId}:threat:${index + 1}`, nodeId: nodes[nodeIndex].id, delta, visibleEffect,
+                            trigger: compactExploreText(event?.trigger, 90)
+                        } : null;
+                    }).filter(Boolean);
+                    return {
+                        version: EXPLORE_CASE_VERSION, publicHook, coreQuestion, hiddenTruth,
+                        nodes, clues, revelations, threatEvents,
+                        companionPlan: compactExploreText(raw.companionPlan, 220),
+                        solution: { requiredRevelationIds },
+                        endings: {
+                            solved: compactExploreText(raw?.endings?.solved, 160),
+                            paused: compactExploreText(raw?.endings?.paused, 160),
+                            abandoned: compactExploreText(raw?.endings?.abandoned, 160)
+                        },
+                        locationName: location?.name || ''
+                    };
                 };
-
-                const validateExploreNarration = (content) => {
-                    const normalized = cleanText(content);
-                    const narrationOnly = normalized
-                        .replace(/“[^”]*”/g, '')
-                        .replace(/「[^」]*」/g, '')
-                        .replace(/『[^』]*』/g, '')
-                        .replace(/"[^"]*"/g, '')
-                        .replace(/\[请求检定[：:][^\]]+\]|<END_OF_EXPLORATION>/g, '');
-                    if (/(?:我|我们|本人|咱们)/.test(narrationOnly)) {
-                        return '外出旁白出现了未加引号的第一人称叙事，请按第三人称重新生成。';
+                const normalizeExploreCaseState = (raw, blueprint, companionId, createdAt) => {
+                    const nodeIds = new Set(blueprint.nodes.map(node => node.id));
+                    const clueIds = new Set(blueprint.clues.map(clue => clue.id));
+                    const revelationIds = new Set(blueprint.revelations.map(item => item.id));
+                    const threatIds = new Set(blueprint.threatEvents.map(item => item.id));
+                    const ids = (value, allowed) => [...new Set((Array.isArray(value) ? value : []).map(String).filter(id => allowed.has(id)))];
+                    const rawPending = raw?.pendingCheck;
+                    const pendingCheck = rawPending && typeof rawPending === 'object' && nodeIds.has(String(rawPending.nodeId || '')) &&
+                        compactExploreText(rawPending.skill, 16) ? {
+                            id: String(rawPending.id || `${createdAt}:check`), skill: compactExploreText(rawPending.skill, 16),
+                            nodeId: String(rawPending.nodeId), userActionSnapshot: compactExploreText(rawPending.userActionSnapshot, 240),
+                            eligibleClueIds: ids(rawPending.eligibleClueIds, clueIds), eligibleNodeIds: ids(rawPending.eligibleNodeIds, nodeIds),
+                            eligibleThreatEventIds: ids(rawPending.eligibleThreatEventIds, threatIds),
+                            requestedAt: validExploreDate(rawPending.requestedAt) ? rawPending.requestedAt : createdAt,
+                            roll: Number.isInteger(rawPending.roll) && rawPending.roll >= 1 && rawPending.roll <= 100 ? rawPending.roll : null,
+                            result: compactExploreText(rawPending.result, 16) || null,
+                            status: rawPending.status === 'resolving' ? (Number.isInteger(rawPending.roll) && compactExploreText(rawPending.result, 16) ? 'retryable' : 'awaiting-roll') :
+                                (['awaiting-roll', 'retryable'].includes(rawPending.status) ? rawPending.status : 'awaiting-roll'),
+                            resolutionToken: compactExploreText(rawPending.resolutionToken, 100) || ''
+                        } : null;
+                    const history = (Array.isArray(raw?.history) ? raw.history : []).slice(-EXPLORE_HISTORY_LIMIT).map((entry, index) => ({
+                        id: String(entry?.id || `${createdAt}:history:${index + 1}`), role: entry?.role === 'user' ? 'user' : 'narrator', checkId: compactExploreText(entry?.checkId, 100) || '',
+                        content: compactExploreText(entry?.content, 420), at: validExploreDate(entry?.at) ? entry.at : createdAt,
+                        dice: Number.isInteger(entry?.dice) ? entry.dice : null, result: compactExploreText(entry?.result, 16) || null
+                    })).filter(entry => entry.content);
+                    return {
+                        companionId, sessionForm: raw?.sessionForm === 'HUMAN' ? 'HUMAN' : 'CAT',
+                        currentNodeId: nodeIds.has(String(raw?.currentNodeId || '')) ? String(raw.currentNodeId) : blueprint.nodes[0].id,
+                        lastNodeId: nodeIds.has(String(raw?.lastNodeId || '')) ? String(raw.lastNodeId) : null,
+                        visitedNodeIds: ids(raw?.visitedNodeIds, nodeIds), discoveredClueIds: ids(raw?.discoveredClueIds, clueIds),
+                        revealedRevelationIds: ids(raw?.revealedRevelationIds, revelationIds), consumedThreatEventIds: ids(raw?.consumedThreatEventIds, threatIds),
+                        threat: Math.max(0, Math.min(EXPLORE_THREAT_MAX, Math.trunc(Number(raw?.threat) || 0))), pendingCheck,
+                        history, suggestedActions: (Array.isArray(raw?.suggestedActions) ? raw.suggestedActions : []).map(value => compactExploreText(value, 50)).filter(Boolean).slice(0, 4),
+                        lastVisibleScene: compactExploreText(raw?.lastVisibleScene, 420), updatedAt: validExploreDate(raw?.updatedAt) ? raw.updatedAt : createdAt
+                    };
+                };
+                const normalizeExploreCases = () => {
+                    const knownCompanions = new Set(cats.value.map(cat => String(cat?.id || '')).filter(Boolean));
+                    const normalized = (Array.isArray(user.exploreCases) ? user.exploreCases : []).map((raw, index) => {
+                        const id = String(raw?.id || '').trim() || `explore-case-legacy-${index + 1}`;
+                        const location = getExploreLocationById(raw?.locationId || raw?.source?.locationId);
+                        const companionId = String(raw?.state?.companionId || raw?.companionId || '').trim();
+                        const createdAt = validExploreDate(raw?.createdAt) ? raw.createdAt : new Date(0).toISOString();
+                        const blueprint = normalizeExploreCaseBlueprint(raw?.blueprint, id, location);
+                        if (!location || !knownCompanions.has(companionId) || !blueprint) return null;
+                        const status = exploreCaseStatusValues.has(raw?.status) ? raw.status : 'paused';
+                        const source = raw?.source && typeof raw.source === 'object' ? {
+                                kind: ['fresh', 'recent-memory', 'away-followup', 'news-followup', 'known-world-followup'].includes(raw.source.kind) ? raw.source.kind : 'fresh',
+                                publicFactIds: Array.isArray(raw.source.publicFactIds) ? raw.source.publicFactIds.map(String).slice(0, 3) : [],
+                                sourceEvidence: (Array.isArray(raw.source.sourceEvidence) ? raw.source.sourceEvidence : []).map(item => {
+                                    const kind = ['news', 'away-visible', 'return-status', 'interaction', 'known-fact'].includes(item?.kind) ? item.kind : 'interaction';
+                                    // Old archives recorded no observation bit. Treat only the
+                                    // already-verified News / USER-Knowledge kinds as prior
+                                    // knowledge; every other legacy residue is first shown by
+                                    // the new Case rather than silently "remembered".
+                                    const presentationMode = item?.presentationMode === 'previously-observed' ||
+                                        (!item?.presentationMode && ['news', 'known-fact'].includes(kind))
+                                        ? 'previously-observed' : 'present-now';
+                                    return { kind, presentationMode, refId: compactExploreText(item?.refId, 120), text: compactExploreText(item?.text, 220) };
+                                }).filter(item => item.text).slice(0, 3)
+                            } : { kind: 'fresh', publicFactIds: [], sourceEvidence: [] };
+                        return { id, status, createdAt, updatedAt: validExploreDate(raw?.updatedAt) ? raw.updatedAt : createdAt,
+                            locationId: location.id, destinationHallId: String(raw?.destinationHallId || location.hallId || ''),
+                            source, blueprint: presentExploreEvidenceNow(blueprint, source), state: normalizeExploreCaseState(raw?.state, blueprint, companionId, createdAt),
+                            settlementState: ['none', 'pending', 'complete'].includes(raw?.settlementState) ? raw.settlementState : 'none' };
+                    }).filter(Boolean).slice(-24);
+                    const wanted = String(user.activeExploreCaseId || '');
+                    let active = normalized.find(item => item.status === 'open' && item.id === wanted) || normalized.find(item => item.status === 'open') || null;
+                    normalized.forEach(item => { if (item.status === 'open' && item !== active) item.status = 'paused'; });
+                    user.exploreCases = normalized;
+                    user.activeExploreCaseId = active?.id || '';
+                    return active;
+                };
+                const touchExploreCase = caseRecord => { if (caseRecord) { caseRecord.updatedAt = new Date().toISOString(); caseRecord.state.updatedAt = caseRecord.updatedAt; } };
+                const getEligibleExploreClues = caseRecord => {
+                    const state = caseRecord?.state;
+                    if (!state) return [];
+                    const known = new Set(state.discoveredClueIds || []);
+                    return (caseRecord.blueprint?.clues || []).filter(clue => !known.has(clue.id) && clue.nodeIds.includes(state.currentNodeId));
+                };
+                const isExploreRevelationConfirmed = (revelation, discoveredIds) => {
+                    const discovered = new Set(discoveredIds || []);
+                    if ((revelation.decisiveClueIds || []).some(id => discovered.has(id))) return true;
+                    return (revelation.evidencePaths || []).some(path => path.length >= revelation.minEvidence && path.every(id => discovered.has(id)));
+                };
+                const reconcileExploreRevelations = caseRecord => {
+                    const state = caseRecord?.state;
+                    if (!state) return [];
+                    const newIds = (caseRecord.blueprint?.revelations || []).filter(revelation =>
+                        !state.revealedRevelationIds.includes(revelation.id) && isExploreRevelationConfirmed(revelation, state.discoveredClueIds)
+                    ).map(revelation => revelation.id);
+                    if (newIds.length) state.revealedRevelationIds.push(...newIds);
+                    const required = caseRecord.blueprint?.solution?.requiredRevelationIds || [];
+                    if (required.length && required.every(id => state.revealedRevelationIds.includes(id))) {
+                        caseRecord.status = 'solved'; caseRecord.solvedAt = caseRecord.solvedAt || new Date().toISOString();
+                        if (user.activeExploreCaseId === caseRecord.id) user.activeExploreCaseId = '';
                     }
-                    return true;
+                    return newIds;
                 };
+                const appendExploreCaseHistory = (caseRecord, entry) => {
+                    if (!caseRecord?.state) return;
+                    caseRecord.state.history.push({ id: makeExploreCaseId('explore-history'), role: entry?.role === 'user' ? 'user' : 'narrator', checkId: compactExploreText(entry?.checkId, 100) || '',
+                        content: compactExploreText(entry?.content, 420), at: new Date().toISOString(), dice: entry?.dice || null, result: entry?.result || null });
+                    caseRecord.state.history = caseRecord.state.history.slice(-EXPLORE_HISTORY_LIMIT);
+                    touchExploreCase(caseRecord);
+                };
+                const syncExploreStateFromCase = caseRecord => {
+                    if (!caseRecord) return false;
+                    const companion = getExploreCompanion(caseRecord);
+                    const location = getExploreLocationById(caseRecord.locationId);
+                    if (!companion || !location) return false;
+                    exploreState.caseId = caseRecord.id; exploreState.location = location; exploreState.companion = companion;
+                    exploreState.destinationHallId = caseRecord.destinationHallId || location.hallId; exploreState.goal = caseRecord.blueprint.publicHook;
+                    exploreState.module = null; exploreState.sessionForm = caseRecord.state.sessionForm; exploreState.history = caseRecord.state.history;
+                    exploreState.rounds = caseRecord.state.history.filter(item => item.role === 'user').length;
+                    exploreState.currentCheck = caseRecord.state.pendingCheck?.skill || null;
+                    exploreState.waitingForDice = caseRecord.state.pendingCheck?.status === 'awaiting-roll';
+                    exploreState.active = true; return true;
+                };
+                const buildExploreSourceEvidence = () => ({ kind: 'fresh', publicFactIds: [], sourceEvidence: [] });
 
-                const parseExploreNarration = (rawContent) => {
-                    let content = cleanText(rawContent);
-                    const checkMatch = content.match(/\[请求检定[：:]\s*([^\]\n]{1,16})\]/);
-                    const shouldEnd = /<END_OF_EXPLORATION>/.test(content);
-                    const requestedCheck = checkMatch ? cleanText(checkMatch[1]) : null;
-                    content = content
-                        .replace(/\[请求检定[：:]\s*[^\]\n]{1,16}\]/g, '')
-                        .replace(/<END_OF_EXPLORATION>/g, '')
-                        .trim();
-                    return { content, requestedCheck, shouldEnd };
+                const EXPLORE_KP_SYSTEM_PROMPT = `你是喵喵馆外出调查的第三人称场景旁白。不要自称 KP、GM、主持人，不讨论模组、隐藏真相、状态机或规则。用户只能称为“你”。同行居民保持给定的冻结形态：CAT 是完整猫身且不能说人话；HUMAN 可以说人话。严格只依据调用方给出的当前场景、已发现证据和当前可用线索推进；不要编造未提供的秘密、远处地点、NPC 私密动机或结局。失败必须前进但带来已提供的合理代价。不要替用户选择、不要自动结束调查。返回严格 JSON。`;
+
+                const buildExploreNarrationContext = ({ caseRecord, phase = 'scene', userAction = '', dice = null } = {}) => {
+                    const companion = getExploreCompanion(caseRecord);
+                    const node = getExploreNode(caseRecord);
+                    const state = caseRecord?.state;
+                    const eligibleClues = getEligibleExploreClues(caseRecord).map(clue => `- ${clue.id}: ${clue.revealText}`).join('\n') || '无';
+                    const discovered = (state?.discoveredClueIds || []).map(id => getExploreClue(caseRecord, id)?.revealText).filter(Boolean).join('；') || '尚无';
+                    const revelations = (state?.revealedRevelationIds || []).map(id => (caseRecord.blueprint.revelations || []).find(item => item.id === id)?.text).filter(Boolean).join('；') || '尚无';
+                    const events = (caseRecord.blueprint?.threatEvents || []).filter(event => event.nodeId === node?.id && !(state?.consumedThreatEventIds || []).includes(event.id))
+                        .map(event => `- ${event.id}: ${event.visibleEffect}`).join('\n') || '无';
+                    const recent = (state?.history || []).slice(-EXPLORE_VISIBLE_TURN_LIMIT).map(entry => `${entry.role === 'user' ? '你' : '旁白'}：${entry.content}`).join('\n') || '刚刚抵达。';
+                    const diceText = dice ? `本次检定：${dice.skill}，目标 ${dice.target}，掷骰 ${dice.roll}，结果 ${dice.result}。` : '无已结算骰。';
+                    return `[CURRENT EXPLORE DIRECTOR CONTEXT]
+阶段：${phase}
+地点：${caseRecord.blueprint.locationName}；当前区域：${node?.name || '未知'}；可见区域描述：${node?.visibleDescription || ''}
+馆长：${buildAuthoritativeUserIdentityContext()}；技能：${JSON.stringify(user.skills || {})}
+同行居民：${getResidentPublicName(companion)}；冻结形态：${describeResidentForm(state?.sessionForm || 'CAT')}；人格：${compactExploreText(companion?.personality, 180)}。
+本次公开钩子：${caseRecord.blueprint.publicHook}
+当前问题：${caseRecord.blueprint.coreQuestion}
+已发现证据：${discovered}
+已确认信息：${revelations}
+当前可呈现线索（只有完整原文出现在正文时才可标记发现）：
+${eligibleClues}
+当前可触发的可见压力事件：
+${events}
+最近可见记录：
+${recent}
+${userAction ? `馆长行动：${userAction}` : ''}
+${diceText}
+[/CURRENT EXPLORE DIRECTOR CONTEXT]`;
+                };
+                const validateExploreNarration = raw => {
+                    const data = parseAIJSON(raw);
+                    const content = compactExploreText(data?.content, 520);
+                    if (!content) return '外出场景缺少可见 narration 内容。';
+                    const narrationOnly = content.replace(/“[^”]*”/g, '').replace(/「[^」]*」/g, '').replace(/『[^』]*』/g, '').replace(/"[^"]*"/g, '');
+                    return /(?:我|我们|本人|咱们)/.test(narrationOnly) ? '外出旁白出现未加引号的第一人称。' : true;
+                };
+                const parseExploreNarration = raw => {
+                    const data = parseAIJSON(raw) || {};
+                    const requested = data.requestedCheck && typeof data.requestedCheck === 'object' ? data.requestedCheck : null;
+                    return {
+                        content: compactExploreText(data.content, 520),
+                        requestedCheck: requested ? {
+                            skill: compactExploreText(requested.skill, 16),
+                            eligibleClueIds: Array.isArray(requested.eligibleClueIds) ? requested.eligibleClueIds.map(String) : [],
+                            eligibleNodeIds: Array.isArray(requested.eligibleNodeIds) ? requested.eligibleNodeIds.map(String) : [],
+                            eligibleThreatEventIds: Array.isArray(requested.eligibleThreatEventIds) ? requested.eligibleThreatEventIds.map(String) : []
+                        } : null,
+                        discoveredClueIds: Array.isArray(data.discoveredClueIds) ? data.discoveredClueIds.map(String) : [],
+                        moveToNodeId: String(data.moveToNodeId || '').trim(),
+                        triggeredThreatEventIds: Array.isArray(data.triggeredThreatEventIds) ? data.triggeredThreatEventIds.map(String) : [],
+                        suggestedActions: Array.isArray(data.suggestedActions) ? data.suggestedActions.map(value => compactExploreText(value, 50)).filter(Boolean).slice(0, 4) : []
+                    };
                 };
 
                 // Transport-only structured request helper. Callers own all
@@ -13450,113 +13677,166 @@ ${episodicMemory}
                     return 40;
                 };
 
+                const getExploreCaseVisibleDigest = caseRecord => {
+                    const state = caseRecord?.state || {};
+                    const clues = (state.discoveredClueIds || []).map(id => getExploreClue(caseRecord, id)?.revealText).filter(Boolean);
+                    const revelations = (state.revealedRevelationIds || []).map(id => (caseRecord.blueprint.revelations || []).find(item => item.id === id)?.text).filter(Boolean);
+                    return [`公开钩子：${caseRecord?.blueprint?.publicHook || ''}`, `当前问题：${caseRecord?.blueprint?.coreQuestion || ''}`,
+                        clues.length ? `已发现线索：${clues.join('；')}` : '已发现线索：无',
+                        revelations.length ? `已确认信息：${revelations.join('；')}` : '已确认信息：无',
+                        ...(state.history || []).slice(-EXPLORE_VISIBLE_TURN_LIMIT).map(item => `${item.role === 'user' ? '馆长' : '场景'}：${item.content}`)
+                    ].join('\n');
+                };
+                const createExplorePendingCheck = (caseRecord, requested, userAction) => {
+                    const node = getExploreNode(caseRecord);
+                    const validSkills = new Set([...Object.keys(user.skills || {}), '力量', '敏捷', '体质', '智力', '侦查', '潜行', '闪避', '斗殴', '话术', '意志', '妙手']);
+                    if (!node || !requested?.skill || !validSkills.has(requested.skill)) return null;
+                    const eligibleClues = new Set(getEligibleExploreClues(caseRecord).map(item => item.id));
+                    const eligibleEvents = new Set((caseRecord.blueprint.threatEvents || []).filter(item => item.nodeId === node.id && !caseRecord.state.consumedThreatEventIds.includes(item.id)).map(item => item.id));
+                    const allowed = (values, allowedSet) => [...new Set((Array.isArray(values) ? values : []).map(String).filter(id => allowedSet.has(id)))];
+                    const check = {
+                        id: makeExploreCaseId('explore-check'), skill: requested.skill, nodeId: node.id,
+                        userActionSnapshot: compactExploreText(userAction, 240),
+                        eligibleClueIds: allowed(requested.eligibleClueIds, eligibleClues),
+                        eligibleNodeIds: allowed(requested.eligibleNodeIds, new Set(node.exits || [])),
+                        eligibleThreatEventIds: allowed(requested.eligibleThreatEventIds, eligibleEvents),
+                        requestedAt: new Date().toISOString(), roll: null, result: null, status: 'awaiting-roll', resolutionToken: ''
+                    };
+                    caseRecord.state.pendingCheck = check; touchExploreCase(caseRecord); return check;
+                };
+                const applyExploreNarration = (caseRecord, narration, { userAction = '', pendingCheck = null } = {}) => {
+                    if (!caseRecord || caseRecord.status !== 'open' && caseRecord.status !== 'solved') return { applied: false };
+                    const state = caseRecord.state;
+                    const currentNode = getExploreNode(caseRecord);
+                    if (!currentNode || !narration.content) return { applied: false };
+                    const eligibleClues = pendingCheck ? new Set(pendingCheck.eligibleClueIds) : new Set(getEligibleExploreClues(caseRecord).map(clue => clue.id));
+                    // Visible evidence, rather than optional metadata, owns discovery.
+                    const visibleClueIds = [...eligibleClues].filter(id => {
+                        const clue = getExploreClue(caseRecord, id);
+                        return clue && narration.content.includes(clue.revealText);
+                    });
+                    visibleClueIds.forEach(id => { if (!state.discoveredClueIds.includes(id)) state.discoveredClueIds.push(id); });
+                    const allowedMoveIds = new Set(pendingCheck ? pendingCheck.eligibleNodeIds : currentNode.exits || []);
+                    if (narration.moveToNodeId && allowedMoveIds.has(narration.moveToNodeId)) {
+                        state.lastNodeId = state.currentNodeId; state.currentNodeId = narration.moveToNodeId;
+                    }
+                    const eligibleThreatIds = new Set(pendingCheck ? pendingCheck.eligibleThreatEventIds : (caseRecord.blueprint.threatEvents || [])
+                        .filter(event => event.nodeId === currentNode.id && !state.consumedThreatEventIds.includes(event.id)).map(event => event.id));
+                    narration.triggeredThreatEventIds.filter(id => eligibleThreatIds.has(id)).forEach(id => {
+                        const event = (caseRecord.blueprint.threatEvents || []).find(item => item.id === id);
+                        if (event && narration.content.includes(event.visibleEffect) && !state.consumedThreatEventIds.includes(id)) {
+                            state.consumedThreatEventIds.push(id); state.threat = Math.min(EXPLORE_THREAT_MAX, state.threat + event.delta);
+                        }
+                    });
+                    state.visitedNodeIds = [...new Set([...state.visitedNodeIds, state.currentNodeId])];
+                    state.suggestedActions = narration.suggestedActions;
+                    state.lastVisibleScene = narration.content;
+                    appendExploreCaseHistory(caseRecord, { role: 'narrator', content: narration.content });
+                    const revealed = reconcileExploreRevelations(caseRecord);
+                    if (caseRecord.status === 'solved') state.pendingCheck = null;
+                    else if (narration.requestedCheck) createExplorePendingCheck(caseRecord, narration.requestedCheck, userAction);
+                    else state.pendingCheck = null;
+                    touchExploreCase(caseRecord);
+                    return { applied: true, discoveredClueIds: visibleClueIds, revealedRevelationIds: revealed };
+                };
+                const buildExploreNarrationPrompt = ({ caseRecord, phase, userAction = '', dice = null } = {}) => {
+                    const currentNode = getExploreNode(caseRecord);
+                    const checkRule = dice ? '本轮是已经冻结的骰子结果：根据结果推进，但只能从当前授权机会中选择后果；失败必须前进而不是堵死。' : '仅在真实存在失败代价时请求一次检定；简单行动直接叙述结果。';
+                    return `[EXPLORE INVESTIGATION SCENE]
+写 120–180 字简体中文可见场景。${checkRule}
+不要自动结束、暂停、放弃或解决调查；这些由程序和用户控制。不要透露未提供的秘密。
+仅返回 JSON：{"content":"可见叙事","requestedCheck":null|{"skill":"侦查","eligibleClueIds":[],"eligibleNodeIds":[],"eligibleThreatEventIds":[]},"discoveredClueIds":[],"moveToNodeId":"","triggeredThreatEventIds":[],"suggestedActions":["..."]}
+Sidecar 只能引用当前上下文提供的 ID；它是可选的。线索只有其完整 revealText 已逐字出现在 content 中才会被程序记录。不要把建议写成剧透。
+${buildResidentPublicNameContract([getExploreCompanion(caseRecord)])}
+${buildExploreNarrationContext({ caseRecord, phase, userAction, dice })}`;
+                };
+                const requestExploreCaseNarration = async (caseRecord, options = {}) => {
+                    const phase = options.phase || 'scene';
+                    const raw = await requestExploreNarration(buildExploreNarrationPrompt({ caseRecord, ...options }), `EXPLORE ${phase.toUpperCase()} · ${caseRecord.blueprint.locationName}`);
+                    return parseExploreNarration(raw);
+                };
                 const submitDiceRoll = () => {
-                    if (exploreState.isRolling) return;
-
+                    const caseRecord = getExploreCase();
+                    const pending = caseRecord?.state?.pendingCheck;
+                    if (!caseRecord || !pending || pending.status !== 'awaiting-roll' || exploreState.isRolling) return;
                     exploreState.isRolling = true;
-                    exploreState.lastDiceResult = null;
-
-                    // Simulate rolling animation delay
-                    setTimeout(() => {
-                        const roll = Math.floor(Math.random() * 100) + 1;
-                        exploreState.lastDiceResult = roll;
-                        exploreState.isRolling = false;
-
-                        const target = getSkillValue(exploreState.currentCheck);
-
-                        let result = '失败';
-                        if (roll <= 5) result = '大成功';
-                        else if (roll <= target / 2) result = '困难成功';
-                        else if (roll <= target) result = '成功';
-                        else if (roll >= 96) result = '大失败';
-
-                        exploreState.history.push({
-                            role: 'user',
-                            content: `掷骰检定: ${exploreState.currentCheck} (目标: ${target})`,
-                            dice: roll,
-                            result: result
-                        });
-
-                        setTimeout(() => {
-                            exploreState.waitingForDice = false;
-                            exploreState.lastDiceResult = null;
-                            processDiceResult(roll, result);
-                        }, 1000); // Show result for 1s before processing
-                    }, 800);
+                    const roll = Math.floor(Math.random() * 100) + 1;
+                    const target = getSkillValue(pending.skill);
+                    const result = roll <= 5 ? '大成功' : roll <= target / 2 ? '困难成功' : roll <= target ? '成功' : roll >= 96 ? '大失败' : '失败';
+                    pending.roll = roll; pending.result = result; pending.status = 'resolving'; pending.resolutionToken = pending.resolutionToken || makeExploreCaseId('explore-dice');
+                    touchExploreCase(caseRecord); persistNow();
+                    exploreState.lastDiceResult = roll;
+                    window.setTimeout(() => { exploreState.isRolling = false; exploreState.waitingForDice = false; processDiceResult(caseRecord.id); }, 700);
                 };
-
-                const createExploreFallbackSettlement = () => ({
-                    summary: `你与${exploreState.companion?.name || '同行小猫'}结束了在${exploreState.location?.name || '馆外'}的这次外出，并平安踏上归馆的路。`,
-                    affinityChange: 0,
-                    coins: 0,
-                    loot: null
+                const createExploreFallbackSettlement = caseRecord => ({
+                    summary: `你与${getResidentPublicName(getExploreCompanion(caseRecord) || '')}结束了在${caseRecord?.blueprint?.locationName || '馆外'}的调查。`,
+                    affinityChange: 0, coins: 0, loot: null
                 });
-
-                const beginExploreReturn = async (message = '小猫已经跟上你的脚步，馆门正在前方亮起。') => {
-                    if (exploreState.isReturning || !exploreState.companion) return;
-                    exploreState.isReturning = true;
-                    exploreState.returnMessage = message;
-                    exploreState.returnPhase = '步骤 1/3 · 正在整理本次探险结算';
-                    exploreState.returnProgress = 10;
-                    exploreState.returnIndeterminate = false;
-                    exploreState.isProcessing = false;
-                    exploreState.waitingForDice = false;
-                    exploreState.isRolling = false;
-
-                    try {
-                        await finishExploration();
-                    } catch (error) {
-                        addLog(`EXPLORE RETURN FALLBACK: ${getReadableAPIError(error)}`, 'warn');
-                    } finally {
-                        if (!exploreState.settlement) exploreState.settlement = createExploreFallbackSettlement();
-                        showExploreSettlement.value = true;
-                        exploreState.isReturning = false;
-                        exploreState.returnMessage = '';
-                        exploreState.returnPhase = '';
-                        exploreState.returnProgress = 0;
-                        exploreState.returnIndeterminate = false;
-                    }
+                const getProgramExploreRewards = caseRecord => {
+                    if (caseRecord?.status !== 'solved') return { coins: 0, affinityChange: 0 };
+                    const clues = caseRecord.state.discoveredClueIds.length;
+                    const revelations = caseRecord.state.revealedRevelationIds.length;
+                    return { coins: Math.min(200, 60 + clues * 10 + revelations * 30), affinityChange: Math.min(10, 2 + revelations * 2) };
                 };
-
-                const processDiceResult = async (roll, result) => {
+                const settleSolvedExploreCase = async caseRecord => {
+                    if (!caseRecord || caseRecord.status !== 'solved' || caseRecord.settlementState === 'complete') return;
+                    const companion = getExploreCompanion(caseRecord);
+                    if (!companion) return;
+                    caseRecord.settlementState = 'pending'; touchExploreCase(caseRecord);
+                    const rewards = getProgramExploreRewards(caseRecord);
+                    const visibleDigest = getExploreCaseVisibleDigest(caseRecord);
+                    const prompt = `[EXPLORE SOLVED SETTLEMENT]
+根据以下用户已经看见的调查内容，生成安全的简短结算 JSON。不得提及任何未提供的信息。
+${visibleDigest}
+只返回 {"summary":"","loot":null|{"name":"","icon":"","desc":""},"lore":null|{"category":"","title":"","content":"","icon":""}}。不返回数字奖励。`;
+                    let data = null;
+                    try { data = parseAIJSON(await requestStructuredEngine(prompt, { systemPrompt: 'You write only public, user-observed Explore settlement flavor in Simplified Chinese.', maxTokens: 700, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · SETTLEMENT', priority: 'foreground' })); } catch (error) { addLog(`EXPLORE SETTLEMENT FLAVOR FAILED: ${getReadableAPIError(error)}`, 'warn'); }
+                    const summary = compactExploreText(data?.summary, 260) || `你和${getResidentPublicName(companion)}把已确认的线索逐一整理好，带着答案离开了现场。`;
+                    exploreState.settlement = { summary, coins: rewards.coins, affinityChange: rewards.affinityChange, loot: data?.loot && typeof data.loot === 'object' ? {
+                        name: compactExploreText(data.loot.name, 80), icon: compactExploreText(data.loot.icon, 12), desc: compactExploreText(data.loot.desc, 160)
+                    } : null };
+                    user.coins += rewards.coins;
+                    companion.affinity = Math.min(100, Math.max(0, Number(companion.affinity || 0) + rewards.affinityChange));
+                    if (exploreState.settlement.loot?.name) user.inventory.push({ ...exploreState.settlement.loot, id: Date.now(), type: 'collectible' });
+                    if (data?.lore?.title && data?.lore?.content) unlockCodexEntry(compactExploreText(data.lore.category, 40), compactExploreText(data.lore.title, 90), compactExploreText(data.lore.content, 420), compactExploreText(data.lore.icon, 40));
+                    const traveloguePrompt = `[EXPLORE TRAVELOGUE]
+只依据以下用户已发现、可公开复述的信息，为同行居民写 150–260 字第一人称游记。不得补充任何秘密、未发现线索或隐藏真相。
+居民：${getResidentPublicName(companion)}；人格：${compactExploreText(companion.personality, 220)}；冻结形态：${caseRecord.state.sessionForm}
+${visibleDigest}`;
+                    try {
+                        const travelogueContent = cleanText(await requestStructuredEngine(traveloguePrompt, { systemPrompt: CORE_ROLEPLAY_PROMPT, maxTokens: 1000, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · TRAVELOGUE', priority: 'foreground' }));
+                        if (travelogueContent) {
+                            if (!Array.isArray(companion.travelogues)) companion.travelogues = [];
+                            companion.travelogues.push({ date: new Date().toLocaleString(), location: caseRecord.blueprint.locationName, content: travelogueContent, source: 'explore', caseId: caseRecord.id });
+                            companion.logs.push({ date: new Date().toLocaleDateString(), content: `【外出游记】\n地点：${caseRecord.blueprint.locationName}\n\n${travelogueContent}` });
+                        }
+                    } catch (error) { addLog(`EXPLORE TRAVELOGUE FAILED: ${getReadableAPIError(error)}`, 'warn'); }
+                    appendInteractionEvent(companion, 'explore-end', `与馆长完成了${caseRecord.blueprint.locationName}的调查。`, { source: 'explore', caseId: caseRecord.id });
+                    appendMonitorEvent(companion, `与馆长完成了${caseRecord.blueprint.locationName}的一次外出调查。`, 'explore', { caseId: caseRecord.id });
+                    caseRecord.settlementState = 'complete'; touchExploreCase(caseRecord); persistNow(); showExploreSettlement.value = true;
+                };
+                const leaveSolvedExploreCase = async () => {
+                    const caseRecord = getExploreCase();
+                    if (!caseRecord || caseRecord.status !== 'solved') return;
+                    await settleSolvedExploreCase(caseRecord);
+                };
+                const processDiceResult = async caseId => {
+                    const caseRecord = getExploreCase(caseId);
+                    const pending = caseRecord?.state?.pendingCheck;
+                    if (!caseRecord || !pending || !Number.isInteger(pending.roll) || !pending.result) return;
                     exploreState.isProcessing = true;
-                    const skill = exploreState.currentCheck;
-                    const target = getSkillValue(skill);
-                    const outcomeRule = {
-                        '大成功': '揭示模组中一条关键线索或显著优势；同行猫可自然地制造一个看似偶然的有利条件。',
-                        '困难成功': '推进目标，但付出时间、体力、物品或暴露风险中的一项代价。',
-                        '成功': '清晰推进当前场景，并给出与本次行动直接相关的线索或结果。',
-                        '失败': '行动未如愿，但必须给出合理后果、新阻碍或替代线索，不能让故事停滞。',
-                        '大失败': '制造模组内的严重危机；同行猫按自身原作人格与猫形态隐蔽救场，避免致命后果但保留代价。'
-                    }[result] || '依据模组自然推进。';
-
-                    const prompt = `[DICE OUTCOME]
-请依据已生成模组裁决这次检定，不得改写既有线索、角色关系或馆舍世界观。
-结果处理：${outcomeRule}
-本轮之后继续留给馆长明确、可行动的选择或感官钩子。
-正文 100–160 字，简体中文。
-${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, result } })}`;
-
+                    const target = getSkillValue(pending.skill);
+                    if (!caseRecord.state.history.some(entry => entry.checkId === pending.id)) appendExploreCaseHistory(caseRecord, { role: 'user', checkId: pending.id, content: `掷骰检定：${pending.skill}（目标 ${target}）`, dice: pending.roll, result: pending.result });
                     try {
-                        const res = await requestExploreNarration(prompt, `EXPLORE DICE · ${exploreState.location.name}`);
-                        const narration = parseExploreNarration(res);
-                        if (narration.requestedCheck) {
-                            exploreState.currentCheck = narration.requestedCheck;
-                            exploreState.waitingForDice = true;
-                        }
-                        exploreState.history.push({ role: 'narrator', content: narration.content });
-                        if (narration.shouldEnd && !exploreState.waitingForDice) {
-                            void beginExploreReturn('本次探索已告一段落，正在陪小猫返回馆舍。');
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        showToast("判定连接异常", "error");
-                    } finally {
-                        exploreState.isProcessing = false;
-                        nextTick(() => { if (exploreChatRef.value) exploreChatRef.value.scrollTop = exploreChatRef.value.scrollHeight; });
-                    }
+                        const narration = await requestExploreCaseNarration(caseRecord, { phase: 'dice', userAction: pending.userActionSnapshot, dice: { skill: pending.skill, target, roll: pending.roll, result: pending.result } });
+                        applyExploreNarration(caseRecord, narration, { userAction: pending.userActionSnapshot, pendingCheck: pending });
+                        syncExploreStateFromCase(caseRecord);
+                    } catch (error) {
+                        pending.status = 'retryable'; touchExploreCase(caseRecord); addLog(`EXPLORE DICE NARRATION FAILED: ${getReadableAPIError(error)}`, 'warn'); showToast('判定叙事连接异常，可稍后继续。', 'error');
+                    } finally { exploreState.isProcessing = false; exploreState.lastDiceResult = null; nextTick(() => { if (exploreChatRef.value) exploreChatRef.value.scrollTop = exploreChatRef.value.scrollHeight; }); }
                 };
-                const generateExploreGoals = async () => {
+                const legacyGenerateExploreGoals = async () => {
+                    return;
                     if (!exploreState.location || !exploreState.companion) return;
                     exploreState.isGeneratingGoals = true;
                     exploreState.showGoalModal = true;
@@ -13610,12 +13890,12 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     }
                 };
 
-                const selectGoal = (goal) => {
+                const legacySelectGoal = (goal) => {
                     exploreState.goal = goal;
                     generateModule();
                 };
 
-                const submitCustomGoal = () => {
+                const legacySubmitCustomGoal = () => {
                     if (exploreState.customGoal.trim()) {
                         exploreState.goal = exploreState.customGoal.trim();
                         generateModule();
@@ -13629,7 +13909,7 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                 // guard even though ordinary chat still worked.  We ask the model for
                 // a compact JSON seed, then turn that seed into the same stable
                 // Markdown contract used by the KP below.
-                const buildExploreModuleBrief = () => {
+                const legacyBuildExploreModuleBrief = () => {
                     const cat = exploreState.companion;
                     const hall = halls.value.find(item => item.id === cat?.hallId) || currentHall.value;
                     const short = (value, limit = 130) => cleanText(value || '').slice(0, limit);
@@ -13650,7 +13930,7 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     ].join('\n');
                 };
 
-                const validateExploreModuleSeed = (content) => {
+                const legacyValidateExploreModuleSeed = (content) => {
                     const data = parseAIJSON(content);
                     if (!data || typeof data !== 'object') return '模组种子不是有效 JSON。';
                     const required = ['surfaceGoal', 'hiddenTruth', 'npcs', 'scenes', 'timeline', 'catPlan', 'endingSuccess', 'endingDanger', 'endingLeave'];
@@ -13660,7 +13940,7 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     return true;
                 };
 
-                const compileExploreModuleSeed = (seed) => {
+                const legacyCompileExploreModuleSeed = (seed) => {
                     const asText = (value, fallback = '未提供') => cleanText(typeof value === 'string' ? value : '') || fallback;
                     const npcLines = (seed.npcs || []).slice(0, 3).map((npc, index) => {
                         if (typeof npc === 'string') return `- ${npc}`;
@@ -13673,7 +13953,8 @@ ${buildExploreKPContext({ phase: 'dice-outcome', dice: { skill, target, roll, re
                     return `【表面日常目标】\n${asText(seed.surfaceGoal)}\n\n【隐藏真相】\n${asText(seed.hiddenTruth)}\n\n【NPC 卡表】\n${npcLines}\n\n【场景与固定线索】\n${sceneLines}\n\n【时间线与危机】\n${asText(seed.timeline)}\n\n【同行猫隐藏剧本】\n${asText(seed.catPlan)}\n\n【三种结局】\n- 日常目标达成：${asText(seed.endingSuccess)}\n- 危机/大失败后的撤离：${asText(seed.endingDanger)}\n- 用户主动回家：${asText(seed.endingLeave)}`;
                 };
 
-                const generateModule = async () => {
+                const legacyGenerateModule = async () => {
+                    return;
                     if (!exploreState.location || !exploreState.companion || !exploreState.goal) return;
                     exploreState.isGeneratingModule = true;
                     // Keep the modal open, don't set exploreState.active = true yet
@@ -13703,7 +13984,8 @@ ${buildExploreModuleBrief()}
                     }
                 };
 
-                const startExploration = async () => {
+                const legacyStartExploration = async () => {
+                    return;
                     if (!exploreState.location || !exploreState.companion || !exploreState.goal || !exploreState.module) return;
 
                     // A continuous Explore session keeps the form it began with.
@@ -13743,7 +14025,8 @@ ${buildExploreKPContext({ phase: 'opening' })}`;
                     }
                 };
 
-                const advanceExploration = async () => {
+                const legacyAdvanceExploration = async () => {
+                    return;
                     if (!exploreInput.value || exploreState.isProcessing) return;
                     const userAction = exploreInput.value;
                     exploreInput.value = '';
@@ -13753,24 +14036,9 @@ ${buildExploreKPContext({ phase: 'opening' })}`;
 
                     nextTick(() => { if (exploreChatRef.value) exploreChatRef.value.scrollTop = exploreChatRef.value.scrollHeight; });
 
-                    // Check for retreat keywords
-                    const retreatKeywords = ['回家', '回去了', '回去', '返回', '返程', '回馆', '回到馆', '离开', '离开这里', '撤退', '结束探索', '结束跑团', '结团', '不继续', '不玩了', '走吧', '先走', '离场', 'home', 'go home', 'run', 'retreat', 'stop', 'leave', 'end adventure'];
-                    const isRetreat = retreatKeywords.some(k => userAction.toLowerCase().includes(k));
-
-                    if (isRetreat) {
-                        exploreState.history.push({ role: 'narrator', content: "你决定中止这次探险，带着小猫离开了现场。" });
-                        void beginExploreReturn('你转身踏上归途，小猫紧跟在身侧。');
-                        return;
-                    }
-
-                    // Check for rescue if rounds are high or situation is dire
-                    let rescueContext = "";
-                    const outCats = roomCats.value.filter(c => isResidentAway(c) && c.id !== exploreState.companion.id);
-                    if (outCats.length > 0 && Math.random() < 0.2) {
-                        const rescuer = outCats[Math.floor(Math.random() * outCats.length)];
-                        rescueContext = `[SPECIAL EVENT: RESCUE] ${getResidentPublicName(rescuer)} is currently patrolling nearby and can intervene if the user is in extreme danger.`;
-                        appendMonitorEvent(rescuer, `在${exploreState.location.name}暗中观察，并在关键时刻协助了${user.nickname}。`, 'explore-rescue');
-                    }
+                    // Compatibility shell only: v2 uses explicit pause/abandon UI
+                    // and never treats Away residents as roaming Explore NPCs.
+                    const rescueContext = "";
 
                     const round = exploreState.rounds;
                     let pacingGuide = '';
@@ -13792,7 +14060,7 @@ The story has been running for many rounds — do NOT force a resolution. Keep t
 1. 若行动简单、无明显失败代价，直接给出合乎逻辑的结果，不请求检定。
 2. 若行动会带来信息损失、暴露、受伤、时间压力或其他实质代价，才在正文后输出 [请求检定：技能名]。
 3. 失败必须引入模组内的后果或替代线索，不能卡死；严重危险时可让同行猫按原作人格隐蔽干预。
-4. 只有完成模组结局条件或用户明确撤退时，才输出 <END_OF_EXPLORATION>。
+4. 不得自动结束、暂停或结算调查。
 5. 正文 120–160 字，以具体可行动的环境变化或感官钩子收尾。
 ${rescueContext}
 ${buildResidentPublicNameContract([exploreState.companion])}
@@ -13806,9 +14074,6 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                             exploreState.waitingForDice = true;
                         }
                         exploreState.history.push({ role: 'narrator', content: narration.content });
-                        if (narration.shouldEnd && !exploreState.waitingForDice) {
-                            void beginExploreReturn('谜团暂时落幕，正在与小猫一同返回馆舍。');
-                        }
                     } catch (e) {
                         console.error(e);
                     } finally {
@@ -13817,7 +14082,8 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     }
                 };
 
-                const finishExploration = async () => {
+                const legacyFinishExploration = async () => {
+                    return;
                     const settlementPrompt = `Task: Provide a settlement for the adventure at ${exploreState.location.name}.
                     Summary of the adventure: ${exploreState.history.map(h => h.role + ": " + h.content).join("\n")}.
                     
@@ -13862,7 +14128,6 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                             Personality: ${exploreState.companion.personality}
                             Core Prompt: ${exploreState.companion.prompt}
                             Location: ${exploreState.location.name}
-                            Module Background: ${exploreState.module}
                             Adventure Log: ${exploreState.history.map(h => h.role + ": " + h.content).join("\n")}
                             Summary: ${data.summary}
                             
@@ -13927,7 +14192,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     }
                 };
 
-                const closeExplore = () => {
+                const legacyCloseExplore = () => {
                     exploreState.active = false;
                     exploreState.location = null;
                     exploreState.companion = null;
@@ -13945,6 +14210,207 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     exploreState.returnIndeterminate = false;
                     showExploreSettlement.value = false;
                 };
+
+                // Investigation v2 owns Case state; these replace the legacy
+                // module-string flow above without changing cross-Hall selection.
+                const makeExploreEvidenceSource = (kind, sourceEvidence, publicFactIds = []) => ({
+                    kind,
+                    publicFactIds: [...new Set((Array.isArray(publicFactIds) ? publicFactIds : []).map(String).filter(Boolean))].slice(0, 3),
+                    sourceEvidence: (Array.isArray(sourceEvidence) ? sourceEvidence : []).map(item => ({
+                        kind: item?.kind,
+                        presentationMode: item?.presentationMode === 'previously-observed' ? 'previously-observed' : 'present-now',
+                        refId: compactExploreText(item?.refId, 120), text: compactExploreText(item?.text, 220)
+                    })).filter(item => item.text).slice(0, 3)
+                });
+                const freezeExploreSource = source => makeExploreEvidenceSource(
+                    ['fresh', 'recent-memory', 'away-followup', 'news-followup', 'known-world-followup'].includes(source?.kind) ? source.kind : 'fresh',
+                    source?.sourceEvidence,
+                    source?.publicFactIds
+                );
+                const formatExploreEvidenceForPrompt = source => (source?.sourceEvidence || []).map(item =>
+                    `${item.presentationMode === 'previously-observed' ? '[馆长已经亲自观察/阅读过，可作为回忆使用]' : '[馆长尚未观察；若采用，必须在本案公开钩子中首次明确呈现，不能写成回忆或既有知识]'} ${item.text}`
+                ).join('；') || '无';
+                const presentExploreEvidenceNow = (blueprint, source) => {
+                    const freshEvidence = (source?.sourceEvidence || []).filter(item => item?.presentationMode === 'present-now' && item.text);
+                    if (!freshEvidence.length || !blueprint) return blueprint;
+                    const missing = freshEvidence.map(item => item.text).filter(text => !String(blueprint.publicHook || '').includes(text));
+                    if (missing.length) {
+                        // This visible prefix is the authoritative first presentation.
+                        // It makes a readable but previously unseen record a present
+                        // observation, never a retroactive USER memory.
+                        blueprint.publicHook = compactExploreText(`今天，你注意到：${missing.join('；')}。${blueprint.publicHook || ''}`, 760);
+                    }
+                    return blueprint;
+                };
+                const buildExploreNewsFollowupSource = () => {
+                    const projection = publishedNewsProjections.value.find(item => item?.readAt && String(item?.projectionContext?.hallId || '') === String(exploreState.destinationHallId || '') &&
+                        (item.disclosedPublicFactIds || []).some(id => userKnowsFact(id)));
+                    const factId = projection?.disclosedPublicFactIds?.find(id => userKnowsFact(id));
+                    const fact = factId ? getLifeThreadFactLocation(factId)?.fact : null;
+                    return fact?.text ? makeExploreEvidenceSource('news-followup', [{ kind: 'news', presentationMode: 'previously-observed', refId: String(projection.id), text: fact.text }], [factId]) : null;
+                };
+                const buildExploreKnownPublicFactSource = () => {
+                    const destinationHallId = String(exploreState.destinationHallId || '');
+                    const entry = knowledgeLedger.value.filter(edge => edge?.knowerType === 'user' && edge.knowerId === KNOWLEDGE_USER_ID)
+                        .map(edge => ({ edge, location: getLifeThreadFactLocation(edge.factId) }))
+                        .filter(item => item.location?.fact?.projectionVisibility === 'public-observable' &&
+                            (Array.isArray(item.location?.thread?.hallIds) ? item.location.thread.hallIds.map(String).includes(destinationHallId) : false))
+                        .sort((left, right) => new Date(right.edge.learnedAt || 0).getTime() - new Date(left.edge.learnedAt || 0).getTime() ||
+                            String(left.edge.factId).localeCompare(String(right.edge.factId)))[0];
+                    return entry?.location?.fact?.text
+                        ? makeExploreEvidenceSource('known-world-followup', [{ kind: 'known-fact', presentationMode: 'previously-observed', refId: String(entry.edge.factId), text: entry.location.fact.text }], [entry.edge.factId])
+                        : null;
+                };
+                const isExploreVisibleAwayResidue = text => {
+                    const clean = compactExploreText(text, 220);
+                    return Boolean(clean) && !/(?:离开了|回到了)\s*Meeow House。?$|^寄出了一封信。?$/.test(clean);
+                };
+                const buildExploreVisibleAwayAftermathSource = cat => {
+                    if (!cat) return null;
+                    const candidates = getCompletedAwayEpisodes(cat).filter(episode => !isLifeThreadAwayEpisode(episode) && episode?.returnedAt)
+                        .sort((left, right) => new Date(right.returnedAt || right.plannedReturnAt || 0).getTime() - new Date(left.returnedAt || left.plannedReturnAt || 0).getTime());
+                    for (const episode of candidates) {
+                        const archiveNarrative = getUsablePlannedArchiveNarrative(episode);
+                        if (archiveNarrative) return makeExploreEvidenceSource('away-followup', [{
+                            kind: 'away-visible', presentationMode: 'present-now', refId: `away-archive:${compactExploreText(episode.returnedAt || episode.plannedReturnAt, 64)}`, text: archiveNarrative
+                        }]);
+                        const trace = getAwayArchiveTimeline(cat, episode).map(item => cleanText(item?.content || '')).find(isExploreVisibleAwayResidue);
+                        if (trace) return makeExploreEvidenceSource('away-followup', [{
+                            kind: 'away-visible', presentationMode: 'present-now', refId: `away-trace:${compactExploreText(episode.returnedAt || episode.plannedReturnAt, 64)}`, text: trace
+                        }]);
+                        const returnStatus = cleanText(episode.plannedReturnStatus || '');
+                        if (isExploreVisibleAwayResidue(returnStatus)) return makeExploreEvidenceSource('away-followup', [{
+                            kind: 'return-status', presentationMode: 'present-now', refId: `away-return:${compactExploreText(episode.returnedAt || episode.plannedReturnAt, 64)}`, text: returnStatus
+                        }]);
+                    }
+                    return null;
+                };
+                const EXPLORE_VISIBLE_INTERACTION_SOURCES = new Set(['chat-user', 'detail-chat', 'item', 'reader', 'focus', 'harass', 'easter-egg', 'caught-in-act']);
+                const buildExploreRecentMemorySource = cat => {
+                    const interaction = [...(Array.isArray(cat?.todayInteractions) ? cat.todayInteractions : [])].reverse().find(item =>
+                        EXPLORE_VISIBLE_INTERACTION_SOURCES.has(String(item?.source || '')) && compactExploreText(item?.content || item?.text, 220));
+                    return interaction ? makeExploreEvidenceSource('recent-memory', [{
+                        kind: 'interaction', presentationMode: 'previously-observed', refId: compactExploreText(interaction.id || interaction.at || interaction.date, 120), text: interaction.content || interaction.text
+                    }]) : null;
+                };
+                const buildExploreVisibleMonitorSource = cat => {
+                    const recentThreadReturn = getRecentAwayReturn(cat);
+                    if (recentThreadReturn && isLifeThreadAwayEpisode(recentThreadReturn)) return null;
+                    const record = [...(Array.isArray(cat?.diary) ? cat.diary : [])].reverse().find(item =>
+                        ['status', 'status-sync', 'away-episode-return'].includes(String(item?.source || '')) && compactExploreText(item?.content, 220));
+                    return record ? makeExploreEvidenceSource('recent-memory', [{
+                        kind: 'interaction', presentationMode: 'present-now', refId: compactExploreText(record.id || record.at || record.date, 120), text: record.content
+                    }]) : null;
+                };
+                const buildExploreContinuitySource = () => buildExploreNewsFollowupSource() || buildExploreKnownPublicFactSource() ||
+                    buildExploreVisibleAwayAftermathSource(exploreState.companion) || buildExploreVisibleMonitorSource(exploreState.companion) || null;
+                const shouldOfferExploreContinuity = source => {
+                    if (!source?.sourceEvidence?.length) return false;
+                    // A continuity lead is an optional invitation, not a mandatory
+                    // consequence of every past outing. Keep the choice stable for a
+                    // given visible residue and operational day rather than rerolling on UI activity.
+                    const seed = `${getOperationalDayKey(new Date())}|${source.kind}|${source.sourceEvidence.map(item => `${item.refId}|${item.text}`).join('|')}`;
+                    return [...seed].reduce((total, char) => (total + char.charCodeAt(0)) % 2, 0) === 0;
+                };
+                const buildExploreGoalSlots = () => {
+                    const continuity = buildExploreContinuitySource();
+                    const memory = buildExploreRecentMemorySource(exploreState.companion);
+                    const slots = [];
+                    if (shouldOfferExploreContinuity(continuity)) slots.push({ id: 'continuity', source: continuity });
+                    if (memory?.sourceEvidence?.length) slots.push({ id: 'memory', source: memory });
+                    while (slots.length < 3) slots.push({ id: `fresh-${slots.length + 1}`, source: buildExploreSourceEvidence() });
+                    return slots.slice(0, 3);
+                };
+                const generateExploreGoals = async () => {
+                    if (!exploreState.location || !exploreState.companion) return;
+                    exploreState.isGeneratingGoals = true; exploreState.showGoalModal = true; exploreState.suggestedGoals = [];
+                    const slots = buildExploreGoalSlots();
+                    const slotPrompt = slots.map(slot => `- ${slot.id}: ${formatExploreEvidenceForPrompt(slot.source)}`).join('\n');
+                    const prompt = `[EXPLORE GOALS]\n地点：${exploreState.location.name}；来源世界：${exploreState.location.universe || exploreState.destinationHallId}；氛围：${compactExploreText(exploreState.location.atmosphere, 120)}。\n同行居民：${getResidentPublicName(exploreState.companion)}；人格：${compactExploreText(exploreState.companion.personality, 160)}；当前形态：${getResidentForm(exploreState.companion)}。\n候选槽位（每个刚好一个；证据仅可原样作为表面线索，不能补充原因或秘密）：\n${slotPrompt}\n返回 JSON 数组：[${slots.map(slot => `{"slot":"${slot.id}","goal":""}`).join(',')}]。每个 goal 都是简短调查式出行目标，必须遵守选定地点的正典、时代、技术与地理；不能默认 Gotham 或现代生活。`;
+                    try {
+                        const raw = await requestStructuredEngine(prompt, { systemPrompt: 'You create compact, source-world-consistent Explore goals in Simplified Chinese. Return JSON only.', maxTokens: 420, thinkingLevel: ThinkingLevel.LOW, label: `EXPLORE GOALS · ${exploreState.location.name}`, priority: 'foreground' });
+                        const goals = parseAIJSON(raw);
+                        const returnedBySlot = new Map((Array.isArray(goals) ? goals : []).map(item => [String(item?.slot || ''), compactExploreText(item?.goal, 110)]));
+                        exploreState.suggestedGoals = slots.map((slot, index) => ({ id: slot.id, source: slot.source,
+                            label: returnedBySlot.get(slot.id) || ['在附近看看是否有值得留意的事', '陪同行伙伴散步并观察环境', '沿着最显眼的线索走一段'][index] }));
+                    } catch (error) {
+                        addLog(`EXPLORE GOALS FAILED: ${getReadableAPIError(error)}`, 'warn');
+                        exploreState.suggestedGoals = slots.map((slot, index) => ({ id: slot.id, source: slot.source,
+                            label: ['在附近看看是否有值得留意的事', '陪同行伙伴散步并观察环境', '沿着最显眼的线索走一段'][index] }));
+                    }
+                    exploreState.isGeneratingGoals = false;
+                };
+                const selectGoal = goal => {
+                    exploreState.goal = compactExploreText(goal?.label || goal, 120);
+                    exploreState.source = goal?.source?.sourceEvidence ? goal.source : buildExploreSourceEvidence();
+                    if (exploreState.goal) void generateModule();
+                };
+                const submitCustomGoal = () => { const goal = compactExploreText(exploreState.customGoal, 120); if (goal) { exploreState.goal = goal; exploreState.source = buildExploreSourceEvidence(); void generateModule(); } };
+                const buildExploreModuleBrief = (source = exploreState.source) => {
+                    const cat = exploreState.companion, hall = halls.value.find(item => item.id === cat?.hallId) || currentHall.value;
+                    const recentInteractions = buildExploreRecentMemorySource(cat)?.sourceEvidence
+                        .map(item => item.text).join('；') || '无';
+                    return [`馆舍/正典：${hall?.name || '喵喵馆'}；${hall?.source || hall?.universe || '当前馆设定'}`, `目的地：${exploreState.location.name}；${compactExploreText(exploreState.location.atmosphere, 120)}`,
+                        `馆长目标：${exploreState.goal}`, `同行居民：${getResidentPublicName(cat)}；冻结形态：${getResidentForm(cat)}；人格：${compactExploreText(cat?.personality, 200)}`,
+                        `最近直接互动：${recentInteractions}`, `连续性证据及认识状态：${formatExploreEvidenceForPrompt(source)}`].join('\n');
+                };
+                const validateExploreModuleSeed = content => {
+                    const data = parseAIJSON(content);
+                    return data && typeof data === 'object' && ['publicHook', 'coreQuestion', 'hiddenTruth', 'nodes', 'clues', 'revelations', 'solution'].every(key => data[key] !== undefined) &&
+                        Array.isArray(data.nodes) && data.nodes.length >= 2 && Array.isArray(data.clues) && data.clues.length >= 3 && Array.isArray(data.revelations) && data.revelations.length ? true : '调查蓝图缺少所需结构。';
+                };
+                const generateModule = async () => {
+                    if (!exploreState.location || !exploreState.companion || !exploreState.goal) return;
+                    exploreState.isGeneratingModule = true;
+                    const frozenSource = freezeExploreSource(exploreState.source || buildExploreSourceEvidence());
+                    const prompt = `[EXPLORE INVESTIGATION BLUEPRINT]\n${buildExploreModuleBrief(frozenSource)}\n设计一次紧凑、来源世界一致的调查。publicHook/coreQuestion 只能基于上面的用户可见证据；hiddenTruth 仅 Case 内部。标作“尚未观察”的证据若采用，必须把完整原文作为今天首次注意到的公开钩子，绝不能写成馆长已经记得、读过或知道。CAT 不能说人话；HUMAN 可以。不要默认现代/Gotham。\n严格 JSON：{"publicHook":"","coreQuestion":"","hiddenTruth":"","nodes":[{"name":"","visibleDescription":"","exitIndexes":[1]}],"clues":[{"nodeIndexes":[0],"revealText":"完整可见证据句","discoveryModes":["observe"],"check":"侦查"}],"revelations":[{"text":"","minEvidence":2,"evidencePaths":[[0,1],[2,3]],"decisiveClueIndexes":[]}],"threatEvents":[{"nodeIndex":0,"trigger":"","delta":1,"visibleEffect":""}],"companionPlan":"","solution":{"requiredRevelationIndexes":[0]},"endings":{"solved":"","paused":"","abandoned":""}}。核心结论正常至少需要两条证据；只有明确 decisiveClueIndexes 才可由单条决定性证据确认。`;
+                    try {
+                        const raw = await requestStructuredEngine(prompt, { systemPrompt: 'You are a concise source-world-consistent investigation designer. Return valid JSON only.', maxTokens: 1200, thinkingLevel: ThinkingLevel.LOW, label: `EXPLORE CASE · ${exploreState.location.name}`, priority: 'foreground', validateResponse: validateExploreModuleSeed });
+                        const now = new Date().toISOString(), caseId = makeExploreCaseId();
+                        const blueprint = presentExploreEvidenceNow(normalizeExploreCaseBlueprint(parseAIJSON(raw), caseId, exploreState.location), frozenSource);
+                        if (!blueprint) throw new Error('调查蓝图未通过本地验证。');
+                        if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
+                        user.exploreCases.forEach(item => { if (item.status === 'open') item.status = 'paused'; });
+                        const caseRecord = { id: caseId, status: 'open', createdAt: now, updatedAt: now, locationId: exploreState.location.id, destinationHallId: exploreState.destinationHallId,
+                            // Store only the already visible text snapshot. refId is provenance
+                            // only; no Explore prompt later dereferences it into Away or Thread state.
+                            source: frozenSource, blueprint,
+                            state: normalizeExploreCaseState({ companionId: String(exploreState.companion.id), sessionForm: getResidentForm(exploreState.companion), visitedNodeIds: [blueprint.nodes[0].id] }, blueprint, String(exploreState.companion.id), now), settlementState: 'none' };
+                        user.exploreCases.push(caseRecord); user.activeExploreCaseId = caseId; persistNow(); syncExploreStateFromCase(caseRecord); await startExploration();
+                    } catch (error) { addLog(`EXPLORE CASE FAILED: ${getReadableAPIError(error)}`, 'error'); showToast(`调查设计失败：${getReadableAPIError(error)}`, 'error'); }
+                    finally { exploreState.isGeneratingModule = false; }
+                };
+                const startExploration = async () => {
+                    const caseRecord = getExploreCase();
+                    if (!caseRecord || caseRecord.status !== 'open' || caseRecord.state.history.length) return;
+                    exploreState.isProcessing = true;
+                    try {
+                        const narration = await requestExploreCaseNarration(caseRecord, { phase: 'opening' });
+                        applyExploreNarration(caseRecord, narration); syncExploreStateFromCase(caseRecord); exploreState.showGoalModal = false;
+                        const companion = getExploreCompanion(caseRecord);
+                        appendInteractionEvent(companion, 'explore-start', `与馆长前往 ${caseRecord.blueprint.locationName} 调查。`, { source: 'explore', caseId: caseRecord.id });
+                        appendMonitorEvent(companion, `与馆长一同前往${caseRecord.blueprint.locationName}展开调查。`, 'explore', { caseId: caseRecord.id });
+                    } catch (error) { caseRecord.status = 'paused'; user.activeExploreCaseId = ''; touchExploreCase(caseRecord); showToast('开场失败，调查已保存为可继续状态。', 'error'); }
+                    finally { exploreState.isProcessing = false; }
+                };
+                const advanceExploration = async () => {
+                    const caseRecord = getExploreCase(), action = compactExploreText(exploreInput.value, 240);
+                    if (!caseRecord || !['open', 'solved'].includes(caseRecord.status) || !action || exploreState.isProcessing || caseRecord.state.pendingCheck) return;
+                    exploreInput.value = ''; appendExploreCaseHistory(caseRecord, { role: 'user', content: action }); exploreState.isProcessing = true;
+                    try { applyExploreNarration(caseRecord, await requestExploreCaseNarration(caseRecord, { phase: 'scene', userAction: action }), { userAction: action }); syncExploreStateFromCase(caseRecord); }
+                    catch (error) { addLog(`EXPLORE SCENE FAILED: ${getReadableAPIError(error)}`, 'warn'); showToast('行动已保留；场景连接异常，可稍后继续。', 'error'); }
+                    finally { exploreState.isProcessing = false; nextTick(() => { if (exploreChatRef.value) exploreChatRef.value.scrollTop = exploreChatRef.value.scrollHeight; }); }
+                };
+                const pauseExploreCase = () => { const caseRecord = getExploreCase(); if (!caseRecord || caseRecord.status !== 'open') return; caseRecord.status = 'paused'; caseRecord.pausedAt = new Date().toISOString(); user.activeExploreCaseId = ''; touchExploreCase(caseRecord); persistNow(); closeExplore(); };
+                const abandonExploreCase = () => { const caseRecord = getExploreCase(); if (!caseRecord || !['open', 'paused'].includes(caseRecord.status) || !confirm('确定放弃这次调查吗？未发现的真相不会公开。')) return; caseRecord.status = 'abandoned'; caseRecord.abandonedAt = new Date().toISOString(); user.activeExploreCaseId = ''; touchExploreCase(caseRecord); persistNow(); closeExplore(); };
+                const resumeExploreCase = caseId => {
+                    const caseRecord = getExploreCase(caseId), companion = getExploreCompanion(caseRecord);
+                    if (!caseRecord || !companion || isResidentAway(companion) || companion.isVisiting || isResidentInCuratorRoom(companion)) { showToast('同行居民目前无法继续这次调查。', 'info'); return; }
+                    if (caseRecord.status === 'paused') { user.exploreCases.forEach(item => { if (item.status === 'open') item.status = 'paused'; }); caseRecord.status = 'open'; user.activeExploreCaseId = caseRecord.id; touchExploreCase(caseRecord); persistNow(); }
+                    syncExploreStateFromCase(caseRecord); if (caseRecord.state.pendingCheck?.status === 'retryable') void processDiceResult(caseRecord.id);
+                };
+                const applyExploreSuggestedAction = action => { exploreInput.value = compactExploreText(action, 100); };
+                const closeExplore = () => { exploreState.active = false; exploreState.caseId = ''; exploreState.location = null; exploreState.companion = null; exploreState.sessionForm = null; exploreState.history = []; exploreState.currentCheck = null; exploreState.waitingForDice = false; exploreState.lastDiceResult = null; exploreState.settlement = null; exploreState.showNotebook = false; exploreState.showExitMenu = false; showExploreSettlement.value = false; };
 
                 const checkAffinityThreshold = async (cat) => {
                     const id = String(cat?.id ?? '');
@@ -22136,7 +22602,12 @@ ${enrichedStatusOutputContract}`;
                             const parsedResponse = parseAIJSON(res);
                             updates = parsedResponse?.updates;
                             awayPlans = parsedResponse?.awayPlans;
-                            fridgeNoteReactions = parsedResponse?.fridgeNoteReactions;
+                            // Fridge reactions are optional metadata. Normalize once at
+                            // the accepted-response boundary so later soft-salvage
+                            // quarantine can safely filter only a real array.
+                            fridgeNoteReactions = Array.isArray(parsedResponse?.fridgeNoteReactions)
+                                ? parsedResponse.fridgeNoteReactions
+                                : [];
                             optionalScene = sceneMode ? parsedResponse?.scene : undefined;
                             lifeThreadCandidates = lifeThreadCaptureEnabled && Array.isArray(parsedResponse?.lifeThreadCandidates)
                                 ? parsedResponse.lifeThreadCandidates
@@ -22849,6 +23320,7 @@ ${enrichedStatusOutputContract}`;
                             if (data.halls) halls.value = data.halls;
                             mergeBuiltInCats();
                             normalizeResidentRelationshipRoster();
+                            normalizeExploreCases();
                             lifeThreads.value = normalizeLifeThreads(data.lifeThreads);
                             knowledgeLedger.value = normalizeKnowledgeLedger(data.knowledgeLedger);
                             newsProjections.value = normalizeNewsProjections(data.newsProjections, { recoverGenerating: true });
@@ -23389,6 +23861,7 @@ ${episodicMemory}`;
                     });
 
                     tempUserStatus.value = user.currentStatus;
+                    normalizeExploreCases();
                     ensurePhonePresenceConsiderationSchedule();
                     normalizePhoneReplyOpportunities({ recoverInFlight: true });
                     reconcilePhoneObservedMessageKnowledge();
@@ -23471,7 +23944,7 @@ ${episodicMemory}`;
                     currentTime, calendarContainer, currentTimePixels, getEventTop, toggleScheduleDone, deleteSchedule, handleTimelineClick, handleAddClick,
                     confirmSettlement, affinityChangeValue, chatMessagesRef,
                     exploreState, exploreInput, showExploreSettlement, EXPLORE_LOCATIONS,
-                    selectExploreLocation, selectExploreCompanion, generateExploreGoals, selectGoal, submitCustomGoal, startExploration, advanceExploration, closeExplore, exploreChatRef,
+                    getExploreCase, getExploreClue, selectExploreLocation, selectExploreCompanion, generateExploreGoals, selectGoal, submitCustomGoal, startExploration, advanceExploration, closeExplore, pauseExploreCase, abandonExploreCase, resumeExploreCase, applyExploreSuggestedAction, leaveSolvedExploreCase, exploreChatRef,
                     totalStats, totalSkills, isCharValid, adjustStat, adjustSkill, finishCharCreation,
                     getDiceResultClass, getSkillValue, submitDiceRoll,
                     showCalendarManager, deleteCalendarSource, currentBagTab, currentBagItems,
