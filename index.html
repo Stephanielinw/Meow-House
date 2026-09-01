@@ -10917,12 +10917,21 @@
                 const scanSignal = async () => {
                     if (!settings.apiKey) return alert("需要API连接");
                     showToast("正在接收馆舍频道…", "loading");
-                    const names = roomCats.value.map(c => c.name).join(', ');
+                    const participants = roomCats.value.filter(isResidentInHall);
+                    const names = participants.map(c => c.name).join(', ');
                     if (names.length === 0) return showToast("当前馆舍没有可接收的猫咪频道。");
+                    const peerLines = buildPublicSharedPeerRelationshipLines(participants);
+                    const residentContext = participants.map(cat => buildLeanAmbientContext(cat, {
+                        publicRelationshipLines: peerLines.get(String(cat.id)) || []
+                    })).join('\n---\n');
                     const prompt = `[MEEOW HOUSE RELAY · ${currentHall.value.name}] Task: Write a short private exchange between only these cats: ${names}. It can be about the user, their day in this hall, or a small plan that naturally belongs to their own original work. Format: [Name]: Dialogue. Preserve every speaker's exact canon personality. Never force a superhero mission, DC terminology, or generic cute-cat behaviour onto a character. (50-80 words)
                     ${buildAuthoritativeUserIdentityContext()}
-                    ${roomCats.value.map(cat => buildCatMemoryContext(cat, { compact: true })).join('\n---\n')}`;
+                    ${residentContext}`;
                     try {
+                        logPromptBudget(`HALL SCAN · ${participants.length} RESIDENTS`, prompt, CORE_ROLEPLAY_PROMPT, {
+                            residentContext,
+                            taskPayload: `[MEEOW HOUSE RELAY · ${currentHall.value.name}]`
+                        });
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1500, ThinkingLevel.HIGH);
                         if (!phoneState.intercepts) phoneState.intercepts = [];
                         const interceptedContent = cleanText(res);
@@ -10988,7 +10997,12 @@
                     groupChatState.currentInput = '';
                     groupChatState.messages.push({ type: 'user', content: userMsg, time: getCurrentTimeStr() });
                     groupChatState.isSending = true;
-                    const catNames = roomCats.value.map(c => c.name).join(', ');
+                    const participants = roomCats.value.filter(isResidentInHall);
+                    const catNames = participants.map(c => c.name).join(', ');
+                    const peerLines = buildPublicSharedPeerRelationshipLines(participants);
+                    const residentContext = participants.map(cat => buildLeanAmbientContext(cat, {
+                        publicRelationshipLines: peerLines.get(String(cat.id)) || []
+                    })).join('\n---\n');
                     const prompt = `[MEEOW HOUSE GROUP CHAT · ${currentHall.value.name}]
 User message: "${userMsg}"
 ${buildAuthoritativeUserIdentityContext()}
@@ -10999,9 +11013,13 @@ Task: Generate 2-3 short replies from these cats. For EACH cat responding, provi
 Format STRICTLY as JSON array:
 [{ "cat": "name", "meow": "...", "thought": "..." }]
 Language: Simplified Chinese.
-[CAT MEMORY CONTEXT]
-${roomCats.value.map(cat => buildCatMemoryContext(cat)).join('\n---\n')}`;
+[SHARED AMBIENT RESIDENT CONTEXT]
+${residentContext}`;
                     try {
+                        logPromptBudget(`GROUP MESSAGE · ${participants.length} RESIDENTS`, prompt, CORE_ROLEPLAY_PROMPT, {
+                            residentContext,
+                            userMessage: userMsg
+                        });
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1200, ThinkingLevel.LOW);
                         const replies = parseAIJSON(res);
                         if (Array.isArray(replies)) {
@@ -11033,8 +11051,12 @@ ${roomCats.value.map(cat => buildCatMemoryContext(cat)).join('\n---\n')}`;
 ${buildAuthoritativeUserIdentityContext()}
 Task: Write their panicked, hilariously OOC excuse (~50 words). They MUST deny EVERYTHING and blame it on normal cat behavior. Canon personality must shine through (e.g., Damian's arrogance, Bruce's stoicism, Jason's anger).
 Language: Simplified Chinese.
-${buildCatMemoryContext(cat)}`;
+${buildLeanForegroundContext(cat)}`;
                     try {
+                        logPromptBudget(`CAUGHT IN THE ACT · ${cat.name}`, prompt, CORE_ROLEPLAY_PROMPT, {
+                            residentContext: buildLeanForegroundContext(cat),
+                            immediateEvent: glitchStatus
+                        });
                         const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 800, ThinkingLevel.LOW);
                         const content = cleanText(res);
                         appendInteractionEvent(cat, 'special', `[抓包现场] ${content}`, { source: 'caught-in-act' });
@@ -12387,6 +12409,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 const cancelCurrentAIRequest = window.Meeow.ai.cancelCurrentAIRequest;
                 const resolveApiRetryDecision = window.Meeow.ai.resolveApiRetryDecision;
                 const callAI = window.Meeow.ai.callAI;
+                const estimatePromptBudget = window.Meeow.ai.estimatePromptBudget;
 
                 const getUserRealLifeContext = (options = {}) => {
                     const isHomepageProjection = options.profile === 'homepage';
@@ -15185,6 +15208,8 @@ RULES:
                 // that does not fit is omitted rather than truncated.
                 const PHONE_REPLY_KNOWLEDGE_MAX_FACTS = 4;
                 const PHONE_REPLY_KNOWLEDGE_MAX_CHARS = 520;
+                const PHONE_REPLY_EPISODIC_MAX_MEMORIES = 2;
+                const PHONE_REPLY_EPISODIC_MAX_CHARS = 700;
                 const PHONE_REPLY_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'delivering', 'completed', 'failed']);
                 const phoneReplyGenerationInFlight = new Set();
                 let phoneReplyReconciliationTimer = null;
@@ -15213,6 +15238,24 @@ RULES:
                         seen.add(factId);
                         totalChars += text.length;
                         snapshots.push({ factId, text });
+                    });
+                    return snapshots;
+                };
+                const normalizePhoneReplyEpisodicMemorySnapshots = (records) => {
+                    const snapshots = [];
+                    const seen = new Set();
+                    (Array.isArray(records) ? records : []).forEach(raw => {
+                        const id = typeof raw?.id === 'string' ? raw.id : '';
+                        const sourceKey = typeof raw?.sourceKey === 'string' ? raw.sourceKey : '';
+                        const eventAt = typeof raw?.eventAt === 'string' ? raw.eventAt : '';
+                        const summary = typeof raw?.summary === 'string' ? raw.summary : '';
+                        const tags = Array.isArray(raw?.tags) ? raw.tags.filter(tag => typeof tag === 'string') : [];
+                        // Claimed turns retain source wording exactly. The persisted
+                        // rendered block is the transport contract; snapshots serve
+                        // only as canonical provenance for diagnostics/recovery.
+                        if (!id || !sourceKey || !eventAt || !summary || seen.has(id) || snapshots.length >= PHONE_REPLY_EPISODIC_MAX_MEMORIES) return;
+                        seen.add(id);
+                        snapshots.push({ id, sourceKey, eventAt, summary, tags });
                     });
                     return snapshots;
                 };
@@ -15265,6 +15308,15 @@ RULES:
                         const knowledgeFactSnapshots = knowledgeScopeFrozen
                             ? normalizePhoneReplyKnowledgeSnapshots(raw.knowledgeFactSnapshots)
                             : [];
+                        // Claimed opportunities created before Retrieval v2 must not
+                        // retrospectively mine old shared history on recovery.
+                        const episodicMemoryScopeFrozen = raw.episodicMemoryScopeFrozen === true || Boolean(claimedAt);
+                        const episodicMemorySnapshots = episodicMemoryScopeFrozen
+                            ? normalizePhoneReplyEpisodicMemorySnapshots(raw.episodicMemorySnapshots)
+                            : [];
+                        const episodicMemoryContextText = episodicMemoryScopeFrozen && typeof raw.episodicMemoryContextText === 'string'
+                            ? raw.episodicMemoryContextText
+                            : '';
                         // Existing already-claimed records predate transfer v1. Mark
                         // them empty/frozen rather than mining old private chats later.
                         const userDisclosureScopeFrozen = raw.userDisclosureScopeFrozen === true ||
@@ -15284,6 +15336,7 @@ RULES:
                             claimedAt, responseBatchId: raw.responseBatchId ? String(raw.responseBatchId) : '',
                             knowledgeFactIds: knowledgeScopeFrozen ? knowledgeFactSnapshots.map(item => item.factId) : rawKnowledgeFactIds,
                             knowledgeFactSnapshots, knowledgeScopeFrozen, knowledgeFactRefs,
+                            episodicMemorySnapshots, episodicMemoryScopeFrozen, episodicMemoryContextText,
                             userDisclosedFactIds, userDisclosureScopeFrozen,
                             knowledgeDisclosureFactIdsByBubble,
                             messages, nextDeliveryIndex, nextDeliveryAt,
@@ -15341,6 +15394,7 @@ RULES:
                         createdAt: now.toISOString(), dueAt, status: 'scheduled', attemptCount: 0,
                         retryAt: '', claimedAt: '', responseBatchId: '',
                         knowledgeFactIds: [], knowledgeFactSnapshots: [], knowledgeScopeFrozen: false, knowledgeFactRefs: [],
+                        episodicMemorySnapshots: [], episodicMemoryScopeFrozen: false, episodicMemoryContextText: '',
                         userDisclosedFactIds: [], userDisclosureScopeFrozen: false, knowledgeDisclosureFactIdsByBubble: [],
                         messages: [],
                         nextDeliveryIndex: 0, nextDeliveryAt: '', completedAt: '', lastError: ''
@@ -15615,13 +15669,21 @@ RULES:
                             frozenSnapshots: opportunity.knowledgeFactSnapshots
                         })
                         : { prompt: '' };
+                    const episodicMemoryContext = opportunity.episodicMemoryScopeFrozen
+                        ? opportunity.episodicMemoryContextText
+                        : '';
                     const wasOpen = isExactPhoneConversationOpen(catId);
                     if (wasOpen) phoneState.isTyping = true;
                     const prompt = `
+${buildFocusedResidentStateContext(cat)}
+${episodicMemoryContext || ''}
+${conversationKnowledge.prompt || ''}
+${buildAuthoritativeUserIdentityContext()}
+[CLAIMED PHONE MESSAGES]
+${pendingText}
+
 【喵信私聊】
 你正在以 ${contact.name} 的公开身份，和馆长进行一对一文字聊天。馆长是安全、善意的共同生活者；你需要建立可靠的沟通方式，但不能泄露自己在喵喵馆中的猫形态或馆舍秘密。其他私密事实是否提及，必须遵守下方的私有事实规则与角色判断。
-本轮待回复的分段消息：
-${pendingText}
 
 严格输出规则：
 1. 只写可直接发送到聊天软件里的自然文字消息，使用简体中文；返回 1–4 条有序消息气泡。即时聊天可有短句、追问、停顿或后续补充；一条消息也可以正确。
@@ -15630,11 +15692,7 @@ ${pendingText}
 4. 保持 ${contact.name} 的原作人格、时代感、知识边界、关系语气和 ${hall.name} 的作品边界；即时通讯节奏不等于现代俚语，不得为了像聊天而改变角色声音。
 5. 必须参考角色此刻在馆内的真实状态与当天时间线，用一个正常人会说的、自然克制的方式让回复与状态相连（例如刚睡醒可说“刚醒”，正在吃东西可说“刚吃完”，外出可说“现在不太方便”）。不要旁白解释，也不要直接说自己是一只猫。
 6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
-7. 总长 12–180 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"],"knowledgeDisclosures":[{"factRef":"K1","bubbleIndex":0,"evidence":"含完整事实的该气泡原文片段"}]}。knowledgeDisclosures 是可选的；只有当你在指定 0 起始编号的消息气泡中逐字完整写出了某个 K 编号事实时才可列出它。不要概括、改写或猜测；否则返回 []。不要 Markdown、解释或任何 JSON 以外的文字。
-
-${conversationKnowledge.prompt || ''}
-${buildAuthoritativeUserIdentityContext()}
-${buildCatMemoryContext(cat)}`;
+7. 总长 12–180 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"],"knowledgeDisclosures":[{"factRef":"K1","bubbleIndex":0,"evidence":"含完整事实的该气泡原文片段"}]}。knowledgeDisclosures 是可选的；只有当你在指定 0 起始编号的消息气泡中逐字完整写出了某个 K 编号事实时才可列出它。不要概括、改写或猜测；否则返回 []。不要 Markdown、解释或任何 JSON 以外的文字。`;
                     try {
                         const reply = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 450, ThinkingLevel.LOW, {
                             label: `PHONE CHAT · ${contact.name}`,
@@ -15694,10 +15752,11 @@ ${buildCatMemoryContext(cat)}`;
                     }
                     applyFrozenPhoneUserDisclosureKnowledge(due);
                     freezePhoneReplyKnowledgeScope(due);
+                    freezePhoneReplyEpisodicMemoryScope(due);
                     if (!persistNow()) {
                         due.status = 'retryable';
                         due.retryAt = new Date(now.getTime() + PHONE_REPLY_RETRY_DELAYS_MS[0]).toISOString();
-                        due.lastError = '回复知识上下文未能写入本地存档。';
+                        due.lastError = '回复上下文未能写入本地存档。';
                         schedulePhoneReplyReconciliation();
                         return false;
                     }
@@ -16825,10 +16884,13 @@ ${buildCatMemoryContext(cat)}`;
                 const getLatestHouseBriefing = window.Meeow.memory.getLatestHouseBriefing;
                 const buildCatIdentityBlock = window.Meeow.memory.buildCatIdentityBlock;
                 const buildCatMemoryContext = window.Meeow.memory.buildCatMemoryContext;
+                const buildAmbientResidentContext = window.Meeow.memory.buildAmbientResidentContext;
+                const buildForegroundLeanResidentContext = window.Meeow.memory.buildForegroundLeanResidentContext;
                 const normalizeEpisodicMemories = window.Meeow.memory.normalizeEpisodicMemories;
                 const appendEpisodicMemory = window.Meeow.memory.appendEpisodicMemory;
                 const hasMeaningfulMemoryOverlap = window.Meeow.memory.hasMeaningfulMemoryOverlap;
                 const buildEpisodicMemoryContext = window.Meeow.memory.buildEpisodicMemoryContext;
+                const USER_SHARED_EPISODIC_SOURCE_TYPES = window.Meeow.memory.USER_SHARED_EPISODIC_SOURCE_TYPES;
                 cats.value.forEach(cat => normalizeEpisodicMemories(cat));
                 const stableEpisodicSourceHash = (value) => {
                     let hash = 2166136261;
@@ -17001,6 +17063,78 @@ ${buildCatMemoryContext(cat)}`;
                     const selected = included.map(entry => `${entry.memory.id}:${entry.score}`).join(', ');
                     addLog(`MEMORY RETRIEVAL: owner=${String(cat.id)}; stored=${built.result.stored}; eligible=${built.result.eligible}; selected=[${selected}]`, 'info');
                     return included.length ? lines.join('\n') : '';
+                };
+                const buildUserSharedEpisodicMemoryContext = (cat, context = {}) => {
+                    if (!cat) return { text: '', snapshots: [], result: { stored: 0, eligible: 0, selected: [] } };
+                    const maxEntries = Math.max(0, Number(context.maxEntries) || 0);
+                    const maxChars = Math.max(0, Number(context.maxChars) || 0);
+                    const built = buildEpisodicMemoryContext(cat, {
+                        ...context,
+                        retrievalV2: true,
+                        userSharedOnly: true,
+                        allowedSourceTypes: USER_SHARED_EPISODIC_SOURCE_TYPES,
+                        maxEntries,
+                        maxChars,
+                        header: '[RELEVANT SHARED / EPISODIC MEMORY]'
+                    });
+                    const selected = built.result.selected.map(entry => `${entry.memory.id}:${entry.score}`).join(', ');
+                    addLog(`MEMORY RETRIEVAL V2: owner=${String(cat.id)}; stored=${built.result.stored}; eligible=${built.result.eligible}; selected=[${selected}]`, 'info');
+                    return built;
+                };
+                const buildFocusedResidentStateContext = (cat) => {
+                    const hall = halls.value.find(item => item.id === cat?.hallId) || currentHall.value;
+                    const presence = cat?.isOut ? 'AWAY' : (isResidentInCuratorRoom(cat) ? 'CURATOR_ROOM' : 'HALL');
+                    return `${buildCatIdentityBlock(cat)}
+[CURRENT STATE]
+- Physical presence: ${presence}; Hall: ${hall?.name || 'Meeow House'}; form: ${describeResidentForm(cat)}.
+- Current status: ${cleanText(cat?.status || '未知') || '未知'}
+- Current inner voice: ${cleanText(cat?.innerVoice || '无记录') || '无记录'}
+[RELATIONSHIP]
+- USER is the accepted caretaker. Current affinity: ${Number(cat?.affinity ?? 0)}/100; affinity changes closeness and disclosure, never basic safety.`;
+                };
+                const getLeanResidentPresence = (cat) => {
+                    if (isResidentAway(cat)) return 'AWAY';
+                    if (isResidentInCuratorRoom(cat)) return 'CURATOR_ROOM';
+                    return cat?.isVisiting ? 'VISITING_HALL' : 'HALL';
+                };
+                const buildForegroundUserRelationshipBaseline = (cat) => (
+                    `USER is the accepted caretaker. Current affinity: ${Number(cat?.affinity ?? 0)}/100; affinity affects closeness and disclosure, never basic safety.`
+                );
+                const buildLeanAmbientContext = (cat, options = {}) => buildAmbientResidentContext(cat, {
+                    hallName: options.hallName || currentHall.value?.name || 'Meeow House',
+                    presence: options.presence || getLeanResidentPresence(cat),
+                    form: options.form || getResidentForm(cat),
+                    status: options.status === undefined ? getResidentLiveStatus(cat, '') : options.status,
+                    publicRelationshipLines: options.publicRelationshipLines || []
+                });
+                const buildLeanForegroundContext = (cat, options = {}) => buildForegroundLeanResidentContext(cat, {
+                    hallName: options.hallName || currentHall.value?.name || 'Meeow House',
+                    presence: options.presence || getLeanResidentPresence(cat),
+                    form: options.form || getResidentForm(cat),
+                    status: options.status === undefined ? getResidentLiveStatus(cat, '') : options.status,
+                    innerVoice: options.innerVoice === undefined ? getResidentLiveInnerVoice(cat, '') : options.innerVoice,
+                    userRelationship: options.userRelationship || buildForegroundUserRelationshipBaseline(cat)
+                });
+                const buildSharedFocusSessionEvidence = (entries, maxEntries, maxChars) => {
+                    const lines = [];
+                    let length = 0;
+                    (Array.isArray(entries) ? entries : []).slice(0, maxEntries).reverse().forEach(entry => {
+                        const text = cleanText(entry || '');
+                        // Focus logs are rendered to the USER as shared session activity.
+                        // Never admit deliberately marked private/internal material.
+                        if (!text || /(?:inner\s*voice|innervoice|innerVoice|内心独白|私密|私下|秘密|knowledge|\[PRIVATE\])/i.test(text)) return;
+                        if (length + text.length + 1 > maxChars) return;
+                        lines.push(text);
+                        length += text.length + 1;
+                    });
+                    return lines.join('\n');
+                };
+                const logPromptBudget = (label, prompt, systemPrompt, components = {}) => {
+                    const budget = estimatePromptBudget(prompt, systemPrompt, components);
+                    const componentText = Object.entries(budget.componentChars)
+                        .map(([name, chars]) => `${name}:${chars}`).join(',');
+                    addLog(`PROMPT BUDGET: ${label}; system=${budget.systemPromptChars}; user=${budget.userPromptChars}; total=${budget.totalPromptChars}; components={${componentText}}`, 'info');
+                    return budget;
                 };
                 const buildStatusSyncUserContext = (additionalContext = '') => {
                     const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
@@ -18116,6 +18250,30 @@ ${buildCatMemoryContext(cat)}`;
                     if (!from || !to || String(from.id) === String(to.id)) return null;
                     return getCanonicalRelationshipBaseline(from, to);
                 };
+                const buildPublicSharedPeerRelationshipLines = (participants) => {
+                    const residents = [...new Map((Array.isArray(participants) ? participants : [])
+                        .filter(cat => cat && cat.id !== undefined && cat.id !== null)
+                        .map(cat => [String(cat.id), cat])).values()];
+                    const linesByResidentId = new Map(residents.map(cat => [String(cat.id), []]));
+                    for (let index = 0; index < residents.length; index += 1) {
+                        for (let peerIndex = index + 1; peerIndex < residents.length; peerIndex += 1) {
+                            const left = residents[index];
+                            const right = residents[peerIndex];
+                            // Only immutable canonical baselines are eligible in a
+                            // shared prompt. Emergent saved relationship records and
+                            // their private evidence are intentionally never read.
+                            const leftBaseline = getRelationshipBaseline(left, right);
+                            const rightBaseline = getRelationshipBaseline(right, left);
+                            if (leftBaseline?.label) linesByResidentId.get(String(left.id)).push(
+                                `with ${getResidentPublicName(right)}: canonical public baseline — ${leftBaseline.label}`
+                            );
+                            if (rightBaseline?.label) linesByResidentId.get(String(right.id)).push(
+                                `with ${getResidentPublicName(left)}: canonical public baseline — ${rightBaseline.label}`
+                            );
+                        }
+                    }
+                    return linesByResidentId;
+                };
                 const getEffectiveRelationshipProjection = (from, to) => {
                     const emergent = getArchiveRelationshipLink(from, to);
                     const baseline = getRelationshipBaseline(from, to);
@@ -19106,6 +19264,23 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     opportunity.knowledgeFactRefs = context.refs || makePhoneReplyKnowledgeFactRefs(context.snapshots);
                     opportunity.knowledgeScopeFrozen = true;
                     return context.snapshots;
+                };
+                const freezePhoneReplyEpisodicMemoryScope = (opportunity) => {
+                    if (!opportunity || opportunity.episodicMemoryScopeFrozen === true) return opportunity?.episodicMemoryContextText || '';
+                    const cat = cats.value.find(item => sameCatId(item.id, opportunity.contactId));
+                    const sourceText = getPhoneReplySourceMessages(opportunity).map(formatPhoneReplySource).join('\n');
+                    const built = cat && sourceText ? buildUserSharedEpisodicMemoryContext(cat, {
+                        userInput: sourceText,
+                        feature: 'phone',
+                        maxEntries: PHONE_REPLY_EPISODIC_MAX_MEMORIES,
+                        maxChars: PHONE_REPLY_EPISODIC_MAX_CHARS
+                    }) : { text: '', snapshots: [] };
+                    opportunity.episodicMemorySnapshots = Array.isArray(built.snapshots) ? built.snapshots : [];
+                    // Freeze the already bounded rendering, not merely its records:
+                    // later formatter changes must not rewrite a claimed prompt turn.
+                    opportunity.episodicMemoryContextText = typeof built.text === 'string' ? built.text : '';
+                    opportunity.episodicMemoryScopeFrozen = true;
+                    return opportunity.episodicMemoryContextText;
                 };
                 // --- News Projection: public surface evidence, never Thread truth ---
                 const NEWS_PUBLICATION_DELAY_MS = Object.freeze([15 * 60 * 1000, 6 * 60 * 60 * 1000]);
@@ -21804,14 +21979,14 @@ ${getCompactMapPointPromptGuide()}`
                     const participants = focusCats.value.filter(cat => cat && cat.hallId === activeHallId.value && isResidentInHall(cat));
                     if (!participants.length) return false;
 
-                    const previousLogs = currentFocusLog.value.slice(0, 8).reverse().join(' -> ');
+                    const sharedSessionEvidence = buildSharedFocusSessionEvidence(currentFocusLog.value, 3, 420);
+                    const peerLines = buildPublicSharedPeerRelationshipLines(participants);
                     const participantBlock = participants.map(cat => `
 --- FOCUS PARTICIPANT ---
-ID: ${cat.id}
-Name: ${getResidentPublicName(cat)} (${cat.breed || '未知品种'})
-Traits: ${cat.personality || '未记录'}
-Frozen session form: ${describeResidentForm(focusSessionForms[String(cat.id)] || getResidentForm(cat))}
-${buildCatMemoryContext(cat)}`).join('\n');
+${buildLeanAmbientContext(cat, {
+    form: focusSessionForms[String(cat.id)] || getResidentForm(cat),
+    publicRelationshipLines: peerLines.get(String(cat.id)) || []
+})}`).join('\n');
                     const peerRule = participants.length > 1
                         ? `There are ${participants.length} cats supervising together: ${participants.map(cat => getResidentPublicName(cat)).join(', ')}.
                         Every cat MUST receive one distinct update in this batch. Include one or two natural peer interactions only when they fit canon personality, source-supported relationships, or established same-hall history: keeping watch together, wary proximity, grooming, a quarrel, playful obstruction, silent observation, or briefly curling up nearby. Never force affection, romance, reconciliation, hostility, or matching "cute" behavior. If a relationship is unclear, prefer parallel activity, cautious observation, or avoidance. If one cat interacts with another, their two status lines must describe the same moment coherently.`
@@ -21819,7 +21994,7 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     const prompt = `[MEEOW HOUSE FOCUS · ${currentHall.value.name}]
                     User (${user.nickname}) is focusing on: ${focusAction.value}.
                     ${buildAuthoritativeUserIdentityContext()}
-                    Recent focus timeline: ${previousLogs || 'Focus has just begun.'}
+                    Session-shared focus evidence: ${sharedSessionEvidence || 'Focus has just begun.'}
                     ${buildResidentPublicNameContract(participants)}
                     ${peerRule}
                     ${participantBlock}
@@ -21832,7 +22007,13 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                     - Output Simplified Chinese only. Return JSON only, with exactly one object for every listed ID:
                     [{"id": number, "status": "第三人称行动，最多28字", "innerVoice": "第一人称想法，最多45字"}]`;
                     try {
-                        const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT + "\nFocus output must be a valid JSON array only; no markdown or extra commentary.", 2200, ThinkingLevel.LOW, { label: `FOCUS LOG · ${participants.length} CAT${participants.length > 1 ? 'S' : ''}` });
+                        const focusSystemPrompt = CORE_ROLEPLAY_PROMPT + "\nFocus output must be a valid JSON array only; no markdown or extra commentary.";
+                        logPromptBudget(`FOCUS TICK · ${participants.length} RESIDENTS`, prompt, focusSystemPrompt, {
+                            residentContext: participantBlock,
+                            sessionEvidence: sharedSessionEvidence,
+                            taskPayload: focusAction.value
+                        });
+                        const res = await callAI(prompt, focusSystemPrompt, 2200, ThinkingLevel.LOW, { label: `FOCUS LOG · ${participants.length} CAT${participants.length > 1 ? 'S' : ''}` });
                         const updates = parseAIJSON(res);
                         const updateById = new Map(Array.isArray(updates) ? updates.map(item => [String(item?.id), item]) : []);
                         const timeStr = getCurrentTimeStr();
@@ -22019,13 +22200,23 @@ ${buildCatMemoryContext(cat)}`).join('\n');
                         focusSettlementLoading.message = '正在生成角色任务小结…';
                         focusSettlementLoading.phase = '步骤 2/3 · 等待模型整理角色视角';
                         focusSettlementLoading.progress = 35;
-                        const catTraits = participants.map(c => `${c.name}: ${c.personality} (Affinity: ${c.affinity}/100)`).join('; ');
-                        const memoryContext = participants.map(cat => buildCatMemoryContext(cat)).join('\n---\n');
+                        const sharedSessionEvidence = buildSharedFocusSessionEvidence([...chronologicalLogs].reverse(), 6, 900);
+                        const peerLines = buildPublicSharedPeerRelationshipLines(participants);
+                        const residentContext = participants.map(cat => buildLeanAmbientContext(cat, {
+                            form: focusSessionForms[String(cat.id)] || getResidentForm(cat),
+                            publicRelationshipLines: peerLines.get(String(cat.id)) || []
+                        })).join('\n---\n');
                         const prompt = success
-                            ? `${buildAuthoritativeUserIdentityContext()}\nIdentities: ${catNames}. Traits: ${catTraits}. User (${user.nickname}) completed the focus task "${focusAction.value}" in ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n${memoryContext}`
-                            : `${buildAuthoritativeUserIdentityContext()}\nIdentities: ${catNames}. Traits: ${catTraits}. User (${user.nickname}) stopped the focus task "${focusAction.value}" after ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Be honest about the interruption, never cruel or generic. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n${memoryContext}`;
+                            ? `${buildAuthoritativeUserIdentityContext()}\nIdentities: ${catNames}. User (${user.nickname}) completed the focus task "${focusAction.value}" in ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n[COMPLETED SESSION · SHARED EVIDENCE]\n${sharedSessionEvidence || 'No additional shared log evidence.'}\n${residentContext}`
+                            : `${buildAuthoritativeUserIdentityContext()}\nIdentities: ${catNames}. User (${user.nickname}) stopped the focus task "${focusAction.value}" after ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Be honest about the interruption, never cruel or generic. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n[COMPLETED SESSION · SHARED EVIDENCE]\n${sharedSessionEvidence || 'No additional shared log evidence.'}\n${residentContext}`;
                         try {
-                            const generated = cleanText(await callAI(prompt, "Write only the mission report content in Simplified Chinese. Keep every character strictly in canon. Never add DC, superhero, or Gotham assumptions outside the relevant hall.", 1000, ThinkingLevel.LOW, {
+                            const focusSettlementSystemPrompt = "Write only the mission report content in Simplified Chinese. Keep every character strictly in canon. Never add DC, superhero, or Gotham assumptions outside the relevant hall.";
+                            logPromptBudget(`FOCUS SETTLEMENT · ${participants.length} RESIDENTS`, prompt, focusSettlementSystemPrompt, {
+                                residentContext,
+                                sessionEvidence: sharedSessionEvidence,
+                                taskPayload: focusAction.value
+                            });
+                            const generated = cleanText(await callAI(prompt, focusSettlementSystemPrompt, 1000, ThinkingLevel.LOW, {
                                 label: 'FOCUS · MISSION REPORT',
                                 onProgress: (event) => {
                                     focusSettlementLoading.indeterminate = event.stage === 'waiting' || event.stage === 'retrying';
@@ -22628,11 +22819,13 @@ ${statusOutputRules}
 ${enrichedStatusOutputContract}`;
 
                         const statusRequestPrompt = characterBlock + "\n" + prompt;
-                        const statusPromptChars = statusRequestPrompt.length;
-                        const statusInputChars = statusPromptChars + String(CORE_ROLEPLAY_PROMPT || '').length + String(CANON_FIDELITY_GUARDRAIL || '').length + 1;
-                        const budgetLevel = statusInputChars > 15000 ? 'warn' : 'info';
+                        const statusBudget = estimatePromptBudget(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, {
+                            characterBlock,
+                            statusBody: prompt
+                        });
+                        const budgetLevel = statusBudget.totalPromptChars > 15000 ? 'warn' : 'info';
                         addLog(`STATUS SYNC SCOPE: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
-                        addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; prompt=${statusPromptChars} chars; prompt+system=${statusInputChars} chars${statusInputChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
+                        addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; user=${statusBudget.userPromptChars} chars; callerSystem=${statusBudget.callerSystemChars}; guardrail=${statusBudget.canonGuardrailChars}; total=${statusBudget.totalPromptChars}; components={characterBlock:${statusBudget.componentChars.characterBlock},statusBody:${statusBudget.componentChars.statusBody}}${statusBudget.totalPromptChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
 
                         let updates;
                         let optionalScene;
@@ -23760,15 +23953,18 @@ ${enrichedStatusOutputContract}`;
                     const itemForm = getResidentForm(targetCat);
                     const targetItem = item;
                     const itemKey = getInventoryItemKey(targetItem);
-                    const episodicMemory = buildOwnerScopedEpisodicMemoryContext(targetCat, {
+                    const episodicMemory = buildUserSharedEpisodicMemoryContext(targetCat, {
                         userInput: `馆长把${targetItem.name}交给你。${targetItem.desc || ''}`,
-                        itemName: targetItem.name
-                    });
+                        itemName: targetItem.name,
+                        feature: 'item',
+                        maxEntries: 3,
+                        maxChars: 1200
+                    }).text;
 
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
                     try {
-                        const prompt = `User gives [${targetItem.name}] to ${getResidentPublicName(targetCat)}. Cat Personality: ${targetCat.personality}. Current physical form: ${describeResidentForm(itemForm)} Return JSON only:
+                        const prompt = `User gives [${targetItem.name}] to ${getResidentPublicName(targetCat)}. Use the supplied character identity and current physical state. Return JSON only:
 {
   "liked": boolean,
   "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
@@ -23781,7 +23977,7 @@ All four fields are mandatory. reaction, status, and innerVoice describe the sam
 - HUMAN FORM: reaction may include normal in-character dialogue and action. Natural feline ears and tail remain real anatomy and may respond to touch or emotion when relevant. Preserve the character's canon voice.
 ${buildResidentPublicNameContract([targetCat])}
 ${buildAuthoritativeUserIdentityContext()}
-${buildCatMemoryContext(targetCat)}
+${buildFocusedResidentStateContext(targetCat)}
 ${episodicMemory}`;
                         const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,

@@ -29,6 +29,15 @@
     const EPISODIC_MAX_SUMMARY_CHARS = 280;
     const EPISODIC_MAX_TAGS = 8;
     const EPISODIC_MAX_TAG_CHARS = 32;
+    const EPISODIC_RETRIEVAL_LIMITS = Object.freeze({
+        keywords: Object.freeze({ count: 14, chars: 32 }),
+        entityIds: Object.freeze({ count: 10, chars: 80 }),
+        locationKeys: Object.freeze({ count: 6, chars: 48 }),
+        topicKeys: Object.freeze({ count: 10, chars: 32 })
+    });
+    const USER_SHARED_EPISODIC_SOURCE_TYPES = new Set([
+        'homepage', 'shared-scene', 'first-human-reveal', 'fanfic-reading'
+    ]);
     // These words are useful for conversation, but cannot on their own make a
     // durable event relevant. Keep this small and deterministic: it is a
     // noise guard, not a linguistic interpretation layer.
@@ -42,6 +51,23 @@
     const truncateEpisodicText = (value, maxChars) => {
         const text = cleanText(value || '');
         return text.length > maxChars ? text.slice(0, maxChars) : text;
+    };
+    const normalizeRetrievalTerm = (value, maxChars) => {
+        if (typeof value !== 'string') return '';
+        const normalized = value.normalize('NFKC').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
+        return normalized.length > maxChars ? normalized.slice(0, maxChars) : normalized;
+    };
+    const normalizeRetrievalTerms = (values, limits) => [...new Set((Array.isArray(values) ? values : [])
+        .map(value => normalizeRetrievalTerm(value, limits.chars)).filter(Boolean))].slice(0, limits.count);
+    const normalizeEpisodicRetrieval = (value) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        return {
+            keywords: normalizeRetrievalTerms(value.keywords, EPISODIC_RETRIEVAL_LIMITS.keywords),
+            entityIds: normalizeRetrievalTerms(value.entityIds, EPISODIC_RETRIEVAL_LIMITS.entityIds),
+            locationKeys: normalizeRetrievalTerms(value.locationKeys, EPISODIC_RETRIEVAL_LIMITS.locationKeys),
+            topicKeys: normalizeRetrievalTerms(value.topicKeys, EPISODIC_RETRIEVAL_LIMITS.topicKeys),
+            hallId: normalizeRetrievalTerm(value.hallId, EPISODIC_RETRIEVAL_LIMITS.locationKeys.chars)
+        };
     };
     const parseEpisodicTimestamp = (value) => {
         if (typeof value !== 'string') return null;
@@ -111,6 +137,7 @@
             !EPISODIC_KNOWLEDGE_MODES.has(knowledgeMode)) return null;
         const id = String(memory.id || (allowGeneratedId ? `episodic-${ownerId}-${stableMemoryHash(sourceKey)}` : '')).trim();
         if (!id) return null;
+        const retrieval = normalizeEpisodicRetrieval(memory.retrieval);
         return {
             id,
             ownerId,
@@ -124,7 +151,8 @@
             importance,
             emotionalWeight,
             unresolved: memory.unresolved === true,
-            knowledgeMode
+            knowledgeMode,
+            ...(retrieval ? { retrieval } : {})
         };
     };
     const normalizeEpisodicMemories = (cat) => {
@@ -152,7 +180,14 @@
                 seenSourceKeys.add(memory.sourceKey);
                 return true;
             })
-            .map(memory => ({ ...memory, participantIds: [...memory.participantIds], tags: [...memory.tags] }));
+            .map(memory => ({ ...memory, participantIds: [...memory.participantIds], tags: [...memory.tags],
+                ...(memory.retrieval ? {
+                    retrieval: {
+                        ...memory.retrieval,
+                        keywords: [...memory.retrieval.keywords], entityIds: [...memory.retrieval.entityIds],
+                        locationKeys: [...memory.retrieval.locationKeys], topicKeys: [...memory.retrieval.topicKeys]
+                    }
+                } : {}) }));
     };
     const hasEpisodicMemorySource = (cat, sourceKey) => Boolean(sourceKey &&
         getEpisodicMemories(cat).some(memory => memory.sourceKey === String(sourceKey)));
@@ -169,22 +204,44 @@
         if (existing.some(entry => entry.sourceKey === candidate.sourceKey)) {
             return { stored: false, reason: 'duplicate', memory: null };
         }
+        // New entries persist bounded metadata. Legacy entries without this
+        // field remain untouched and are derived only in retrieval memory.
+        candidate.retrieval = candidate.retrieval || deriveEpisodicRetrievalMetadata(candidate, cat);
         cat.episodicMemories.push(candidate);
         return { stored: true, reason: '', memory: candidate };
+    };
+    const getResidentAliasMatches = (text) => {
+        const haystack = normalizeRetrievalTerm(cleanText(text || ''), 16000);
+        if (!haystack) return [];
+        const candidates = (dependencies.getCats?.() || []).flatMap(cat => {
+            const id = String(cat?.id ?? '').trim();
+            const aliases = [
+                getResidentPublicName(cat), cat?.name, cat?.humanName, cat?.codename, cat?.alias,
+                ...(Array.isArray(cat?.aliases) ? cat.aliases : [])
+            ].map(value => normalizeRetrievalTerm(cleanText(value || ''), 80)).filter(alias => alias.length > 1);
+            return [...new Set(aliases)].map(alias => ({ id, alias }));
+        }).filter(entry => entry.id && entry.alias);
+        const ownerByAlias = new Map();
+        candidates.forEach(entry => {
+            if (!ownerByAlias.has(entry.alias)) ownerByAlias.set(entry.alias, new Set());
+            ownerByAlias.get(entry.alias).add(entry.id);
+        });
+        return [...ownerByAlias.entries()].filter(([alias, ids]) => ids.size === 1 && haystack.includes(alias))
+            .map(([, ids]) => [...ids][0]);
     };
     const getResidentNameMatches = (text) => {
         const haystack = cleanText(text || '').toLocaleLowerCase();
         if (!haystack) return [];
         const candidates = (dependencies.getCats?.() || []).map(cat => ({
-            id: String(cat?.id ?? ''),
-            name: cleanText(getResidentPublicName(cat)).toLocaleLowerCase()
+            id: String(cat?.id ?? ''), name: cleanText(getResidentPublicName(cat)).toLocaleLowerCase()
         })).filter(entry => entry.id && entry.name.length > 1);
         const counts = new Map(candidates.map(entry => [entry.name, 0]));
         candidates.forEach(entry => counts.set(entry.name, (counts.get(entry.name) || 0) + 1));
         return candidates.filter(entry => counts.get(entry.name) === 1 && haystack.includes(entry.name)).map(entry => entry.id);
     };
     const buildEpisodicQuery = (context = {}) => cleanText([
-        context.query, context.userInput, context.userAction, context.contextText, context.itemName
+        context.query, context.userInput, context.userAction, context.contextText, context.itemName,
+        ...(Array.isArray(context.topicKeys) ? context.topicKeys : [])
     ].filter(Boolean).join('\n'));
     const getContextResidentIds = (context, query) => {
         const knownIds = getKnownResidentIds();
@@ -193,7 +250,8 @@
             ...(Array.isArray(context?.relatedResidentIds) ? context.relatedResidentIds : []),
             ...(Array.isArray(context?.residentIds) ? context.residentIds : [])
         ].map(id => String(id || '').trim()).filter(id => knownIds.has(id));
-        return new Set([...suppliedIds, ...getResidentNameMatches(query)]);
+        const matches = context?.retrievalV2 === true ? getResidentAliasMatches(query) : getResidentNameMatches(query);
+        return new Set([...suppliedIds, ...matches]);
     };
     const countSharedTerms = (left, right) => {
         const leftTerms = new Set(getMeaningfulMemoryTerms(left));
@@ -205,28 +263,66 @@
         const ageDays = Math.max(0, (now.getTime() - eventMs) / 86400000);
         return Math.max(0, 4 - Math.floor(ageDays / 30));
     };
+    const deriveEpisodicRetrievalMetadata = (memory, cat) => ({
+        keywords: normalizeRetrievalTerms([
+            ...(memory?.tags || []), ...getMeaningfulMemoryTerms(String(memory?.summary || '').normalize('NFKC'))
+        ], EPISODIC_RETRIEVAL_LIMITS.keywords),
+        entityIds: normalizeRetrievalTerms((memory?.participantIds || []).filter(id => id !== 'USER'), EPISODIC_RETRIEVAL_LIMITS.entityIds),
+        locationKeys: normalizeRetrievalTerms([cat?.hallId || ''], EPISODIC_RETRIEVAL_LIMITS.locationKeys),
+        topicKeys: normalizeRetrievalTerms([memory?.sourceType || '', ...(memory?.tags || [])], EPISODIC_RETRIEVAL_LIMITS.topicKeys),
+        hallId: normalizeRetrievalTerm(cat?.hallId || '', EPISODIC_RETRIEVAL_LIMITS.locationKeys.chars)
+    });
+    const getEpisodicRetrievalMetadata = (memory, cat) => memory?.retrieval || deriveEpisodicRetrievalMetadata(memory, cat);
+    const isUserSharedEpisodicMemory = (memory, context = {}) => {
+        if (!context.userSharedOnly) return true;
+        const allowedSources = context.allowedSourceTypes instanceof Set
+            ? context.allowedSourceTypes
+            : USER_SHARED_EPISODIC_SOURCE_TYPES;
+        return allowedSources.has(String(memory?.sourceType || '')) &&
+            Array.isArray(memory?.participantIds) && memory.participantIds.includes('USER');
+    };
+    const getRetrievalContextKeys = (context = {}) => ({
+        locations: new Set(normalizeRetrievalTerms([
+            context.hallId || '', context.locationKey || '', ...(Array.isArray(context.locationKeys) ? context.locationKeys : [])
+        ], EPISODIC_RETRIEVAL_LIMITS.locationKeys)),
+        topics: new Set(normalizeRetrievalTerms([
+            context.feature || '', ...(Array.isArray(context.topicKeys) ? context.topicKeys : [])
+        ], EPISODIC_RETRIEVAL_LIMITS.topicKeys))
+    });
     const retrieveRelevantMemories = (cat, context = {}) => {
         const memories = getEpisodicMemories(cat);
         const ownerId = String(cat?.id ?? '');
+        const retrievalV2 = context.retrievalV2 === true;
         const query = buildEpisodicQuery(context);
         const queryTerms = getMeaningfulMemoryTerms(query);
         const contextIds = getContextResidentIds(context, query);
+        const contextKeys = retrievalV2 ? getRetrievalContextKeys(context) : { locations: new Set(), topics: new Set() };
         const now = context.now instanceof Date ? context.now : new Date();
         const eligible = memories.map(memory => {
+            if (!isUserSharedEpisodicMemory(memory, context)) return null;
+            const retrieval = retrievalV2 ? getEpisodicRetrievalMetadata(memory, cat) : null;
             const participantMatches = memory.participantIds.filter(id => id !== ownerId && id !== 'USER' && contextIds.has(id));
+            const entityMatches = retrievalV2 ? retrieval.entityIds.filter(id => id !== ownerId && id !== 'user' && contextIds.has(id)) : [];
             const tagOverlap = countSharedTerms(memory.tags.join(' '), query);
             const summaryOverlap = countSharedTerms(memory.summary, query);
-            const publicNameMatches = getResidentNameMatches(memory.summary)
+            const keywordOverlap = retrievalV2 ? countSharedTerms(retrieval.keywords.join(' '), query) : 0;
+            const topicMatches = retrievalV2 ? retrieval.topicKeys.filter(key => contextKeys.topics.has(key)) : [];
+            const locationMatches = retrievalV2 ? retrieval.locationKeys.filter(key => contextKeys.locations.has(key)) : [];
+            const hallMatch = retrievalV2 && Boolean(retrieval.hallId && contextKeys.locations.has(retrieval.hallId));
+            const publicNameMatches = (retrievalV2 ? getResidentAliasMatches(memory.summary) : getResidentNameMatches(memory.summary))
                 .filter(id => id !== ownerId && contextIds.has(id));
-            if (!participantMatches.length && !publicNameMatches.length && !tagOverlap && !summaryOverlap) return null;
-            const relevanceScore = participantMatches.length * 80 + publicNameMatches.length * 50 +
-                tagOverlap * 18 + summaryOverlap * 7;
+            if (!participantMatches.length && !entityMatches.length && !publicNameMatches.length && !tagOverlap && !summaryOverlap &&
+                !keywordOverlap && !topicMatches.length && !locationMatches.length && !hallMatch) return null;
+            const relevanceScore = participantMatches.length * 80 + entityMatches.length * 70 + publicNameMatches.length * 50 +
+                locationMatches.length * 45 + (hallMatch ? 35 : 0) + topicMatches.length * 24 +
+                keywordOverlap * 18 + tagOverlap * 18 + summaryOverlap * 7;
             const score = relevanceScore + memory.importance * 3 + memory.emotionalWeight * 2 +
                 (memory.unresolved ? 5 : 0) + memoryRecencyScore(memory.eventAt, now);
             return {
                 memory,
                 score,
-                signals: { participantMatches, publicNameMatches, tagOverlap, summaryOverlap }
+                signals: { participantMatches, entityMatches, publicNameMatches, locationMatches, hallMatch, topicMatches, keywordOverlap, tagOverlap, summaryOverlap },
+                ...(retrievalV2 ? { retrieval } : {})
             };
         }).filter(Boolean).sort((left, right) => right.score - left.score ||
             String(left.memory.sourceKey).localeCompare(String(right.memory.sourceKey)) ||
@@ -235,26 +331,37 @@
             stored: memories.length,
             eligible: eligible.length,
             queryTerms,
-            selected: eligible.slice(0, 4)
+            selected: eligible.slice(0, Math.max(0, Number.isInteger(context.maxEntries) ? context.maxEntries : 4))
         };
     };
+    const formatEpisodicMemoryEntry = (memory) => {
+        const date = String(memory?.eventAt || '').slice(0, 10) || '历史';
+        const tags = memory?.tags?.length ? ` · tags: ${memory.tags.join(', ')}` : '';
+        return `- [${date}] ${memory?.summary || ''}${tags}`;
+    };
+    const makeEpisodicMemorySnapshot = (memory) => ({
+        id: String(memory?.id || ''), sourceKey: String(memory?.sourceKey || ''),
+        eventAt: String(memory?.eventAt || ''), summary: String(memory?.summary || ''),
+        tags: Array.isArray(memory?.tags) ? [...memory.tags] : []
+    });
     const buildEpisodicMemoryContext = (cat, context = {}) => {
         const result = retrieveRelevantMemories(cat, context);
-        const lines = ['[OWNER EPISODIC MEMORIES · PRIVATE]'];
+        const header = typeof context.header === 'string' ? context.header : '[OWNER EPISODIC MEMORIES · PRIVATE]';
+        const maxChars = Number.isFinite(context.maxChars) ? Math.max(0, context.maxChars) : 2400;
+        const lines = [header];
         let length = lines[0].length;
         const included = [];
         result.selected.forEach(entry => {
             const memory = entry.memory;
-            const date = memory.eventAt.slice(0, 10);
-            const tags = memory.tags.length ? ` · tags: ${memory.tags.join(', ')}` : '';
-            const line = `- [${date}] ${memory.summary}${tags}`;
-            if (length + line.length + 1 > 2400) return;
+            const line = formatEpisodicMemoryEntry(memory);
+            if (length + line.length + 1 > maxChars) return;
             lines.push(line);
             length += line.length + 1;
             included.push(entry);
         });
         return {
             text: included.length ? lines.join('\n') : '',
+            snapshots: included.map(entry => makeEpisodicMemorySnapshot(entry.memory)),
             result: { ...result, selected: included }
         };
     };
@@ -355,6 +462,66 @@ ${activeMetadata}${isHomepageProjection ? `- Date context: ${dependencies.getDat
 ${options.extra || ''}
 [CONTINUITY RULE] Read this timeline before writing. Continue from the latest plausible action; do not repeat a stale status after meaningful time has passed. The stored original-character prompt and immutable identity are binding: never OOC, never generic cute-cat behavior, and never impose a DC/superhero premise outside a hall where it belongs.`;
     };
+    // Lean contexts are intentionally separate from the broad historical
+    // continuity package above. Ambient callers may safely share only
+    // observable, current state; private thoughts and relationship-to-USER
+    // data never enter a multi-resident request through this builder.
+    const LEAN_RESIDENT_CONTEXT_LIMITS = Object.freeze({
+        ambient: 900,
+        foregroundSupplemental: 900
+    });
+    const buildWholeFieldContext = (header, fields, maxChars) => {
+        const lines = [header];
+        let length = header.length;
+        (Array.isArray(fields) ? fields : []).forEach(field => {
+            const label = cleanText(field?.label || '');
+            const value = cleanText(field?.value || '');
+            if (!label || !value) return;
+            const line = `- ${label}: ${value}`;
+            if (length + line.length + 1 > maxChars) return;
+            lines.push(line);
+            length += line.length + 1;
+        });
+        return lines.join('\n');
+    };
+    const getLeanHall = (cat) => {
+        const halls = dependencies.getHalls();
+        const currentHall = dependencies.getCurrentHall();
+        return halls.find(item => item.id === cat?.hallId) || currentHall;
+    };
+    const getLeanForm = (cat, value) => {
+        const form = String(value || getResidentForm(cat) || 'CAT').trim().toUpperCase();
+        return form === 'HUMAN' ? 'HUMAN' : 'CAT';
+    };
+    const buildAmbientResidentContext = (cat, options = {}) => {
+        const hall = getLeanHall(cat);
+        const publicRelationshipLines = [...new Set((Array.isArray(options.publicRelationshipLines)
+            ? options.publicRelationshipLines : []).map(value => cleanText(value)).filter(Boolean))];
+        return buildWholeFieldContext('[AMBIENT RESIDENT · SHARED CURRENT STATE]', [
+            { label: 'ID', value: String(cat?.id || '') },
+            { label: 'Name', value: getResidentPublicName(cat) },
+            { label: 'Hall', value: options.hallName || hall?.name || 'Meeow House' },
+            { label: 'Physical presence', value: options.presence || (cat?.isOut ? 'AWAY' : 'HALL') },
+            { label: 'Authoritative form', value: getLeanForm(cat, options.form) },
+            { label: 'Stored personality traits', value: cat?.personality || '' },
+            // `status` is an observable presentation field. Never add
+            // innerVoice here: it is private even when stored beside status.
+            { label: 'Observable current status', value: options.status === undefined ? (cat?.status || '') : options.status },
+            ...publicRelationshipLines.map(value => ({ label: 'Public/shared peer baseline', value }))
+        ], LEAN_RESIDENT_CONTEXT_LIMITS.ambient);
+    };
+    const buildForegroundLeanResidentContext = (cat, options = {}) => {
+        const hall = getLeanHall(cat);
+        const supplemental = buildWholeFieldContext('[CURRENT SINGLE-RESIDENT STATE]', [
+            { label: 'Physical presence', value: options.presence || (cat?.isOut ? 'AWAY' : 'HALL') },
+            { label: 'Hall', value: options.hallName || hall?.name || 'Meeow House' },
+            { label: 'Authoritative form', value: getLeanForm(cat, options.form) },
+            { label: 'Current status', value: options.status === undefined ? (cat?.status || '') : options.status },
+            { label: 'Current inner voice', value: options.innerVoice === undefined ? (cat?.innerVoice || '') : options.innerVoice },
+            { label: 'USER relationship baseline', value: options.userRelationship || '' }
+        ], LEAN_RESIDENT_CONTEXT_LIMITS.foregroundSupplemental);
+        return `${buildCatIdentityBlock(cat)}\n${supplemental}`;
+    };
     // Status Sync runs one request for every cat in a hall. It needs
     // stable identity and immediate continuity, not each feature's
     // full memory package repeated once per character.
@@ -401,14 +568,22 @@ Continuity: ${truncateMemoryText(continuity || 'None', 34)}`;
         getLatestHouseBriefing,
         buildCatIdentityBlock,
         buildCatMemoryContext,
+        LEAN_RESIDENT_CONTEXT_LIMITS,
+        buildAmbientResidentContext,
+        buildForegroundLeanResidentContext,
         buildStatusSyncCatContext,
         normalizeEpisodicMemories,
         getEpisodicMemories,
         hasEpisodicMemorySource,
         appendEpisodicMemory,
+        EPISODIC_RETRIEVAL_LIMITS,
+        USER_SHARED_EPISODIC_SOURCE_TYPES,
         getMeaningfulMemoryTerms,
         hasMeaningfulMemoryOverlap,
         retrieveRelevantMemories,
-        buildEpisodicMemoryContext
+        buildEpisodicMemoryContext,
+        formatEpisodicMemoryEntry,
+        makeEpisodicMemorySnapshot,
+        getEpisodicRetrievalMetadata
     });
 }(window));

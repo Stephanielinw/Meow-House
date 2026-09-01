@@ -329,17 +329,36 @@ const cancelCurrentAIRequest = () => {
     dependencies.showToast('已停止当前请求；未完成内容不会写入。', 'info');
 };
 
+// Prompt-budget telemetry uses the exact system composition sent by transport.
+// Callers can optionally attach named user-prompt components for diagnostics.
+const estimatePromptBudget = (prompt, systemPrompt, components = {}) => {
+    const callerSystemPrompt = String(systemPrompt || '');
+    const canonGuardrail = String(dependencies?.getCanonFidelityGuardrail?.() || '');
+    const userPrompt = String(prompt || '');
+    const systemPromptChars = callerSystemPrompt.length + canonGuardrail.length + 1;
+    return {
+        callerSystemChars: callerSystemPrompt.length,
+        canonGuardrailChars: canonGuardrail.length,
+        systemPromptChars,
+        userPromptChars: userPrompt.length,
+        totalPromptChars: userPrompt.length + systemPromptChars,
+        componentChars: Object.fromEntries(Object.entries(components || {}).map(([name, value]) => [name, String(value || '').length])),
+        effectiveSystemPrompt: `${callerSystemPrompt}\n${canonGuardrail}`
+    };
+};
+
 const _runAIRequest = async (request) => {
     const maxAttempts = Number.isInteger(request.maxAttempts)
         ? Math.max(1, request.maxAttempts)
         : 5;
     request.effectiveMaxAttempts = maxAttempts;
-    const guardedSystemPrompt = `${request.systemPrompt || ''}\n${dependencies.getCanonFidelityGuardrail()}`;
+    const promptBudget = estimatePromptBudget(request.prompt, request.systemPrompt);
+    const guardedSystemPrompt = promptBudget.effectiveSystemPrompt;
     // Background work (status sync, wording polish, phone photo)
     // must not overwrite a user-facing notification such as a new
     // friend request. Its progress remains visible in the system log.
     if (request.priority !== 'background') dependencies.showToast('正在建立加密通道...', 'loading');
-    request.guardedInputChars = String(request.prompt || '').length + String(guardedSystemPrompt || '').length;
+    request.guardedInputChars = promptBudget.totalPromptChars;
     dependencies.addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${dependencies.getSettings().model || 'default'} maxTokens=${request.maxTokens}; input=${request.guardedInputChars} chars; attempts=${maxAttempts}.`);
     request.onProgress?.({ stage: 'queued', requestId: request.id, label: request.label, attempt: 0, round: request.round });
 
@@ -507,6 +526,7 @@ const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, op
         assertValidAIContent,
         resolveApiRetryDecision,
         cancelCurrentAIRequest,
-        callAI
+        callAI,
+        estimatePromptBudget
     });
 }(window));
