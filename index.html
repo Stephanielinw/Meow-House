@@ -22324,7 +22324,7 @@ ${buildLeanAmbientContext(cat, {
                     if (isExactCoverage) return true;
                     return `Status Sync contract validation failed: expectedIds=[${expectedIds.join(', ')}]; receivedIds=[${receivedIds.join(', ')}]; missingIds=[${missingIds.join(', ')}]; unexpectedIds=[${unexpectedIds.join(', ')}]; duplicateIds=[${duplicateIds.join(', ')}]; entryErrors=[${entryErrors.join('; ')}]; expectedCount=${expectedIds.length}; receivedCount=${updates.length}.`;
                 };
-                const validateLocalPresenceDirectives = (updates, presenceDirectives = {}) => {
+                const validateLocalPresenceDirectives = (updates, presenceDirectives = {}, curatorAnchors = {}) => {
                     const directives = presenceDirectives && typeof presenceDirectives === 'object' ? presenceDirectives : {};
                     for (const [id, directive] of Object.entries(directives)) {
                         if (directive !== 'HOME' && directive !== 'DEPARTING_NOW' && directive !== 'CURATOR_ROOM') continue;
@@ -22334,6 +22334,10 @@ ${buildLeanAmbientContext(cat, {
                             if (!CURATOR_ROOM_ANCHORS[String(update.curatorRoomAnchor || '').trim()]) {
                                 return `Status Sync local presence directive failed: id=${id}; directive=CURATOR_ROOM; curatorRoomAnchor is invalid.`;
                             }
+                            const expectedAnchor = String(curatorAnchors?.[String(id)] || '').trim();
+                            if (expectedAnchor && String(update.curatorRoomAnchor || '').trim() !== expectedAnchor) {
+                                return `Status Sync local presence directive failed: id=${id}; directive=CURATOR_ROOM; curatorRoomAnchor must echo authoritative anchor.`;
+                            }
                             if (['mapRoom', 'mapFurniture', 'mapPoint', 'mapSpot', 'mapPositionLabel'].some(field => cleanText(update[field] || ''))) {
                                 return `Status Sync local presence directive failed: id=${id}; directive=CURATOR_ROOM; Hall map fields are not allowed.`;
                             }
@@ -22341,7 +22345,7 @@ ${buildLeanAmbientContext(cat, {
                     }
                     return true;
                 };
-                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}, formDirectives = {}, sceneOptions = null) => {
+                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}, formDirectives = {}, sceneOptions = null, curatorAnchors = {}) => {
                     const payload = parseAIJSON(content);
                     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
                         return 'Status Sync response is not a valid JSON object.';
@@ -22349,7 +22353,7 @@ ${buildLeanAmbientContext(cat, {
                     if (!Array.isArray(payload.awayPlans)) return 'Status Sync response is missing awayPlans array.';
                     const updateValidation = validateStatusSyncUpdates(payload.updates, requestedIds);
                     const directiveValidation = updateValidation === true
-                        ? validateLocalPresenceDirectives(payload.updates, presenceDirectives)
+                        ? validateLocalPresenceDirectives(payload.updates, presenceDirectives, curatorAnchors)
                         : updateValidation;
                     if (directiveValidation !== true) return directiveValidation;
                     // Form compatibility mismatches are intentionally soft-salvaged
@@ -22457,6 +22461,164 @@ ${buildLeanAmbientContext(cat, {
                 const formatAwayDecisionSummary = ({ hall, requested, activeEpisodeExcluded, recentlySettledExcluded, stayedHome, proposedAway, plansPresent, plansValid, departed, discarded, legacyContinued, legacyReturned }) =>
                     `STATUS SYNC AWAY SUMMARY: hall=${hall}; requested=${requested}; activeEpisodeExcluded=${activeEpisodeExcluded}; recentlySettledExcluded=${recentlySettledExcluded}; stayedHome=${stayedHome}; proposedAway=${proposedAway}; plansPresent=${plansPresent}; plansValid=${plansValid}; departed=${departed}; discarded=${discarded}; legacyContinued=${legacyContinued}; legacyReturned=${legacyReturned}`;
 
+                // Status Sync is a shared model request. Its packet must therefore
+                // contain only public/current authority, never a resident's stored
+                // inner voice, private relationship record, or broad life history.
+                const STATUS_SYNC_RESIDENT_ROW_TARGET_CHARS = 650;
+                const buildStatusSyncResidentRow = ({ cat, hall, directive, now, crossedOperationalDay = false }) => {
+                    const currentTime = now instanceof Date ? now : new Date();
+                    const lastUpdateMs = Number(cat?.lastStatusUpdateTime) || (currentTime.getTime() - 60 * 60 * 1000);
+                    const ageMinutes = Math.max(0, Math.floor((currentTime.getTime() - lastUpdateMs) / 60000));
+                    const presence = directive === 'CURATOR_ROOM'
+                        ? 'CURATOR_ROOM'
+                        : (cat?.isOut ? 'AWAY' : (cat?.isVisiting ? 'VISITING_HALL' : 'HOME_HALL'));
+                    const physicalHall = hall?.name || 'Meeow House';
+                    const sourceAnchor = [cat?.sourceWork, cat?.origin, cat?.sourceRole]
+                        .map(value => cleanText(value || '')).filter(Boolean).join(' · ');
+                    const required = [
+                        ['Machine ID', String(cat?.id ?? '')],
+                        ['Authoritative form', getResidentForm(cat)],
+                        ['Physical presence', presence],
+                        ['Hall', physicalHall],
+                        ['Local directive', directive || 'NONE'],
+                        ['Time state', `Δt=${ageMinutes}m; dayBoundary=${crossedOperationalDay ? 'crossed' : 'same-day'}`]
+                    ];
+                    if (directive === 'CURATOR_ROOM') {
+                        // The in-room marker is program-owned physical state. Status
+                        // prose may describe it, but this request can only echo it.
+                        required.splice(5, 0, ['Authoritative Curator anchor', getCuratorRoomAnchor(cat)]);
+                    }
+                    const optional = [
+                        ['Public resident name', getResidentPublicName(cat)],
+                        ['Observable current status', getResidentLiveStatus(cat, '')],
+                        ['Structured personality', cleanText(cat?.personality || '')],
+                        ['Shared-safe source anchor', sourceAnchor]
+                    ];
+                    const lines = ['[STATUS RESIDENT ROW]'];
+                    let length = lines[0].length;
+                    required.forEach(([label, value]) => {
+                        const line = `- ${label}: ${value}`;
+                        lines.push(line);
+                        length += line.length + 1;
+                    });
+                    optional.forEach(([label, rawValue]) => {
+                        const value = cleanText(rawValue || '');
+                        if (!value) return;
+                        const line = `- ${label}: ${value}`;
+                        if (length + line.length + 1 > STATUS_SYNC_RESIDENT_ROW_TARGET_CHARS) return;
+                        lines.push(line);
+                        length += line.length + 1;
+                    });
+                    return lines.join('\n');
+                };
+                const buildStatusSyncPresenceAuthority = (directives = {}, curatorAnchors = {}) => {
+                    const entries = Object.entries(directives || {});
+                    if (!entries.length) return '[LOCAL PRESENCE AUTHORITY]\nNo local presence directives.';
+                    const rows = entries.map(([id, directive]) => {
+                        const curatorAnchor = directive === 'CURATOR_ROOM' ? String(curatorAnchors?.[String(id)] || '') : '';
+                        return curatorAnchor
+                            ? `${id} → CURATOR_ROOM; curatorRoomAnchor=${curatorAnchor} (echo exactly)`
+                            : `${id} → ${directive}`;
+                    });
+                    return `[LOCAL PRESENCE AUTHORITY]\n${rows.join('\n')}\nProgram owns presence. isOut is compatibility metadata only. HOME remains home; DEPARTING_NOW requires one valid matching departure plan; CURATOR_ROOM stays isolated, has no Hall map fields or Away plan, and must echo its supplied anchor exactly.`;
+                };
+                const buildStatusSyncFormAuthority = (directives = {}) => `[FORM COMPATIBILITY AUTHORITY]\n${Object.entries(directives || {}).map(([id, directive]) => `${id} → target=${directive.targetForm}; transition=${directive.transitioned ? 'AUTHORIZED' : 'NONE'}`).join('\n') || 'None'}\nTarget form is program-owned compatibility data. Echo it exactly; never choose or invent a transformation.`;
+                const buildCuratorStatusSharedContext = ({ resident, now, isNight, formDirectives, curatorAnchors }) => `[CURATOR ROOM CONTEXT]
+Time: ${(now instanceof Date ? now : new Date()).toLocaleString()} (${isNight ? 'night' : 'day'}).
+- Update only ${String(resident?.id || '')} in the USER's private Curator Room. This is not a Hall update and is never a USER arrival.
+${buildStatusSyncPresenceAuthority({ [String(resident?.id || '')]: 'CURATOR_ROOM' }, curatorAnchors)}
+${buildStatusSyncFormAuthority(formDirectives)}
+[CURATOR SCOPE]
+- Return an independent private-room status and inner voice. Do not use Hall residents, Hall topology, Away, Visit, Fridge, scenes, Life Threads, or local co-presence.
+- curatorRoomAnchor is an exact program-owned echo; never choose a new anchor. Return no Hall map fields, Away plan, scene, or relationship mutation.`;
+                const buildStatusSyncSharedCanonicalRelationships = (residents, maxChars = 600) => {
+                    const scoped = [...new Map((Array.isArray(residents) ? residents : [])
+                        .filter(cat => cat && !isResidentInCuratorRoom(cat) && isResidentInHall(cat))
+                        .map(cat => [String(cat.id), cat])).values()];
+                    const lines = ['[PUBLIC CANONICAL PEER BASELINES]'];
+                    let length = lines[0].length;
+                    for (let leftIndex = 0; leftIndex < scoped.length; leftIndex += 1) {
+                        for (let rightIndex = leftIndex + 1; rightIndex < scoped.length; rightIndex += 1) {
+                            const left = scoped[leftIndex];
+                            const right = scoped[rightIndex];
+                            // This deliberately reads only immutable canonical labels,
+                            // never residentRelationships or its private evidence/events.
+                            const baseline = getRelationshipBaseline(left, right);
+                            if (!baseline?.label) continue;
+                            const line = `- ${getResidentPublicName(left)} ↔ ${getResidentPublicName(right)}: ${baseline.label}`;
+                            if (length + line.length + 1 > maxChars) continue;
+                            lines.push(line);
+                            length += line.length + 1;
+                        }
+                    }
+                    return lines.length > 1 ? lines.join('\n') : '';
+                };
+                const buildStatusSyncAwaySourceCapsule = (residents, presenceDirectives = {}) => {
+                    const candidates = (Array.isArray(residents) ? residents : [])
+                        .filter(cat => presenceDirectives[String(cat?.id ?? '')] === 'DEPARTING_NOW');
+                    if (!candidates.length) return '';
+                    return candidates.map(cat => {
+                        const fields = [
+                            ['source work/world', cat?.sourceWork],
+                            ['public origin', cat?.origin],
+                            ['public role', cat?.sourceRole],
+                            ['structured personality', cat?.personality],
+                            ['fixed species/breed', cat?.breed],
+                            ['authoritative form', getResidentForm(cat)]
+                        ].map(([label, value]) => [label, cleanText(value || '')]).filter(([, value]) => Boolean(value));
+                        const sufficient = fields.some(([label]) => ['source work/world', 'public origin', 'public role'].includes(label)) &&
+                            fields.some(([label]) => label === 'structured personality');
+                        if (!sufficient) {
+                            return `[AWAY SOURCE-WORLD CAPSULE · ${String(cat.id)}]\nStructured shared-safe canon is insufficient. Return no departure plan for this resident; local validation will keep them home. Never infer missing era, geography, biography, identity, relationships, or private purpose.`;
+                        }
+                        return `[AWAY SOURCE-WORLD CAPSULE · ${String(cat.id)}]\n${fields.map(([label, value]) => `- ${label}: ${value}`).join('\n')}\nUse only this shared-safe capsule for destination/activity continuity. Never infer or disclose private history, unrevealed identity, private relationships, Knowledge, Thread facts, hidden Away history, or purpose.`;
+                    }).join('\n');
+                };
+                const buildStatusSyncCurrentEventAddenda = ({ requestedCats, activeCatIds, isFocusEnd, isExploreEnd, now }) => {
+                    const lines = [];
+                    const recentReturnIds = (Array.isArray(requestedCats) ? requestedCats : [])
+                        .filter(cat => getRecentAwayReturn(cat, now)).map(cat => String(cat.id));
+                    if (recentReturnIds.length) lines.push(`- Recent public return handoff for IDs [${recentReturnIds.join(', ')}]: continue generic settling-in at home; do not infer destination, activity, mail, or private details.`);
+                    const activeIds = (activeCatIds || []).map(id => String(id));
+                    if (isFocusEnd && activeIds.length) lines.push(`- USER-visible Focus session just ended for IDs [${activeIds.join(', ')}]. Continue from a generic completion transition; do not import private notes or thoughts.`);
+                    if (isExploreEnd && activeIds.length) lines.push(`- USER-visible Explore session just ended for IDs [${activeIds.join(', ')}]. Continue from a generic return transition; do not import hidden discoveries or case truth.`);
+                    const nowMs = (now instanceof Date ? now : new Date()).getTime();
+                    const gapIds = (Array.isArray(requestedCats) ? requestedCats : [])
+                        .filter(cat => nowMs - Number(cat?.lastInteractionTimestamp || 0) > 60 * 60 * 1000)
+                        .map(cat => String(cat.id));
+                    if (gapIds.length && !isFocusEnd && !isExploreEnd) lines.push(`- IDs [${gapIds.join(', ')}] have a normal independent-time gap. Do not continue a stale USER interaction; use an ordinary independent current activity.`);
+                    return lines.length ? `[SAFE CURRENT-EVENT ADDENDA]\n${lines.join('\n')}` : '';
+                };
+                const buildStatusSyncGlobalContract = ({ curatorRoomStatusSync = false } = {}) => `[GLOBAL STATUS CONTRACT]
+- Program-owned machine IDs, form, physical presence, Away eligibility, mail decision, and map/Curator authority are final. AI proposes prose and allowed sidecars only.
+- CAT form: feline sounds/actions/body language only; no human-language speech. HUMAN form: human-shaped kemonomimi anatomy with normal human speech when natural.
+- Preserve source-world continuity and current physical scope. Do not invent Knowledge, Life Thread facts, private motives, hidden relationships, inventory, or unauthorized state changes.
+- Form echo is compatibility metadata only: copy supplied target; never choose a transformation. A wrong echo may be soft-quarantined without rejecting the response.
+${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away, Visit, Fridge, scene, or USER-arrival inference.' : '- Hall mode: Away/Visit/Curator residents stay in their program-owned physical scope; do not treat shared context as omniscient private knowledge.'}`;
+                const buildStatusSyncOutputContract = ({ curatorRoomStatusSync, requestedIds, awayPromptContract, hasFridgeNoteSidecar = false, hasLifeThreadSidecar = false, sceneMode }) => {
+                    const updateRule = curatorRoomStatusSync
+                        ? 'Each update needs id,status,innerVoice,isOut:false,isHuman compatibility echo, and the exact supplied curatorRoomAnchor; never include Hall map fields.'
+                        : 'Each update needs id,status,innerVoice,isOut compatibility echo,isHuman compatibility echo. HOME requires valid Hall map fields; CURATOR_ROOM requires valid curatorRoomAnchor and no Hall map fields; DEPARTING_NOW has no authority to depart without a valid matching Away plan.';
+                    const sceneRule = sceneMode
+                        ? `If scene is returned, use the already-specified ${sceneMode} scene shape; otherwise scene:null.`
+                        : 'scene must be null.';
+                    const sidecars = [
+                        hasFridgeNoteSidecar ? '"fridgeNoteReactions":[]' : '',
+                        hasLifeThreadSidecar ? '"lifeThreadCandidates":[]' : ''
+                    ].filter(Boolean);
+                    return `[OUTPUT CONTRACT]\nReturn one JSON object with "updates", "awayPlans", and "scene"${sidecars.length ? ` plus ${sidecars.join(' and ')}` : ''}. Sidecar entry shapes are defined once in their own supplied contracts.\n- Return exactly one update for every allowed machine ID: [${requestedIds.join(', ')}]. Never substitute a display/human/codename.\n- ${updateRule}\n- ${sceneRule}\n- awayPlans must be ${awayPromptContract.mode === AWAY_PROMPT_MODES.NO_AWAY_WORK ? 'exactly []' : 'exactly the entries required by [AWAY / MAIL CONTRACT]'}.`;
+                };
+                const buildStatusSyncPromptPacket = (parts = {}) => {
+                    const ordered = [
+                        parts.globalContract, parts.hallShared, parts.residentRows, parts.residentAddenda,
+                        parts.awayContract, parts.awayAddenda, parts.fridgeContext, parts.sceneContext,
+                        parts.lifeThreadContext, parts.outputContract
+                    ].filter(value => typeof value === 'string' && value.trim());
+                    return { prompt: ordered.join('\n\n'), components: Object.fromEntries(Object.entries(parts)
+                        .filter(([, value]) => typeof value === 'string')
+                        .map(([name, value]) => [name, value])) };
+                };
+
                 const _refreshAllStatus = async (forceUpdate = false, additionalContext = "", activeCatIds = [], focusCatLastAction = "", isFocusEnd = false, isExploreEnd = false, requestOptions = {}) => {
                     const requestHallId = requestOptions.requestHallId || activeHallId.value;
                     const requestHall = requestOptions.requestHall || {
@@ -22559,19 +22721,19 @@ ${buildLeanAmbientContext(cat, {
                         .join('; ');
 
                     try {
-                        let characterBlock = "";
                         let activeCatNames = [];
                         const requestedIds = [];
                         const requestedCats = [];
                         const crossedDayBoundary = [];
+                        const crossedDayBoundaryById = new Map();
                         catsToUpdate.forEach(c => {
                             const isActive = activeCatIds && activeCatIds.includes(c.id);
                             if (isActive && !isFocusEnd && !isExploreEnd) {
-                                activeCatNames.push(c.name);
+                                activeCatNames.push(getResidentPublicName(c));
                                 return;
                             }
                             if (isActive && (isFocusEnd || isExploreEnd)) {
-                                activeCatNames.push(c.name);
+                                activeCatNames.push(getResidentPublicName(c));
                             }
                             requestedIds.push(String(c.id));
                             requestedCats.push(c);
@@ -22583,27 +22745,7 @@ ${buildLeanAmbientContext(cat, {
                                     getOperationalDayKey(lastStatusDate) !== operationalDayKey;
                             }
                             crossedDayBoundary.push(`${String(c.id)}:${crossedOperationalDay}`);
-                            const memoryBlock = buildPresenceInferenceContext(c, { now, crossedOperationalDay });
-                            const recentReturnContext = getRecentAwayReturn(c, now)
-                                ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Their current status is the immediate handoff from that return. Continue naturally through settling in, resting, grooming, checking familiar surroundings, food/water, or quietly observing the hall; do not reset them into an unrelated activity. Do not infer or reveal any destination, private activity, mail, or other hidden Away details.'
-                                : '';
-
-                            let specificContext = "";
-                            if (isActive && isFocusEnd) {
-                                specificContext = `[CRITICAL]: This cat just finished focusing with the user. Last action in log: "${focusCatLastAction}". Their new status MUST continue from this action.`;
-                            }
-                            if (isActive && isExploreEnd) {
-                                specificContext = `[CRITICAL]: This cat just returned from an adventure. Action MUST show "just returned" traits (dusty, tired, etc.). Inner voice MUST recall adventure events: "${focusCatLastAction}". Preserve the resident's frozen visible form for this return handoff.`;
-                            }
-
-                            const lastInteraction = c.lastInteractionTimestamp || 0;
-                            const diffMsInteraction = Date.now() - lastInteraction;
-                            let gapContext = "";
-                            if (diffMsInteraction > 60 * 60 * 1000 && !isFocusEnd && !isExploreEnd) {
-                                gapContext = `\n[CRITICAL TIME GAP]: The user has been away for over an hour. THE PREVIOUS INTERACTION IS STRICTLY OVER. DO NOT mention previous interactions holding your paw or looking at you. You MUST be entertaining yourself, sleeping, or harassing other cats independently.`;
-                            }
-
-                            characterBlock += `\n--- CHARACTER ---\n${memoryBlock}\n${recentReturnContext}\n${specificContext}\n${gapContext}\n`;
+                            crossedDayBoundaryById.set(String(c.id), crossedOperationalDay);
                         });
 
                         const formLockedIds = new Set([
@@ -22666,6 +22808,9 @@ ${buildLeanAmbientContext(cat, {
                             mutablePresenceDirectives[String(cat.id)] = 'CURATOR_ROOM';
                         });
                         const presenceDirectives = Object.freeze(mutablePresenceDirectives);
+                        const curatorAnchorsById = Object.freeze(Object.fromEntries(requestedCats
+                            .filter(cat => presenceDirectives[String(cat.id)] === 'CURATOR_ROOM')
+                            .map(cat => [String(cat.id), getCuratorRoomAnchor(cat)])));
                         // A normal DEPARTING_NOW request owns the departure attempt
                         // until its accepted plan is applied or this request settles.
                         // A Thread intent that becomes due in this small window waits;
@@ -22691,12 +22836,6 @@ ${buildLeanAmbientContext(cat, {
                                 residents: requestedCats.filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
                             });
                         const fridgeNotePromptContract = buildFridgeNoteReactionPromptContract(fridgeNoteCandidates);
-                        const fridgeNoteOutputSchema = fridgeNoteCandidates.length
-                            ? ',"fridgeNoteReactions":[{"noteId":"exact selected note id","residentId":"exact selected resident id","kind":"annotation|feline-trace","content":"short trace"}]'
-                            : '';
-                        const lifeThreadOutputSchema = lifeThreadCaptureEnabled
-                            ? ',"lifeThreadCandidates":[{"action":"create","kind":"short|long","titleEvidence":"exact short excerpt from this response only","summaryEvidence":"exact supported excerpt from this response only","participantIds":["supplied resident id"],"hallIds":["current hall id"],"facts":[{"evidence":"exact supported excerpt from this response only","knowledgeClaims":[{"residentId":"resident who explicitly learned it","accessMode":"observed|heard|discovered|told|shown|realized|direct-discovery","evidence":"exact excerpt explicitly proving that resident accessed the fact"}]}]}]'
-                            : '';
                         const lifeThreadPromptContract = lifeThreadCaptureEnabled
                             ? `\n[LIFE THREAD CANDIDATE — PRIVATE ENGINE SIDECAR]\n- lifeThreadCandidates is hidden engine metadata, never resident dialogue. [] is the normal response. Return at most one action:create candidate only when this just-generated accepted Hall status/scene contains one genuinely unresolved consequence that could matter later. Never create one for routine activity.\n- Do not invent an event, actor, motive, secret, cause, relationship, location, future development, or threat. Each titleEvidence, summaryEvidence, and facts[].evidence MUST be an exact short excerpt copied from this response's own updates and/or scene. Evidence may only describe what happened now.\n- facts[].knowledgeClaims is optional and records only explicit knowledge gained in this same event. A named/present/nearby/scene-participant/thread-participant resident does NOT know a fact by default. Add a claim only when its exact evidence explicitly establishes that resident saw, heard, discovered, was told, was shown, realized, or directly participated in discovering the fact. If access is ambiguous, omit the claim. Never claim USER knowledge here.\n- A claim's evidence must be an exact excerpt from that resident's own update or reaction, or from scene prose that explicitly names the resident together with the access. It MUST include that fact's exact facts[].evidence verbatim. Do not use innerVoice, generic co-presence, friendship, affinity, or Hall membership as proof. Use only supplied resident IDs and this Hall ID. Do not propose advance or resolve: no existing thread state is supplied to you.`
                             : '';
@@ -22712,6 +22851,20 @@ ${buildLeanAmbientContext(cat, {
                                 carriedAwayPlans: requestOptions.prevalidatedAwayPlans,
                                 mailDecisions: awayMailDecisions
                             });
+
+                        const residentRows = `[COMPACT RESIDENT ROWS]\n${requestedCats.map(cat => buildStatusSyncResidentRow({
+                            cat,
+                            hall: requestHall,
+                            directive: presenceDirectives[String(cat.id)] || '',
+                            now,
+                            crossedOperationalDay: crossedDayBoundaryById.get(String(cat.id)) === true
+                        })).join('\n---\n')}`;
+                        const residentAddenda = buildStatusSyncCurrentEventAddenda({
+                            requestedCats, activeCatIds, isFocusEnd, isExploreEnd, now
+                        });
+                        const awayAddenda = curatorRoomStatusSync
+                            ? ''
+                            : buildStatusSyncAwaySourceCapsule(requestedCats, presenceDirectives);
 
                         addLog(`STATUS SYNC DAY: newOperationalDay=${pendingStatusDayRefresh}; crossedDayBoundary=[${crossedDayBoundary.join(', ')}]`, 'info');
                         if (statusCompletion) statusCompletion.expected = requestedIds.length;
@@ -22736,8 +22889,6 @@ ${buildLeanAmbientContext(cat, {
                             : `\n[HALL SOCIAL — HOME RESIDENTS ONLY]: Fewer than two cats are home; do not invent cat-to-cat interaction. This never applies to a CURATOR_ROOM resident.`;
                         const publicResidentNameContract = buildResidentPublicNameContract(curatorRoomStatusSync ? requestedCats : physicalHallCats);
 
-                        const gnnTrendsGlobal = user.phoneData.gnn?.trending?.slice(0, 3)
-                            .map(t => `#${truncateMemoryText(t.topic || '', 28)}`).filter(Boolean).join(', ') || 'None';
                         const newOperationalDayContext = pendingStatusDayRefresh
                             ? `\n[NEW OPERATIONAL DAY]: Previous-day presence and status are historical continuity, not proof of a current activity. Do not merely paraphrase an old indoor action; generate a genuinely current activity for ${operationalDayKey} that remains consistent with [LOCAL PRESENCE AUTHORITY].`
                             : '';
@@ -22773,9 +22924,6 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
 - Away residents never participate. Frozen participant anatomy is the per-participant expression authority for the stored scene: CAT-form residents use feline sounds, action, and body language only, while HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is normal first-class communication for each HUMAN participant, not a rare exception: when a shared moment naturally involves questions, explanations, promises, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange, normally let brief natural dialogue carry that content, enriched by ears, tail, posture, gesture, and expression rather than replaced by them. Keep cohesive third-person prose, not dialogue-row screenplay formatting. Do not force speech: silence remains valid when it is an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice.
 - relationshipDeltas is optional metadata and never required for a valid scene. If supplied, use only frozen participant IDs and the bounded integer fields/tags described for the user-directed scene. Judge each direction only from visible shared-scene material and that resident's legitimate observable experience; ignore private/hidden context, inner voices, diaries, episodic memories, Away material, and other residents' private context. Do not force symmetry or relationship change for mundane presence.`
                                 : '';
-                        const enrichedStatusOutputContract = curatorRoomStatusSync
-                            ? `Return exactly one JSON object only:\n{"updates":[{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":[],"scene":null}`
-                            : `Return exactly one JSON object only:\n{"updates":[{"id":"exact HOME supplied machine id","status":"current action, max 20 words","innerVoice":"first-person thought, max 30 words; use 我, never own full name","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW supplied machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false},{"id":"exact CURATOR_ROOM supplied machine id","status":"current private-room activity","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"curatorRoomAnchor":"bed|nightstand|desk|window|wardrobe|floor"}],"awayPlans":${awayPromptContract.awayPlansExample},"scene":null${fridgeNoteOutputSchema}${lifeThreadOutputSchema}}\n${awayPromptContract.instructions}${fridgeNotePromptContract}${lifeThreadPromptContract}\n${sceneMode ? `If a shared scene is required or returned, use {"type":"${sceneMode}","participantIds":["exact allowed id"],"content":"cohesive short third-person Simplified Chinese scene prose"${sceneMode === 'user-directed' ? ',"userStatus":"concise USER current status, max 15 Chinese characters"' : ''},"reactions":[{"id":"same participant id","content":"concise Simplified Chinese reaction"}],"memoryMeta":null,"relationshipDeltas":[]}. relationshipDeltas is optional directional metadata; each entry uses fromId, toId, familiarityDelta, warmthDelta, trustDelta, tensionDelta, addTags, and removeTags. memoryMeta is optional durable-event metadata only: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.` : 'Always return scene:null.'}`;
                         const statusHeader = curatorRoomStatusSync
                             ? `[CURATOR ROOM STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}). The supplied resident is physically in the USER's private Curator Room, the USER's normal home base outside Hall visits.`
                             : `[STATUS SYNC]\nTime: ${now.toLocaleString()} (${isNight ? 'night' : 'day'}); Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.`;
@@ -22788,44 +22936,65 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
                         const statusOutputRules = curatorRoomStatusSync
                             ? `Use these opaque machine keys exactly as shown. Every updates[].id MUST exactly equal one allowed key above; return each requested key exactly once. Return awayPlans:[] and scene:null.`
                             : `Use these opaque machine keys exactly as shown. Every updates[].id MUST exactly equal one allowed key above; return each requested key exactly once. Never substitute a character name, human identity, display name, codename, or canon name. For every awayPlans[] entry, residentId MUST exactly equal the matching updates[].id machine key. Return exactly ${requestedIds.length} status updates and never stop after a partial list.`;
-                        const prompt = `${statusHeader}
-GNN: ${gnnTrendsGlobal}
+                        // Focus/Explore return payloads can contain resident-private
+                        // summaries. Their Status handoff is intentionally limited to
+                        // the generic, USER-visible transition addendum below.
+                        const sharedStatusUserContext = (isFocusEnd || isExploreEnd)
+                            ? '[STATUS USER]\nA USER-visible session transition is active. Use only the safe current-event addenda supplied below; do not infer or repeat private session details.'
+                            : userContext;
+                        const globalContract = buildStatusSyncGlobalContract({ curatorRoomStatusSync: Boolean(curatorRoomStatusSync) });
+                        const hallShared = curatorRoomStatusSync
+                            ? buildCuratorStatusSharedContext({
+                                resident: requestedCats[0], now, isNight, formDirectives, curatorAnchors: curatorAnchorsById
+                            })
+                            : `[SHARED HALL / SCENE CONTEXT]
+${statusHeader}
 ${publicResidentNameContract}
-${userContext}${curatorRoomStatusSync ? '' : `${newOperationalDayContext}${activeCatContext}${hallSocialContext}`}
+${sharedStatusUserContext}
+${newOperationalDayContext}${activeCatContext}${hallSocialContext}
+- [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. They are context only: do not output updates for them, invent a destination/activity, or place them in Hall scenes.
+${buildStatusSyncSharedCanonicalRelationships(physicalHallCats)}
 
-${formatLocalPresenceAuthority(presenceDirectives)}
-${formatFormLifecycleAuthority(formDirectives)}
-${formatResidentFormExpressionContract()}
+${buildStatusSyncPresenceAuthority(presenceDirectives, curatorAnchorsById)}
+${buildStatusSyncFormAuthority(formDirectives)}
 
-[RULES]
+[STATUS SCOPE / CONTINUITY]
 ${statusScopeRules}
-- Stored canon and [STATUS SYNC CONTEXT] are binding. Cat form never changes personality. Low affinity means boundaries/independent rhythm, never default fear, hostility, or contempt toward the safe owner.
-- Unless [ACTIVE INTERACTION] says otherwise, cats live independently; never invent user interaction absent from STATUS USER.
-- Form: [FORM LIFECYCLE AUTHORITY] is final. Echo each supplied target form exactly; never choose a form. Narrate a CAT↔HUMAN transition only when its directive says transition=AUTHORIZED, and never invent one otherwise.
-- Read each [Δt RULE]: >60m requires a genuinely changed state; <30m preserves scene continuity but advances the action naturally. Continuity means the next plausible beat, never verbatim repetition of status or inner voice. Keep physical time logic.
-- [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the cat is still in that exact place or activity at this Status Sync time.
-- [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action and inner voice. Do not independently decide, infer, or change HOME/AWAY.${curatorRoomStatusSync ? '' : ' A crossed operational day requires a fresh current activity consistent with [LOCAL PRESENCE AUTHORITY], not a new presence decision.'}
-${curatorRoomStatusSync ? '' : `- [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. These residents are outside Meeow House for a locally scheduled absence. They are context only: do not output updates for them, do not invent their destination or activity, and do not place them in hall scenes.`}
-- [CURATOR ROOM ISOLATION] A resident marked CURATOR_ROOM is physically in the USER's private Curator Room, not in this Hall. Their own [CURRENT-LIFE CONTEXT] is complete for current location: never place them in Hall scenes, Hall social life, Hall map topology, Fridge Notes, or local co-presence.
-${curatorRoomStatusSync ? '' : scenePrompt}
+- Stored canon never authorizes private information. Cats live independently unless an explicit active interaction says otherwise; do not invent USER interaction.
+- Read each row's Δt rule: >60m needs a genuinely changed current state; <30m preserves continuity while advancing one plausible beat. Do not copy prior prose verbatim or treat prior presentation as proof of a current location/activity.
+- Do not independently choose or change HOME/AWAY. A crossed operational day needs a fresh current activity consistent with local presence authority.
 
 [MAP]
-${statusMapRules}
-
-[OUTPUT]
-[ALLOWED MACHINE IDS FOR THIS RESPONSE]
-[${requestedIds.join(', ')}]
-${statusOutputRules}
-${enrichedStatusOutputContract}`;
-
-                        const statusRequestPrompt = characterBlock + "\n" + prompt;
-                        const statusBudget = estimatePromptBudget(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, {
-                            characterBlock,
-                            statusBody: prompt
+${statusMapRules}`;
+                        const awayContract = curatorRoomStatusSync || awayPromptContract.mode === AWAY_PROMPT_MODES.NO_AWAY_WORK
+                            ? ''
+                            : `[AWAY / MAIL CONTRACT]\n${awayPromptContract.instructions}`;
+                        const outputContract = `${buildStatusSyncOutputContract({
+                            curatorRoomStatusSync: Boolean(curatorRoomStatusSync),
+                            requestedIds,
+                            awayPromptContract,
+                            hasFridgeNoteSidecar: fridgeNoteCandidates.length > 0,
+                            hasLifeThreadSidecar: lifeThreadCaptureEnabled,
+                            sceneMode
+                        })}
+${statusOutputRules}`;
+                        const statusPacket = buildStatusSyncPromptPacket({
+                            globalContract,
+                            hallShared,
+                            residentRows,
+                            residentAddenda,
+                            awayContract,
+                            awayAddenda,
+                            fridgeContext: curatorRoomStatusSync ? '' : fridgeNotePromptContract,
+                            sceneContext: curatorRoomStatusSync ? '' : scenePrompt,
+                            lifeThreadContext: curatorRoomStatusSync ? '' : lifeThreadPromptContract,
+                            outputContract
                         });
+                        const statusRequestPrompt = statusPacket.prompt;
+                        const statusBudget = estimatePromptBudget(statusRequestPrompt, CORE_ROLEPLAY_PROMPT, statusPacket.components);
                         const budgetLevel = statusBudget.totalPromptChars > 15000 ? 'warn' : 'info';
                         addLog(`STATUS SYNC SCOPE: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; activeIds=[${activeCatIds.map(id => String(id)).join(', ')}]; requestedIds=[${requestedIds.join(', ')}]`, "info");
-                        addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; user=${statusBudget.userPromptChars} chars; callerSystem=${statusBudget.callerSystemChars}; guardrail=${statusBudget.canonGuardrailChars}; total=${statusBudget.totalPromptChars}; components={characterBlock:${statusBudget.componentChars.characterBlock},statusBody:${statusBudget.componentChars.statusBody}}${statusBudget.totalPromptChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
+                        addLog(`STATUS SYNC BUDGET: hall=${requestHall.name}; roomCats=${catsToUpdate.length}; requested=${requestedIds.length}; user=${statusBudget.userPromptChars} chars; callerSystem=${statusBudget.callerSystemChars}; guardrail=${statusBudget.canonGuardrailChars}; total=${statusBudget.totalPromptChars}; components={globalContract:${statusBudget.componentChars.globalContract || 0},hallShared:${statusBudget.componentChars.hallShared || 0},residentRows:${statusBudget.componentChars.residentRows || 0},residentAddenda:${statusBudget.componentChars.residentAddenda || 0},awayContract:${statusBudget.componentChars.awayContract || 0},awayAddenda:${statusBudget.componentChars.awayAddenda || 0},fridgeContext:${statusBudget.componentChars.fridgeContext || 0},sceneContext:${statusBudget.componentChars.sceneContext || 0},lifeThreadContext:${statusBudget.componentChars.lifeThreadContext || 0},outputContract:${statusBudget.componentChars.outputContract || 0}}${statusBudget.totalPromptChars > 15000 ? ' (WARNING: above 15000)' : ''}.`, budgetLevel);
 
                         let updates;
                         let optionalScene;
@@ -22836,7 +23005,7 @@ ${enrichedStatusOutputContract}`;
                             const updateValidation = validateStatusSyncUpdates(requestOptions.prevalidatedStatusUpdates, requestedIds);
                             const validation = updateValidation === true
                                 ? (() => {
-                                    const presenceValidation = validateLocalPresenceDirectives(requestOptions.prevalidatedStatusUpdates, presenceDirectives);
+                                    const presenceValidation = validateLocalPresenceDirectives(requestOptions.prevalidatedStatusUpdates, presenceDirectives, curatorAnchorsById);
                                     return presenceValidation;
                                 })()
                                 : updateValidation;
@@ -22862,7 +23031,7 @@ ${enrichedStatusOutputContract}`;
                                     sceneContext,
                                     requestHallId,
                                     sceneRequired: Boolean(requestOptions.sceneRequired)
-                                } : null)
+                                } : null, curatorAnchorsById)
                             });
                             const parsedResponse = parseAIJSON(res);
                             updates = parsedResponse?.updates;
@@ -23000,7 +23169,10 @@ ${enrichedStatusOutputContract}`;
                                         if (localDirective === 'CURATOR_ROOM') {
                                             const existingPresence = getCuratorRoomPresence(cat);
                                             cat.curatorRoomPresence = {
-                                                anchor: String(update.curatorRoomAnchor || existingPresence?.anchor || 'floor'),
+                                                // Curator placement belongs to the existing physical
+                                                // presence record. The AI only echoed it for contract
+                                                // compatibility and cannot move a resident in-room.
+                                                anchor: String(existingPresence?.anchor || curatorAnchorsById[updateId] || 'floor'),
                                                 enteredAt: existingPresence?.enteredAt || new Date(now).toISOString(),
                                                 lastStatusSyncAt: new Date(now).toISOString()
                                             };
