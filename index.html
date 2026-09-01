@@ -9619,6 +9619,11 @@
                     return migrated;
                 };
 
+                const normalizeHallStatusSyncTimestamp = (value) => {
+                    if (typeof value !== 'string') return '';
+                    const time = new Date(value).getTime();
+                    return Number.isFinite(time) ? new Date(time).toISOString() : '';
+                };
                 const mergeBuiltInCats = () => {
                     if (migrateObsoleteIthacaCats()) rosterMigrationPendingSave = true;
                     cats.value.forEach(cat => {
@@ -9650,7 +9655,18 @@
                     DEFAULT_HALLS.forEach(hall => {
                         const savedHall = halls.value.find(item => item.id === hall.id);
                         if (!existingHallIds.has(hall.id)) halls.value.push({ ...hall });
-                        else if (savedHall) Object.assign(savedHall, { ...hall, destinations: savedHall.destinations || [] });
+                        else if (savedHall) Object.assign(savedHall, {
+                            ...hall,
+                            destinations: savedHall.destinations || [],
+                            lastSuccessfulStatusSyncAt: normalizeHallStatusSyncTimestamp(savedHall.lastSuccessfulStatusSyncAt)
+                        });
+                    });
+                    halls.value.forEach(hall => {
+                        const normalizedStatusSyncAt = normalizeHallStatusSyncTimestamp(hall?.lastSuccessfulStatusSyncAt);
+                        if (hall.lastSuccessfulStatusSyncAt !== normalizedStatusSyncAt) {
+                            hall.lastSuccessfulStatusSyncAt = normalizedStatusSyncAt;
+                            rosterMigrationPendingSave = true;
+                        }
                     });
                 };
                 const normalizeResidentRelationshipRoster = () => {
@@ -10460,6 +10476,9 @@
                 const hasFrozenOrdinaryAwayDepartureClaim = residentId =>
                     (frozenOrdinaryAwayDepartureClaims.get(String(residentId || '')) || 0) > 0;
                 const hallStatusRefreshPending = new Map();
+                // This is deliberately an in-memory scheduling opportunity, not world
+                // state. Hall-owned successful-sync timestamps provide durable freshness.
+                const homepageHallAmbientRefreshPending = new Map();
                 const CURATOR_ROOM_STATUS_STALE_MS = 30 * 60 * 1000;
                 const curatorRoomStatusInFlight = new Map();
                 const curatorRoomStatusAttempts = new Set();
@@ -16886,6 +16905,7 @@ ${pendingText}
                 const buildCatMemoryContext = window.Meeow.memory.buildCatMemoryContext;
                 const buildAmbientResidentContext = window.Meeow.memory.buildAmbientResidentContext;
                 const buildForegroundLeanResidentContext = window.Meeow.memory.buildForegroundLeanResidentContext;
+                const buildForegroundLeanResidentContextParts = window.Meeow.memory.buildForegroundLeanResidentContextParts;
                 const normalizeEpisodicMemories = window.Meeow.memory.normalizeEpisodicMemories;
                 const appendEpisodicMemory = window.Meeow.memory.appendEpisodicMemory;
                 const hasMeaningfulMemoryOverlap = window.Meeow.memory.hasMeaningfulMemoryOverlap;
@@ -17041,29 +17061,6 @@ ${pendingText}
                     logEpisodicMemoryResult(String(cat.id), 'first-human-reveal', result);
                     return result.memory;
                 };
-                const buildOwnerScopedEpisodicMemoryContext = (cat, context = {}) => {
-                    const query = cleanText(context.userInput || context.userAction || context.query || '');
-                    if (!cat || !query) return '';
-                    const relatedResidentIds = context.relatedResidentIds || getHomepageGroundedResidentIds(cat, query);
-                    const built = buildEpisodicMemoryContext(cat, { ...context, userInput: query, relatedResidentIds });
-                    // A factual event may intentionally have both a same-day timeline
-                    // projection and a durable episodic projection. When their source
-                    // identity is the same (for example fanfic-reading:<shareId>),
-                    // ordinary prompt context must present it once, never as two events.
-                    const interactionSourceKeys = new Set((cat.todayInteractions || []).map(entry => String(entry?.sourceKey || '')).filter(Boolean));
-                    const selectedEntries = built.result.selected.filter(entry => !interactionSourceKeys.has(String(entry.memory?.sourceKey || '')));
-                    const lines = ['[OWNER EPISODIC MEMORIES · PRIVATE]']; let length = lines[0].length;
-                    const included = [];
-                    selectedEntries.forEach(entry => {
-                        const memory = entry.memory; const tags = memory.tags?.length ? ` · tags: ${memory.tags.join(', ')}` : '';
-                        const line = `- [${memory.eventAt.slice(0, 10)}] ${memory.summary}${tags}`;
-                        if (length + line.length + 1 > 2400) return;
-                        lines.push(line); length += line.length + 1; included.push(entry);
-                    });
-                    const selected = included.map(entry => `${entry.memory.id}:${entry.score}`).join(', ');
-                    addLog(`MEMORY RETRIEVAL: owner=${String(cat.id)}; stored=${built.result.stored}; eligible=${built.result.eligible}; selected=[${selected}]`, 'info');
-                    return included.length ? lines.join('\n') : '';
-                };
                 const buildUserSharedEpisodicMemoryContext = (cat, context = {}) => {
                     if (!cat) return { text: '', snapshots: [], result: { stored: 0, eligible: 0, selected: [] } };
                     const maxEntries = Math.max(0, Number(context.maxEntries) || 0);
@@ -17107,7 +17104,7 @@ ${pendingText}
                     status: options.status === undefined ? getResidentLiveStatus(cat, '') : options.status,
                     publicRelationshipLines: options.publicRelationshipLines || []
                 });
-                const buildLeanForegroundContext = (cat, options = {}) => buildForegroundLeanResidentContext(cat, {
+                const buildLeanForegroundContextParts = (cat, options = {}) => buildForegroundLeanResidentContextParts(cat, {
                     hallName: options.hallName || currentHall.value?.name || 'Meeow House',
                     presence: options.presence || getLeanResidentPresence(cat),
                     form: options.form || getResidentForm(cat),
@@ -17115,6 +17112,7 @@ ${pendingText}
                     innerVoice: options.innerVoice === undefined ? getResidentLiveInnerVoice(cat, '') : options.innerVoice,
                     userRelationship: options.userRelationship || buildForegroundUserRelationshipBaseline(cat)
                 });
+                const buildLeanForegroundContext = (cat, options = {}) => buildLeanForegroundContextParts(cat, options).text;
                 const buildSharedFocusSessionEvidence = (entries, maxEntries, maxChars) => {
                     const lines = [];
                     let length = 0;
@@ -21629,6 +21627,94 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     return true;
                 };
 
+                const HOMEPAGE_DIRECT_RECENT_MESSAGE_LIMIT = 6;
+                const HOMEPAGE_DIRECT_RECENT_MESSAGE_MAX_CHARS = 2200;
+                const HOMEPAGE_DIRECT_EPISODIC_MAX_MEMORIES = 3;
+                const HOMEPAGE_DIRECT_EPISODIC_MAX_CHARS = 1200;
+                const HOMEPAGE_DIRECT_PRESENCE_MAX_CHARS = 1000;
+                const HOMEPAGE_DIRECT_FRESHNESS_MS = 20 * 60 * 1000;
+                const buildHomepageDirectRecentConversation = (cat, sourceChatAt = '', nowMs = Date.now()) => {
+                    const lastInteraction = Number(cat?.lastInteractionTimestamp) || 0;
+                    if (!lastInteraction || nowMs - lastInteraction >= HOMEPAGE_DIRECT_FRESHNESS_MS) {
+                        return { text: '', userAuthoredText: '', entries: [] };
+                    }
+                    const sourceAt = String(sourceChatAt || '');
+                    const candidates = (Array.isArray(cat?.chatHistory) ? cat.chatHistory : [])
+                        .filter(entry => !(String(entry?.at || '') === sourceAt && entry?.role === 'user'))
+                        .slice(-HOMEPAGE_DIRECT_RECENT_MESSAGE_LIMIT)
+                        .reverse();
+                    const included = [];
+                    let length = '[RECENT DIRECT CONVERSATION]'.length;
+                    candidates.forEach(entry => {
+                        const role = entry?.role === 'assistant' ? 'RESIDENT' : 'USER';
+                        const content = cleanText(entry?.content || '');
+                        const line = `${role}: ${content}`;
+                        if (!content || length + line.length + 1 > HOMEPAGE_DIRECT_RECENT_MESSAGE_MAX_CHARS) return;
+                        included.push({ role: entry?.role, content, line });
+                        length += line.length + 1;
+                    });
+                    included.reverse();
+                    return {
+                        text: included.length ? `[RECENT DIRECT CONVERSATION]\n${included.map(entry => entry.line).join('\n')}` : '',
+                        userAuthoredText: included.filter(entry => entry.role === 'user').map(entry => entry.content).join('\n'),
+                        entries: included
+                    };
+                };
+                const getHomepageDirectUserLedResidentIds = (owner, userText = '') => {
+                    if (!owner?.id || isResidentInCuratorRoom(owner)) return [];
+                    const hallId = owner.hallId || (owner.isMarvel ? 'marvel' : 'gotham');
+                    const query = cleanText(userText || '').toLocaleLowerCase();
+                    if (!query) return [];
+                    return cats.value.filter(cat => {
+                        const name = getResidentPublicName(cat).toLocaleLowerCase();
+                        return String(cat.id) !== String(owner.id) &&
+                            (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === hallId &&
+                            name.length > 1 && query.includes(name);
+                    }).map(cat => String(cat.id));
+                };
+                const buildHomepageDirectPresenceContext = (cat) => {
+                    const curatorPresence = getCuratorRoomPresence(cat);
+                    const form = getResidentForm(cat);
+                    if (curatorPresence) {
+                        return `[CURRENT PHYSICAL ENVIRONMENT]\n- ${getResidentPublicName(cat)} is in the USER's private Curator Room at ${CURATOR_ROOM_ANCHORS[curatorPresence.anchor].label}. Presence=CURATOR_ROOM; form=${form}. No Hall roster, Hall social scene, or Hall topology applies.`;
+                    }
+                    if (isResidentAway(cat)) {
+                        return `[CURRENT PHYSICAL ENVIRONMENT]\n- ${getResidentPublicName(cat)} is AUTHORITATIVELY AWAY; form=${form}. Do not place them in a Hall, invent a destination, or infer hidden Away activity.`;
+                    }
+                    const hallId = getResidentPhysicalHallId(cat) || cat?.hallId || (cat?.isMarvel ? 'marvel' : 'gotham');
+                    const hall = halls.value.find(item => String(item?.id) === String(hallId)) || currentHall.value;
+                    const presence = cat?.isVisiting ? 'VISITING_HALL' : 'HALL';
+                    const header = '[CURRENT PHYSICAL ENVIRONMENT]';
+                    const lines = [
+                        header,
+                        `- Active resident presence=${presence}; Hall=${hall?.name || 'Meeow House'}; form=${form}.`,
+                        `- Hall guardian: ${cleanText(hall?.guardian || '未指定') || '未指定'}.`
+                    ];
+                    let length = lines.join('\n').length;
+                    const coPresent = cats.value.filter(other => String(other?.id) !== String(cat?.id) &&
+                        isResidentInHall(other) && !isResidentInCuratorRoom(other) &&
+                        String(getResidentPhysicalHallId(other) || '') === String(hallId));
+                    const admitted = [];
+                    let omitted = 0;
+                    coPresent.forEach(other => {
+                        const entry = `${getResidentPublicName(other)} (${getResidentForm(other)})`;
+                        const next = admitted.length ? `, ${entry}` : entry;
+                        if (length + '- Co-present residents: '.length + next.length + 1 > HOMEPAGE_DIRECT_PRESENCE_MAX_CHARS) {
+                            omitted += 1;
+                            return;
+                        }
+                        admitted.push(entry);
+                        length += admitted.length === 1 ? '- Co-present residents: '.length + entry.length + 1 : entry.length + 2;
+                    });
+                    const rosterLine = () => `- Co-present residents: ${admitted.join(', ') || 'None'}.${omitted ? ` ${omitted} additional physically present resident(s) omitted from this compact roster.` : ''}`;
+                    while (admitted.length && lines.concat(rosterLine()).join('\n').length > HOMEPAGE_DIRECT_PRESENCE_MAX_CHARS) {
+                        admitted.pop();
+                        omitted += 1;
+                    }
+                    lines.push(rosterLine());
+                    return lines.join('\n');
+                };
+
                 const sendMessageInternal = async (arg1 = null, arg2 = false, isReRoll = false, rerollSource = null) => {
                     let overrideContent = null;
                     let isItemUse = false;
@@ -21680,18 +21766,18 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
 
                     try {
                         const now = Date.now();
-                        let recentHistory = "";
-                        if (sendingCat.lastInteractionTimestamp && (now - sendingCat.lastInteractionTimestamp < 20 * 60 * 1000)) {
-                            recentHistory = sendingCat.chatHistory.slice(-10).map(m => `${m.role}: ${m.content}`).join('\n');
-                        } else { recentHistory = "(Previous conversation expired/too old)"; }
-
-                        const catMemory = buildCatMemoryContext(sendingCat, { profile: 'homepage' });
-                        const episodicMemory = buildOwnerScopedEpisodicMemoryContext(sendingCat, {
-                            userInput: msg,
-                            contextText: recentHistory
-                        });
-
-                        const gnnTrends = user.phoneData.gnn?.trending?.map(t => `#${t.topic}`).join(', ') || 'None';
+                        const recentConversation = buildHomepageDirectRecentConversation(sendingCat, userChatAt, now);
+                        const retrievalQuery = [msg, recentConversation.userAuthoredText].filter(Boolean).join('\n');
+                        const requestHallId = sendingCat.hallId || (sendingCat.isMarvel ? 'marvel' : 'gotham');
+                        const episodicMemory = buildUserSharedEpisodicMemoryContext(sendingCat, {
+                            userInput: retrievalQuery,
+                            relatedResidentIds: getHomepageDirectUserLedResidentIds(sendingCat, retrievalQuery),
+                            hallId: requestHallId,
+                            locationKey: requestHallId,
+                            feature: 'homepage-direct',
+                            maxEntries: HOMEPAGE_DIRECT_EPISODIC_MAX_MEMORIES,
+                            maxChars: HOMEPAGE_DIRECT_EPISODIC_MAX_CHARS
+                        }).text;
                         const lastChatMs = sendingCat.lastInteractionTimestamp ? (now - sendingCat.lastInteractionTimestamp) : null;
                         let timePerceptionStr = "";
                         if (lastChatMs) {
@@ -21699,172 +21785,69 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             if (hours >= 24) timePerceptionStr = `[TIME PERCEPTION]: You haven't talked to the user for ${Math.floor(hours / 24)} days. Mention this if appropriate.`;
                             else if (hours >= 1) timePerceptionStr = `[TIME PERCEPTION]: You haven't talked to the user for ${hours} hours.`;
                         }
-                        const context = getUserRealLifeContext({ profile: 'homepage' });
-                        const requestHallId = sendingCat.hallId || (sendingCat.isMarvel ? 'marvel' : 'gotham');
-                        const requestHall = {
-                            ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
-                        };
                         const frozenNow = new Date();
-                        const activeCuratorPresence = getCuratorRoomPresence(sendingCat);
-                        const reconciliation = reconcileAwayEpisodes(frozenNow);
-                        const justSettledReturnIds = new Set(reconciliation.returnedResidentIds || []);
-                        const frozenOperationalDayKey = getOperationalDayKey(frozenNow);
-                        // The active resident may still be refreshed on their home-Hall
-                        // schedule while physically in Curator Room, but they and any other
-                        // Curator occupant are never Hall-local bystanders or social context.
-                        const frozenHallResidents = cats.value.filter(cat =>
-                            (cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham')) === requestHallId &&
-                            !isResidentInCuratorRoom(cat)
-                        );
-                        const frozenBystanders = activeCuratorPresence ? [] : frozenHallResidents.filter(cat =>
-                            String(cat.id) !== String(sendingCat.id) &&
-                            !getActiveAwayEpisode(cat, frozenNow) &&
-                            !justSettledReturnIds.has(String(cat.id))
-                        );
-                        const frozenBystanderIds = frozenBystanders.map(cat => String(cat.id));
-                        const frozenDepartureSchedule = buildLocalAwayDepartureSchedule({
-                            hallId: requestHallId,
-                            hallCats: frozenHallResidents,
-                            requestedCats: frozenBystanders,
-                            departureCandidateIds: frozenBystanderIds,
-                            now: frozenNow,
-                            excluded: [
-                                ...frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => `${String(cat.id)}:active-episode`),
-                                ...frozenHallResidents.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`)
-                            ]
+                        // Away/mail and return reconciliation are program-owned lifecycle
+                        // work. Keep it here, but never turn this direct conversation into
+                        // a background Hall generation request.
+                        reconcileAwayEpisodes(frozenNow);
+                        const foreground = buildLeanForegroundContextParts(sendingCat, {
+                            form: frozenActiveForm,
+                            presence: getLeanResidentPresence(sendingCat),
+                            hallName: (halls.value.find(hall => String(hall?.id) === String(requestHallId)) || currentHall.value)?.name || 'Meeow House'
                         });
-                        const frozenPresenceDirectives = Object.freeze({ ...frozenDepartureSchedule.directives });
-                        const frozenAwayMailDecisions = Object.freeze(buildAwayMailDecisions(frozenPresenceDirectives));
-                        const frozenFormDirectives = Object.freeze(buildFormDirectives(frozenBystanders, frozenNow));
-                        const frozenAwayPromptContract = buildAwayPromptContract({
-                            residents: frozenBystanders,
-                            presenceDirectives: frozenPresenceDirectives,
-                            now: frozenNow,
-                            mailDecisions: frozenAwayMailDecisions
-                        });
-                        // Homepage chat itself never depends on a top-level Away array.
-                        // When local code has no frozen semantic plan work, omit the field
-                        // entirely so an otherwise valid active reply cannot be retried for it.
-                        const homepageHasAwayPlanWork = frozenAwayPromptContract.mode !== AWAY_PROMPT_MODES.NO_AWAY_WORK;
-                        const homepageAwayOutputSchema = homepageHasAwayPlanWork
-                            ? `,"awayPlans":${frozenAwayPromptContract.awayPlansExample}`
-                            : '';
-                        const homepageAwayOutputRules = homepageHasAwayPlanWork
-                            ? frozenAwayPromptContract.instructions
-                            : '[AWAY AUTHORITY] There is no frozen Away semantic work in this Homepage response. Do not include awayPlans or invent a departure; local lifecycle and presence state remain authoritative.';
-                        const frozenFridgeNoteCandidates = buildFridgeNoteReactionCandidates({
-                            hallId: requestHallId,
-                            residents: frozenBystanders
-                        });
-                        const frozenFridgeNotePromptContract = buildFridgeNoteReactionPromptContract(frozenFridgeNoteCandidates);
-                        const frozenFridgeNoteOutputSchema = frozenFridgeNoteCandidates.length
-                            ? ',"fridgeNoteReactions":[{"noteId":"exact selected note id","residentId":"exact selected resident id","kind":"annotation|feline-trace","content":"short trace"}]'
-                            : '';
-                        addLog(formatAwayLocalScheduleLog(requestHall.name, frozenDepartureSchedule), 'info');
-                        const frozenPublicNameContract = buildResidentPublicNameContract(frozenHallResidents);
-                        const scheduledAwayNames = frozenHallResidents.filter(cat => getActiveAwayEpisode(cat, frozenNow)).map(cat => getResidentPublicName(cat));
-                        const hallContext = `[CURRENT HALL] ${requestHall.name} · 管家：${requestHall.guardian}。只能感知同馆成员：${frozenHallResidents.map(cat => getResidentPublicName(cat)).join(', ') || '暂无其他成员'}。${scheduledAwayNames.length ? ` 当前在馆外：${scheduledAwayNames.join(', ')}。` : ''}\n${frozenPublicNameContract}`;
-                        const activeLocationContext = activeCuratorPresence
-                            ? `[CURRENT PHYSICAL LOCATION — AUTHORITATIVE] ${getResidentPublicName(sendingCat)} is in the USER's private Curator Room at ${CURATOR_ROOM_ANCHORS[activeCuratorPresence.anchor].label}. They are not physically in ${requestHall.name}; do not use Hall residents, Hall scenes, Hall social context, Hall map topology, or local co-presence as their current-life context. Their form, status, and ordinary interaction remain valid here.`
-                            : hallContext;
-                        const hasFrozenBystanderCrossedOperationalDay = (cat) => {
-                            const lastStatusDate = cat?.lastStatusUpdateTime ? new Date(cat.lastStatusUpdateTime) : null;
-                            return Boolean(lastStatusDate && !Number.isNaN(lastStatusDate.getTime()) &&
-                                getOperationalDayKey(lastStatusDate) !== frozenOperationalDayKey);
-                        };
-                        const hallUpdateContext = frozenBystanders.length
-                            ? `[BYSTANDER HALL UPDATE]
-Time: ${frozenNow.toLocaleString()}; Operational day: ${frozenOperationalDayKey}; Hall: ${requestHall.name}; Guardian: ${requestHall.guardian}.
-The USER is interacting directly only with ${getResidentPublicName(sendingCat)}. Do not include ${getResidentPublicName(sendingCat)} in hallUpdates and do not write a second status, inner voice, form, map, or presence decision for that resident.
-Update exactly these frozen bystanders with current state consistent with local presence authority. They may observe, react, or ignore the interaction, but must not become the USER's direct target.
+                        const activeLocationContext = buildHomepageDirectPresenceContext(sendingCat);
+                        const directUserContext = `[USER CURRENT CONTEXT]\n${buildAuthoritativeUserIdentityContext()}\n- Job/role: ${cleanText(user.job || 'Unknown') || 'Unknown'}.\n- Current status: ${cleanText(user.currentStatus || 'Unknown') || 'Unknown'}.\n- Current time: ${frozenNow.toLocaleString()}.`;
 
-${formatLocalPresenceAuthority(frozenPresenceDirectives)}
-${formatFormLifecycleAuthority(frozenFormDirectives)}
-${formatResidentFormExpressionContract()}
-${frozenFridgeNotePromptContract}
+                        const interactionContract = `[DIRECT INTERACTION CONTRACT]
+- This request generates only ${getResidentPublicName(sendingCat)}'s direct reply and own presentation. Do not generate, infer, or mutate another resident's state, thoughts, relationship, form, Away life, memory, or Knowledge.
+- The active resident's form is read-only for this response. Preserve ${frozenActiveForm}; USER dialogue cannot authorize a form transition.
+- Preserve original-work personality and voice. Do not act like another character, a generic tsundere cat, or default to Gotham/DC/superhero premises.
+- CAT form has only feline vocalization/body language; no human-language speech. HUMAN form may speak naturally with ordinary feline ears and tail.
+- Fixed appearance is reference-only: mention it only when the USER explicitly asks, directly interacts with it, or it is causally necessary.`;
+                        const outputContract = `[OUTPUT CONTRACT]
+Return exactly one JSON object, no markdown, code fences, or commentary. All text values are Simplified Chinese.
+{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null}}
+- status: third-person current action, about 10 Chinese characters. innerVoice: first-person using 我, wrapped in 【】, never a feline vocalization. userStatus: a short USER activity summary within 15 Chinese characters.
+- reply: normally 80–140 Chinese characters; continue this exact turn through concrete, in-character action and nearby space.
+- memoryCandidate is optional and normally null. It may describe only a durable fact from this USER/${getResidentPublicName(sendingCat)} exchange or supplied direct USER-shared context; never infer bystander experience or Knowledge. Use {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.`;
+                        const prompt = `${interactionContract}
 
-[BYSTANDER CONTEXT]
-${frozenBystanders.map(cat => `--- CHARACTER ---\n${buildPresenceInferenceContext(cat, { now: frozenNow, crossedOperationalDay: hasFrozenBystanderCrossedOperationalDay(cat) })}${getRecentAwayReturn(cat, frozenNow) ? '\n[RECENT RETURN CONTINUITY]: This resident returned home recently from a scheduled absence. Continue naturally from their settling-in state rather than resetting to an unrelated activity. Do not infer or reveal hidden Away details.' : ''}`).join('\n')}
+[SELECTED RESIDENT CANON]
+${foreground.canon}
 
-[BYSTANDER RULES]
-- Return exactly one update for every supplied bystander ID.
-- Stored canon and status-sync context are binding. Low affinity means boundaries and independent rhythm, never default fear, hostility, or contempt toward the safe owner.
-- Form: [FORM LIFECYCLE AUTHORITY] is final. Echo each supplied target form exactly; never choose a form. Narrate a CAT↔HUMAN transition only when its directive says transition=AUTHORIZED, and never invent one otherwise.
-- [CONTEXT ORDER] Read each [CURRENT-LIFE CONTEXT] first, then use its [LAST-KNOWN CONTINUITY EVIDENCE] as historical evidence. Last known presence, observed status, inner voice, monitoring, and continuity never prove the resident is still in that exact place or activity at this Status Sync time.
-- [CONTENT CONTINUITY] Use Δt, canon, recent meaningful events, duties, habits, relationships, and ordinary life only to generate a plausible current action, inner voice, and—when directed—departure-plan content. Do not independently decide, infer, or change HOME/AWAY. A crossed operational day requires a fresh current activity consistent with the local directive, not a new presence decision.
-- Residents listed as currently away in the hall context are context only. Do not return updates or Away plans for them; never invent their location, destination, activity, return time, or mail.
-- Every at-home resident needs one listed mapPoint matching the status. Never use stove/hearth/hot surfaces; sink-basin is safe-water scenes only.
-${getCompactMapPointPromptGuide()}`
-                            : `[BYSTANDER HALL UPDATE]\nThere are no frozen bystanders. Return hallUpdates as an empty array.`;
+[CURRENT AUTHORITATIVE STATE]
+${foreground.currentState}
+${foreground.relationship ? `\n[USER ↔ RESIDENT RELATIONSHIP BASELINE]\n${foreground.relationship}` : ''}
 
-                        const prompt = `
-                        [TIME & TRENDS]:
-                        - Current Time: ${new Date().toLocaleString()}
-                        - GNN Trending Topics: ${gnnTrends}
-                        ${timePerceptionStr}
+${directUserContext}
+${timePerceptionStr}
 
-                        ${buildAuthoritativeUserIdentityContext()}
-                        Job: ${user.job || 'Unknown'}
+${recentConversation.text}
+${episodicMemory}
 
-                        [ACTIVE RESIDENT — AUTHORITATIVE]
-                        ID: ${String(sendingCat.id)}; Name: ${getResidentPublicName(sendingCat)}.
-                        Traits: ${sendingCat.personality || '以原作设定为准'}.
-                        Canon / stored prompt: ${sendingCat.prompt || sendingCat.personality || '以原作设定为准'}
-                        Fixed appearance reference: breed ${sendingCat.breed || '未设定'}; eye color ${sendingCat.eyeColor || '未设定'}.
-                        Closeness: ${sendingCat.affinity}/100.
-                        [CLOSENESS INFLUENCE]: The user is already known to be safe and kind. High closeness means more ease and initiative; low closeness means independence, tentative curiosity, or ordinary boundaries — NEVER fear, suspicion, contempt, or treating the user as dangerous by default.
-                        [NO AI FLAVOR]: Avoid generic AI greetings or "As an AI..." phrases. Speak naturally as the character would.
-                        
-                        Current physical form: ${describeResidentForm(frozenActiveForm)}
-                        [ACTIVE RESIDENT FORM LOCK] This active resident begins and ends this Homepage Chat interaction in ${frozenActiveForm} form. This request cannot transform the active resident. USER dialogue mentioning, suggesting, requesting, joking about, or imagining another form does not authorize a transformation. Respond naturally from the current locked form; a future independent form reconsideration may change it through the existing resident-form lifecycle.
-                        
-                        NEGATIVE PROMPT: DO NOT ACT LIKE OTHER CHARACTERS. YOU ARE ${getResidentPublicName(sendingCat)}.
-                        DO NOT BE OOC (Out Of Character). Stay true to this exact character's original-work personality, values, relationships, and voice.
-                        DO NOT ACT LIKE A GENERIC TSUNDERE CAT. No stereotypical "傲娇小猫" responses. You are a mature, complex character with your own agenda; never assume they are a superhero or a DC/Marvel character.
+${activeLocationContext}
 
-                        [RECENT CHAT]: ${recentHistory}
-                        ${catMemory}
-                        ${episodicMemory}
-                        
-                        [CONTEXT]:
-                        - Current Status (MUST LINK TO THIS): ${sendingCat.status}
-                        - World Context: ${context}
-                        - ${activeLocationContext}
-                        - User Input: "${msg}" ${isItemUse ? '(User used an item on you)' : ''}
+[CURRENT USER ACTION]
+${msg}${isItemUse ? '\n(USER used an item on the selected resident.)' : ''}
 
-                        NOW RESPOND with one JSON object only. No markdown, tags, code fences, or commentary.
-                        [ACTIVE CAT RULES]
-                        - The active resident's form is read-only for this response. Do not emit or act on a form transition; preserve the [ACTIVE RESIDENT FORM LOCK].
-                        - status: third-person current action, about 10 Chinese characters. innerVoice: first-person inner monologue using 我, never meows, wrapped in 【】. userStatus: a short summary of what the USER is doing within 15 Chinese characters; ordinary chat may use "正在和${sendingCat.name}聊天".
-                        - reply: 80-140 Chinese characters when natural. It must directly continue the user's turn through specific, continuous, in-character action, current status, nearby objects/space, and recent interaction.
-                        - CAT form: any direct sound may only be feline sounds such as "喵。", "呜。", or "嘶。"; never human speech. Use ordinary double quotes for an optional feline sound, never 「」. HUMAN form may speak naturally; its real feline ears and tail remain part of ordinary physical body language when relevant.
-                        - Fixed appearance is reference information, not ordinary narration material. In ordinary interaction, do not introduce breed, coat colour, eye colour, heterochromia, hair colour, or other identity-card facts. Looking, blinking, eye contact, turning the head, narrowing the eyes, shifting the gaze, or light falling on the face do NOT make eye colour relevant. Mention appearance only when the USER explicitly asks, directly interacts with that feature, or it is causally necessary to understand the event. Never narrate both heterochromia colours in ordinary dialogue.
-                        - Never fall into a generic sequence such as "looked for a while → ears moved → tail moved → meowed → stepped closer". Show this character's own judgment, habits, distance, and action logic instead.
-                        - Rhythm example only; never copy its actions or wording as a template: 【从手边的东西上抬起眼睛，停了一瞬，又把它往怀里拢紧一点。尾尖轻轻碰了一下地面，像是在判断你这句话值不值得回应。】"喵。"【下巴重新落回前爪，视线却没有移开。】
-
-                        [OPTIONAL EPISODIC MEMORY SIDECAR]
-                        - activeCat.memoryCandidate is optional. Return null for ordinary conversation. Use it only for a durable fact established in this successful USER/${getResidentPublicName(sendingCat)} exchange, or a fact already valid from ${getResidentPublicName(sendingCat)}'s own supplied recent interaction context.
-                        - Never turn hidden prompt material, bystander context, another resident's private chat/inner voice, or a mere same-hall relationship into memory. relatedResidentIds may contain only exact machine IDs for residents explicitly named in this USER message or this active resident's supplied own recent conversation; otherwise use [].
-                        - Keep it compact and owner-perspective grounded: {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}. This sidecar never replaces the reply.
-
-                        ${hallUpdateContext}
-
-                        [OUTPUT]
-                        Return exactly this JSON shape. All text values must be Simplified Chinese:
-                        [ALLOWED BYSTANDER MACHINE IDS FOR THIS RESPONSE]
-                        [${frozenBystanderIds.join(', ')}]
-                        Use these opaque machine keys exactly as shown. Every hallUpdates[].id MUST exactly equal one allowed key above; return each frozen key exactly once. Never substitute a character name, human identity, display name, codename, or canon name.${homepageHasAwayPlanWork ? ' For every requested awayPlans[] entry, residentId MUST exactly equal its matching frozen bystander machine key.' : ''}
-                        {"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null},"hallUpdates":[{"id":"exact HOME bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false,"mapRoom":"dorm|living|dining","mapFurniture":"stable furniture id","mapPoint":"exact listed point id","mapPositionLabel":"short Chinese position matching status"},{"id":"exact DEPARTING_NOW bystander machine id","status":"current action","innerVoice":"first-person thought using 我","isOut":false,"isHuman":false}]${homepageAwayOutputSchema}${frozenFridgeNoteOutputSchema}}
-                        ${homepageAwayOutputRules}
-                        Do not include the active cat in hallUpdates${homepageHasAwayPlanWork ? ' or awayPlans' : ''}.
-                        `;
+${outputContract}`;
 
                         const recentUserAppearanceContext = (sendingCat.chatHistory || [])
                             .filter(entry => entry.role === 'user')
                             .slice(-2, -1)
                             .map(entry => entry.content);
+                        logPromptBudget(`HOMEPAGE DIRECT · ${sendingCat.name}`, prompt, CORE_ROLEPLAY_PROMPT, {
+                            canon: foreground.canon,
+                            currentState: foreground.currentState,
+                            relationship: foreground.relationship,
+                            recentConversation: recentConversation.text,
+                            episodicMemory,
+                            scenePresence: activeLocationContext,
+                            interactionContract,
+                            outputContract
+                        });
                         const responseRaw = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 4300, ThinkingLevel.LOW, {
-                            label: `HOMEPAGE CHAT + HALL UPDATE · ${sendingCat.name}`,
+                            label: `HOMEPAGE DIRECT · ${sendingCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
                             validateResponse: content => validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext)
@@ -21896,24 +21879,16 @@ ${getCompactMapPointPromptGuide()}`
                         }
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
-                        if (frozenBystanderIds.length) {
-                            void applyMergedHomepageHallUpdates({
-                                requestHallId,
-                                requestHall,
-                                frozenBystanders,
-                                frozenNow,
-                                operationalDayKey: frozenOperationalDayKey,
-                                updates: payload.hallUpdates,
-                                awayPlans: Array.isArray(payload.awayPlans) ? payload.awayPlans : [],
-                                fridgeNoteReactions: payload.fridgeNoteReactions,
-                                presenceDirectives: frozenPresenceDirectives,
-                                awayMailDecisions: frozenAwayMailDecisions,
-                                formDirectives: frozenFormDirectives
-                            });
-                        }
-
                         sendingCat.lastInteractionTimestamp = Date.now();
-                        if (!isReRoll && !isItemUse) void maybeRunPhonePresenceAfterHomepage();
+                        if (!isReRoll && !isItemUse) {
+                            // Queue only orchestration metadata. The later shared Status
+                            // packet receives neither this USER message nor any private
+                            // foreground context.
+                            if (queueHomepageHallAmbientRefresh(sendingCat, sendingCat.lastInteractionTimestamp)) {
+                                void reconcileHomepageHallAmbientRefreshes(new Date(sendingCat.lastInteractionTimestamp));
+                            }
+                            void maybeRunPhonePresenceAfterHomepage();
+                        }
                     } catch (e) {
                         const isIncompleteHomepageReply = String(e?.message || '').startsWith('Homepage Chat ')
                             || String(e?.message || '') === MECHANICAL_APPEARANCE_REPLY_ERROR;
@@ -22721,13 +22696,14 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         .join('; ');
 
                     try {
+                        const activeResidentIdSet = new Set((activeCatIds || []).map(id => String(id)));
                         let activeCatNames = [];
                         const requestedIds = [];
                         const requestedCats = [];
                         const crossedDayBoundary = [];
                         const crossedDayBoundaryById = new Map();
                         catsToUpdate.forEach(c => {
-                            const isActive = activeCatIds && activeCatIds.includes(c.id);
+                            const isActive = activeResidentIdSet.has(String(c.id));
                             if (isActive && !isFocusEnd && !isExploreEnd) {
                                 activeCatNames.push(getResidentPublicName(c));
                                 return;
@@ -22760,7 +22736,7 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                             .filter(cat => !curatorRoomResidentIds.has(String(cat.id)))
                             .map(cat => String(cat.id));
 
-                        const activeIdSet = new Set((activeCatIds || []).map(id => String(id)));
+                        const activeIdSet = activeResidentIdSet;
                         const localDepartureSchedule = requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
                             ? null
                             : buildLocalAwayDepartureSchedule({
@@ -22870,13 +22846,17 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         if (statusCompletion) statusCompletion.expected = requestedIds.length;
 
                         let activeCatContext = "";
-                        if (activeCatNames.length > 0) {
+                        // Homepage ambient reconciliation uses active IDs only to
+                        // protect recent foreground presentations. It must not turn a
+                        // private direct interaction into shared prompt context.
+                        const activeIdsAreExclusionsOnly = requestOptions.activeIdsAreExclusionsOnly === true;
+                        if (activeCatNames.length > 0 && !activeIdsAreExclusionsOnly) {
                             if (isFocusEnd) {
                                 activeCatContext = `\n[CRITICAL CONTEXT]: The user just finished a focus session with ${activeCatNames.join(', ')}. The other cats should act as bystanders/background.`;
                             } else if (isExploreEnd) {
                                 activeCatContext = `\n[CRITICAL CONTEXT]: ${activeCatNames.join(', ')} just returned from exploring. Other cats should react to their return.`;
                             } else {
-                                const bystanderNames = catsToUpdate.filter(c => !activeCatIds.includes(c.id) && !isResidentInCuratorRoom(c)).map(c => getResidentPublicName(c)).join(', ');
+                                const bystanderNames = catsToUpdate.filter(c => !activeResidentIdSet.has(String(c.id)) && !isResidentInCuratorRoom(c)).map(c => getResidentPublicName(c)).join(', ');
                                 activeCatContext = `\n[ACTIVE INTERACTION]: User is interacting ONLY with ${activeCatNames.join(', ')}. Active status: "${truncateMemoryText(focusCatLastAction || '近期互动', 140)}". Other cats (${bystanderNames}) may observe, react, or ignore it, but MUST NOT act as the user's target or directly interact with the user.\n[FOLLOW-UP PROGRESSION]: Ignoring this interaction never means freezing or copying a previous status. Every supplied bystander must return a freshly sampled current status and inner voice for this exact moment. Advance at least one plausible beat through posture, attention, location, an object, starting/finishing a small action, a subtle same-hall moment, or independent activity. Fresh means a natural next beat, not an unreasonable major jump; do not copy the previous status or inner voice verbatim.`;
                             }
                         }
@@ -23484,7 +23464,14 @@ ${statusOutputRules}`;
                                 }
                             }
 
-                            if (!curatorRoomStatusSync) localStorage.setItem('last_sync_time', Date.now().toString());
+                            if (!curatorRoomStatusSync) {
+                                const completedStatusSyncAt = new Date().toISOString();
+                                const persistedHall = halls.value.find(hall => String(hall?.id || '') === String(requestHallId));
+                                if (persistedHall) persistedHall.lastSuccessfulStatusSyncAt = completedStatusSyncAt;
+                                // Keep the legacy app-wide automatic-sync gate intact;
+                                // per-Hall ambient scheduling reads the Hall-owned field above.
+                                localStorage.setItem('last_sync_time', String(new Date(completedStatusSyncAt).getTime()));
+                            }
                             if (!curatorRoomStatusSync && (!requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)) && activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
@@ -23526,46 +23513,6 @@ ${statusOutputRules}`;
                     if (backgroundFailureToast && presentationAllowed && activeHallId.value === requestHallId) {
                         showToast(backgroundFailureToast, 'warning');
                     }
-                };
-
-                const applyMergedHomepageHallUpdates = async ({ requestHallId, requestHall, frozenBystanders, frozenNow, operationalDayKey, updates, awayPlans = [], fridgeNoteReactions = [], presenceDirectives = {}, awayMailDecisions = {}, formDirectives = {} }) => {
-                    if (!frozenBystanders.length) return true;
-                    const statusCompletion = {
-                        requestHallId,
-                        requestToken: `merged-homepage-status-${++statusRefreshTaskSequence}`,
-                        partial: false,
-                        expected: 0,
-                        matched: 0,
-                        unmatched: [],
-                        lastError: '',
-                        preempted: false,
-                        complete: false
-                    };
-                    const backgroundFailureToast = '这次互动已完成，但其他小猫的状态没有全部同步；下次刷新馆舍时会重试。';
-                    const didRefresh = await _refreshAllStatus(true, '', [], '', false, false, {
-                        requestHallId,
-                        requestHall,
-                        frozenCatsToUpdate: frozenBystanders,
-                        frozenNow,
-                        operationalDayKey,
-                        prevalidatedStatusUpdates: updates,
-                        prevalidatedAwayPlans: awayPlans,
-                        prevalidatedFridgeNoteReactions: fridgeNoteReactions,
-                        lifeThreadCaptureEnabled: false,
-                        presenceDirectives,
-                        awayMailDecisions,
-                        formDirectives,
-                        priority: 'background',
-                        statusCompletion
-                    });
-                    settleHallStatusRefresh({
-                        requestHallId,
-                        didRefresh,
-                        trackBackgroundPending: true,
-                        statusCompletion,
-                        backgroundFailureToast
-                    });
-                    return didRefresh;
                 };
 
                 const refreshAllStatus = (...args) => {
@@ -23630,6 +23577,116 @@ ${statusOutputRules}`;
                         () => settle(false)
                     );
                     return task;
+                };
+
+                // Homepage Direct is intentionally foreground-only. This small
+                // opportunity queue restores later Hall liveness through the existing
+                // Status Sync path without carrying any direct-conversation context.
+                const HALL_AMBIENT_REFRESH_STALE_MS = HOMEPAGE_DIRECT_FRESHNESS_MS;
+                const getHallLastSuccessfulStatusSyncMs = (hall) => {
+                    const value = new Date(hall?.lastSuccessfulStatusSyncAt || '').getTime();
+                    return Number.isFinite(value) ? value : 0;
+                };
+                const isHallAmbientRefreshFresh = (hall, nowMs = Date.now()) => {
+                    const lastSuccessful = getHallLastSuccessfulStatusSyncMs(hall);
+                    return lastSuccessful > 0 && nowMs - lastSuccessful < HALL_AMBIENT_REFRESH_STALE_MS;
+                };
+                const isEligibleHomepageAmbientHallResident = (cat, hallId) =>
+                    Boolean(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
+                    String(getResidentPhysicalHallId(cat) || '') === String(hallId || '');
+                const queueHomepageHallAmbientRefresh = (cat, completedAt = Date.now()) => {
+                    const hallId = String(getResidentPhysicalHallId(cat) || '');
+                    if (!hallId || hallId !== String(activeHallId.value || '') || !isEligibleHomepageAmbientHallResident(cat, hallId)) return false;
+                    const hall = halls.value.find(item => String(item?.id || '') === hallId);
+                    if (!hall) return false;
+                    const record = homepageHallAmbientRefreshPending.get(hallId) || {
+                        hallId,
+                        hallSnapshot: { ...hall },
+                        queuedAt: completedAt,
+                        lastQueuedAt: completedAt,
+                        latestDirectAtByResident: new Map(),
+                        dispatching: false,
+                        retryAt: 0
+                    };
+                    record.hallSnapshot = { ...hall };
+                    record.lastQueuedAt = completedAt;
+                    record.latestDirectAtByResident.set(String(cat.id), completedAt);
+                    homepageHallAmbientRefreshPending.set(hallId, record);
+                    addLog(`HOMEPAGE AMBIENT QUEUED: hall=${hallId}; resident=${String(cat.id)}; pendingResidents=[${[...record.latestDirectAtByResident.keys()].join(', ')}]`, 'info');
+                    return true;
+                };
+                const getHomepageAmbientProtectedResidentIds = (record, nowMs = Date.now()) => {
+                    if (!record?.latestDirectAtByResident) return [];
+                    return [...record.latestDirectAtByResident.entries()]
+                        .filter(([residentId, completedAt]) => {
+                            const cat = cats.value.find(item => String(item?.id || '') === String(residentId));
+                            return isEligibleHomepageAmbientHallResident(cat, record.hallId) &&
+                                nowMs - Number(completedAt || 0) < HOMEPAGE_DIRECT_FRESHNESS_MS;
+                        })
+                        .map(([residentId]) => String(residentId));
+                };
+                const reconcileHomepageHallAmbientRefreshes = (nowInput = new Date()) => {
+                    const now = nowInput instanceof Date ? nowInput : new Date(nowInput);
+                    const nowMs = now.getTime();
+                    if (!Number.isFinite(nowMs)) return;
+                    homepageHallAmbientRefreshPending.forEach((record, hallId) => {
+                        if (!record || record.dispatching) return;
+                        const hall = halls.value.find(item => String(item?.id || '') === String(hallId));
+                        if (!hall) {
+                            homepageHallAmbientRefreshPending.delete(hallId);
+                            return;
+                        }
+                        if (record.retryAt && nowMs < record.retryAt) return;
+                        if (isHallAmbientRefreshFresh(hall, nowMs)) return;
+                        // Do not join an already-dispatched request: its protected IDs
+                        // are frozen, so a later direct reply must wait for a safe pass.
+                        if (statusRefreshInFlight.has(hallId)) return;
+                        const physicalResidents = cats.value.filter(cat =>
+                            isEligibleHomepageAmbientHallResident(cat, hallId)
+                        );
+                        if (!physicalResidents.length) {
+                            homepageHallAmbientRefreshPending.delete(hallId);
+                            return;
+                        }
+                        const protectedIds = getHomepageAmbientProtectedResidentIds(record, nowMs);
+                        const protectedSet = new Set(protectedIds);
+                        if (!physicalResidents.some(cat => !protectedSet.has(String(cat.id)))) return;
+
+                        const dispatchStartedAt = nowMs;
+                        record.dispatching = true;
+                        record.retryAt = 0;
+                        addLog(`HOMEPAGE AMBIENT DISPATCH: hall=${hallId}; activeIds=[${protectedIds.join(', ')}]`, 'info');
+                        const task = refreshAllStatus(true, '', protectedIds, '', false, false, {
+                            requestHallId: hallId,
+                            requestHall: { ...record.hallSnapshot },
+                            priority: 'background',
+                            trackBackgroundPending: true,
+                            sceneMode: 'ambient',
+                            activeIdsAreExclusionsOnly: true,
+                            label: `HOMEPAGE AMBIENT STATUS · ${hall.name}`,
+                            dedupeKey: `homepage-ambient-status:${hallId}:${dispatchStartedAt}`
+                        });
+                        void task.then(
+                            didRefresh => {
+                                if (homepageHallAmbientRefreshPending.get(hallId) !== record) return;
+                                record.dispatching = false;
+                                if (didRefresh && record.lastQueuedAt <= dispatchStartedAt) {
+                                    homepageHallAmbientRefreshPending.delete(hallId);
+                                    return;
+                                }
+                                if (!didRefresh) {
+                                    record.retryAt = Date.now() + HALL_AMBIENT_REFRESH_STALE_MS;
+                                    addLog(`HOMEPAGE AMBIENT RETRY DEFERRED: hall=${hallId}; retryAt=${new Date(record.retryAt).toISOString()}`, 'warn');
+                                }
+                            },
+                            () => {
+                                if (homepageHallAmbientRefreshPending.get(hallId) !== record) return;
+                                record.dispatching = false;
+                                record.retryAt = Date.now() + HALL_AMBIENT_REFRESH_STALE_MS;
+                                addLog(`HOMEPAGE AMBIENT RETRY DEFERRED: hall=${hallId}; retryAt=${new Date(record.retryAt).toISOString()}`, 'warn');
+                            }
+                        );
+                    });
                 };
 
                 const handleIcsImport = (event) => {
@@ -24314,8 +24371,8 @@ ${episodicMemory}`;
                     applyUISettings();
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
-                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); currentTime.value = now; }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); checkDailyInitialization(); currentTime.value = now; } });
+                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileHomepageHallAmbientRefreshes(now); currentTime.value = now; }, 30000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });

@@ -510,18 +510,44 @@ ${options.extra || ''}
             ...publicRelationshipLines.map(value => ({ label: 'Public/shared peer baseline', value }))
         ], LEAN_RESIDENT_CONTEXT_LIMITS.ambient);
     };
-    const buildForegroundLeanResidentContext = (cat, options = {}) => {
+    const buildForegroundLeanResidentContextParts = (cat, options = {}) => {
         const hall = getLeanHall(cat);
-        const supplemental = buildWholeFieldContext('[CURRENT SINGLE-RESIDENT STATE]', [
+        const stateFields = [
             { label: 'Physical presence', value: options.presence || (cat?.isOut ? 'AWAY' : 'HALL') },
             { label: 'Hall', value: options.hallName || hall?.name || 'Meeow House' },
             { label: 'Authoritative form', value: getLeanForm(cat, options.form) },
             { label: 'Current status', value: options.status === undefined ? (cat?.status || '') : options.status },
-            { label: 'Current inner voice', value: options.innerVoice === undefined ? (cat?.innerVoice || '') : options.innerVoice },
-            { label: 'USER relationship baseline', value: options.userRelationship || '' }
-        ], LEAN_RESIDENT_CONTEXT_LIMITS.foregroundSupplemental);
-        return `${buildCatIdentityBlock(cat)}\n${supplemental}`;
+            { label: 'Current inner voice', value: options.innerVoice === undefined ? (cat?.innerVoice || '') : options.innerVoice }
+        ];
+        const relationshipField = { label: 'USER relationship baseline', value: options.userRelationship || '' };
+        const header = '[CURRENT SINGLE-RESIDENT STATE]';
+        const lines = [header];
+        const currentStateLines = [header];
+        let relationship = '';
+        let length = header.length;
+        [...stateFields, relationshipField].forEach(field => {
+            const label = cleanText(field?.label || '');
+            const value = cleanText(field?.value || '');
+            if (!label || !value) return;
+            const line = `- ${label}: ${value}`;
+            if (length + line.length + 1 > LEAN_RESIDENT_CONTEXT_LIMITS.foregroundSupplemental) return;
+            lines.push(line);
+            length += line.length + 1;
+            if (label === relationshipField.label) relationship = line;
+            else currentStateLines.push(line);
+        });
+        const canon = buildCatIdentityBlock(cat);
+        const currentState = currentStateLines.join('\n');
+        const supplemental = lines.join('\n');
+        return {
+            canon,
+            currentState,
+            relationship,
+            text: `${canon}\n${supplemental}`
+        };
     };
+    const buildForegroundLeanResidentContext = (cat, options = {}) =>
+        buildForegroundLeanResidentContextParts(cat, options).text;
     // Status Sync runs one request for every cat in a hall. It needs
     // stable identity and immediate continuity, not each feature's
     // full memory package repeated once per character.
@@ -571,6 +597,7 @@ Continuity: ${truncateMemoryText(continuity || 'None', 34)}`;
         LEAN_RESIDENT_CONTEXT_LIMITS,
         buildAmbientResidentContext,
         buildForegroundLeanResidentContext,
+        buildForegroundLeanResidentContextParts,
         buildStatusSyncCatContext,
         normalizeEpisodicMemories,
         getEpisodicMemories,
