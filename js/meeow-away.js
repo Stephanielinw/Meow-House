@@ -109,8 +109,12 @@
                 activityPlans,
                 mailPlan: (Array.isArray(episode.mailPlan) ? episode.mailPlan : [])
                     .filter(mail => mail && typeof mail === 'object')
+                    // One Away episode owns at most one planned letter. A legacy
+                    // missing ID therefore has one stable episode-owned slot; do
+                    // not use an array index or wall-clock/random fallback.
+                    .slice(0, 1)
                     .map(mail => ({
-                        id: String(mail.id || `away-mail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                        id: String(mail.id || `${String(episode.id || 'away-episode')}:mail:primary`),
                         sendAt: parseLogicalDate(mail.sendAt)?.toISOString() || '',
                         content: cleanText(mail.content || ''),
                         attachment: mail.attachment && typeof mail.attachment === 'object' ? { ...mail.attachment } : null,

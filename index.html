@@ -9105,6 +9105,11 @@
                     // retains the small amount of owner context needed after a
                     // still-active Away Episode crosses the 03:00 boundary.
                     pendingAwayDiaryDays: [],
+                    // Explore v2 is optional persisted Case state. Keep a
+                    // render-safe empty store for legacy saves before setup has
+                    // a chance to normalize any saved Case records.
+                    exploreCases: [],
+                    activeExploreCaseId: '',
                     phoneData: {
                         chats: [],
                         chatArchives: {},
@@ -9661,6 +9666,11 @@
                         if (migrateLegacyGothamResidentIds(parsed)) rosterMigrationPendingSave = true;
                         if (parsed.user) {
                             Object.assign(user, parsed.user);
+                            // This must happen during load, before Vue's first
+                            // render. A malformed legacy value must not reach the
+                            // Explore resume template as a truthy non-array.
+                            if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
+                            if (typeof user.activeExploreCaseId !== 'string') user.activeExploreCaseId = '';
                             if (!user.phoneData) user.phoneData = {};
                             if (!user.phoneData.friends) user.phoneData.friends = [];
                             if (!user.phoneData.friendRequests) user.phoneData.friendRequests = [];
@@ -12535,6 +12545,31 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         addLog(`AWAY PLANNED MAIL CANCELLED: episode=${episode.id}; mail=${mail.id}; resident unavailable.`, 'warn');
                         return false;
                     }
+                    // The mailbox row is the commit record for a planned letter.
+                    // If a crash occurred after that row was written but before the
+                    // normalized episode was persisted, recover only by this exact
+                    // episode-owned ID; never guess from sender or content.
+                    const plannedMailId = String(mail.id || '').trim();
+                    const existingDelivery = plannedMailId
+                        ? (user.mailbox || []).find(item => String(item?.plannedMailId || '') === plannedMailId)
+                        : null;
+                    if (existingDelivery) {
+                        const stableDeliveredAt = [
+                            existingDelivery.deliveredAt,
+                            mail.deliveredAt,
+                            existingDelivery.deliveryClaimedAt,
+                            mail.deliveryClaimedAt,
+                            existingDelivery.sentAt,
+                            mail.sendAt,
+                            sendAt
+                        ].map(parseLogicalDate).find(Boolean);
+                        mail.state = 'delivered';
+                        // Never replace historical delivery time with the current
+                        // reconciliation clock during crash/reload recovery.
+                        mail.deliveredAt = stableDeliveredAt?.toISOString() || null;
+                        addLog(`AWAY PLANNED MAIL RECOVERED: episode=${episode.id}; mail=${plannedMailId}; sentAt=${parseLogicalDate(sendAt)?.toISOString()}`, 'sent');
+                        return true;
+                    }
                     if (!hasMailCapacityForLogicalTime(sendAt, mail.id) || !hasMailSpacingAt(sendAt, mail.id)) {
                         const nextStart = new Date(Math.max(
                             (parseLogicalDate(sendAt) || new Date()).getTime() + 20 * 60 * 1000,
@@ -12547,7 +12582,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         hall,
                         content: mail.content,
                         attachment: mail.attachment,
-                        sentAt,
+                        sentAt: sendAt,
                         deliveredAt: reconciledAt,
                         plannedMailId: mail.id,
                         senderDisplayName: getResidentPublicName(cat)
@@ -13386,54 +13421,84 @@ JSON 格式：
                     const coreQuestion = compactExploreText(raw.coreQuestion, 180);
                     const hiddenTruth = compactExploreText(raw.hiddenTruth, 420);
                     const rawNodes = Array.isArray(raw.nodes) ? raw.nodes.slice(0, 4) : [];
-                    const nodes = rawNodes.map((node, index) => {
+                    const rawNodeIdToIndex = new Map(rawNodes.map((node, index) => [String(node?.id || ''), index]).filter(([id]) => id));
+                    const rawNodeIndexToId = new Map();
+                    const nodes = [];
+                    rawNodes.forEach((node, index) => {
                         const name = compactExploreText(node?.name, 80);
                         const visibleDescription = compactExploreText(node?.visibleDescription, 180);
-                        return name && visibleDescription ? { id: `${caseId}:node:${index + 1}`, name, visibleDescription, exits: [] } : null;
-                    }).filter(Boolean);
+                        if (!name || !visibleDescription) return;
+                        const id = `${caseId}:node:${nodes.length + 1}`;
+                        rawNodeIndexToId.set(index, id);
+                        nodes.push({ id, name, visibleDescription, exits: [] });
+                    });
                     if (!publicHook || !coreQuestion || !hiddenTruth || nodes.length < 2) return null;
-                    nodes.forEach((node, index) => {
-                        const exits = Array.isArray(rawNodes[index]?.exitIndexes) ? rawNodes[index].exitIndexes : [];
-                        node.exits = [...new Set(exits.map(Number).filter(value => Number.isInteger(value) && value >= 0 && value < nodes.length && value !== index).map(value => nodes[value].id))];
+                    const resolveNodeId = value => {
+                        const numeric = typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value.trim())) ? Number(value) : null;
+                        const rawIndex = Number.isInteger(numeric) ? numeric : rawNodeIdToIndex.get(String(value || ''));
+                        return rawNodeIndexToId.get(rawIndex) || null;
+                    };
+                    rawNodes.forEach((rawNode, index) => {
+                        const nodeId = rawNodeIndexToId.get(index);
+                        const node = nodes.find(item => item.id === nodeId);
+                        if (!node) return;
+                        const exits = Array.isArray(rawNode?.exitIndexes) ? rawNode.exitIndexes : (Array.isArray(rawNode?.exits) ? rawNode.exits : []);
+                        node.exits = [...new Set(exits.map(resolveNodeId).filter(exitId => exitId && exitId !== node.id))];
                     });
                     const rawClues = Array.isArray(raw.clues) ? raw.clues.slice(0, 9) : [];
-                    const clues = rawClues.map((clue, index) => {
+                    const rawClueIdToIndex = new Map(rawClues.map((clue, index) => [String(clue?.id || ''), index]).filter(([id]) => id));
+                    const rawClueIndexToId = new Map();
+                    const clues = [];
+                    rawClues.forEach((clue, index) => {
                         const revealText = compactExploreText(clue?.revealText, 160);
-                        const nodeIndexes = [...new Set((Array.isArray(clue?.nodeIndexes) ? clue.nodeIndexes : [clue?.nodeIndex])
-                            .map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 0 && value < nodes.length))];
+                        const nodeRefs = Array.isArray(clue?.nodeIndexes) ? clue.nodeIndexes :
+                            (Array.isArray(clue?.nodeIds) ? clue.nodeIds : [clue?.nodeIndex]);
+                        const nodeIds = [...new Set(nodeRefs.map(resolveNodeId).filter(Boolean))];
                         const discoveryModes = [...new Set((Array.isArray(clue?.discoveryModes) ? clue.discoveryModes : ['observe'])
                             .map(value => String(value || '').trim()).filter(value => ['observe', 'ask', 'search', 'follow', 'check'].includes(value)))];
-                        if (!revealText || !nodeIndexes.length) return null;
-                        return { id: `${caseId}:clue:${index + 1}`, nodeIds: nodeIndexes.map(value => nodes[value].id), revealText,
-                            discoveryModes: discoveryModes.length ? discoveryModes : ['observe'], check: compactExploreText(clue?.check, 16) || null };
-                    }).filter(Boolean);
+                        if (!revealText || !nodeIds.length) return;
+                        const id = `${caseId}:clue:${clues.length + 1}`;
+                        rawClueIndexToId.set(index, id);
+                        clues.push({ id, nodeIds, revealText, discoveryModes: discoveryModes.length ? discoveryModes : ['observe'], check: compactExploreText(clue?.check, 16) || null });
+                    });
+                    const resolveClueId = value => {
+                        const numeric = typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value.trim())) ? Number(value) : null;
+                        const rawIndex = Number.isInteger(numeric) ? numeric : rawClueIdToIndex.get(String(value || ''));
+                        return rawClueIndexToId.get(rawIndex) || null;
+                    };
                     const rawRevelations = Array.isArray(raw.revelations) ? raw.revelations.slice(0, 4) : [];
-                    const revelations = rawRevelations.map((revelation, index) => {
+                    const rawRevelationIdToIndex = new Map(rawRevelations.map((revelation, index) => [String(revelation?.id || ''), index]).filter(([id]) => id));
+                    const rawRevelationIndexToId = new Map();
+                    const revelations = [];
+                    rawRevelations.forEach((revelation, index) => {
                         const text = compactExploreText(revelation?.text, 180);
                         const minEvidence = Math.max(1, Math.min(3, Math.trunc(Number(revelation?.minEvidence) || 2)));
                         const mapPath = path => [...new Set((Array.isArray(path) ? path : [])
-                            .map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 0 && value < clues.length)
-                            .map(value => clues[value].id))];
+                            .map(resolveClueId).filter(Boolean))];
                         const evidencePaths = (Array.isArray(revelation?.evidencePaths) ? revelation.evidencePaths : []).map(mapPath)
                             .filter(path => path.length >= minEvidence);
-                        const decisiveClueIds = [...new Set((Array.isArray(revelation?.decisiveClueIndexes) ? revelation.decisiveClueIndexes : [])
-                            .map(value => Number(value)).filter(value => Number.isInteger(value) && value >= 0 && value < clues.length)
-                            .map(value => clues[value].id))];
-                        return text && (evidencePaths.length || decisiveClueIds.length) ? {
-                            id: `${caseId}:revelation:${index + 1}`, text, minEvidence,
-                            evidencePaths, decisiveClueIds
-                        } : null;
-                    }).filter(Boolean);
-                    const requiredRevelationIds = [...new Set((Array.isArray(raw?.solution?.requiredRevelationIndexes) ? raw.solution.requiredRevelationIndexes : [])
-                        .map(value => Number(value)).filter(value => Number.isInteger(value) && revelations[value]).map(value => revelations[value].id))];
+                        const decisiveRefs = Array.isArray(revelation?.decisiveClueIndexes) ? revelation.decisiveClueIndexes : (Array.isArray(revelation?.decisiveClueIds) ? revelation.decisiveClueIds : []);
+                        const decisiveClueIds = [...new Set(decisiveRefs.map(resolveClueId).filter(Boolean))];
+                        if (!text || (!evidencePaths.length && !decisiveClueIds.length)) return;
+                        const id = `${caseId}:revelation:${revelations.length + 1}`;
+                        rawRevelationIndexToId.set(index, id);
+                        revelations.push({ id, text, minEvidence, evidencePaths, decisiveClueIds });
+                    });
+                    const requiredRefs = Array.isArray(raw?.solution?.requiredRevelationIndexes) ? raw.solution.requiredRevelationIndexes :
+                        (Array.isArray(raw?.solution?.requiredRevelationIds) ? raw.solution.requiredRevelationIds : []);
+                    const requiredRevelationIds = [...new Set(requiredRefs.map(value => {
+                        const numeric = typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value.trim())) ? Number(value) : null;
+                        const rawIndex = Number.isInteger(numeric) ? numeric : rawRevelationIdToIndex.get(String(value || ''));
+                        return rawRevelationIndexToId.get(rawIndex) || null;
+                    }).filter(Boolean))];
                     if (clues.length < 3 || revelations.length < 1 || !requiredRevelationIds.length) return null;
                     const rawThreats = Array.isArray(raw.threatEvents) ? raw.threatEvents.slice(0, 5) : [];
                     const threatEvents = rawThreats.map((event, index) => {
                         const visibleEffect = compactExploreText(event?.visibleEffect, 120);
-                        const nodeIndex = Number(event?.nodeIndex);
+                        const nodeId = resolveNodeId(event?.nodeIndex ?? event?.nodeId);
                         const delta = Math.max(0, Math.min(2, Math.trunc(Number(event?.delta) || 0)));
-                        return visibleEffect && Number.isInteger(nodeIndex) && nodes[nodeIndex] && delta ? {
-                            id: `${caseId}:threat:${index + 1}`, nodeId: nodes[nodeIndex].id, delta, visibleEffect,
+                        return visibleEffect && nodeId && delta ? {
+                            id: `${caseId}:threat:${index + 1}`, nodeId, delta, visibleEffect,
                             trigger: compactExploreText(event?.trigger, 90)
                         } : null;
                     }).filter(Boolean);
@@ -14242,6 +14307,13 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     }
                     return blueprint;
                 };
+                // Normalize persisted optional Case state before Vue performs its
+                // first render. onMounted is too late: a malformed legacy value
+                // can otherwise reach the resume-card template and abort mount.
+                // The same normalizer also accepts an already-canonical v2
+                // blueprint, so active Cases survive ordinary reloads unchanged.
+                const restoredExploreCase = normalizeExploreCases();
+                if (restoredExploreCase) syncExploreStateFromCase(restoredExploreCase);
                 const buildExploreNewsFollowupSource = () => {
                     const projection = publishedNewsProjections.value.find(item => item?.readAt && String(item?.projectionContext?.hallId || '') === String(exploreState.destinationHallId || '') &&
                         (item.disclosedPublicFactIds || []).some(id => userKnowsFact(id)));
