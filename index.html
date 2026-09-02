@@ -9012,7 +9012,7 @@
                     <i class="fas fa-compass"></i>
                     <span>外出</span>
                 </button>
-                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="openCuratorRoom" aria-label="馆长室">
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="currentTab === 'phone' ? leavePhone() : openCuratorRoom()" aria-label="馆长室">
                     <i class="fas fa-door-closed"></i>
                     <span>馆长室</span>
                 </button>
@@ -9095,6 +9095,10 @@
                     calendarSources: [],
                     missionReports: [], mailbox: [], todos: [], deadlines: [],
                     dailyMailCount: 0, lastMailDate: '', lastMailAt: 0, lastMailSenderId: null,
+                    // Global ordinary-Away dispatch authority. Individual claimed
+                    // operations live on their resident so a reload can recover the
+                    // exact frozen request and episode provenance.
+                    ordinaryAwayAutonomy: { lastAIDispatchAt: '' },
                     lastReportDate: '',
                     lastLoginDate: '',
                     lastLogin: Date.now(),
@@ -9762,6 +9766,8 @@
                             if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
                             if (typeof user.activeExploreCaseId !== 'string') user.activeExploreCaseId = '';
                             if (!Array.isArray(user.attentionBidOpportunities)) user.attentionBidOpportunities = [];
+                            if (!user.ordinaryAwayAutonomy || typeof user.ordinaryAwayAutonomy !== 'object' || Array.isArray(user.ordinaryAwayAutonomy)) user.ordinaryAwayAutonomy = { lastAIDispatchAt: '' };
+                            else if (Number.isNaN(new Date(user.ordinaryAwayAutonomy.lastAIDispatchAt || '').getTime())) user.ordinaryAwayAutonomy.lastAIDispatchAt = '';
                             if (!user.phoneData) user.phoneData = {};
                             if (!user.phoneData.friends) user.phoneData.friends = [];
                             if (!user.phoneData.friendRequests) user.phoneData.friendRequests = [];
@@ -10091,6 +10097,7 @@
                 const currentTab = ref('mission');
                 const loungeView = ref('selector');
                 const activeHallId = ref(localStorage.getItem('meeow_active_hall') || 'gotham');
+                const phoneReturnRoute = ref(null);
                 const showFridgeNotesModal = ref(false);
                 watch(activeHallId, (hallId) => {
                     localStorage.setItem('meeow_active_hall', hallId);
@@ -10552,6 +10559,8 @@
                 };
                 const hasFrozenOrdinaryAwayDepartureClaim = residentId =>
                     (frozenOrdinaryAwayDepartureClaims.get(String(residentId || '')) || 0) > 0;
+                const ORDINARY_AWAY_AI_MIN_INTERVAL_MS = 30 * 60 * 1000;
+                const ordinaryAwayPlanningInFlight = new Set();
                 const hallStatusRefreshPending = new Map();
                 // This is deliberately an in-memory scheduling opportunity, not world
                 // state. Hall-owned successful-sync timestamps provide durable freshness.
@@ -12535,6 +12544,36 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const sentAt = parseLogicalDate(mail?.sentAt);
                     return sentAt ? getOperationalDayKey(sentAt) : String(mail?.operationalDayKey || '');
                 };
+                const isPhysicalAwayMailboxRow = (mail) => {
+                    // Every legacy mailbox row was produced by the physical-mail
+                    // pipeline. New rows carry an explicit type so future mailbox
+                    // surfaces cannot accidentally consume this daily budget.
+                    return Boolean(mail) && (!mail.mailType || mail.mailType === 'physical-away');
+                };
+                const getPhysicalMailboxDeliveryTime = (mail) => {
+                    // Prefer actual commit/delivery time. deliveryClaimedAt is an
+                    // older crash-recovery timestamp; sentAt is a read-only legacy
+                    // fallback when no physical commit time survived the save.
+                    return [mail?.deliveredAt, mail?.deliveryClaimedAt, mail?.sentAt]
+                        .map(parseLogicalDate).find(Boolean) || null;
+                };
+                const getDeliveredPhysicalAwayMailCountForOperationalDay = (dayKey) =>
+                    (user.mailbox || []).filter(mail => {
+                        if (!isPhysicalAwayMailboxRow(mail)) return false;
+                        const deliveredAt = getPhysicalMailboxDeliveryTime(mail);
+                        return deliveredAt && getOperationalDayKey(deliveredAt) === dayKey;
+                    }).length;
+                const hasPhysicalAwayMailDeliveryCapacity = (deliveredAt = new Date()) => {
+                    const physicalTime = parseLogicalDate(deliveredAt) || new Date();
+                    return getDeliveredPhysicalAwayMailCountForOperationalDay(getOperationalDayKey(physicalTime)) < 4;
+                };
+                const getNextOperationalDayStart = (value = new Date()) => {
+                    const source = parseLogicalDate(value) || new Date();
+                    const next = new Date(source);
+                    next.setHours(OPERATIONAL_DAY_START_HOUR, 0, 0, 0);
+                    if (next.getTime() <= source.getTime()) next.setDate(next.getDate() + 1);
+                    return next;
+                };
                 const getDeliveredMailCountForOperationalDay = (dayKey) => {
                     const taggedCount = (user.mailbox || []).filter(mail => getMailOperationalDayKey(mail) === dayKey).length;
                     // Untagged legacy mail has no trustworthy historical event time.
@@ -12635,7 +12674,8 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const logicalSentAt = parseLogicalDate(sentAt);
                     const reconciledAt = parseLogicalDate(deliveredAt) || new Date();
                     if (!senderCat || !logicalSentAt) return false;
-                    const dayKey = getOperationalDayKey(logicalSentAt);
+                    const logicalDayKey = getOperationalDayKey(logicalSentAt);
+                    const deliveryDayKey = getOperationalDayKey(reconciledAt);
                     const senderName = cleanText(senderDisplayName) || senderCat.humanName || senderCat.name;
                     const item = attachment ? { ...attachment, id: Date.now(), type: 'collectible' } : null;
                     user.mailbox.push({
@@ -12649,15 +12689,15 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         claimed: false,
                         sentAt: logicalSentAt.toISOString(),
                         deliveredAt: reconciledAt.toISOString(),
-                        operationalDayKey: dayKey,
+                        operationalDayKey: logicalDayKey,
+                        deliveryOperationalDayKey: deliveryDayKey,
+                        mailType: 'physical-away',
                         plannedMailId: plannedMailId || undefined
                     });
-                    const currentDay = getOperationalDayKey(reconciledAt);
-                    if (dayKey === currentDay) {
-                        if (user.lastMailDate !== currentDay) user.dailyMailCount = 0;
-                        user.dailyMailCount = (user.dailyMailCount || 0) + 1;
-                        user.lastMailDate = currentDay;
-                    }
+                    // Retain the legacy scalar as a current-day display mirror,
+                    // never as authority for physical delivery capacity.
+                    user.dailyMailCount = getDeliveredPhysicalAwayMailCountForOperationalDay(deliveryDayKey);
+                    user.lastMailDate = deliveryDayKey;
                     user.lastMailAt = Math.max(Number(user.lastMailAt) || 0, logicalSentAt.getTime());
                     user.lastMailSenderId = senderCat.id;
                     showNotification('新信件', `来自 ${senderName} 的来信，请查收。`, 'https://img.icons8.com/nolan/64/open-envelope.png');
@@ -12697,12 +12737,17 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         addLog(`AWAY PLANNED MAIL RECOVERED: episode=${episode.id}; mail=${plannedMailId}; sentAt=${parseLogicalDate(sendAt)?.toISOString()}`, 'sent');
                         return true;
                     }
-                    if (!hasMailCapacityForLogicalTime(sendAt, mail.id) || !hasMailSpacingAt(sendAt, mail.id)) {
-                        const nextStart = new Date(Math.max(
-                            (parseLogicalDate(sendAt) || new Date()).getTime() + 20 * 60 * 1000,
-                            (parseLogicalDate(reconciledAt) || new Date()).getTime()
-                        ));
-                        return reservePlannedAwayMailTime(episode, mail, nextStart, 'due-collision');
+                    if (isLifeThreadAwayEpisode(episode)) {
+                        mail.state = 'cancelled';
+                        mail.nextDeliveryAttemptAt = null;
+                        addLog(`AWAY PLANNED MAIL QUARANTINED: episode=${episode.id}; mail=${mail.id}; reason=thread-private`, 'info');
+                        return false;
+                    }
+                    const physicalDeliveryAt = parseLogicalDate(reconciledAt) || new Date();
+                    if (!hasPhysicalAwayMailDeliveryCapacity(physicalDeliveryAt)) {
+                        mail.nextDeliveryAttemptAt = getNextOperationalDayStart(physicalDeliveryAt).toISOString();
+                        addLog(`AWAY PLANNED MAIL DEFERRED: day=${getOperationalDayKey(physicalDeliveryAt)}; budget=4; episode=${episode.id}; mail=${mail.id}; retryAt=${mail.nextDeliveryAttemptAt}`, 'info');
+                        return false;
                     }
                     const delivered = recordDeliveredMail({
                         senderCat: cat,
@@ -12716,7 +12761,8 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     });
                     if (delivered) {
                         mail.state = 'delivered';
-                        mail.deliveredAt = (parseLogicalDate(reconciledAt) || new Date()).toISOString();
+                        mail.deliveredAt = physicalDeliveryAt.toISOString();
+                        mail.nextDeliveryAttemptAt = null;
                         addLog(`AWAY PLANNED MAIL DELIVERED: episode=${episode.id}; mail=${mail.id}; sentAt=${parseLogicalDate(sendAt)?.toISOString()}`, 'sent');
                     }
                     return delivered;
@@ -12732,7 +12778,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     }
 
                     const logicalNow = new Date(now);
-                    if (!hasMailCapacityForLogicalTime(logicalNow)) return false;
+                    if (!hasPhysicalAwayMailDeliveryCapacity(logicalNow)) return false;
                     if (!hasMailSpacingAt(logicalNow)) return false;
 
                     // Scheduled episodes reserve their own optional mail slots.
@@ -12913,10 +12959,59 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     }
                 };
 
+                const capturePhoneReturnRoute = () => {
+                    if (phoneReturnRoute.value || currentTab.value === 'phone') return;
+                    if (currentTab.value === 'lounge') {
+                        phoneReturnRoute.value = loungeView.value === 'room'
+                            ? { tab: 'lounge', loungeView: 'room', hallId: String(activeHallId.value || '') }
+                            : { tab: 'lounge', loungeView: loungeView.value === 'curator' ? 'curator' : 'selector' };
+                        return;
+                    }
+                    phoneReturnRoute.value = { tab: currentTab.value };
+                };
+                const leavePhone = () => {
+                    const route = phoneReturnRoute.value;
+                    phoneReturnRoute.value = null;
+                    resetPhoneTransientUI?.();
+                    if (route?.tab === 'lounge') {
+                        if (route.loungeView === 'room') {
+                            const hall = halls.value.find(item => String(item?.id || '') === String(route.hallId || ''));
+                            if (hall) {
+                                activeHallId.value = hall.id;
+                                currentTab.value = 'lounge';
+                                loungeView.value = 'room';
+                                selectedCat.value = null;
+                                detailReturnOrigin.value = '';
+                                hallSceneActive.value = true;
+                                setContentScrollTop(hallScrollPositions[hall.id] || 0);
+                                addLog(`PHONE RETURN: origin=hall:${hall.id}; restored=hall`, 'info');
+                                return;
+                            }
+                            currentTab.value = 'lounge';
+                            loungeView.value = 'selector';
+                            selectedCat.value = null;
+                            detailReturnOrigin.value = '';
+                            setContentScrollTop(0);
+                            addLog('PHONE RETURN: origin=invalid-hall; restored=selector', 'warn');
+                            return;
+                        }
+                        currentTab.value = 'lounge';
+                        loungeView.value = route.loungeView === 'curator' ? 'curator' : 'selector';
+                        selectedCat.value = null;
+                        detailReturnOrigin.value = '';
+                        setContentScrollTop(0);
+                        addLog(`PHONE RETURN: origin=${loungeView.value}; restored=${loungeView.value}`, 'info');
+                        return;
+                    }
+                    currentTab.value = typeof route?.tab === 'string' && route.tab && route.tab !== 'phone' ? route.tab : 'lounge';
+                    if (currentTab.value === 'lounge') loungeView.value = 'selector';
+                    addLog(`PHONE RETURN: origin=${route?.tab || 'unknown'}; restored=${currentTab.value}`, 'info');
+                };
                 const navigateToTab = (tab) => {
                     rememberHallScrollPosition();
                     if (currentTab.value === 'phone') rememberPhoneChatScrollPosition?.();
                     if (tab === 'phone') {
+                        capturePhoneReturnRoute();
                         resetPhoneTransientUI?.();
                         phoneState.fanfic.entryLocation = getFanficEntryLocation?.() || null;
                         void reconcilePhoneReplyOpportunities?.(new Date());
@@ -17046,9 +17141,15 @@ ${pendingText}
                     const presentationForm = normalizeFormValue(cat?.statusPresentationForm);
                     return !presentationForm || presentationForm === getResidentForm(cat);
                 };
-                const getResidentLiveStatus = (cat, fallback = '正在安静适应当前状态。') => {
-                    if (!cat || !isResidentPresentationFormCompatible(cat)) return fallback;
-                    return cleanText(cat.status || '') || fallback;
+                const getNeutralDiegeticStatus = (cat) => getResidentForm(cat) === 'HUMAN'
+                    ? '正在馆内做自己的事。'
+                    : '正在馆内安静活动。';
+                const isControlPlaneStatusText = (value) => /(?:形态同步|适应当前(?:的)?形态|维持(?:猫|人|HUMAN|CAT)形态|切换(?:形态)?(?:成功|失败)?|未被选中|没排到|没有轮到|等待(?:队列|同步|调度|重试|出门机会)|候选(?:人|池)?|状态同步|Status\s*Sync|scheduler|queue|retry|validation)/i.test(cleanText(value || ''));
+                const getResidentLiveStatus = (cat, fallback = '') => {
+                    const safeFallback = cleanText(fallback) || getNeutralDiegeticStatus(cat);
+                    if (!cat || !isResidentPresentationFormCompatible(cat)) return safeFallback;
+                    const status = cleanText(cat.status || '');
+                    return status && !isControlPlaneStatusText(status) ? status : safeFallback;
                 };
                 const getResidentLiveInnerVoice = (cat, fallback = '') => {
                     if (!cat || !isResidentPresentationFormCompatible(cat)) return fallback;
@@ -20733,11 +20834,14 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     return true;
                 };
                 const buildLocalAwayDepartureSchedule = (options) => {
-                    const claimedIds = (options?.departureCandidateIds || []).map(String).filter(id => hasLifeThreadExcursionDepartureClaim(id));
+                    const claimedIds = (options?.departureCandidateIds || []).map(String).filter(id => {
+                        const cat = cats.value.find(item => String(item?.id || '') === id);
+                        return hasLifeThreadExcursionDepartureClaim(id) || hasFrozenOrdinaryAwayDepartureClaim(id) || Boolean(cat?.ordinaryAwayOperation);
+                    });
                     return awayLifecycle.buildDepartureSchedule({
                         ...options,
                         departureCandidateIds: (options?.departureCandidateIds || []).map(String).filter(id => !claimedIds.includes(id)),
-                        excluded: [...(options?.excluded || []), ...claimedIds.map(id => `${id}:life-thread-excursion-claim`)],
+                        excluded: [...(options?.excluded || []), ...claimedIds.map(id => `${id}:global-ordinary-away-claim`)],
                         hall: options.hall || halls.value.find(hall => hall.id === options.hallId),
                         episodes: awayEpisodes.value
                     });
@@ -20799,12 +20903,207 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                 const indexAwayPlans = awayLifecycle.indexPlans;
                 const classifyAwayPlanDiagnostic = awayLifecycle.classifyPlan;
                 const isLifeThreadAwayEpisode = episode => episode?.provenance?.origin === 'life-thread' && episode.provenance.visibility === 'thread-private';
-                const createAwayEpisode = (cat, plan, departedAt = new Date(), mailDecision = null, provenance = null) => {
+                const createAwayEpisode = (cat, plan, departedAt = new Date(), mailDecision = null, provenance = null, options = {}) => {
                     if (!cat || isResidentInCuratorRoom(cat) || getActiveAwayEpisode(cat, departedAt)) return null;
-                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt, mailDecision, provenance);
-                    (episode.mailPlan || []).forEach(mail => reservePlannedAwayMailTime(episode, mail, mail.sendAt, 'creation'));
+                    const operationId = String(options?.ordinaryAwayOperationId || '').trim();
+                    if (operationId) {
+                        const existing = normalizeAwayEpisodes(awayEpisodes.value).find(episode =>
+                            String(episode?.ordinaryAwayOperationId || '') === operationId
+                        );
+                        if (existing) return existing;
+                    }
+                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt, mailDecision, provenance, { ordinaryAwayOperationId: operationId });
+                    // sendAt is the authoritative original due time from the
+                    // validated plan. Physical mailbox capacity is deliberately
+                    // enforced only when delivery is committed, so an overdue
+                    // backlog remains stably ordered and no letter is rewritten
+                    // merely because today's four slots are already full.
                     awayEpisodes.value.push(episode);
                     return episode;
+                };
+                const getOrdinaryAwayAllocator = () => {
+                    if (!user.ordinaryAwayAutonomy || typeof user.ordinaryAwayAutonomy !== 'object' || Array.isArray(user.ordinaryAwayAutonomy)) {
+                        user.ordinaryAwayAutonomy = { lastAIDispatchAt: '' };
+                    }
+                    if (!parseLogicalDate(user.ordinaryAwayAutonomy.lastAIDispatchAt)) user.ordinaryAwayAutonomy.lastAIDispatchAt = '';
+                    return user.ordinaryAwayAutonomy;
+                };
+                const normalizeOrdinaryAwayOperation = (cat, now = new Date()) => {
+                    const raw = cat?.ordinaryAwayOperation;
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                        if (cat?.ordinaryAwayOperation) cat.ordinaryAwayOperation = null;
+                        return null;
+                    }
+                    const id = String(raw.id || '').trim();
+                    const hallId = String(raw.hallId || '').trim();
+                    const opportunityAt = parseLogicalDate(raw.opportunityAt)?.toISOString() || '';
+                    const decision = raw.mailDecision;
+                    const roll = Number(decision?.roll);
+                    const promptText = String(raw.promptText || '').trim();
+                    if (!id || !hallId || !opportunityAt || !promptText || !Number.isInteger(roll) || roll < 1 || roll > 100 || typeof decision?.shouldWrite !== 'boolean') {
+                        cat.ordinaryAwayOperation = null;
+                        return null;
+                    }
+                    const status = ['claimed', 'generating', 'retryable'].includes(raw.status) ? raw.status : 'retryable';
+                    const normalized = {
+                        id, hallId, opportunityAt, promptText,
+                        token: String(raw.token || id),
+                        status: status === 'generating' ? 'retryable' : status,
+                        attemptCount: Math.max(0, Number(raw.attemptCount) || 0),
+                        retryAt: parseLogicalDate(raw.retryAt)?.toISOString() || now.toISOString(),
+                        claimedAt: parseLogicalDate(raw.claimedAt)?.toISOString() || now.toISOString(),
+                        lastError: cleanText(raw.lastError || ''),
+                        episodeId: String(raw.episodeId || '').trim(),
+                        mailDecision: { roll, shouldWrite: decision.shouldWrite === true }
+                    };
+                    cat.ordinaryAwayOperation = normalized;
+                    return normalized;
+                };
+                const isOrdinaryAwayEligible = (cat, hallId, now = new Date()) => Boolean(cat) &&
+                    String(getCatHallId(cat)) === String(hallId) &&
+                    isResidentInHall(cat) && !cat.isOut && !cat.isVisiting && !isResidentInCuratorRoom(cat) &&
+                    !getActiveAwayEpisode(cat, now) && !hasLifeThreadExcursionDepartureClaim(cat.id) &&
+                    !hasFrozenOrdinaryAwayDepartureClaim(cat.id) &&
+                    !(isFocusing.value && focusCats.value.some(item => String(item.id) === String(cat.id))) &&
+                    !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
+                    !(isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id));
+                const buildOrdinaryAwayPlanPrompt = (cat, hall, operation) => [
+                    '[ORDINARY AUTONOMOUS AWAY PLAN]',
+                    'This is a single-resident, program-authorized background planning task. It is not a Hall Status Sync and has no other resident or USER private context.',
+                    buildCatIdentityBlock(cat),
+                    `[AUTHORITATIVE OPERATION] id=${operation.id}; resident=${String(cat.id)}; homeHall=${hall.name} (${hall.id}); opportunityAt=${operation.opportunityAt}.`,
+                    `[CURRENT AUTHORITY] form=${getResidentForm(cat)}; physical presence=HOME_HALL; observable status=${getResidentLiveStatus(cat, '正在馆内安静活动。')}.`,
+                    AWAY_ACTIVITY_PLANNING_RULES,
+                    formatAwayMailAuthority([String(cat.id)], { [String(cat.id)]: operation.mailDecision }),
+                    'Return one JSON object only:',
+                    `{"residentId":"${String(cat.id)}","mode":"departure","plannedDurationMinutes":210,"destination":"source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":100,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":170,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"}],"plannedArchiveNarrative":"100-200 Chinese characters","plannedReturnStatus":"optional concise return status","mailPlan":[]}`
+                ].join('\n');
+                const settleOrdinaryAwayOperationFailure = (cat, operation, error, now = new Date()) => {
+                    if (!cat || cat.ordinaryAwayOperation?.id !== operation.id) return;
+                    operation.lastError = cleanText(error?.message || error || 'ordinary Away plan invalid');
+                    if (operation.attemptCount < 2) {
+                        operation.status = 'retryable';
+                        operation.retryAt = new Date(now.getTime() + ORDINARY_AWAY_AI_MIN_INTERVAL_MS).toISOString();
+                    } else {
+                        cat.ordinaryAwayOperation = null;
+                        awayLifecycle.scheduleAwayOpportunity(cat, now);
+                    }
+                    addLog(`AWAY AUTONOMY: resident=${String(cat.id)}; result=retryable; attempt=${operation.attemptCount}; error=${operation.lastError}`, 'warn');
+                };
+                const runOrdinaryAwayOperation = async (catId, operationId) => {
+                    const cat = cats.value.find(item => String(item?.id || '') === String(catId));
+                    const operation = normalizeOrdinaryAwayOperation(cat);
+                    if (!cat || !operation || operation.id !== operationId) return;
+                    try {
+                        const raw = await requestStructuredEngine(operation.promptText, {
+                            systemPrompt: 'You are a source-world-consistent Away planner. Return one valid JSON object only. Program-owned identity, form, physical presence, mail decision, and operation authority are final.',
+                            maxTokens: 1400, thinkingLevel: ThinkingLevel.LOW,
+                            label: `ORDINARY AWAY PLAN · ${String(cat.id)}`,
+                            priority: 'background', maxAttempts: 1,
+                            dedupeKey: `ordinary-away:${operation.id}`,
+                            validateResponse: content => {
+                                const diagnostic = enforceAwayMailDecision(
+                                    classifyAwayPlanDiagnostic(indexAwayPlans([parseAIJSON(content)]), String(cat.id), 'departure'),
+                                    operation.mailDecision
+                                );
+                                return diagnostic.valid ? true : `Ordinary Away plan is invalid: ${diagnostic.reason || 'validator rejected plan'}`;
+                            }
+                        });
+                        const latestCat = cats.value.find(item => String(item?.id || '') === String(catId));
+                        const latest = normalizeOrdinaryAwayOperation(latestCat);
+                        if (!latestCat || !latest || latest.id !== operationId) return;
+                        const existingEpisode = normalizeAwayEpisodes(awayEpisodes.value).find(episode => String(episode?.ordinaryAwayOperationId || '') === operationId);
+                        if (existingEpisode) {
+                            latestCat.ordinaryAwayOperation = null;
+                            return;
+                        }
+                        if (!isOrdinaryAwayEligible(latestCat, latest.hallId, new Date())) throw new Error('resident is no longer eligible');
+                        const diagnostic = enforceAwayMailDecision(
+                            classifyAwayPlanDiagnostic(indexAwayPlans([parseAIJSON(raw)]), String(latestCat.id), 'departure'),
+                            latest.mailDecision
+                        );
+                        if (!diagnostic.valid || !diagnostic.plan) throw new Error(diagnostic.reason || 'ordinary Away plan invalid after response');
+                        const hall = halls.value.find(item => String(item?.id || '') === latest.hallId);
+                        const episode = createAwayEpisode(latestCat, diagnostic.plan, new Date(), latest.mailDecision, null, { ordinaryAwayOperationId: latest.id });
+                        if (!episode) throw new Error('Away episode could not be created');
+                        latest.episodeId = episode.id;
+                        latestCat.isOut = true;
+                        latestCat.nextAwayOpportunityAt = null;
+                        scheduleIndependentAwayDepartureGate(hall, new Date());
+                        appendMonitorEvent(latestCat, '离开馆舍，开始处理自己的行程。', 'ordinary-away-autonomy', { episodeId: episode.id }, new Date());
+                        appendAwayTransitionTravelogue(latestCat, true, new Date(), { episodeId: episode.id });
+                        latestCat.ordinaryAwayOperation = null;
+                        addLog(`AWAY AUTONOMY: resident=${String(latestCat.id)}; hall=${latest.hallId}; result=departed; episode=${episode.id}`, 'sent');
+                    } catch (error) {
+                        const latestCat = cats.value.find(item => String(item?.id || '') === String(catId));
+                        const latest = normalizeOrdinaryAwayOperation(latestCat);
+                        if (latestCat && latest?.id === operationId) settleOrdinaryAwayOperationFailure(latestCat, latest, error, new Date());
+                    } finally {
+                        ordinaryAwayPlanningInFlight.delete(operationId);
+                    }
+                };
+                const reconcileOrdinaryAwayAutonomy = (nowInput = new Date()) => {
+                    const now = parseLogicalDate(nowInput) || new Date();
+                    const nowMs = now.getTime();
+                    const allocator = getOrdinaryAwayAllocator();
+                    const existingOperations = cats.value.map(cat => ({ cat, operation: normalizeOrdinaryAwayOperation(cat, now) }))
+                        .filter(entry => entry.operation);
+                    existingOperations.forEach(({ cat, operation }) => {
+                        const episode = normalizeAwayEpisodes(awayEpisodes.value).find(item => String(item?.ordinaryAwayOperationId || '') === operation.id);
+                        if (!episode) return;
+                        // A crash may happen after the episode array is persisted but
+                        // before the surrounding resident flags are saved. Reconcile
+                        // those program-owned flags from the already-authoritative
+                        // operation-linked episode instead of dispatching again.
+                        if (episode.status === 'active') {
+                            cat.isOut = true;
+                            cat.nextAwayOpportunityAt = null;
+                            const hall = halls.value.find(item => String(item?.id || '') === String(episode.hallId || ''));
+                            if (hall) scheduleIndependentAwayDepartureGate(hall, now);
+                        }
+                        cat.ordinaryAwayOperation = null;
+                    });
+                    if (!settings.apiKey || ordinaryAwayPlanningInFlight.size || (parseLogicalDate(allocator.lastAIDispatchAt)?.getTime() || 0) + ORDINARY_AWAY_AI_MIN_INTERVAL_MS > nowMs) return false;
+                    let candidate = cats.value.map(cat => ({ cat, operation: normalizeOrdinaryAwayOperation(cat, now) }))
+                        .filter(entry => entry.operation && entry.operation.status === 'retryable' && new Date(entry.operation.retryAt).getTime() <= nowMs)
+                        .sort((a, b) => new Date(a.operation.opportunityAt) - new Date(b.operation.opportunityAt) || String(a.cat.id).localeCompare(String(b.cat.id)))[0];
+                    if (!candidate) {
+                        const candidates = [];
+                        halls.value.forEach(hall => {
+                            // Reserve calculations remain Hall-wide. The candidate lane is
+                            // narrower because temporary Focus/Explore/interaction states may
+                            // prevent an otherwise-home resident from departing right now.
+                            const hallResidents = cats.value.filter(cat => String(getCatHallId(cat)) === String(hall.id) && isResidentInHall(cat) && !cat.isOut && !cat.isVisiting && !isResidentInCuratorRoom(cat));
+                            const hallCats = hallResidents.filter(cat => isOrdinaryAwayEligible(cat, hall.id, now));
+                            const schedule = awayLifecycle.buildDepartureSchedule({ hall, hallId: hall.id, hallCats: hallResidents, requestedCats: hallResidents, episodes: awayEpisodes.value, departureCandidateIds: hallCats.map(cat => String(cat.id)), now });
+                            const selectedId = schedule.selectedIds[0];
+                            const cat = hallCats.find(item => String(item.id) === String(selectedId));
+                            if (cat) candidates.push({ cat, hall, opportunityAt: parseLogicalDate(cat.nextAwayOpportunityAt) });
+                        });
+                        candidates.sort((a, b) => a.opportunityAt - b.opportunityAt || String(a.cat.id).localeCompare(String(b.cat.id)));
+                        const selected = candidates[0];
+                        if (!selected) return false;
+                        const roll = rollPercent();
+                        const operation = {
+                            id: `ordinary-away:${String(selected.cat.id)}:${selected.opportunityAt.getTime()}`,
+                            hallId: String(selected.hall.id), opportunityAt: selected.opportunityAt.toISOString(),
+                            mailDecision: { roll, shouldWrite: roll <= 50 }, token: `ordinary-away:${String(selected.cat.id)}:${selected.opportunityAt.getTime()}`,
+                            status: 'claimed', attemptCount: 0, retryAt: now.toISOString(), claimedAt: now.toISOString(), lastError: '', episodeId: '', promptText: ''
+                        };
+                        operation.promptText = buildOrdinaryAwayPlanPrompt(selected.cat, selected.hall, operation);
+                        selected.cat.ordinaryAwayOperation = operation;
+                        candidate = { cat: selected.cat, operation };
+                        addLog(`AWAY AUTONOMY: due=${candidates.length}; eligible=${candidates.length}; claimed=${String(selected.cat.id)}; hall=${selected.hall.id}`, 'info');
+                    }
+                    const operation = candidate.operation;
+                    if (!isOrdinaryAwayEligible(candidate.cat, operation.hallId, now)) return false;
+                    operation.status = 'generating';
+                    operation.attemptCount = Math.max(0, Number(operation.attemptCount) || 0) + 1;
+                    operation.retryAt = '';
+                    allocator.lastAIDispatchAt = now.toISOString();
+                    ordinaryAwayPlanningInFlight.add(operation.id);
+                    void runOrdinaryAwayOperation(candidate.cat.id, operation.id);
+                    return true;
                 };
                 const getLifeThreadExcursionIntent = thread => getLifeThreadContinuationState(thread)?.excursionIntent || null;
                 const hasLiveLifeThreadExcursionIntent = thread => {
@@ -21004,23 +21303,10 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         }
                         const physicalDiagnostic = getThreadExcursionPlanDiagnostic(raw, latestAvailability.scope.actorId, { shouldWrite: false });
                         if (!physicalDiagnostic.valid || !physicalDiagnostic.plan) throw new Error(physicalDiagnostic.reason || 'private Away plan invalid after response');
-                        let finalizedPlan = physicalDiagnostic.plan;
-                        if (latestIntent.mailDecision?.shouldWrite === true) {
-                            const mailRaw = await requestStructuredEngine(buildThreadExcursionMailPrompt(latestAvailability.scope, physicalDiagnostic.plan), {
-                                systemPrompt: 'You compose one safe physical Away mail item. Return one valid JSON object only. You have no hidden Thread context.',
-                                maxTokens: 420, thinkingLevel: ThinkingLevel.LOW, label: `LIFE THREAD EXCURSION MAIL · ${latestAvailability.scope.actorId}`,
-                                priority: 'background', maxAttempts: 1, dedupeKey: `life-thread-excursion-mail:${token}`,
-                                validateResponse: content => {
-                                    const mail = parseAIJSON(content);
-                                    const diagnostic = getThreadExcursionPlanDiagnostic({ ...physicalDiagnostic.plan, mailPlan: [mail] }, latestAvailability.scope.actorId, latestIntent.mailDecision);
-                                    return diagnostic.valid ? true : `Excursion mail is invalid: ${diagnostic.reason || 'validator rejected mail'}`;
-                                }
-                            });
-                            const mail = parseAIJSON(mailRaw);
-                            const mailDiagnostic = getThreadExcursionPlanDiagnostic({ ...physicalDiagnostic.plan, mailPlan: [mail] }, latestAvailability.scope.actorId, latestIntent.mailDecision);
-                            if (!mailDiagnostic.valid || !mailDiagnostic.plan) throw new Error(mailDiagnostic.reason || 'private Away mail invalid after response');
-                            finalizedPlan = mailDiagnostic.plan;
-                        }
+                        // A thread-private excursion must never materialize as a
+                        // USER mailbox artifact. Preserve the private episode and
+                        // its frozen mail decision, but keep its physical plan empty.
+                        const finalizedPlan = { ...physicalDiagnostic.plan, mailPlan: [] };
                         const finalThread = lifeThreads.value.find(item => String(item?.id || '') === String(threadId));
                         const finalIntent = getLifeThreadExcursionIntent(finalThread);
                         if (!finalThread || !finalIntent || finalIntent.id !== intentId || finalIntent.departureOperation?.token !== token) return;
@@ -21341,6 +21627,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         onDiaryReady: (episode) => markAwayEpisodeDiaryReady(episode)
                     });
                     awayEpisodes.value = result.episodes;
+                    void reconcileOrdinaryAwayAutonomy(reconciliationTime);
                     if (result.returnedResidentIds?.length) void reconcileLifeThreadContinuations(reconciliationTime);
                     return { count: result.count, returnedResidentIds: result.returnedResidentIds };
                 };
@@ -23368,6 +23655,7 @@ ${buildStatusSyncFormAuthority(formDirectives)}
 - CAT form: feline sounds/actions/body language only; no human-language speech. HUMAN form: human-shaped kemonomimi anatomy with normal human speech when natural.
 - Preserve source-world continuity and current physical scope. Do not invent Knowledge, Life Thread facts, private motives, hidden relationships, inventory, or unauthorized state changes.
 - Form echo is compatibility metadata only: copy supplied target; never choose a transformation. A wrong echo may be soft-quarantined without rejecting the response.
+- Status is visible in-world activity only. Form constrains anatomy and expression but is never itself a Status topic: do not mention adapting, maintaining, changing, synchronizing, or failing a form. Never mention candidates, selection, queues, scheduling, retries, validation, Status Sync, or other control-plane mechanics. A HOME resident without explicit authoritative preparation simply continues an ordinary diegetic activity.
 ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away, Visit, Fridge, scene, or USER-arrival inference.' : '- Hall mode: Away/Visit/Curator residents stay in their program-owned physical scope; do not treat shared context as omniscient private knowledge.'}`;
                 const buildStatusSyncOutputContract = ({ curatorRoomStatusSync, requestedIds, awayPromptContract, hasFridgeNoteSidecar = false, hasLifeThreadSidecar = false, sceneMode }) => {
                     const updateRule = curatorRoomStatusSync
@@ -23538,31 +23826,17 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         const activeIdSet = activeResidentIdSet;
                         const localDepartureSchedule = requestOptions.presenceDirectives && typeof requestOptions.presenceDirectives === 'object'
                             ? null
-                            : buildLocalAwayDepartureSchedule({
-                                hallId: requestHallId,
-                                hallCats: physicalHallCats,
-                                requestedCats,
-                                departureCandidateIds: requestedCats
-                                    .filter(cat => !curatorRoomResidentIds.has(String(cat.id)) && !activeIdSet.has(String(cat.id)) && !protectedSceneParticipantIds.has(String(cat.id)))
-                                    .map(cat => String(cat.id)),
-                                now,
-                                excluded: [
-                                    ...physicalHallCats.filter(cat => getActiveAwayEpisode(cat, now)).map(cat => `${String(cat.id)}:active-episode`),
-                                    ...physicalHallCats.filter(cat => justSettledReturnIds.has(String(cat.id))).map(cat => `${String(cat.id)}:same-pass-return`),
-                                    ...requestedCats.filter(cat => curatorRoomResidentIds.has(String(cat.id))).map(cat => `${String(cat.id)}:curator-room`),
-                                    ...requestedCats.filter(cat => protectedSceneParticipantIds.has(String(cat.id))).map(cat => `${String(cat.id)}:shared-scene`)
-                                ]
-                            });
-                        const deferredOrdinaryDeparture = localDepartureSchedule
-                            ? getEligibleDeferredOrdinaryAwayDeparture({
-                                requestedCats,
-                                physicalHallCats,
-                                hallId: requestHallId,
-                                now,
-                                schedule: localDepartureSchedule,
-                                protectedIds: protectedSceneParticipantIds
-                            })
-                            : null;
+                            // Ordinary departures are allocated globally by the
+                            // multi-Hall lifecycle. A Hall Status packet may only
+                            // reflect existing Away authority; it never selects a
+                            // current-Hall candidate of its own.
+                            : {
+                                directives: Object.fromEntries(requestedCats.map(cat => [String(cat.id), 'HOME'])),
+                                dueIds: [], selectedIds: [], blocked: ['ordinary-away-global-allocator'],
+                                departureGateUntil: null,
+                                ...getAwayHomeReserve(physicalHallCats)
+                            };
+                        const deferredOrdinaryDeparture = null;
                         if (deferredOrdinaryDeparture) {
                             Object.keys(localDepartureSchedule.directives).forEach(id => {
                                 if (localDepartureSchedule.directives[id] === 'DEPARTING_NOW') localDepartureSchedule.directives[id] = 'HOME';
@@ -23859,6 +24133,9 @@ ${statusOutputRules}`;
                             const originalPresenceById = new Map(catsToUpdate
                                 .filter(cat => requestedIdSet.has(String(cat.id)))
                                 .map(cat => [String(cat.id), Boolean(cat.isOut)]));
+                            const originalDiegeticStatusById = new Map(catsToUpdate
+                                .filter(cat => requestedIdSet.has(String(cat.id)))
+                                .map(cat => [String(cat.id), isControlPlaneStatusText(cat.status) ? '' : cleanText(cat.status || '')]));
                             const plansByResident = indexAwayPlans(awayPlans);
                             const getLocalPresenceDirective = (catId) => {
                                 const directive = presenceDirectives[String(catId)];
@@ -23933,9 +24210,12 @@ ${statusOutputRules}`;
                                         staleVoiceIds.push(updateId);
                                         return;
                                     }
-                                    if (update.status) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
+                                    if (update.status && !isControlPlaneStatusText(update.status)) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else {
                                         if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
+                                        if (update.status && isControlPlaneStatusText(update.status)) {
+                                            addLog(`STATUS META QUARANTINED: resident=${updateId}; status=${truncateMemoryText(update.status, 90)}`, 'warn');
+                                        }
                                         // A structurally valid, form-compatible slice still
                                         // counts as a presentation sync even when its status
                                         // text is intentionally empty. Unsafe slices returned
@@ -23999,7 +24279,8 @@ ${statusOutputRules}`;
                                     const proposedDiagnostic = awayDecisionDiagnostics.proposedById.get(catId);
                                     c.isOut = false;
                                     c.hasHackedThisPatrol = false;
-                                    setCatStatus(c, '因馆舍需要留守，被临时召回巡视领地', { source: 'status-sync', forceLog: true });
+                                    const prior = originalDiegeticStatusById.get(catId) || getNeutralDiegeticStatus(c);
+                                    setCatStatus(c, prior, { source: 'status-sync', forceLog: true });
                                     if (proposedDiagnostic?.valid && !awayDecisionDiagnostics.discardedIds.has(catId)) {
                                         awayDecisionDiagnostics.discardedIds.add(catId);
                                         awayDecisionDiagnostics.discarded++;
@@ -24031,7 +24312,8 @@ ${statusOutputRules}`;
                                 if (diagnostic.valid && !awayDecisionDiagnostics.discardedIds.has(catId)) return;
                                 cat.isOut = false;
                                 cat.hasHackedThisPatrol = false;
-                                setCatStatus(cat, '因外出计划未能确认，暂时留在馆舍。', { source: 'status-sync', forceLog: true });
+                                const prior = originalDiegeticStatusById.get(catId) || getNeutralDiegeticStatus(cat);
+                                setCatStatus(cat, prior, { source: 'status-sync', forceLog: true });
                             });
 
                             catsToUpdate.forEach(cat => {
@@ -24606,6 +24888,8 @@ ${statusOutputRules}`;
                                 Object.assign(user, data.user);
                                 ensurePendingAwayDiaryDays();
                                 if (!Array.isArray(user.attentionBidOpportunities)) user.attentionBidOpportunities = [];
+                                if (!user.ordinaryAwayAutonomy || typeof user.ordinaryAwayAutonomy !== 'object' || Array.isArray(user.ordinaryAwayAutonomy)) user.ordinaryAwayAutonomy = { lastAIDispatchAt: '' };
+                                else if (Number.isNaN(new Date(user.ordinaryAwayAutonomy.lastAIDispatchAt || '').getTime())) user.ordinaryAwayAutonomy.lastAIDispatchAt = '';
                                 if (!user.phoneData || typeof user.phoneData !== 'object') user.phoneData = {};
                                 normalizePhoneGamesData(user.phoneData);
                                 ensurePhonePresenceConsiderationSchedule();
@@ -25214,7 +25498,7 @@ ${episodicMemory}`;
                     showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveDestination, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
-                    handleCatClick, returnToHallRoom, navigateToTab, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
+                    handleCatClick, returnToHallRoom, navigateToTab, leavePhone, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
                     showCatVisitModal, visitCat, visitTargetHallId, visitMessage, visitIsProcessing, openCatVisit, sendCatVisiting, returnVisitingCat,
                     handleImageUpload, adoptCat, wishAdoptCat, isWishLoading,
                     friendsList, phoneConversationList, sendFriendRequest, acceptFriendRequest,

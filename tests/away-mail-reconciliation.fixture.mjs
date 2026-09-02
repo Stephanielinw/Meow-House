@@ -24,9 +24,11 @@ const deliveryStart = indexSource.indexOf('                const recordDelivered
 const deliveryEnd = indexSource.indexOf('                const generateMail =', deliveryStart);
 assert.ok(deliveryStart >= 0 && deliveryEnd > deliveryStart, 'Away mail delivery slice must exist');
 const deliverySlice = indexSource.slice(deliveryStart, deliveryEnd);
-const createDeliveryHarness = ({ user, cats, halls, notifications, logs }) => new Function('ctx', `
+const createDeliveryHarness = ({ user, cats, halls, notifications, logs, hasPhysicalCapacity = () => true, nextDeliveryDay = value => new Date(new Date(value).getTime() + 24 * 60 * 60 * 1000), isThreadPrivate = episode => episode?.provenance?.origin === 'life-thread' && episode.provenance.visibility === 'thread-private' }) => new Function('ctx', `
     const { user, cats, halls, parseLogicalDate, getOperationalDayKey, cleanText, getCatHallId,
         showNotification, addLog, hasMailCapacityForLogicalTime, hasMailSpacingAt,
+        hasPhysicalAwayMailDeliveryCapacity, getNextOperationalDayStart,
+        getDeliveredPhysicalAwayMailCountForOperationalDay, isLifeThreadAwayEpisode,
         reservePlannedAwayMailTime, getResidentPublicName } = ctx;
     ${deliverySlice}
     return { deliverPlannedAwayMail };
@@ -37,6 +39,10 @@ const createDeliveryHarness = ({ user, cats, halls, notifications, logs }) => ne
     addLog: (...args) => logs.push(args),
     hasMailCapacityForLogicalTime: () => true,
     hasMailSpacingAt: () => true,
+    hasPhysicalAwayMailDeliveryCapacity: hasPhysicalCapacity,
+    getNextOperationalDayStart: nextDeliveryDay,
+    getDeliveredPhysicalAwayMailCountForOperationalDay: () => (user.mailbox || []).length,
+    isLifeThreadAwayEpisode: isThreadPrivate,
     reservePlannedAwayMailTime: () => { throw new Error('fixture should not defer mail'); },
     getResidentPublicName: cat => cat.humanName || cat.name
 });
@@ -45,10 +51,12 @@ const cat = { id: 'bruce', name: 'Bruce', humanName: 'Bruce', hallId: 'gotham' }
 const hall = { id: 'gotham', name: 'Gotham' };
 const scheduledAt = '2026-08-31T10:00:00.000Z';
 const deliveredAt = '2026-08-31T10:06:00.000Z';
-const createEpisode = (id, status = 'active') => ({
+const createEpisode = (id, status = 'active', provenance = null) => ({
     id, residentId: cat.id, hallId: hall.id, status,
+    departedAt: '2026-08-31T08:00:00.000Z',
+    plannedReturnAt: '2026-08-31T18:00:00.000Z',
     destination: 'private destination', activityPlans: [{ plannedResidentActivity: 'private activity' }],
-    provenance: { origin: 'life-thread', threadId: 'hidden-thread' }
+    ...(provenance ? { provenance } : {})
 });
 const createMail = (id, state = 'planned') => ({
     id, sendAt: scheduledAt, content: 'A purpose-blind physical letter.', attachment: null, state, deliveredAt: null
@@ -102,6 +110,44 @@ const createMail = (id, state = 'planned') => ({
     assert.equal(mail.state, 'delivered');
 }
 
+// Physical delivery is globally capped at four for the operational day. Excess
+// due letters retain their original sendAt and wait for the next day.
+{
+    const user = { mailbox: [], dailyMailCount: 0, lastMailDate: '', lastMailAt: 0, lastMailSenderId: null };
+    const notifications = [], logs = [];
+    const nextDay = new Date('2026-09-01T03:00:00.000Z');
+    const { deliverPlannedAwayMail } = createDeliveryHarness({
+        user, cats: [cat], halls: [hall], notifications, logs,
+        hasPhysicalCapacity: () => user.mailbox.length < 4,
+        nextDeliveryDay: () => nextDay
+    });
+    const mails = Array.from({ length: 6 }, (_, index) => ({
+        episode: createEpisode(`episode-cap-${index}`),
+        mail: { ...createMail(`episode-cap-${index}:mail:primary`), sendAt: `2026-08-${25 + index}T10:00:00.000Z` }
+    }));
+    mails.forEach(({ episode, mail }) => deliverPlannedAwayMail(episode, mail, new Date(mail.sendAt), new Date('2026-08-31T20:00:00.000Z')));
+    assert.equal(user.mailbox.length, 4);
+    assert.equal(notifications.length, 4);
+    mails.slice(4).forEach(({ mail }) => {
+        assert.equal(mail.state, 'planned');
+        assert.equal(mail.nextDeliveryAttemptAt, nextDay.toISOString());
+        assert.match(mail.sendAt, /^2026-08-/);
+    });
+}
+
+// Thread-private planned mail is never materialized as a mailbox row.
+{
+    const user = { mailbox: [], dailyMailCount: 0, lastMailDate: '', lastMailAt: 0, lastMailSenderId: null };
+    const notifications = [], logs = [];
+    const { deliverPlannedAwayMail } = createDeliveryHarness({ user, cats: [cat], halls: [hall], notifications, logs });
+    const episode = { ...createEpisode('episode-thread-private'), provenance: { origin: 'life-thread', visibility: 'thread-private' } };
+    const mail = createMail('episode-thread-private:mail:primary');
+    assert.equal(deliverPlannedAwayMail(episode, mail, new Date(scheduledAt), new Date(deliveredAt)), false);
+    assert.equal(mail.state, 'cancelled');
+    assert.equal(user.mailbox.length, 0);
+    assert.equal(notifications.length, 0);
+}
+
 // No planned mail means shouldWrite=false cannot deliver anything during reconciliation.
 {
     let deliveredCount = 0;
@@ -111,6 +157,22 @@ const createMail = (id, state = 'planned') => ({
         onDeliverMail: () => { deliveredCount += 1; }
     });
     assert.equal(deliveredCount, 0);
+}
+
+// Due mail order is stable by original sendAt and then mail ID; a deferred
+// attempt is skipped until its explicit retry time.
+{
+    const delivered = [];
+    awayLifecycle.reconcileEpisodes({
+        episodes: [
+            { ...createEpisode('episode-order-a'), mailPlan: [{ id: 'z-mail', sendAt: scheduledAt, content: 'Z', state: 'planned' }] },
+            { ...createEpisode('episode-order-b'), mailPlan: [{ id: 'a-mail', sendAt: scheduledAt, content: 'A', state: 'planned' }] },
+            { ...createEpisode('episode-order-deferred'), mailPlan: [{ id: 'later-mail', sendAt: scheduledAt, nextDeliveryAttemptAt: '2026-09-01T10:00:00.000Z', content: 'Later', state: 'planned' }] }
+        ],
+        cats: [cat], reconciliationTime: new Date('2026-08-31T12:00:00.000Z'),
+        onDeliverMail: (_episode, mail) => delivered.push(mail.id)
+    });
+    assert.deepEqual(delivered, ['a-mail', 'z-mail']);
 }
 
 // Missing legacy mail IDs normalize to one stable episode-owned slot; existing IDs stay intact.

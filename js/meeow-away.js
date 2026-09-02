@@ -97,6 +97,31 @@
                     materializedAt: parseLogicalDate(activityPlan.materializedAt)?.toISOString() || null
                 } : null;
             }).filter(Boolean).sort((a, b) => new Date(a.activityAt) - new Date(b.activityAt));
+            const provenance = normalizeLifeThreadProvenance(episode.provenance);
+            const mailPlan = (Array.isArray(episode.mailPlan) ? episode.mailPlan : [])
+                .filter(mail => mail && typeof mail === 'object')
+                // One Away episode owns at most one planned letter. A legacy
+                // missing ID therefore has one stable episode-owned slot; do
+                // not use an array index or wall-clock/random fallback.
+                .slice(0, 1)
+                .map(mail => ({
+                    id: String(mail.id || `${String(episode.id || 'away-episode')}:mail:primary`),
+                    sendAt: parseLogicalDate(mail.sendAt)?.toISOString() || '',
+                    content: cleanText(mail.content || ''),
+                    attachment: mail.attachment && typeof mail.attachment === 'object' ? { ...mail.attachment } : null,
+                    state: mail.state === 'delivered' || mail.state === 'cancelled' ? mail.state : 'planned',
+                    deliveredAt: parseLogicalDate(mail.deliveredAt)?.toISOString() || null,
+                    nextDeliveryAttemptAt: parseLogicalDate(mail.nextDeliveryAttemptAt)?.toISOString() || null
+                }))
+                .filter(mail => mail.sendAt && mail.content);
+            // Thread-private provenance must never become a physical USER-mail
+            // artifact. Historical delivered rows remain untouched; only a
+            // still-pending plan is quarantined before reconciliation.
+            if (provenance?.visibility === 'thread-private') {
+                mailPlan.forEach(mail => {
+                    if (mail.state === 'planned') mail.state = 'cancelled';
+                });
+            }
             return {
                 id: String(episode.id || `away-episode-${departedAt || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
                 residentId: String(episode.residentId || ''),
@@ -107,26 +132,15 @@
                 plannedReturnStatus: typeof episode.plannedReturnStatus === 'string' ? cleanText(episode.plannedReturnStatus) : '',
                 plannedArchiveNarrative: typeof episode.plannedArchiveNarrative === 'string' ? cleanText(episode.plannedArchiveNarrative) : '',
                 activityPlans,
-                mailPlan: (Array.isArray(episode.mailPlan) ? episode.mailPlan : [])
-                    .filter(mail => mail && typeof mail === 'object')
-                    // One Away episode owns at most one planned letter. A legacy
-                    // missing ID therefore has one stable episode-owned slot; do
-                    // not use an array index or wall-clock/random fallback.
-                    .slice(0, 1)
-                    .map(mail => ({
-                        id: String(mail.id || `${String(episode.id || 'away-episode')}:mail:primary`),
-                        sendAt: parseLogicalDate(mail.sendAt)?.toISOString() || '',
-                        content: cleanText(mail.content || ''),
-                        attachment: mail.attachment && typeof mail.attachment === 'object' ? { ...mail.attachment } : null,
-                        state: mail.state === 'delivered' || mail.state === 'cancelled' ? mail.state : 'planned',
-                        deliveredAt: parseLogicalDate(mail.deliveredAt)?.toISOString() || null
-                    }))
-                    .filter(mail => mail.sendAt && mail.content),
+                mailPlan,
                 mailDecision: episode.mailDecision && typeof episode.mailDecision === 'object' &&
                     Number.isInteger(Number(episode.mailDecision.roll)) && Number(episode.mailDecision.roll) >= 1 && Number(episode.mailDecision.roll) <= 100
                     ? { roll: Number(episode.mailDecision.roll), shouldWrite: episode.mailDecision.shouldWrite === true }
                     : null,
-                provenance: normalizeLifeThreadProvenance(episode.provenance),
+                provenance,
+                ordinaryAwayOperationId: typeof episode.ordinaryAwayOperationId === 'string'
+                    ? episode.ordinaryAwayOperationId.trim()
+                    : '',
                 status: episode.status === 'completed' ? 'completed' : 'active',
                 returnedAt: parseLogicalDate(episode.returnedAt)?.toISOString() || null,
                 settledAt: parseLogicalDate(episode.settledAt)?.toISOString() || null,
@@ -366,11 +380,15 @@
             : { candidates, plan: null, valid: false, reason: 'existing validator rejected plan' };
     };
 
-    const createEpisode = (cat, plan, departedAt = new Date(), mailDecision = null, provenance = null) => {
+    const createEpisode = (cat, plan, departedAt = new Date(), mailDecision = null, provenance = null, options = {}) => {
         const departure = parseLogicalDate(departedAt) || new Date();
         const durationMs = Number(plan.plannedDurationMinutes) * 60 * 1000;
+        const normalizedProvenance = normalizeLifeThreadProvenance(provenance);
+        const ordinaryAwayOperationId = String(options?.ordinaryAwayOperationId || '').trim();
         return {
-            id: `away-episode-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+            id: ordinaryAwayOperationId
+                ? `away-episode-ordinary-${ordinaryAwayOperationId}`
+                : `away-episode-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
             residentId: String(cat.id),
             hallId: getCatHallId(cat),
             departedAt: departure.toISOString(),
@@ -385,7 +403,7 @@
                 state: 'planned',
                 materializedAt: null
             })) : [],
-            mailPlan: (plan.mailPlan || []).map(mail => ({
+            mailPlan: (normalizedProvenance?.visibility === 'thread-private' ? [] : (plan.mailPlan || [])).map(mail => ({
                 id: `away-mail-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
                 sendAt: new Date(departure.getTime() + Number(mail.sendAfterMinutes) * 60 * 1000).toISOString(),
                 content: cleanText(mail.content),
@@ -396,7 +414,8 @@
             mailDecision: mailDecision && Number.isInteger(Number(mailDecision.roll))
                 ? { roll: Number(mailDecision.roll), shouldWrite: mailDecision.shouldWrite === true }
                 : null,
-            provenance: normalizeLifeThreadProvenance(provenance),
+            provenance: normalizedProvenance,
+            ordinaryAwayOperationId,
             status: 'active',
             returnedAt: null,
             settledAt: null,
@@ -462,7 +481,8 @@
             }
             (episode.mailPlan || []).forEach(mail => {
                 const sendAt = parseLogicalDate(mail.sendAt);
-                if ((episode.status === 'active' || episode.status === 'completed') && mail.state === 'planned' && sendAt && sendAt <= now) {
+                const nextAttemptAt = parseLogicalDate(mail.nextDeliveryAttemptAt);
+                if ((episode.status === 'active' || episode.status === 'completed') && mail.state === 'planned' && sendAt && sendAt <= now && (!nextAttemptAt || nextAttemptAt <= now)) {
                     dueEvents.push({ type: 'mail', at: sendAt, episode, mail });
                 }
             });
@@ -472,7 +492,8 @@
             }
         });
         const rank = { activity: 0, mail: 1, return: 2 };
-        dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type]);
+        dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type] ||
+            (a.type === 'mail' && b.type === 'mail' ? String(a.mail.id).localeCompare(String(b.mail.id)) : 0));
         const hooks = { cats: Array.isArray(cats) ? cats : [], onMaterializeActivity, onSettleReturn, onDiaryReady };
         dueEvents.forEach(event => {
             if (event.type === 'activity') materializeActivity(event, now, hooks);
@@ -491,6 +512,7 @@
         getHomeReserve,
         getIndependentDepartureGate,
         buildDepartureSchedule,
+        scheduleAwayOpportunity,
         scheduleIndependentDepartureGate,
         validatePlan,
         indexPlans,
