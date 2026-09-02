@@ -2550,6 +2550,13 @@
             #app .gotham-top-action {
                 width: 39px;
             }
+
+            #app .park-game-list { padding: 12px; gap: 10px; }
+            #app .park-game-card { padding: 12px; }
+            #app .park-result-card { max-height: calc(var(--app-height) - 220px); padding: 16px; }
+            #app .park-match-tile { width: 40px; height: 54px; font-size: 22px; }
+            #app .park-match-tray { margin-left: 0; margin-right: 0; }
+            #app .park-tetris-canvas { height: 242px !important; }
         }
 
         /* ===== GLOBAL LIGHT DOPAMINE THEMES ===== */
@@ -5809,7 +5816,7 @@
                                     </div>
                                     <span class="text-[10px] text-gray-300">馆舍热讯</span>
                                 </div>
-                                <div @click="phoneState.currentApp = 'games'; phoneState.games.activeGame = null"
+                                <div @click="openGamesApp"
                                     class="flex flex-col items-center gap-2 cursor-pointer">
                                     <div
                                         class="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white text-2xl shadow-[0_5px_15px_rgba(147,51,234,0.4)] hover:scale-110 active:scale-95 transition-all">
@@ -5998,56 +6005,63 @@
                                 <!-- Games Header -->
                                 <div
                                     class="h-12 bg-zinc-800 flex justify-between items-center px-4 shrink-0 border-b border-zinc-700">
-                                    <button @click="phoneState.currentApp = 'home'" class="w-8 text-gray-400 text-xl"><i
+                                    <button @click="handleGamesHeaderBack" class="w-8 text-gray-400 text-xl"><i
                                             class="fas fa-chevron-left"></i></button>
                                     <h3 class="font-bold text-gray-200 text-sm">猫咪游乐园</h3>
                                     <div class="w-8"></div>
                                 </div>
                                 <!-- Games List / Main Menu -->
-                                <div v-if="!phoneState.games.activeGame" class="flex-1 overflow-y-auto p-4 space-y-4">
-                                    <div @click="phoneState.games.settlementResult = null; phoneState.games.activeGame = 'tetris'; initTetris()"
-                                        class="bg-zinc-800 p-4 rounded-xl border border-purple-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4">
+                                <div v-if="!phoneState.games.activeGame" class="flex-1 overflow-y-auto p-4 space-y-3 park-game-list">
+                                    <button v-if="pendingSkillGameRound" type="button" @click="showSkillGameRound(pendingSkillGameRound.roundId)" class="w-full rounded-xl border border-amber-400/70 bg-amber-400/10 p-3 text-left text-xs text-amber-100">
+                                        <i class="fas fa-gift mr-2"></i>上局{{ getGameDisplayName(pendingSkillGameRound.gameId) }}的奖励待领取
+                                    </button>
+                                    <button type="button" @click="startSkillGame('tetris')"
+                                        class="park-game-card w-full bg-zinc-800 p-4 rounded-xl border border-purple-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4 text-left">
                                         <div
                                             class="w-12 h-12 bg-purple-900 rounded-lg flex items-center justify-center text-xl text-purple-300">
                                             <i class="fas fa-cubes"></i>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-bold text-gray-200">喵喵方块</div>
+                                            <div class="flex items-center justify-between gap-2"><div class="font-bold text-gray-200">喵喵方块</div><span class="rounded-full bg-purple-500/20 px-2 py-0.5 text-[9px] font-black text-purple-200">技巧</span></div>
                                             <div class="text-[10px] text-gray-500">经典下落消除，把杂念叠进整齐的一行。</div>
+                                            <div class="mt-1 text-[9px] text-purple-300/80">{{ getGameCardRecord('tetris') }}</div>
                                         </div>
-                                    </div>
-                                    <div @click="phoneState.games.settlementResult = null; phoneState.games.activeGame = 'merge'; initMerge()"
-                                        class="bg-zinc-800 p-4 rounded-xl border border-blue-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4">
+                                    </button>
+                                    <button type="button" @click="startSkillGame('merge')"
+                                        class="park-game-card w-full bg-zinc-800 p-4 rounded-xl border border-blue-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4 text-left">
                                         <div
                                             class="w-12 h-12 bg-blue-900 rounded-lg flex items-center justify-center text-xl text-blue-300">
                                             <i class="fas fa-th-large"></i>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-bold text-gray-200">喵喵合合乐</div>
+                                            <div class="flex items-center justify-between gap-2"><div class="font-bold text-gray-200">喵喵合合乐</div><span class="rounded-full bg-blue-500/20 px-2 py-0.5 text-[9px] font-black text-blue-200">策略</span></div>
                                             <div class="text-[10px] text-gray-500">2048 滑动合成，最高进化出什么？</div>
+                                            <div class="mt-1 text-[9px] text-blue-300/80">{{ getGameCardRecord('merge') }}</div>
                                         </div>
-                                    </div>
-                                    <div @click="phoneState.games.settlementResult = null; phoneState.games.activeGame = 'match'; initMatch()"
-                                        class="bg-zinc-800 p-4 rounded-xl border border-green-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4">
+                                    </button>
+                                    <button type="button" @click="startSkillGame('match')"
+                                        class="park-game-card w-full bg-zinc-800 p-4 rounded-xl border border-green-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4 text-left">
                                         <div
                                             class="w-12 h-12 bg-green-900 rounded-lg flex items-center justify-center text-xl text-green-300">
                                             <i class="fas fa-layer-group"></i>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-bold text-gray-200">喵了个喵</div>
+                                            <div class="flex items-center justify-between gap-2"><div class="font-bold text-gray-200">喵了个喵</div><span class="rounded-full bg-green-500/20 px-2 py-0.5 text-[9px] font-black text-green-200">整理</span></div>
                                             <div class="text-[10px] text-gray-500">极限 3 消堆叠，挑战你的整理能力。</div>
+                                            <div class="mt-1 text-[9px] text-green-300/80">{{ getGameCardRecord('match') }}</div>
                                         </div>
-                                    </div>
-                                    <div @click="phoneState.games.settlementResult = null; phoneState.games.activeGame = 'slots'; initSlots()"
-                                        class="bg-zinc-800 p-4 rounded-xl border border-yellow-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4">
+                                    </button>
+                                    <button type="button" @click="openSlotsGame"
+                                        class="park-game-card w-full bg-zinc-800 p-4 rounded-xl border border-yellow-500 cursor-pointer hover:bg-zinc-700 flex items-center gap-4 text-left">
                                         <div class="w-12 h-12 bg-gradient-to-br from-yellow-400 to-red-500 rounded-lg flex items-center justify-center text-xl text-white shadow-lg">
                                             <i class="fas fa-slot-machine"></i>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-bold text-gray-200">CatVegas · 幸运爪机</div>
+                                            <div class="flex items-center justify-between gap-2"><div class="font-bold text-gray-200">CatVegas · 幸运爪机</div><span class="rounded-full bg-yellow-500/20 px-2 py-0.5 text-[9px] font-black text-yellow-200">运气</span></div>
                                             <div class="text-[10px] text-gray-500">5 轴 20 线，连锁坠落、免费旋转与三次加倍。</div>
+                                            <div class="mt-1 text-[9px] text-yellow-300/80">{{ getGameCardRecord('slots') }}</div>
                                         </div>
-                                    </div>
+                                    </button>
                                 </div>
                                 <!-- Game Screens -->
                                 <div v-else class="flex-1 flex flex-col relative bg-black overflow-hidden align-middle">
@@ -6056,11 +6070,11 @@
                                         class="flex-1 flex flex-col items-center justify-center p-2 relative touch-none">
                                         <div class="text-white text-xs mb-2 flex justify-between w-full px-4"><span
                                                 class="font-mono text-purple-400">Score: {{ tetrisState.score
-                                                }}</span><button @click="endGame('Meow Tetris', tetrisState.score)"
-                                                class="text-red-500 hover:text-red-400 font-bold border border-red-800 px-2 rounded">QUIT</button>
+                                                }}</span><button @click="abandonActiveSkillGame"
+                                                class="text-gray-300 hover:text-white font-bold border border-zinc-600 px-2 rounded">返回游乐园</button>
                                         </div>
                                         <canvas id="tetris-canvas" width="200" height="400"
-                                            class="bg-zinc-900 border-2 border-zinc-700 shadow-[0_0_15px_rgba(128,0,128,0.3)]"
+                                            class="park-tetris-canvas bg-zinc-900 border-2 border-zinc-700 shadow-[0_0_15px_rgba(128,0,128,0.3)]"
                                             style="height: 280px; width: auto;"></canvas>
                                         <div class="grid grid-cols-3 gap-2 mt-2 w-full px-8 select-none">
                                             <button @mousedown="tetrisAction('left')"
@@ -6085,8 +6099,8 @@
                                         class="flex-1 flex flex-col items-center justify-center p-4 relative touch-none">
                                         <div class="text-white text-xs mb-2 flex justify-between w-full px-2"><span
                                                 class="font-mono text-blue-400">Score: {{ mergeState.score
-                                                }}</span><button @click="endGame('Meow Merge', mergeState.score)"
-                                                class="text-red-500 font-bold border border-red-800 px-2 rounded">QUIT</button>
+                                                }}</span><button @click="abandonActiveSkillGame"
+                                                class="text-gray-300 font-bold border border-zinc-600 px-2 rounded">返回游乐园</button>
                                         </div>
                                         <div class="w-full aspect-square bg-zinc-800 rounded-xl p-2 grid grid-cols-4 grid-rows-4 gap-2 relative shadow-[0_0_15px_rgba(0,0,255,0.2)]"
                                             @touchstart.prevent="handleMergeTouchStart"
@@ -6106,12 +6120,12 @@
                                         class="flex-1 flex flex-col p-2 relative select-none">
                                         <div class="text-white text-xs mb-2 flex justify-between w-full px-2"><span
                                                 class="font-mono text-green-400">Tiles Left: {{ matchState.tiles.length
-                                                }}</span><button @click="endGame('Meow Match', matchState.score)"
-                                                class="text-red-500 font-bold border border-red-800 px-2 rounded">QUIT</button>
+                                                }}</span><button @click="abandonActiveSkillGame"
+                                                class="text-gray-300 font-bold border border-zinc-600 px-2 rounded">返回游乐园</button>
                                         </div>
                                         <div class="flex-1 relative w-full mt-4">
                                             <div v-for="t in matchState.tiles" :key="t.id" @click="matchClick(t)"
-                                                class="absolute w-12 h-16 bg-zinc-200 border border-zinc-500 rounded-lg shadow-xl flex items-center justify-center text-3xl cursor-pointer hover:brightness-110 active:scale-95 transition-transform text-zinc-800"
+                                                class="park-match-tile absolute w-12 h-16 bg-zinc-200 border border-zinc-500 rounded-lg shadow-xl flex items-center justify-center text-3xl cursor-pointer hover:brightness-110 active:scale-95 transition-transform text-zinc-800"
                                                 :class="{'brightness-[0.4] grayscale pointer-events-none': !t.clickable}"
                                                 :style="`left: ${t.x}%; top: ${t.y}%; z-index: ${t.z}`">
                                                 <i :class="['fa-solid', t.icon]"></i>
@@ -6119,7 +6133,7 @@
                                         </div>
                                         <!-- Slot -->
                                         <div
-                                            class="h-20 mt-2 bg-zinc-800 border-2 border-zinc-600 rounded-xl flex items-center px-2 gap-1 overflow-visible z-10 mx-2 shadow-[0_0_20px_rgba(0,255,0,0.1)]">
+                                            class="park-match-tray h-20 mt-2 bg-zinc-800 border-2 border-zinc-600 rounded-xl flex items-center px-2 gap-1 overflow-visible z-10 mx-2 shadow-[0_0_20px_rgba(0,255,0,0.1)]">
                                             <div v-for="t in matchState.slots" :key="t.id"
                                                 class="w-10 h-14 bg-zinc-200 rounded border border-zinc-500 flex items-center justify-center text-2xl animate-pop-in text-zinc-800">
                                                 <i :class="['fa-solid', t.icon]"></i>
@@ -6128,7 +6142,7 @@
                                     </div>
                                     <div v-if="phoneState.games.activeGame === 'slots'" class="flex-1 overflow-y-auto p-3 text-white bg-gradient-to-b from-[#24120d] via-[#101116] to-[#0b0b0f]">
                                         <div class="flex items-center justify-between text-xs mb-3">
-                                            <button @click="closeSlots" class="text-gray-300"><i class="fas fa-chevron-left mr-1"></i>退出</button>
+                                            <button @click="closeSlots" class="text-gray-300"><i class="fas fa-chevron-left mr-1"></i>返回游乐园</button>
                                             <div class="font-black tracking-[.18em] text-yellow-300">CATVEGAS</div>
                                             <div class="text-yellow-300"><i class="fas fa-coins mr-1"></i>{{ user.coins }} G</div>
                                         </div>
@@ -6161,45 +6175,29 @@
                                     </div>
                                 </div>
 
-                                <!-- Settlement Modal -->
-                                <div v-if="phoneState.games.isSettling || phoneState.games.settlementResult"
+                                <!-- Program-owned skill-game result -->
+                                <div v-if="selectedSkillGameRound"
                                     class="absolute inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-6 backdrop-blur">
-                                    <div v-if="phoneState.games.isSettling"
-                                        class="text-center animate-pulse flex flex-col items-center">
-                                        <i class="fas fa-dice fa-spin text-5xl text-purple-500 mb-6"></i>
-                                        <p class="text-sm text-gray-300 font-mono tracking-widest text-purple-300">
-                                            正在结算高维专属奖励...</p>
-                                    </div>
-                                    <div v-else-if="phoneState.games.settlementResult"
-                                        class="bg-zinc-900 border-2 border-purple-600 rounded-2xl p-6 w-full max-w-sm text-center shadow-[0_0_40px_rgba(128,0,128,0.4)] relative overflow-hidden">
+                                    <div class="park-result-card bg-zinc-900 border-2 border-purple-600 rounded-2xl p-5 w-full max-w-sm text-center shadow-[0_0_40px_rgba(128,0,128,0.4)] relative overflow-y-auto">
                                         <div
                                             class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 via-pink-500 to-red-500">
                                         </div>
-                                        <h2 class="text-xl font-black text-white mb-2 tracking-widest">GAME OVER</h2>
-                                        <p
-                                            class="text-xs text-center text-gray-300 italic mb-4 border-l-4 border-purple-500 bg-black/50 p-3 leading-relaxed rounded-r-lg">
-                                            "{{ phoneState.games.settlementResult.comment }}"</p>
-                                        <div class="flex justify-center mb-6 text-yellow-500 font-bold text-2xl"><i
-                                                class="fas fa-coins mr-2 mt-1"></i> +{{
-                                            phoneState.games.settlementResult.gold_reward }}</div>
-                                        <div class="space-y-3 mb-6 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                                            <div v-for="(item, idx) in phoneState.games.settlementResult.items"
-                                                :key="idx"
-                                                class="bg-zinc-800 p-3 rounded-xl border border-zinc-700 text-left flex items-start gap-4">
-                                                <div class="text-3xl mt-1">🎁</div>
-                                                <div class="flex-1">
-                                                    <div class="text-sm font-bold text-purple-300 mb-1">{{
-                                                        item.item_name }} <span
-                                                            class="text-zinc-500 text-[10px] ml-1">x{{ item.quantity
-                                                            }}</span></div>
-                                                    <div class="text-[10px] text-gray-400 line-clamp-2 leading-tight">{{
-                                                        item.description }}</div>
-                                                </div>
-                                            </div>
+                                        <div class="text-[10px] font-black tracking-[.2em] text-purple-300">{{ getGameDisplayName(selectedSkillGameRound.gameId) }}</div>
+                                        <h2 class="mt-2 text-xl font-black text-white">{{ getSkillGameResultTitle(selectedSkillGameRound) }}</h2>
+                                        <div class="mt-3 grid grid-cols-2 gap-2 text-left">
+                                            <div class="rounded-xl bg-black/40 p-3"><div class="text-[9px] text-zinc-500">本局分数</div><div class="mt-1 font-mono text-lg text-white">{{ selectedSkillGameRound.score }}</div></div>
+                                            <div class="rounded-xl bg-black/40 p-3"><div class="text-[9px] text-zinc-500">纪录</div><div class="mt-1 text-sm font-bold" :class="selectedSkillGameRound.recordDelta.isNewBest ? 'text-amber-300' : 'text-zinc-300'">{{ selectedSkillGameRound.recordDelta.isNewBest ? '新纪录' : `最佳 ${selectedSkillGameRound.recordDelta.bestScore}` }}</div></div>
                                         </div>
-                                        <button
-                                            @click="phoneState.games.settlementResult = null; phoneState.games.activeGame = null"
-                                            class="w-full bg-purple-600 text-white font-bold py-4 rounded-xl hover:bg-purple-500 active:scale-95 transition-transform tracking-widest">收取奖励</button>
+                                        <div class="mt-3 rounded-xl bg-yellow-400/10 p-3 text-yellow-300"><i class="fas fa-coins mr-2"></i>{{ selectedSkillGameRound.reward.gold ? `待领取 ${selectedSkillGameRound.reward.gold} G` : '本局没有金币奖励' }}</div>
+                                        <p class="mt-3 text-xs leading-relaxed text-zinc-300 italic">“{{ getSkillGameRoundComment(selectedSkillGameRound) }}”</p>
+                                        <div v-if="!selectedSkillGameRound.claimedAt" class="mt-4 grid gap-2">
+                                            <button @click="claimSkillGameRound(selectedSkillGameRound.roundId)" class="w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-500">{{ selectedSkillGameRound.reward.gold ? '收取奖励' : '确认结果' }}</button>
+                                            <button @click="stashSkillGameRound" class="w-full border border-zinc-600 text-zinc-300 font-bold py-2.5 rounded-xl">暂存并返回游乐园</button>
+                                        </div>
+                                        <div v-else class="mt-4 grid grid-cols-2 gap-2">
+                                            <button @click="replaySkillGame(selectedSkillGameRound.gameId)" class="bg-purple-600 text-white font-bold py-3 rounded-xl">再来一局</button>
+                                            <button @click="closeSkillGameResult" class="border border-zinc-600 text-zinc-200 font-bold py-3 rounded-xl">返回游乐园</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -9110,6 +9108,10 @@
                     // a chance to normalize any saved Case records.
                     exploreCases: [],
                     activeExploreCaseId: '',
+                    // Durable, bounded social-moment operations. These are not
+                    // world truth; they only protect claimed Attention prose from
+                    // being regenerated across a reload.
+                    attentionBidOpportunities: [],
                     phoneData: {
                         chats: [],
                         chatArchives: {},
@@ -9120,6 +9122,10 @@
                         delivery: [],
                         tarot: [],
                         walletTransactions: [],
+                        games: {
+                            stats: {},
+                            rounds: []
+                        },
                         friends: [],
                         friendRequests: [],
                         friendRequestSentCatIds: [],
@@ -9505,6 +9511,74 @@
                 let savedData = window.Meeow.storage.loadSavedData(STORAGE_KEY, OLD_KEYS);
 
                 const user = reactive(initialUser);
+                const SKILL_GAME_IDS = Object.freeze(['tetris', 'merge', 'match']);
+                const createDefaultSkillGameStats = (gameId) => ({
+                    plays: 0,
+                    ...(gameId === 'match' ? { wins: 0 } : {}),
+                    losses: 0,
+                    abandons: 0,
+                    bestScore: 0,
+                    lastPlayedAt: ''
+                });
+                const normalizeSkillGameStats = (raw, gameId) => {
+                    const fallback = createDefaultSkillGameStats(gameId);
+                    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+                    const integer = value => Math.max(0, Math.floor(Number(value) || 0));
+                    const lastPlayedAt = typeof source.lastPlayedAt === 'string' && Number.isFinite(new Date(source.lastPlayedAt).getTime())
+                        ? new Date(source.lastPlayedAt).toISOString()
+                        : '';
+                    return {
+                        ...fallback,
+                        plays: integer(source.plays),
+                        ...(gameId === 'match' ? { wins: integer(source.wins) } : {}),
+                        losses: integer(source.losses),
+                        abandons: integer(source.abandons),
+                        bestScore: integer(source.bestScore),
+                        lastPlayedAt
+                    };
+                };
+                const normalizePhoneGamesData = (phoneData) => {
+                    if (!phoneData || typeof phoneData !== 'object') return { stats: {}, rounds: [] };
+                    const source = phoneData.games && typeof phoneData.games === 'object' && !Array.isArray(phoneData.games) ? phoneData.games : {};
+                    const now = new Date().toISOString();
+                    const stats = Object.fromEntries(SKILL_GAME_IDS.map(gameId => [gameId, normalizeSkillGameStats(source.stats?.[gameId], gameId)]));
+                    const seen = new Set();
+                    const rounds = (Array.isArray(source.rounds) ? source.rounds : [])
+                        .map(raw => {
+                            if (!raw || typeof raw !== 'object') return null;
+                            const roundId = String(raw.roundId || '').trim();
+                            const gameId = String(raw.gameId || '').trim();
+                            const status = ['won', 'lost', 'abandoned'].includes(raw.status) ? raw.status : '';
+                            if (!roundId || !SKILL_GAME_IDS.includes(gameId) || !status || seen.has(roundId)) return null;
+                            seen.add(roundId);
+                            const endedAt = typeof raw.endedAt === 'string' && Number.isFinite(new Date(raw.endedAt).getTime()) ? new Date(raw.endedAt).toISOString() : now;
+                            const claimedAt = typeof raw.claimedAt === 'string' && Number.isFinite(new Date(raw.claimedAt).getTime()) ? new Date(raw.claimedAt).toISOString() : '';
+                            const score = Math.max(0, Math.floor(Number(raw.score) || 0));
+                            const gold = Math.max(0, Math.floor(Number(raw.reward?.gold) || 0));
+                            const flavorComment = typeof raw.flavor?.comment === 'string' && raw.flavor.comment.length <= 160 ? raw.flavor.comment.trim() : '';
+                            return {
+                                roundId, gameId, status, score,
+                                result: typeof raw.result === 'string' ? raw.result.slice(0, 120) : '',
+                                reward: { gold, reason: typeof raw.reward?.reason === 'string' ? raw.reward.reason.slice(0, 120) : '' },
+                                recordDelta: {
+                                    previousBest: Math.max(0, Math.floor(Number(raw.recordDelta?.previousBest) || 0)),
+                                    bestScore: Math.max(0, Math.floor(Number(raw.recordDelta?.bestScore) || 0)),
+                                    isNewBest: raw.recordDelta?.isNewBest === true
+                                },
+                                endedAt, claimedAt,
+                                walletTransactionId: typeof raw.walletTransactionId === 'string' ? raw.walletTransactionId : '',
+                                flavor: {
+                                    status: ['pending', 'complete', 'local', 'failed'].includes(raw.flavor?.status) ? raw.flavor.status : 'local',
+                                    comment: flavorComment
+                                }
+                            };
+                        })
+                        .filter(Boolean)
+                        .sort((left, right) => String(right.endedAt).localeCompare(String(left.endedAt)))
+                        .slice(0, 20);
+                    phoneData.games = { stats, rounds };
+                    return phoneData.games;
+                };
                 const settings = reactive(initialSettings);
                 // Keep the small, high-value model choice outside the large
                 // archive as well. A quota error in the archive must not force
@@ -9687,6 +9761,7 @@
                             // Explore resume template as a truthy non-array.
                             if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
                             if (typeof user.activeExploreCaseId !== 'string') user.activeExploreCaseId = '';
+                            if (!Array.isArray(user.attentionBidOpportunities)) user.attentionBidOpportunities = [];
                             if (!user.phoneData) user.phoneData = {};
                             if (!user.phoneData.friends) user.phoneData.friends = [];
                             if (!user.phoneData.friendRequests) user.phoneData.friendRequests = [];
@@ -9705,6 +9780,7 @@
                             if (!user.phoneData.news) user.phoneData.news = [];
                             if (!user.phoneData.tarot) user.phoneData.tarot = [];
                             if (!user.phoneData.walletTransactions) user.phoneData.walletTransactions = [];
+                            normalizePhoneGamesData(user.phoneData);
                             if (!user.phoneData.reader || typeof user.phoneData.reader !== 'object') user.phoneData.reader = { books: [], annotations: [] };
                             if (!Array.isArray(user.phoneData.reader.books)) user.phoneData.reader.books = [];
                             if (!Array.isArray(user.phoneData.reader.annotations)) user.phoneData.reader.annotations = [];
@@ -9758,6 +9834,7 @@
                 }
 
                 mergeBuiltInCats();
+                normalizePhoneGamesData(user.phoneData);
                 normalizeResidentRelationshipRoster();
                 if (sanitizeCuratorRoomPresence()) rosterMigrationPendingSave = true;
 
@@ -10549,6 +10626,10 @@
                 const focusTotalTime = ref(0);
                 const focusTimer = ref(null);
                 const currentFocusLog = ref([]);
+                // Focus Shared Moments are deliberately session-local. They shape
+                // only the visible Live Log; they are not durable world state.
+                const focusMomentSequence = ref(0);
+                const focusVisibleUserActionEvidence = ref([]);
                 const focusMessage = ref('');
                 const currentNoise = ref('none');
                 const customNoiseUrl = ref('');
@@ -10834,6 +10915,10 @@
                     postMomentText: '',
                     games: {
                         activeGame: null,
+                        activeRoundId: '',
+                        selectedRoundId: '',
+                        flavorLoadingRoundId: '',
+                        // Retained for dormant legacy mini-games that share this state.
                         isSettling: false,
                         settlementResult: null
                     },
@@ -14580,23 +14665,29 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 };
 
                 // --- REFACTORED LOGIC A Implementation (v3.5.0) ---
-                const addWalletTransaction = (type, amount, title, detail) => {
+                const addWalletTransaction = (type, amount, title, detail, metadata = {}) => {
                     const numAmount = parseInt(amount) || 0;
                     if (!user.phoneData.walletTransactions) user.phoneData.walletTransactions = [];
-                    user.phoneData.walletTransactions.unshift({
-                        id: Date.now(),
+                    const sourceId = typeof metadata?.sourceId === 'string' ? metadata.sourceId.trim() : '';
+                    const existing = sourceId ? user.phoneData.walletTransactions.find(transaction => transaction?.sourceId === sourceId) : null;
+                    if (existing) return existing;
+                    const transaction = {
+                        id: sourceId || Date.now(),
                         type, // 'in' or 'out'
                         amount: numAmount,
                         title,
                         detail,
-                        time: getCurrentTimeStr()
-                    });
+                        time: getCurrentTimeStr(),
+                        ...(sourceId ? { sourceId } : {})
+                    };
+                    user.phoneData.walletTransactions.unshift(transaction);
                     // 同步更新用户余额
                     if (type === 'in') {
                         user.coins += numAmount;
                     } else {
                         user.coins -= numAmount;
                     }
+                    return transaction;
                 };
 
                 const phoneInputRef = ref(null);
@@ -16033,10 +16124,10 @@ ${pendingText}
                 const slotState = reactive({
                     reels: makeSlotReels(), bet: 10, isSpinning: false, freeSpins: 0, combo: 0,
                     pendingWin: 0, gambleCount: 0, lastPayout: 0, message: '选择注码，拉下幸运爪机。',
-                    history: [], totalSpins: 0, todayNet: 0
+                    history: [], totalSpins: 0, todayNet: 0, spinId: ''
                 });
                 const slotStorage = () => {
-                    if (!user.phoneData.casino) user.phoneData.casino = { history: [], totalSpins: 0, todayNet: 0, lastDay: '' };
+                    if (!user.phoneData.casino) user.phoneData.casino = { history: [], totalSpins: 0, todayNet: 0, lastDay: '', freeSpins: 0, resolvedSnapshot: null };
                     const today = getOperationalDayKey();
                     if (user.phoneData.casino.lastDay !== today) Object.assign(user.phoneData.casino, { todayNet: 0, lastDay: today });
                     return user.phoneData.casino;
@@ -16046,10 +16137,29 @@ ${pendingText}
                     slotState.history = Array.isArray(saved.history) ? saved.history : [];
                     slotState.totalSpins = Number(saved.totalSpins) || 0;
                     slotState.todayNet = Number(saved.todayNet) || 0;
+                    const snapshot = saved.resolvedSnapshot && typeof saved.resolvedSnapshot === 'object' ? saved.resolvedSnapshot : null;
+                    slotState.spinId = typeof snapshot?.spinId === 'string' ? snapshot.spinId : '';
+                    slotState.pendingWin = Math.max(0, Number(snapshot?.pendingWin) || 0);
+                    slotState.freeSpins = Math.max(0, Math.floor(Number(snapshot?.freeSpins ?? saved.freeSpins) || 0));
+                    slotState.gambleCount = Math.max(0, Math.min(3, Math.floor(Number(snapshot?.gambleCount) || 0)));
+                    slotState.combo = Math.max(0, Math.floor(Number(snapshot?.combo) || 0));
+                    slotState.lastPayout = Math.max(0, Number(snapshot?.lastPayout) || 0);
+                    slotState.message = typeof snapshot?.message === 'string' && snapshot.message.length <= 160 ? snapshot.message : '20 条固定连线 · Wild 替代 · 3 个 Scatter 送 8 次免费旋转。';
                 };
-                const persistSlots = () => Object.assign(slotStorage(), {
-                    history: slotState.history.slice(0, 40), totalSpins: slotState.totalSpins, todayNet: slotState.todayNet
+                const getResolvedSlotSnapshot = () => ({
+                    spinId: slotState.spinId || '', pendingWin: slotState.pendingWin, freeSpins: slotState.freeSpins,
+                    gambleCount: slotState.gambleCount, combo: slotState.combo, lastPayout: slotState.lastPayout,
+                    message: slotState.message, resolvedAt: new Date().toISOString()
                 });
+                const persistSlots = () => {
+                    const saved = slotStorage();
+                    const hasFrozenPendingResolution = Boolean(slotState.spinId) && (slotState.pendingWin > 0 || slotState.lastPayout > 0 || slotState.freeSpins > 0);
+                    Object.assign(saved, {
+                        history: slotState.history.slice(0, 40), totalSpins: slotState.totalSpins, todayNet: slotState.todayNet,
+                        freeSpins: slotState.freeSpins,
+                        resolvedSnapshot: slotState.isSpinning ? saved.resolvedSnapshot || null : (hasFrozenPendingResolution ? getResolvedSlotSnapshot() : null)
+                    });
+                };
                 const addSlotHistory = (label, delta) => {
                     slotState.history.unshift({ id: Date.now() + Math.random(), label, delta, time: getCurrentTimeStr() });
                     slotState.history = slotState.history.slice(0, 40);
@@ -16090,12 +16200,12 @@ ${pendingText}
                     });
                     await new Promise(resolve => setTimeout(resolve, 130));
                 };
-                const initSlots = () => { syncSlots(); slotState.reels = makeSlotReels(); slotState.pendingWin = 0; slotState.gambleCount = 0; slotState.lastPayout = 0; slotState.combo = 0; slotState.message = '20 条固定连线 · Wild 替代 · 3 个 Scatter 送 8 次免费旋转。'; };
+                const initSlots = () => { syncSlots(); slotState.reels = makeSlotReels(); };
                 const spinSlots = async () => {
                     if (slotState.isSpinning || slotState.pendingWin > 0) return;
                     const isFree = slotState.freeSpins > 0;
                     if (!isFree && user.coins < slotState.bet) return showToast('G 不足，不能下注。', 'error');
-                    slotState.isSpinning = true; slotState.combo = 0; slotState.lastPayout = 0;
+                    slotState.isSpinning = true; slotState.combo = 0; slotState.lastPayout = 0; slotState.spinId = `catvegas:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
                     if (isFree) slotState.freeSpins--; else { addWalletTransaction('out', slotState.bet, 'CatVegas 注码', `幸运爪机 · ${slotState.bet} G`); slotState.todayNet -= slotState.bet; }
                     slotState.totalSpins++; slotState.reels = makeSlotReels();
                     await new Promise(resolve => setTimeout(resolve, 420));
@@ -16120,56 +16230,172 @@ ${pendingText}
                     const amount = slotState.pendingWin;
                     addWalletTransaction('in', amount, 'CatVegas 派彩', `连锁 Combo ×${slotState.combo || 1}`);
                     slotState.todayNet += amount; addSlotHistory('收下派彩', amount);
-                    slotState.pendingWin = 0; slotState.gambleCount = 0; slotState.message = `已收下 ${amount} G。`; persistSlots();
+                    slotState.pendingWin = 0; slotState.gambleCount = 0; slotState.lastPayout = 0; slotState.spinId = ''; slotState.message = `已收下 ${amount} G。`; persistSlots();
                 };
                 const gambleSlotWin = () => {
                     if (!slotState.pendingWin || slotState.gambleCount >= 3) return;
                     slotState.gambleCount++;
                     if (Math.random() < 0.5) { slotState.pendingWin *= 2; slotState.message = `加倍成功！待领取 ${slotState.pendingWin} G。`; }
-                    else { slotState.pendingWin = 0; slotState.message = '加倍失手，本轮待领取赢额归零。'; }
+                    else { slotState.pendingWin = 0; slotState.lastPayout = 0; slotState.spinId = ''; slotState.message = '加倍失手，本轮待领取赢额归零。'; }
                     addSlotHistory('50/50 加倍', 0); persistSlots();
                 };
                 const closeSlots = () => { if (slotState.pendingWin > 0) collectSlotWin(); phoneState.games.activeGame = null; };
 
-                // --- MINI GAMES LOGIC ---
-                const submitGameScore = async (gameName, score) => {
-                    if (!settings.apiKey) return showToast("离线模式，无法结算专属奖励", "warning");
-                    phoneState.games.isSettling = true;
-                    // Logic D Prompt 18
-                    const prompt = `强行绑定角色视角：你是喵喵馆${currentHall.value.name}的系统后台奖励发放员。用户${user.nickname}刚刚在当前馆舍游玩了内置小游戏【${gameName}】，其最终成绩与表现是：【${score}】。\n生成要求：\n1. 根据用户的表现，为其发放 1-3 件随机的猫咪奖励（可包含：高级猫粮、特制零食、稀有玩具、日常用品）以及一定数量的金币。表现越好，奖励越稀有、数量越多。\n2. 世界观深度绑定：奖励物品和评语必须带有当前馆舍原作特色，不要混入其他馆舍角色。\n3. 写一句 30 字以内的结算评语。\n输出格式为严格的 JSON 结构：\n{ "comment": "结算评语", "gold_reward": 50, "items": [ {"item_name": "物品名称", "quantity": 1, "description": "一句有趣的物品描述"} ] }`;
+                // --- PROGRAM-OWNED SKILL GAME ROUNDS ---
+                const GAME_PARTICIPATION_FLOORS = Object.freeze({ tetris: 100, merge: 16, match: 30 });
+                const GAME_DISPLAY_NAMES = Object.freeze({ tetris: '喵喵方块', merge: '喵喵合合乐', match: '喵了个喵', slots: 'CatVegas · 幸运爪机' });
+                let skillGameRoundSequence = 0;
+                let mergeSpawnTimer = null;
+                const makeSkillGameRoundId = (gameId) => `game-round:${gameId}:${Date.now()}:${++skillGameRoundSequence}:${Math.random().toString(36).slice(2, 8)}`;
+                const getPhoneGamesData = () => {
+                    if (!user.phoneData.games || typeof user.phoneData.games !== 'object') normalizePhoneGamesData(user.phoneData);
+                    return user.phoneData.games;
+                };
+                const getSkillGameRound = roundId => getPhoneGamesData().rounds.find(round => round.roundId === String(roundId || '')) || null;
+                const getPendingSkillGameRound = () => getPhoneGamesData().rounds.find(round => round.status !== 'abandoned' && !round.claimedAt) || null;
+                const getGameDisplayName = gameId => GAME_DISPLAY_NAMES[String(gameId || '')] || '小游戏';
+                const getSkillGameResultTitle = round => {
+                    if (!round) return '本局结束';
+                    if (round.status === 'won') return '完美通关';
+                    if (round.status === 'abandoned') return '已返回游乐园';
+                    return round.recordDelta?.isNewBest ? '这局结束了 · 新纪录' : '这局结束了';
+                };
+                const getLocalSkillGameComment = round => {
+                    if (round?.status === 'won') return '这一局收得漂亮，游乐园记下了你的通关。';
+                    if (round?.status === 'abandoned') return '这一局先停在这里，想回来时再继续玩。';
+                    if (round?.recordDelta?.isNewBest) return '虽然这一局结束了，但你刷新了自己的记录。';
+                    return '这一局先告一段落，下一次再试试新的手感。';
+                };
+                const getSkillGameRoundComment = round => cleanText(round?.flavor?.comment) || getLocalSkillGameComment(round);
+                const isMeaningfulSkillGameRound = (gameId, score) => Number(score) >= (GAME_PARTICIPATION_FLOORS[gameId] || Infinity);
+                const getSkillGameReward = ({ gameId, status, score, isNewBest }) => {
+                    const meaningful = isMeaningfulSkillGameRound(gameId, score);
+                    if (!meaningful || status === 'abandoned') return { gold: 0, reason: meaningful ? '主动返回游乐园' : '本局尚未达到参与奖励门槛' };
+                    let gold = 0;
+                    if (gameId === 'tetris') gold = score >= 800 ? 15 : score >= 300 ? 10 : 5;
+                    else if (gameId === 'merge') gold = score >= 800 ? 15 : score >= 200 ? 10 : 5;
+                    else if (gameId === 'match') gold = status === 'won' ? 30 : score >= 180 ? 10 : 5;
+                    if (isNewBest) gold += 10;
+                    return { gold, reason: isNewBest ? '本局表现与新纪录奖励' : '本局表现奖励' };
+                };
+                const getGameCardRecord = gameId => {
+                    if (gameId === 'slots') return `今日 ${slotState.todayNet >= 0 ? '+' : ''}${slotState.todayNet} G · ${slotState.totalSpins} 转`;
+                    const stats = getPhoneGamesData().stats[gameId] || createDefaultSkillGameStats(gameId);
+                    if (gameId === 'match') return `通关 ${stats.wins || 0} 次 · 最佳 ${stats.bestScore || 0}`;
+                    return `最佳分数 ${stats.bestScore || 0} · 已玩 ${stats.plays || 0} 局`;
+                };
+                const pendingSkillGameRound = computed(() => getPendingSkillGameRound());
+                const selectedSkillGameRound = computed(() => getSkillGameRound(phoneState.games.selectedRoundId));
+                const isSkillGameInteractionBlocked = () => !phoneState.games.activeRoundId || Boolean(selectedSkillGameRound.value);
+                const stopActiveSkillGameLoop = () => {
+                    if (phoneState.games.activeGame === 'tetris' && typeof t_timer !== 'undefined' && t_timer) cancelAnimationFrame(t_timer);
+                    if (mergeSpawnTimer) { clearTimeout(mergeSpawnTimer); mergeSpawnTimer = null; }
+                };
+                const updateSkillGameStatsAtTerminal = (round) => {
+                    const stats = getPhoneGamesData().stats[round.gameId];
+                    if (!stats || round.statsAppliedAt) return;
+                    stats.plays += 1;
+                    if (round.status === 'won' && Object.prototype.hasOwnProperty.call(stats, 'wins')) stats.wins += 1;
+                    if (round.status === 'lost') stats.losses += 1;
+                    if (round.status === 'abandoned') stats.abandons += 1;
+                    if (round.recordDelta?.isNewBest) stats.bestScore = Math.max(stats.bestScore, round.score);
+                    stats.lastPlayedAt = round.endedAt;
+                    round.statsAppliedAt = round.endedAt;
+                };
+                const requestSkillGameRoundFlavor = async (roundId) => {
+                    const round = getSkillGameRound(roundId);
+                    if (!round || round.status === 'abandoned' || round.flavor?.status !== 'pending') return;
+                    if (!settings.apiKey) { round.flavor = { status: 'local', comment: '' }; persistNow(); return; }
+                    phoneState.games.flavorLoadingRoundId = roundId;
+                    const prompt = `[MEEOW PARK RESULT FLAVOR]\nRound ID: ${round.roundId}\nGame: ${getGameDisplayName(round.gameId)}\nAuthoritative status: ${round.status}\nAuthoritative score: ${round.score}\nAuthoritative reward: ${round.reward.gold} G\nNew record: ${round.recordDelta.isNewBest ? 'yes' : 'no'}\nWrite one warm, game-host-style Simplified Chinese comment. It must not invent residents, items, rewards, scores, relationships, knowledge, or world events. Return strict JSON only: {"comment":"..."}. Comment must be 60 Chinese characters or fewer.`;
                     try {
-                        const res = await callAI(prompt, "System Rewards AI", 1500, ThinkingLevel.LOW);
-                        const result = parseAIJSON(res);
-                        if (result) {
-                            phoneState.games.settlementResult = result;
-                            user.coins += (result.gold_reward || 0);
-                            if (result.items) {
-                                result.items.forEach(i => {
-                                    for (let j = 0; j < i.quantity; j++) {
-                                        user.inventory.push({
-                                            id: Date.now() + j,
-                                            type: 'consumable',
-                                            name: i.item_name,
-                                            desc: i.description,
-                                            category: 'food',
-                                            price: 0,
-                                            uniqueId: Date.now() + Math.random(),
-                                            icon: i.item_name.includes('猫') ? 'fa-solid fa-fish' : (i.item_name.includes('盾') ? 'fa-solid fa-shield-halved' : 'fa-solid fa-gift')
-                                        });
-                                    }
-                                });
-                            }
-                        } else { alert("解析失败。"); }
-                    } catch (e) { console.error(e); alert("网络中断，无法领取奖励。"); }
-                    finally { phoneState.games.isSettling = false; }
-                };
-
-                const endGame = (name, score) => {
-                    if (phoneState.games.activeGame === 'tetris') {
-                        if (typeof t_timer !== 'undefined' && t_timer) cancelAnimationFrame(t_timer);
+                        const response = await callAI(prompt, 'You write only short, non-authoritative arcade result flavor in Simplified Chinese.', 180, ThinkingLevel.LOW, { label: `PARK RESULT FLAVOR · ${round.gameId}`, priority: 'background' });
+                        const parsed = parseAIJSON(response);
+                        const comment = cleanText(parsed?.comment);
+                        const storedRound = getSkillGameRound(roundId);
+                        if (!storedRound || storedRound.flavor?.status !== 'pending') return;
+                        storedRound.flavor = comment && comment.length <= 160 ? { status: 'complete', comment } : { status: 'failed', comment: '' };
+                        persistNow();
+                    } catch (error) {
+                        const storedRound = getSkillGameRound(roundId);
+                        if (storedRound?.flavor?.status === 'pending') { storedRound.flavor = { status: 'failed', comment: '' }; persistNow(); }
+                    } finally {
+                        if (phoneState.games.flavorLoadingRoundId === roundId) phoneState.games.flavorLoadingRoundId = '';
                     }
-                    submitGameScore(name, `${score}`);
                 };
+                const freezeSkillGameTerminalRound = (gameId, status, score) => {
+                    const roundId = phoneState.games.activeRoundId;
+                    const existing = getSkillGameRound(roundId);
+                    if (existing) return existing;
+                    if (!roundId || phoneState.games.activeGame !== gameId || !['won', 'lost', 'abandoned'].includes(status)) return null;
+                    const numericScore = Math.max(0, Math.floor(Number(score) || 0));
+                    const games = getPhoneGamesData();
+                    const previousBest = games.stats[gameId].bestScore;
+                    const meaningful = isMeaningfulSkillGameRound(gameId, numericScore);
+                    const isNewBest = meaningful && numericScore > previousBest;
+                    const endedAt = new Date().toISOString();
+                    const reward = getSkillGameReward({ gameId, status, score: numericScore, isNewBest });
+                    const round = {
+                        roundId, gameId, status, score: numericScore,
+                        result: getSkillGameResultTitle({ status, recordDelta: { isNewBest } }),
+                        reward,
+                        recordDelta: { previousBest, bestScore: isNewBest ? numericScore : previousBest, isNewBest },
+                        endedAt, claimedAt: '', walletTransactionId: '',
+                        flavor: { status: status === 'abandoned' ? 'local' : (settings.apiKey ? 'pending' : 'local'), comment: '' }
+                    };
+                    games.rounds.unshift(round);
+                    games.rounds = games.rounds.slice(0, 20);
+                    updateSkillGameStatsAtTerminal(round);
+                    stopActiveSkillGameLoop();
+                    phoneState.games.activeGame = null;
+                    phoneState.games.activeRoundId = '';
+                    phoneState.games.selectedRoundId = status === 'abandoned' ? '' : round.roundId;
+                    persistNow();
+                    if (status !== 'abandoned') void requestSkillGameRoundFlavor(round.roundId);
+                    return round;
+                };
+                const finishSkillGame = (gameId, status, score) => freezeSkillGameTerminalRound(gameId, status, score);
+                const endGame = (_legacyName, score) => finishSkillGame(phoneState.games.activeGame, 'lost', score);
+                const startSkillGame = (gameId) => {
+                    if (!SKILL_GAME_IDS.includes(gameId)) return;
+                    const pending = getPendingSkillGameRound();
+                    if (pending) { phoneState.games.selectedRoundId = pending.roundId; phoneState.games.activeGame = null; return; }
+                    phoneState.games.selectedRoundId = '';
+                    phoneState.games.activeRoundId = makeSkillGameRoundId(gameId);
+                    phoneState.games.activeGame = gameId;
+                    if (gameId === 'tetris') initTetris();
+                    if (gameId === 'merge') initMerge();
+                    if (gameId === 'match') initMatch();
+                };
+                const claimSkillGameRound = (roundId) => {
+                    const round = getSkillGameRound(roundId);
+                    if (!round || round.status === 'abandoned' || round.claimedAt) return round;
+                    const sourceId = `game-round:${round.roundId}`;
+                    const existing = user.phoneData.walletTransactions?.find(transaction => transaction?.sourceId === sourceId);
+                    if (round.reward.gold > 0 && !existing) addWalletTransaction('in', round.reward.gold, `${getGameDisplayName(round.gameId)} 奖励`, round.reward.reason, { sourceId });
+                    round.walletTransactionId = sourceId;
+                    round.claimedAt = new Date().toISOString();
+                    persistNow();
+                    return round;
+                };
+                const showSkillGameRound = roundId => { if (getSkillGameRound(roundId)) phoneState.games.selectedRoundId = roundId; };
+                const stashSkillGameRound = () => { phoneState.games.selectedRoundId = ''; phoneState.games.activeGame = null; };
+                const closeSkillGameResult = () => { phoneState.games.selectedRoundId = ''; phoneState.games.activeGame = null; };
+                const replaySkillGame = gameId => {
+                    const selected = selectedSkillGameRound.value;
+                    if (!selected?.claimedAt || selected.gameId !== gameId) return;
+                    closeSkillGameResult();
+                    startSkillGame(gameId);
+                };
+                const openSlotsGame = () => { phoneState.games.selectedRoundId = ''; phoneState.games.activeRoundId = ''; phoneState.games.activeGame = 'slots'; initSlots(); };
+                const abandonActiveSkillGame = () => {
+                    const gameId = phoneState.games.activeGame;
+                    const score = gameId === 'tetris' ? tetrisState.score : gameId === 'merge' ? mergeState.score : matchState.score;
+                    if (SKILL_GAME_IDS.includes(gameId)) freezeSkillGameTerminalRound(gameId, 'abandoned', score);
+                };
+                const returnToPark = () => { if (phoneState.games.activeGame && SKILL_GAME_IDS.includes(phoneState.games.activeGame)) abandonActiveSkillGame(); else closeSkillGameResult(); };
+                const openGamesApp = () => { phoneState.currentApp = 'games'; phoneState.games.activeGame = null; const pending = getPendingSkillGameRound(); phoneState.games.selectedRoundId = pending?.roundId || ''; };
+                const handleGamesHeaderBack = () => { if (phoneState.games.activeGame && SKILL_GAME_IDS.includes(phoneState.games.activeGame)) returnToPark(); else { phoneState.games.selectedRoundId = ''; phoneState.currentApp = 'home'; } };
 
                 // TETRIS
                 const tetrisState = reactive({ score: 0 });
@@ -16203,7 +16429,7 @@ ${pendingText}
                 const t_spawnPiece = () => {
                     const type = Math.floor(Math.random() * 7) + 1;
                     t_piece = { mx: TETROMINOS[type], pos: { x: 3, y: 0 } };
-                    if (t_collide(t_board, t_piece)) { setTimeout(() => endGame('Meow Tetris (喵喵方块)', tetrisState.score), 800); }
+                    if (t_collide(t_board, t_piece)) { window.setTimeout(() => finishSkillGame('tetris', 'lost', tetrisState.score), 800); }
                 };
 
                 const t_drawMatrix = (matrix, pt) => {
@@ -16267,7 +16493,7 @@ ${pendingText}
                 };
 
                 const tetrisAction = (act) => {
-                    if (phoneState.games.isSettling || phoneState.games.settlementResult) return;
+                    if (isSkillGameInteractionBlocked()) return;
                     if (!t_piece || !t_board) return;
                     if (act === 'left') { t_piece.pos.x--; if (t_collide(t_board, t_piece)) t_piece.pos.x++; }
                     else if (act === 'right') { t_piece.pos.x++; if (t_collide(t_board, t_piece)) t_piece.pos.x--; }
@@ -16484,7 +16710,7 @@ ${pendingText}
                 const mergeState = reactive({ score: 0, tiles: [] });
                 let tsX = 0, tsY = 0;
 
-                const initMerge = () => { mergeState.score = 0; mergeState.tiles = []; t_spawnMerge(); t_spawnMerge(); };
+                const initMerge = () => { mergeState.score = 0; mergeState.tiles = []; mergeState.isSpawning = false; t_spawnMerge(); t_spawnMerge(); };
 
                 const t_spawnMerge = () => {
                     let av = [];
@@ -16495,13 +16721,19 @@ ${pendingText}
                 const handleMergeTouchStart = (e) => { tsX = e.touches[0].clientX; tsY = e.touches[0].clientY; };
 
                 const handleMergeTouchEnd = (e) => {
-                    if (phoneState.games.isSettling || phoneState.games.settlementResult) return;
+                    if (isSkillGameInteractionBlocked() || mergeState.isSpawning) return;
                     const deX = e.changedTouches[0].clientX - tsX; const deY = e.changedTouches[0].clientY - tsY;
                     if (Math.abs(deX) > Math.abs(deY)) { if (Math.abs(deX) > 30) moveMerge(deX > 0 ? 'R' : 'L'); }
                     else { if (Math.abs(deY) > 30) moveMerge(deY > 0 ? 'D' : 'U'); }
                 };
 
+                const hasLegalMergeMove = () => {
+                    if (mergeState.tiles.length < 16) return true;
+                    const byCell = new Map(mergeState.tiles.map(tile => [`${tile.r}:${tile.c}`, tile.val]));
+                    return mergeState.tiles.some(tile => byCell.get(`${tile.r + 1}:${tile.c}`) === tile.val || byCell.get(`${tile.r}:${tile.c + 1}`) === tile.val);
+                };
                 const moveMerge = (dir) => {
+                    if (isSkillGameInteractionBlocked() || mergeState.isSpawning) return;
                     let moved = false;
                     const getLine = (i) => {
                         let l = mergeState.tiles.filter(t => (dir === 'L' || dir === 'R') ? t.r === i : t.c === i)
@@ -16524,19 +16756,35 @@ ${pendingText}
                         });
                     }
                     mergeState.tiles = ntl;
-                    if (moved) setTimeout(t_spawnMerge, 100);
-                    else if (mergeState.tiles.length === 16) { setTimeout(() => endGame('Meow Merge (喵喵合合乐)', mergeState.score), 1000); }
+                    if (moved) {
+                        mergeState.isSpawning = true;
+                        if (mergeSpawnTimer) clearTimeout(mergeSpawnTimer);
+                        mergeSpawnTimer = window.setTimeout(() => {
+                            mergeSpawnTimer = null;
+                            mergeState.isSpawning = false;
+                            if (phoneState.games.activeGame !== 'merge' || !phoneState.games.activeRoundId) return;
+                            t_spawnMerge();
+                            if (!hasLegalMergeMove()) finishSkillGame('merge', 'lost', mergeState.score);
+                        }, 100);
+                    } else if (!hasLegalMergeMove()) finishSkillGame('merge', 'lost', mergeState.score);
                 };
 
                 // MEOW MATCH (Tile Match)
                 const matchState = reactive({ score: 0, tiles: [], slots: [] });
                 const ICONS = ['fa-moon', 'fa-face-laugh-squint', 'fa-snowflake', 'fa-cat', 'fa-square', 'fa-brain', 'fa-hat-wizard', 'fa-gem'];
 
+                const buildMatchDeck = () => {
+                    let deck = [];
+                    // 42 tiles: six icons × six copies, plus two icons × three copies.
+                    // Counts are triple-compatible; layout access still does not promise every board is solvable.
+                    ICONS.slice(0, 6).forEach(icon => deck.push(...Array(6).fill(icon)));
+                    ICONS.slice(6, 8).forEach(icon => deck.push(...Array(3).fill(icon)));
+                    deck.sort(() => Math.random() - 0.5);
+                    return deck;
+                };
                 const initMatch = () => {
                     matchState.score = 0; matchState.slots = []; matchState.tiles = [];
-                    let deck = [];
-                    for (let i = 0; i < 42; i++) deck.push(ICONS[i % ICONS.length]); // 42 tiles, pairs of 3
-                    deck.sort(() => Math.random() - 0.5);
+                    const deck = buildMatchDeck();
                     for (let z = 0; z < 3; z++) {
                         for (let r = 0; r < 2; r++) for (let c = 0; c < 7; c++) {
                             matchState.tiles.push({ id: z + '-' + r + '-' + c, icon: deck.pop(), x: 12 + c * 11 + (z % 2) * 4, y: 15 + r * 25 + (z % 2) * 6, z: z, clickable: z === 2 });
@@ -16553,7 +16801,7 @@ ${pendingText}
 
                 const matchClick = (t) => {
                     if (!t.clickable || matchState.slots.length >= 7) return;
-                    if (phoneState.games.isSettling || phoneState.games.settlementResult) return;
+                    if (isSkillGameInteractionBlocked()) return;
 
                     matchState.tiles = matchState.tiles.filter(x => x.id !== t.id);
                     matchState.slots.push({ id: Date.now() + Math.random(), icon: t.icon });
@@ -16570,8 +16818,8 @@ ${pendingText}
                                 cleared = true;
                             }
                         }
-                        if (matchState.slots.length >= 7 && !cleared) { endGame('Meow Match (喵了个喵)', matchState.score + '分 (过关失败)'); }
-                        else if (matchState.tiles.length === 0) { endGame('Meow Match (喵了个喵)', matchState.score + '分 (完美通关!)'); }
+                        if (matchState.slots.length >= 7 && !cleared) finishSkillGame('match', 'lost', matchState.score);
+                        else if (matchState.tiles.length === 0) finishSkillGame('match', 'won', matchState.score);
                     }, 250);
                 };
 
@@ -17126,6 +17374,123 @@ ${pendingText}
                         length += text.length + 1;
                     });
                     return lines.join('\n');
+                };
+                const FOCUS_SHARED_MOMENT_MAX_CHARS = 280;
+                const FOCUS_SHARED_MOMENT_MIN_CHARS = 20;
+                const FOCUS_SHARED_MOMENT_MAX_PARTICIPANTS = 3;
+                const FOCUS_SHARED_MOMENT_USER_ACTION_LIMIT = 3;
+                const FOCUS_SHARED_MOMENT_DIALOGUE_WINDOW = 80;
+                const FOCUS_SHARED_MOMENT_PRIVATE_MARKERS = /(?:inner\s*voice|innervoice|内心独白|内心想法|私密|私下|秘密|knowledge|知识账本|life\s*thread|生命线|隐藏真相)/i;
+                const FOCUS_SHARED_MOMENT_SPEECH_PATTERN = /[“][^”]+[”]|「[^」]+」|『[^』]+』|"[^"]+"|(?:说道|说|问|回答|答道|喊|叫道|低声道|开口)/g;
+                const FOCUS_SHARED_MOMENT_USER_ACTION_VERB_PATTERN = /(?:说|问|回答|喊|叫|笑|摸|抚|抱|亲|推|拉|拿|放|递|移动|摆弄|挥手|招手|伸手|抬手|拍|戳|敲|逗|指|转身|起身|坐下|站起|点头|摇头|写|读|工作|整理)/;
+                const normalizeFocusMomentIds = value => {
+                    if (!Array.isArray(value)) return null;
+                    const ids = value.map(id => String(id || '').trim()).filter(Boolean);
+                    return ids.length === new Set(ids).size ? ids : null;
+                };
+                const escapeFocusMomentRegExp = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const getFocusSharedMomentAuthorizedParticipants = (participants) => {
+                    const ordered = [...new Map((Array.isArray(participants) ? participants : [])
+                        .filter(cat => cat && cat.id !== undefined && cat.id !== null)
+                        .sort((left, right) => String(left.id).localeCompare(String(right.id)))
+                        .map(cat => [String(cat.id), cat])).values()];
+                    if (!ordered.length) return [];
+                    const sequence = Number(focusMomentSequence.value || 0);
+                    focusMomentSequence.value = sequence + 1;
+                    if (ordered.length === 1) return ordered;
+                    const primaryIndex = stableMapIndex(`${activeHallId.value}:${focusAction.value}:${sequence}`, ordered.length);
+                    const authorized = [ordered[primaryIndex]];
+                    for (let offset = 1; offset < ordered.length && authorized.length < 2; offset += 1) {
+                        authorized.push(ordered[(primaryIndex + offset) % ordered.length]);
+                    }
+                    if (ordered.length > 2 && sequence % 3 === 2) {
+                        for (let offset = 1; offset < ordered.length && authorized.length < FOCUS_SHARED_MOMENT_MAX_PARTICIPANTS; offset += 1) {
+                            const candidate = ordered[(primaryIndex + offset) % ordered.length];
+                            if (!authorized.some(cat => String(cat.id) === String(candidate.id))) authorized.push(candidate);
+                        }
+                    }
+                    return authorized;
+                };
+                const getFocusVisibleUserActionEvidence = () => (Array.isArray(focusVisibleUserActionEvidence.value)
+                    ? focusVisibleUserActionEvidence.value : []).slice(0, FOCUS_SHARED_MOMENT_USER_ACTION_LIMIT)
+                    .filter(entry => entry && String(entry.id || '').trim() && cleanText(entry.publicText || ''));
+                const recordFocusVisibleUserAction = (targetCat) => {
+                    if (!isFocusing.value || !targetCat?.id) return null;
+                    const evidence = {
+                        id: `focus-user-action:${Date.now()}:${String(targetCat.id)}`,
+                        publicText: `USER刚才轻轻逗了${getResidentPublicName(targetCat)}一下`
+                    };
+                    focusVisibleUserActionEvidence.value = [evidence, ...getFocusVisibleUserActionEvidence()]
+                        .slice(0, FOCUS_SHARED_MOMENT_USER_ACTION_LIMIT);
+                    return evidence;
+                };
+                const getFocusSharedMomentDialogueSignals = content => {
+                    const signals = [];
+                    const pattern = new RegExp(FOCUS_SHARED_MOMENT_SPEECH_PATTERN.source, 'g');
+                    let match = null;
+                    while ((match = pattern.exec(content))) signals.push({ index: match.index, text: match[0] });
+                    return signals;
+                };
+                const hasFocusSharedMomentUserAction = (content, userAliases) => userAliases.some(alias => {
+                    if (!alias) return false;
+                    const pattern = new RegExp(`${escapeFocusMomentRegExp(alias)}(?:[，、。！？；：\\s]|刚才|正在|又|便|还|轻轻|主动|伸手|抬手|俯身|弯腰|把|将){0,8}[\\u3400-\\u9fff]{0,8}`, 'g');
+                    let match = null;
+                    while ((match = pattern.exec(content))) {
+                        if (FOCUS_SHARED_MOMENT_USER_ACTION_VERB_PATTERN.test(match[0].slice(String(alias).length))) return true;
+                    }
+                    return false;
+                });
+                const validateFocusSharedMoment = (rawMoment, options = {}) => {
+                    if (!rawMoment || typeof rawMoment !== 'object' || Array.isArray(rawMoment)) return null;
+                    const authorizedParticipants = Array.isArray(options.authorizedParticipants) ? options.authorizedParticipants : [];
+                    const allParticipants = Array.isArray(options.allParticipants) ? options.allParticipants : [];
+                    const frozenForms = options.frozenForms && typeof options.frozenForms === 'object' ? options.frozenForms : {};
+                    const authorizedById = new Map(authorizedParticipants.map(cat => [String(cat.id), cat]));
+                    const allById = new Map(allParticipants.map(cat => [String(cat.id), cat]));
+                    const participantIds = normalizeFocusMomentIds(rawMoment.participantIds);
+                    const speakerIds = normalizeFocusMomentIds(rawMoment.speakerIds);
+                    const userActionEvidenceIds = normalizeFocusMomentIds(rawMoment.userActionEvidenceIds);
+                    const content = cleanText(rawMoment.content || '');
+                    if (!participantIds?.length || participantIds.length > FOCUS_SHARED_MOMENT_MAX_PARTICIPANTS ||
+                        !speakerIds || !userActionEvidenceIds || content.length < FOCUS_SHARED_MOMENT_MIN_CHARS ||
+                        content.length > FOCUS_SHARED_MOMENT_MAX_CHARS || FOCUS_SHARED_MOMENT_PRIVATE_MARKERS.test(content)) return null;
+                    if (!participantIds.every(id => authorizedById.has(id))) return null;
+                    const getAuthorizedFrozenForm = id => {
+                        const frozen = normalizeFormValue(frozenForms[String(id)]);
+                        return frozen || getResidentForm(authorizedById.get(id));
+                    };
+                    if (!speakerIds.every(id => participantIds.includes(id) && getAuthorizedFrozenForm(id) === 'HUMAN')) return null;
+
+                    const participantNames = participantIds.map(id => getResidentPublicName(authorizedById.get(id))).filter(Boolean);
+                    if (!participantNames.every(name => content.includes(name))) return null;
+                    const namedResidents = [...new Map([...allById.values(), ...authorizedById.values()].map(cat => [String(cat.id), cat])).values()];
+                    if (namedResidents.some(cat => !participantIds.includes(String(cat.id)) &&
+                        getResidentPublicName(cat) && content.includes(getResidentPublicName(cat)))) return null;
+
+                    const dialogueSignals = getFocusSharedMomentDialogueSignals(content);
+                    if (dialogueSignals.length) {
+                        if (!speakerIds.length) return null;
+                        const speakerNames = speakerIds.map(id => getResidentPublicName(authorizedById.get(id))).filter(Boolean);
+                        if (dialogueSignals.some(signal => {
+                            const start = Math.max(0, signal.index - FOCUS_SHARED_MOMENT_DIALOGUE_WINDOW);
+                            const end = Math.min(content.length, signal.index + signal.text.length + FOCUS_SHARED_MOMENT_DIALOGUE_WINDOW);
+                            const localContext = content.slice(start, end);
+                            return !speakerNames.some(name => localContext.includes(name));
+                        })) return null;
+                    }
+
+                    const evidenceById = new Map((Array.isArray(options.userActionEvidence) ? options.userActionEvidence : [])
+                        .map(entry => [String(entry?.id || '').trim(), cleanText(entry?.publicText || '')])
+                        .filter(([id, text]) => id && text));
+                    if (!userActionEvidenceIds.every(id => evidenceById.has(id))) return null;
+                    const authorizedUserActionTexts = userActionEvidenceIds.map(id => evidenceById.get(id));
+                    if (!authorizedUserActionTexts.every(text => content.includes(text))) return null;
+                    let userActionStripped = content;
+                    authorizedUserActionTexts.forEach(text => { userActionStripped = userActionStripped.split(text).join(''); });
+                    const userAliases = [...new Set(['USER', cleanText(user.nickname || ''), '馆长'].filter(Boolean))];
+                    if (hasFocusSharedMomentUserAction(userActionStripped, userAliases)) return null;
+
+                    return { participantIds, speakerIds, userActionEvidenceIds, content };
                 };
                 const logPromptBudget = (label, prompt, systemPrompt, components = {}) => {
                     const budget = estimatePromptBudget(prompt, systemPrompt, components);
@@ -18465,7 +18830,12 @@ ${pendingText}
                             ? record.participantIds
                             : reactions.map(reaction => reaction.id))
                             .map(id => String(id || '').trim()).filter(Boolean))];
-                        const type = record.type === 'ambient' ? 'ambient' : 'user-directed';
+                        // `attention-bid` is intentionally display-only. It shares
+                        // the Hall feed's small, persisted presentation surface but
+                        // must never be mistaken for an authoritative shared scene.
+                        const type = record.type === 'attention-bid'
+                            ? 'attention-bid'
+                            : record.type === 'ambient' ? 'ambient' : 'user-directed';
                         return {
                             id: String(record.id || `hall-scene-${at || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
                             hallId: String(record.hallId || ''),
@@ -18476,10 +18846,15 @@ ${pendingText}
                             userText: typeof record.userText === 'string' ? record.userText : null,
                             content: cleanText(record.content || ''),
                             reactions,
-                            participantForms: Object.fromEntries(participantIds.map(id => [String(id), normalizeFormValue(record.participantForms?.[String(id)]) || 'CAT']))
+                            participantForms: Object.fromEntries(participantIds.map(id => [String(id), normalizeFormValue(record.participantForms?.[String(id)]) || 'CAT'])),
+                            ...(type === 'attention-bid' && String(record.attentionBidId || '').trim()
+                                ? { attentionBidId: String(record.attentionBidId).trim() }
+                                : {})
                         };
                     })
                     .filter(record => record.hallId && record.dateKey && record.at && record.participantIds.length && record.reactions.length);
+                const AUTHORITATIVE_HALL_SCENE_TYPES = new Set(['ambient', 'user-directed']);
+                const isAuthoritativeHallSceneRecord = record => AUTHORITATIVE_HALL_SCENE_TYPES.has(String(record?.type || ''));
                 const RESIDENT_RELATIONSHIP_MAX_TAGS = 4;
                 const RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS = 64;
                 const RESIDENT_RELATIONSHIP_MAX_EVENTS = 40;
@@ -18725,12 +19100,12 @@ ${pendingText}
                         candidateIds: [...new Set([...previousFocusIds, ...explicitMentionIds])]
                     };
                 };
-                const appendHallSceneRecord = ({ hallId, operationalDayKey, type, participantIds, userText = null, content = '', reactions, participantForms = {} }) => {
+                const appendHallSceneRecord = ({ id = '', hallId, operationalDayKey, type, participantIds, userText = null, content = '', reactions, participantForms = {}, attentionBidId = '' }) => {
                     const now = new Date();
                     if (getOperationalDayKey(now) !== operationalDayKey) return null;
                     pruneHallSceneRecords(operationalDayKey);
                     const record = normalizeHallSceneRecords([{
-                        id: `hall-scene-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+                        id: String(id || `hall-scene-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`),
                         hallId,
                         dateKey: operationalDayKey,
                         at: now.toISOString(),
@@ -18739,7 +19114,8 @@ ${pendingText}
                         userText,
                         content,
                         reactions,
-                        participantForms
+                        participantForms,
+                        attentionBidId
                     }])[0] || null;
                     if (!record) return null;
                     hallSceneRecords.value.push(record);
@@ -18794,6 +19170,380 @@ ${pendingText}
                 ], ([tab, view, hallId, active]) => {
                     if (tab === 'lounge' && view === 'room' && active) scrollHallSceneFeedToBottom(hallId);
                 });
+
+                // --- Social Attention / Attention Bids ---
+                // A bid is a small display-only Hall moment. It deliberately has a
+                // separate durable operation from Status Sync: Homepage Direct never
+                // hands its private foreground context to another resident.
+                const ATTENTION_BID_TYPES = Object.freeze([
+                    'approach', 'physical-bid', 'vocal-bid', 'observe',
+                    'playful-bid', 'jealous-bid', 'protective-bid', 'withdraw', 'offer'
+                ]);
+                const ATTENTION_BID_STATUS = new Set(['pending', 'generating', 'delivered', 'failed']);
+                const ATTENTION_AMBIENT_ENGAGEMENT_WINDOW_MS = 12 * 60 * 1000;
+                const ATTENTION_AMBIENT_ENGAGEMENT_THRESHOLD = 3;
+                const ATTENTION_AMBIENT_HALL_COOLDOWN_MS = 45 * 60 * 1000;
+                const ATTENTION_AMBIENT_RESIDENT_COOLDOWN_MS = 90 * 60 * 1000;
+                const ATTENTION_PUBLIC_HALL_COOLDOWN_MS = 5 * 60 * 1000;
+                const ATTENTION_PUBLIC_RESIDENT_COOLDOWN_MS = 15 * 60 * 1000;
+                const ATTENTION_RETRY_DELAY_MS = 5 * 60 * 1000;
+                const ATTENTION_MAX_ATTEMPTS = 2;
+                const ATTENTION_OPERATION_RETENTION_MS = 48 * 60 * 60 * 1000;
+                const ATTENTION_OPERATION_MAX_RECORDS = 30;
+                const ATTENTION_PUBLIC_TEXT_MAX_CHARS = 320;
+                let attentionBidSequence = 0;
+                const attentionBidInFlight = new Set();
+                const makeAttentionBidId = (at = Date.now()) =>
+                    `attention-bid-${at}-${(++attentionBidSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+                const stableAttentionHash = (value) => {
+                    let hash = 2166136261;
+                    for (const char of String(value || '')) {
+                        hash ^= char.charCodeAt(0);
+                        hash = Math.imul(hash, 16777619);
+                    }
+                    return hash >>> 0;
+                };
+                const validAttentionDate = value => typeof value === 'string' && !Number.isNaN(new Date(value).getTime());
+                const normalizeAttentionAuthorizedObject = value => {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+                    const id = String(value.id || '').trim();
+                    const name = cleanText(value.name || '').slice(0, 80);
+                    const source = cleanText(value.source || '').slice(0, 80);
+                    return id && name && source ? { id, name, source } : null;
+                };
+                const getAttentionBidOpportunities = () => {
+                    if (!Array.isArray(user.attentionBidOpportunities)) user.attentionBidOpportunities = [];
+                    return user.attentionBidOpportunities;
+                };
+                const normalizeAttentionBidOpportunities = ({ recoverGenerating = false, now = new Date() } = {}) => {
+                    const nowIso = (now instanceof Date ? now : new Date(now)).toISOString();
+                    const normalized = getAttentionBidOpportunities().map(raw => {
+                        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+                        const id = String(raw.id || '').trim();
+                        const sourceEventId = String(raw.sourceEventId || '').trim();
+                        const source = raw.source === 'explicit-public' ? 'explicit-public' : raw.source === 'ambient-engagement' ? 'ambient-engagement' : '';
+                        const hallId = String(raw.hallId || '').trim();
+                        const activeResidentId = String(raw.activeResidentId || '').trim();
+                        const candidateId = String(raw.candidateId || '').trim();
+                        const bidType = ATTENTION_BID_TYPES.includes(raw.bidType) ? raw.bidType : '';
+                        const event = raw.observableEvent && typeof raw.observableEvent === 'object' && !Array.isArray(raw.observableEvent)
+                            ? raw.observableEvent : null;
+                        const publicText = cleanText(event?.publicText || '').slice(0, ATTENTION_PUBLIC_TEXT_MAX_CHARS);
+                        const eventKind = event?.kind === 'explicit-public' ? 'explicit-public' : event?.kind === 'ambient-engagement' ? 'ambient-engagement' : '';
+                        const candidateForm = normalizeFormValue(raw.candidateForm);
+                        if (!id || !sourceEventId || !source || !hallId || !activeResidentId || !candidateId || !bidType || !eventKind || !candidateForm) return null;
+                        if (source === 'explicit-public' && !publicText) return null;
+                        let status = ATTENTION_BID_STATUS.has(raw.status) ? raw.status : 'pending';
+                        const generation = raw.generation && typeof raw.generation === 'object' && !Array.isArray(raw.generation) ? raw.generation : {};
+                        const token = String(generation.token || `attention-generation:${id}`).trim();
+                        let retryAt = validAttentionDate(generation.retryAt) ? generation.retryAt : '';
+                        if (recoverGenerating && status === 'generating') {
+                            status = 'pending';
+                            retryAt = retryAt || nowIso;
+                        }
+                        return {
+                            id, sourceEventId, source, hallId, activeResidentId, candidateId, bidType,
+                            authorizedObject: normalizeAttentionAuthorizedObject(raw.authorizedObject),
+                            observableEvent: {
+                                kind: eventKind,
+                                publicText,
+                                activeResidentPublicName: cleanText(event?.activeResidentPublicName || '').slice(0, 80),
+                                targetResidentId: String(event?.targetResidentId || '').trim()
+                            },
+                            candidateForm,
+                            promptText: typeof raw.promptText === 'string' ? raw.promptText : '',
+                            createdAt: validAttentionDate(raw.createdAt) ? raw.createdAt : nowIso,
+                            claimedAt: validAttentionDate(raw.claimedAt) ? raw.claimedAt : '',
+                            status,
+                            generation: {
+                                token,
+                                attemptCount: Math.max(0, Math.min(ATTENTION_MAX_ATTEMPTS, Number(generation.attemptCount) || 0)),
+                                retryAt,
+                                lastError: cleanText(generation.lastError || '').slice(0, 240)
+                            },
+                            deliveredSceneId: String(raw.deliveredSceneId || '').trim(),
+                            deliveredAt: validAttentionDate(raw.deliveredAt) ? raw.deliveredAt : ''
+                        };
+                    }).filter(Boolean)
+                        .sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt) || left.id.localeCompare(right.id));
+                    const cutoff = (now instanceof Date ? now : new Date(now)).getTime() - ATTENTION_OPERATION_RETENTION_MS;
+                    user.attentionBidOpportunities = normalized
+                        .filter(operation => !['delivered', 'failed'].includes(operation.status) || new Date(operation.deliveredAt || operation.createdAt).getTime() >= cutoff)
+                        .slice(-ATTENTION_OPERATION_MAX_RECORDS);
+                    return user.attentionBidOpportunities;
+                };
+                const isAttentionBidCandidateEligible = (cat, hallId) => {
+                    if (!cat || isResidentAway(cat) || isResidentInCuratorRoom(cat) || !isResidentInHall(cat)) return false;
+                    if (String(getResidentPhysicalHallId(cat) || '') !== String(hallId || '')) return false;
+                    if (isFocusing.value && focusCats.value.some(item => String(item?.id || '') === String(cat.id))) return false;
+                    if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
+                    return true;
+                };
+                const getAttentionAuthorizedObjectSnapshot = () => null;
+                const attentionCooldownMs = (source, scope) => source === 'explicit-public'
+                    ? (scope === 'hall' ? ATTENTION_PUBLIC_HALL_COOLDOWN_MS : ATTENTION_PUBLIC_RESIDENT_COOLDOWN_MS)
+                    : (scope === 'hall' ? ATTENTION_AMBIENT_HALL_COOLDOWN_MS : ATTENTION_AMBIENT_RESIDENT_COOLDOWN_MS);
+                const hasAttentionCooldown = ({ source, hallId, candidateId = '', nowMs = Date.now() }) =>
+                    getAttentionBidOpportunities().some(operation => {
+                        if (operation.status !== 'delivered' || operation.source !== source) return false;
+                        const deliveredAt = new Date(operation.deliveredAt || '').getTime();
+                        if (!Number.isFinite(deliveredAt)) return false;
+                        if (String(operation.hallId) === String(hallId) && nowMs - deliveredAt < attentionCooldownMs(source, 'hall')) return true;
+                        return candidateId && String(operation.candidateId) === String(candidateId) && nowMs - deliveredAt < attentionCooldownMs(source, 'resident');
+                    });
+                const getAttentionCandidateScore = ({ candidate, activeResident, sourceEventId, source, nowMs }) => {
+                    let score = Math.max(0, Math.min(100, Number(candidate?.affinity) || 0)) / 10;
+                    const baseline = getCanonicalRelationshipBaseline(candidate, activeResident);
+                    const labels = String(baseline?.label || '').toLocaleLowerCase();
+                    if (/(?:competitive|竞争|protective|保护|affectionate|亲昵)/.test(labels)) score += 2;
+                    const traits = cleanText(candidate?.personality || '').toLocaleLowerCase();
+                    if (/(?:粘人|主动|大胆|热情|playful|bold|social)/.test(traits)) score += 1;
+                    if (nowMs - Number(candidate?.lastInteractionTimestamp || 0) < 10 * 60 * 1000) score -= 4;
+                    if (source === 'explicit-public') score += 3;
+                    return score * 1000 + (stableAttentionHash(`${sourceEventId}:${candidate.id}`) % 1000);
+                };
+                const selectAttentionBidType = ({ candidate, sourceEventId, source, authorizedObject }) => {
+                    const traits = cleanText(candidate?.personality || '').toLocaleLowerCase();
+                    const types = source === 'explicit-public'
+                        ? ['vocal-bid', 'observe', 'protective-bid', 'withdraw']
+                        : ['approach', 'physical-bid', 'vocal-bid', 'observe', 'playful-bid', 'jealous-bid', 'withdraw'];
+                    if (authorizedObject) types.push('offer');
+                    if (/(?:寡言|reserved|quiet|谨慎)/.test(traits)) types.push('observe', 'withdraw');
+                    if (/(?:大胆|活泼|粘人|bold|playful)/.test(traits)) types.push('approach', 'playful-bid');
+                    return types[stableAttentionHash(`${sourceEventId}:${candidate.id}:${source}`) % types.length];
+                };
+                const splitAttentionPublicSentences = value => String(value || '').match(/[^。！？!?\n]+[。！？!?]?/g) || [];
+                const escapeAttentionRegExp = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const extractExplicitPublicAttentionEvent = ({ text, activeResident, hallId }) => {
+                    const candidates = cats.value.filter(cat => String(cat?.id || '') !== String(activeResident?.id || '') && isAttentionBidCandidateEligible(cat, hallId));
+                    const sentences = splitAttentionPublicSentences(text).map(value => cleanText(value)).filter(Boolean);
+                    const matches = [];
+                    candidates.forEach(candidate => {
+                        const name = getResidentPublicName(candidate);
+                        if (!name || name.length < 2) return;
+                        const escaped = escapeAttentionRegExp(name);
+                        const patterns = [
+                            new RegExp(`当着\\s*${escaped}\\s*的面`, 'i'),
+                            new RegExp(`(?:对着|冲)\\s*${escaped}\\s*说`, 'i'),
+                            new RegExp(`让\\s*${escaped}\\s*听见`, 'i'),
+                            new RegExp(`in\\s+front\\s+of\\s+${escaped}`, 'i'),
+                            new RegExp(`(?:to|at)\\s+${escaped}\\b[^.!?。！？]{0,80}so\\s+${escaped}\\s+can\\s+hear`, 'i'),
+                            new RegExp(`${escaped}\\s+can\\s+hear`, 'i')
+                        ];
+                        sentences.forEach(sentence => {
+                            if (sentence.length > ATTENTION_PUBLIC_TEXT_MAX_CHARS || /(?:悄悄|私下|耳语|小声|whisper|privately|quietly)/i.test(sentence)) return;
+                            if (patterns.some(pattern => pattern.test(sentence))) matches.push({ candidate, publicText: sentence });
+                        });
+                    });
+                    const unique = matches.filter((match, index) => matches.findIndex(other => String(other.candidate.id) === String(match.candidate.id) && other.publicText === match.publicText) === index);
+                    return unique.length === 1 ? unique[0] : null;
+                };
+                const getRecentAmbientEngagementCount = (cat, hallId, nowMs = Date.now()) => (Array.isArray(cat?.todayInteractions) ? cat.todayInteractions : [])
+                    .filter(entry => entry?.type === 'chat-reply' && entry?.source === 'detail-chat' && entry?.attentionEligible === true &&
+                        String(entry?.physicalHallId || '') === String(hallId || '') && validAttentionDate(entry?.at) &&
+                        nowMs - new Date(entry.at).getTime() <= ATTENTION_AMBIENT_ENGAGEMENT_WINDOW_MS)
+                    .length;
+                const buildAttentionBidPrompt = (operation) => {
+                    const candidate = cats.value.find(cat => String(cat.id) === String(operation.candidateId));
+                    const activeResident = cats.value.find(cat => String(cat.id) === String(operation.activeResidentId));
+                    if (!candidate || !activeResident || !isAttentionBidCandidateEligible(candidate, operation.hallId) || getResidentForm(candidate) !== operation.candidateForm) return '';
+                    const hall = halls.value.find(item => String(item?.id || '') === String(operation.hallId));
+                    const baseline = getCanonicalRelationshipBaseline(candidate, activeResident);
+                    const eventText = operation.source === 'explicit-public'
+                        ? `USER made this explicitly public, target-specific statement/action: ${JSON.stringify(operation.observableEvent.publicText)}`
+                        : `USER is visibly spending sustained attention on ${operation.observableEvent.activeResidentPublicName || getResidentPublicName(activeResident)} in this Hall. No private conversation content is known.`;
+                    return `[SOCIAL ATTENTION BID]
+Write one concise, third-person Simplified Chinese Hall moment (35–150 characters) for the already-authorized resident only. Return JSON only: {"content":"..."}.
+- Authorized resident: ${getResidentPublicName(candidate)}; machine ID: ${String(candidate.id)}; authoritative form: ${operation.candidateForm}.
+- Authorized bid type: ${operation.bidType}. Express only that social scale; do not turn it into violence, confession, travel, a relationship change, or a world event.
+- ${eventText}
+- ${baseline?.label ? `Public canonical relationship to ${getResidentPublicName(activeResident)}: ${baseline.label}.` : `No public canonical B-to-A relationship cue is supplied.`}
+${operation.authorizedObject ? `- Authorized existing object only: id=${operation.authorizedObject.id}; name=${operation.authorizedObject.name}; source=${operation.authorizedObject.source}. You may present or touch this exact existing object, but never create, consume, transfer, rename, or invent an object.` : '- No object is authorized. Never offer, create, transfer, or invent an object.'}
+[CANDIDATE CANON]
+${buildCatIdentityBlock(candidate)}
+[CANDIDATE CURRENT PUBLIC STATE]
+- Hall: ${hall?.name || 'Meeow House'}; physical presence: HALL; form: ${operation.candidateForm}; observable status: ${cleanText(getResidentLiveStatus(candidate, '正在馆内。'))}
+[CANDIDATE ↔ USER RELATIONSHIP]
+${buildForegroundUserRelationshipBaseline(candidate)}
+[FORM RULE]
+${operation.candidateForm === 'CAT' ? 'CAT: feline sound/action/posture only; never human-language spoken dialogue.' : 'HUMAN: human-shaped kemonomimi anatomy; natural short speech is allowed when appropriate.'}
+[PRIVACY]
+Do not claim knowledge of any private USER/resident conversation, thought, memory, Knowledge fact, Thread, Away purpose, or hidden fact. This moment changes no game state.`;
+                };
+                const validateAttentionBidResponse = (raw, operation) => {
+                    const payload = parseAIJSON(raw);
+                    const content = cleanText(payload?.content || '');
+                    if (!content || content.length > 180) return 'Attention Bid 缺少有效短 moment。';
+                    const objectAction = /(?:递(?:来|给)|送(?:来|给)|拿出|捧着|献上|给你(?:一|个)|礼物|玩具|物品|offer)/i;
+                    if (operation?.bidType !== 'offer' && objectAction.test(content)) return 'Attention Bid 未授权物品呈现。';
+                    if (operation?.bidType === 'offer' && (!operation.authorizedObject || !content.includes(operation.authorizedObject.name))) return 'Attention Bid offer 必须呈现冻结的既有物品。';
+                    if (operation?.candidateForm === 'CAT' && /[“”"「」『』]/.test(content)) return 'CAT Attention Bid 不可包含人类台词。';
+                    return true;
+                };
+                const getAttentionSceneRecord = operation => normalizeHallSceneRecords(hallSceneRecords.value)
+                    .find(record => record.type === 'attention-bid' && String(record.attentionBidId || '') === String(operation?.id || '')) || null;
+                const markAttentionBidFailure = (operation, error, now = new Date()) => {
+                    operation.generation.attemptCount = Math.max(1, Number(operation.generation?.attemptCount || 0));
+                    operation.generation.lastError = cleanText(error?.message || error || '请求失败').slice(0, 240) || '请求失败';
+                    if (operation.generation.attemptCount < ATTENTION_MAX_ATTEMPTS) {
+                        operation.status = 'pending';
+                        operation.generation.retryAt = new Date(now.getTime() + ATTENTION_RETRY_DELAY_MS).toISOString();
+                    } else {
+                        operation.status = 'failed';
+                        operation.generation.retryAt = '';
+                    }
+                    persistNow();
+                    addLog(`ATTENTION BID: id=${operation.id}; result=${operation.status}; attempt=${operation.generation.attemptCount}; error=${operation.generation.lastError}`, 'warn');
+                };
+                const runAttentionBidOpportunity = async (operation) => {
+                    if (!operation || operation.status !== 'pending' || attentionBidInFlight.has(operation.id)) return;
+                    const candidate = cats.value.find(cat => String(cat.id) === String(operation.candidateId));
+                    if (!candidate || !isAttentionBidCandidateEligible(candidate, operation.hallId) || getResidentForm(candidate) !== operation.candidateForm) {
+                        operation.status = 'failed'; operation.generation.lastError = '候选居民已不再处于可见的冻结物理状态。'; operation.generation.retryAt = '';
+                        persistNow();
+                        return;
+                    }
+                    if (!operation.promptText) operation.promptText = buildAttentionBidPrompt(operation);
+                    if (!operation.promptText) {
+                        operation.status = 'failed'; operation.generation.lastError = '无法冻结安全的候选上下文。'; operation.generation.retryAt = '';
+                        persistNow();
+                        return;
+                    }
+                    operation.claimedAt = operation.claimedAt || new Date().toISOString();
+                    operation.status = 'generating';
+                    operation.generation.attemptCount = Math.min(ATTENTION_MAX_ATTEMPTS, Number(operation.generation.attemptCount || 0) + 1);
+                    operation.generation.retryAt = '';
+                    if (!persistNow()) {
+                        operation.status = 'pending';
+                        operation.generation.retryAt = new Date(Date.now() + ATTENTION_RETRY_DELAY_MS).toISOString();
+                        return;
+                    }
+                    attentionBidInFlight.add(operation.id);
+                    try {
+                        const raw = await requestStructuredEngine(operation.promptText, {
+                            systemPrompt: CORE_ROLEPLAY_PROMPT,
+                            maxTokens: 260,
+                            thinkingLevel: ThinkingLevel.LOW,
+                            label: `SOCIAL ATTENTION · ${getResidentPublicName(candidate)}`,
+                            priority: 'background',
+                            maxAttempts: 1,
+                            validateResponse: content => validateAttentionBidResponse(content, operation),
+                            dedupeKey: `attention-bid:${operation.id}:${operation.generation.token}`
+                        });
+                        const latest = getAttentionBidOpportunities().find(item => item.id === operation.id);
+                        if (!latest || latest.status !== 'generating') return;
+                        const validation = validateAttentionBidResponse(raw, latest);
+                        if (validation !== true) throw new Error(validation);
+                        const content = cleanText(parseAIJSON(raw)?.content || '');
+                        let record = getAttentionSceneRecord(latest);
+                        if (!record) {
+                            record = appendHallSceneRecord({
+                                id: `attention-scene:${latest.id}`,
+                                hallId: latest.hallId,
+                                operationalDayKey: getOperationalDayKey(),
+                                type: 'attention-bid',
+                                participantIds: [latest.candidateId],
+                                content,
+                                reactions: [{ id: latest.candidateId, content }],
+                                participantForms: { [latest.candidateId]: latest.candidateForm },
+                                attentionBidId: latest.id
+                            });
+                        }
+                        if (!record) throw new Error('Attention Bid moment 未能写入馆内片段。');
+                        latest.status = 'delivered';
+                        latest.deliveredSceneId = record.id;
+                        latest.deliveredAt = latest.deliveredAt || new Date().toISOString();
+                        latest.generation.retryAt = '';
+                        latest.generation.lastError = '';
+                        persistNow();
+                        if (activeHallId.value === latest.hallId && isHallSceneFeedNearBottom()) scrollHallSceneFeedToBottom(latest.hallId);
+                        addLog(`ATTENTION BID DELIVERED: id=${latest.id}; hall=${latest.hallId}; candidate=${latest.candidateId}; type=${latest.bidType}`, 'sent');
+                    } catch (error) {
+                        const latest = getAttentionBidOpportunities().find(item => item.id === operation.id);
+                        if (latest && latest.status === 'generating') markAttentionBidFailure(latest, error, new Date());
+                    } finally {
+                        attentionBidInFlight.delete(operation.id);
+                    }
+                };
+                const reconcileAttentionBidOpportunities = (nowInput = new Date()) => {
+                    const now = nowInput instanceof Date ? nowInput : new Date(nowInput);
+                    const nowMs = now.getTime();
+                    if (!Number.isFinite(nowMs)) return;
+                    // Ordinary ticks must preserve a live claimed request. Only
+                    // startup/import normalization converts an orphaned generating
+                    // record back into its persisted retry lifecycle.
+                    normalizeAttentionBidOpportunities({ now });
+                    const due = getAttentionBidOpportunities().find(operation => operation.status === 'pending' &&
+                        (!operation.generation.retryAt || new Date(operation.generation.retryAt).getTime() <= nowMs));
+                    if (due) void runAttentionBidOpportunity(due);
+                };
+                const queueAttentionBidOpportunity = ({ source, sourceEventId, activeResident, hallId, publicEvent = null, now = new Date(), authorizedObject = null }) => {
+                    const nowMs = now.getTime();
+                    if (!activeResident || !hallId || !sourceEventId || !isAttentionBidCandidateEligible(activeResident, hallId)) return null;
+                    normalizeAttentionBidOpportunities({ now });
+                    const operations = getAttentionBidOpportunities();
+                    if (operations.some(operation => operation.sourceEventId === sourceEventId)) return null;
+                    const publicCandidate = publicEvent?.candidate || null;
+                    const candidates = publicCandidate ? [publicCandidate] : cats.value.filter(cat =>
+                        String(cat.id) !== String(activeResident.id) && isAttentionBidCandidateEligible(cat, hallId)
+                    );
+                    const eligible = candidates.filter(candidate => !hasAttentionCooldown({ source, hallId, candidateId: candidate.id, nowMs }));
+                    if (!eligible.length || hasAttentionCooldown({ source, hallId, nowMs })) return null;
+                    const existing = operations.find(operation => operation.hallId === hallId && ['pending', 'generating'].includes(operation.status));
+                    if (existing?.status === 'generating') return null;
+                    if (existing?.status === 'pending' && source !== 'explicit-public') return null;
+                    if (existing?.status === 'pending' && source === 'explicit-public') {
+                        const index = operations.indexOf(existing);
+                        if (index >= 0) operations.splice(index, 1);
+                    }
+                    const candidate = publicCandidate || eligible.slice().sort((left, right) =>
+                        getAttentionCandidateScore({ candidate: right, activeResident, sourceEventId, source, nowMs }) -
+                        getAttentionCandidateScore({ candidate: left, activeResident, sourceEventId, source, nowMs }) || String(left.id).localeCompare(String(right.id))
+                    )[0];
+                    const objectSnapshot = normalizeAttentionAuthorizedObject(authorizedObject);
+                    const bidType = selectAttentionBidType({ candidate, sourceEventId, source, authorizedObject: objectSnapshot });
+                    if (bidType === 'offer' && !objectSnapshot) return null;
+                    const operation = {
+                        id: makeAttentionBidId(nowMs), sourceEventId, source, hallId,
+                        activeResidentId: String(activeResident.id), candidateId: String(candidate.id), bidType,
+                        authorizedObject: objectSnapshot,
+                        observableEvent: {
+                            kind: source,
+                            publicText: source === 'explicit-public' ? publicEvent.publicText : '',
+                            activeResidentPublicName: getResidentPublicName(activeResident),
+                            targetResidentId: source === 'explicit-public' ? String(candidate.id) : ''
+                        },
+                        candidateForm: getResidentForm(candidate), promptText: '',
+                        createdAt: now.toISOString(), claimedAt: '', status: 'pending',
+                        generation: { token: '', attemptCount: 0, retryAt: '', lastError: '' },
+                        deliveredSceneId: '', deliveredAt: ''
+                    };
+                    operation.generation.token = `attention-generation:${operation.id}`;
+                    operations.push(operation);
+                    if (!persistNow()) {
+                        operations.splice(operations.indexOf(operation), 1);
+                        return null;
+                    }
+                    addLog(`ATTENTION BID QUEUED: id=${operation.id}; source=${source}; hall=${hallId}; active=${activeResident.id}; candidate=${candidate.id}; type=${bidType}`, 'info');
+                    void reconcileAttentionBidOpportunities(now);
+                    return operation;
+                };
+                const maybeQueueAttentionBidAfterHomepageDirect = ({ activeResident, sourceChatAt, userText, now = new Date() }) => {
+                    const hallId = String(getResidentPhysicalHallId(activeResident) || '');
+                    if (!hallId || hallId !== String(activeHallId.value || '') || !isAttentionBidCandidateEligible(activeResident, hallId)) return null;
+                    const sourceEventId = `homepage-direct:${String(activeResident.id)}:${String(sourceChatAt || '')}`;
+                    if (!sourceChatAt) return null;
+                    const explicit = extractExplicitPublicAttentionEvent({ text: userText, activeResident, hallId });
+                    if (explicit) return queueAttentionBidOpportunity({
+                        source: 'explicit-public', sourceEventId, activeResident, hallId, publicEvent: explicit, now,
+                        authorizedObject: getAttentionAuthorizedObjectSnapshot()
+                    });
+                    if (getRecentAmbientEngagementCount(activeResident, hallId, now.getTime()) < ATTENTION_AMBIENT_ENGAGEMENT_THRESHOLD) return null;
+                    return queueAttentionBidOpportunity({
+                        source: 'ambient-engagement', sourceEventId, activeResident, hallId, now,
+                        authorizedObject: getAttentionAuthorizedObjectSnapshot()
+                    });
+                };
                 const awayLifecycle = window.Meeow.away;
                 awayLifecycle.configure({
                     cleanText,
@@ -20595,6 +21345,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     return { count: result.count, returnedResidentIds: result.returnedResidentIds };
                 };
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
+                normalizeAttentionBidOpportunities({ recoverGenerating: true });
                 awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
                 // Missing legacy data is intentionally an empty prospective world-engine store.
                 lifeThreads.value = normalizeLifeThreads(savedLifeThreads);
@@ -20870,7 +21621,9 @@ ${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user
                 const buildDailySharedSceneEvidence = (archiveDateKey) => {
                     const candidatesByResident = new Map();
                     normalizeHallSceneRecords(hallSceneRecords.value)
-                        .filter(record => record.dateKey === archiveDateKey)
+                        // Attention bids are visible Hall moments, not shared-scene
+                        // evidence. Keep this archive/memory path default-deny.
+                        .filter(record => record.dateKey === archiveDateKey && isAuthoritativeHallSceneRecord(record))
                         .forEach(record => {
                             const participantNames = record.participantIds
                                 .map(id => getResidentPublicName(cats.value.find(cat => String(cat.id) === String(id))))
@@ -21866,7 +22619,14 @@ ${outputContract}`;
                         applySuccessfulInteractionUserStatus(userStatus);
                         const replyTime = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
-                        appendInteractionEvent(sendingCat, 'chat-reply', `[${getResidentForm(sendingCat)}][REPLY]: ${reply}`, { source: 'detail-chat' });
+                        appendInteractionEvent(sendingCat, 'chat-reply', `[${getResidentForm(sendingCat)}][REPLY]: ${reply}`, {
+                            source: 'detail-chat',
+                            chatAt: userChatAt,
+                            physicalHallId: String(getResidentPhysicalHallId(sendingCat) || ''),
+                            // Prospective-only, successful plain Homepage turns are
+                            // the sole ambient-engagement signal for Attention v1.
+                            attentionEligible: !isReRoll && !isItemUse
+                        });
                         if (!isItemUse) {
                             storeHomepageEpisodicMemory({
                                 owner: sendingCat,
@@ -21881,6 +22641,15 @@ ${outputContract}`;
 
                         sendingCat.lastInteractionTimestamp = Date.now();
                         if (!isReRoll && !isItemUse) {
+                            // This queues only a frozen, low-information public
+                            // observation. It never exposes this direct prompt or
+                            // response to the candidate or to Status Sync.
+                            maybeQueueAttentionBidAfterHomepageDirect({
+                                activeResident: sendingCat,
+                                sourceChatAt: userChatAt,
+                                userText: msg,
+                                now: new Date(sendingCat.lastInteractionTimestamp)
+                            });
                             // Queue only orchestration metadata. The later shared Status
                             // packet receives neither this USER message nor any private
                             // foreground context.
@@ -21951,11 +22720,18 @@ ${outputContract}`;
                 };
 
                 const focusTickBehavior = async () => {
-                    const participants = focusCats.value.filter(cat => cat && cat.hallId === activeHallId.value && isResidentInHall(cat));
+                    const participants = focusCats.value.filter(cat => cat &&
+                        String(cat.hallId || '') === String(activeHallId.value || '') &&
+                        isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
+                        !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
+                        !getActiveAwayEpisode(cat));
                     if (!participants.length) return false;
 
                     const sharedSessionEvidence = buildSharedFocusSessionEvidence(currentFocusLog.value, 3, 420);
                     const peerLines = buildPublicSharedPeerRelationshipLines(participants);
+                    const authorizedMomentParticipants = getFocusSharedMomentAuthorizedParticipants(participants);
+                    const authorizedMomentIds = authorizedMomentParticipants.map(cat => String(cat.id));
+                    const visibleUserActionEvidence = getFocusVisibleUserActionEvidence();
                     const participantBlock = participants.map(cat => `
 --- FOCUS PARTICIPANT ---
 ${buildLeanAmbientContext(cat, {
@@ -21968,43 +22744,62 @@ ${buildLeanAmbientContext(cat, {
                         : `There is one supervising cat. Write only this cat's independent, in-character action.`;
                     const prompt = `[MEEOW HOUSE FOCUS · ${currentHall.value.name}]
                     User (${user.nickname}) is focusing on: ${focusAction.value}.
+                    USER is physically present and focusing here. Do not invent USER dialogue, work content, feelings, productivity, touch, gestures, object use, or intentional actions. Residents may visibly approach, lean against, climb onto, or settle near the passive USER.
                     ${buildAuthoritativeUserIdentityContext()}
                     Session-shared focus evidence: ${sharedSessionEvidence || 'Focus has just begun.'}
                     ${buildResidentPublicNameContract(participants)}
                     ${peerRule}
                     ${participantBlock}
 
+                    [AUTHORIZED SHARED MOMENT]
+                    Only these residents may visibly act, speak, or be directly acted upon in the one narrative beat: ${authorizedMomentParticipants.map(cat => `${String(cat.id)} = ${getResidentPublicName(cat)} (${focusSessionForms[String(cat.id)] || getResidentForm(cat)})`).join('; ')}.
+                    Return sharedMoment.participantIds as the actual named participants in the beat: a non-empty subset of [${authorizedMomentIds.join(', ')}], never the whole permitted cast by default. Every listed participant must be named in content; do not name any unlisted Focus resident or anyone outside Focus.
+                    sharedMoment.speakerIds is REQUIRED and may be []. Any direct human-language dialogue must be unambiguously attributed to a listed HUMAN speaker ID. CAT form may only use feline sounds, action, posture, ears, tail, and body language; never human-language speech.
+                    ${visibleUserActionEvidence.length
+                        ? `[VISIBLE USER ACTION EVIDENCE]\n${visibleUserActionEvidence.map(entry => `${entry.id}: ${entry.publicText}`).join('\n')}\nYou may refer to an evidence item only by returning its ID in userActionEvidenceIds and reproducing its complete text verbatim. Do not invent any other USER action.`
+                        : 'There is no authorized USER action evidence. sharedMoment.userActionEvidenceIds must be [].'}
+                    Write one cohesive, observable Simplified Chinese paragraph of roughly 60–220 Chinese characters (never over 280). Prefer natural physical cause/effect or quiet coexistence; never bullet lists, Name: lines, mechanics narration, forced conflict, romance, or every participant acting.
+
                     [STRICT RULES]
                     - Only the listed participants may appear. They are all in ${currentHall.value.name}; never reference a cat from another hall.
                     - Preserve each cat's original-work personality, values, voice, relationships, and boundaries exactly. Cat form never erases their identity.
                     - Never insert a default Gotham, DC, superhero, or crime-fighting premise unless this hall and supplied canon explicitly require it.
                     - Status is third-person, concrete and continuous with that cat's previous status. Inner voice is first-person and uses 我.
-                    - Output Simplified Chinese only. Return JSON only, with exactly one object for every listed ID:
-                    [{"id": number, "status": "第三人称行动，最多28字", "innerVoice": "第一人称想法，最多45字"}]`;
+                    - sharedMoment.content is public/observable prose only. Never include innerVoice, private knowledge, diary, episodic memory, Life Thread facts, hidden Away purpose, secret relationship information, or private emotion that is not visibly expressed.
+                    - Output Simplified Chinese only. Return JSON only:
+                    {"sharedMoment":{"participantIds":["..."],"speakerIds":[],"userActionEvidenceIds":[],"content":"..."},"residentUpdates":[{"id":"...","status":"第三人称行动，最多28字","innerVoice":"第一人称想法，最多45字"}]}
+                    residentUpdates must contain exactly one object for every listed Focus participant ID: [${participants.map(cat => String(cat.id)).join(', ')}].`;
                     try {
-                        const focusSystemPrompt = CORE_ROLEPLAY_PROMPT + "\nFocus output must be a valid JSON array only; no markdown or extra commentary.";
+                        const focusSystemPrompt = CORE_ROLEPLAY_PROMPT + "\nFocus output must be one valid JSON object only; no markdown or extra commentary.";
                         logPromptBudget(`FOCUS TICK · ${participants.length} RESIDENTS`, prompt, focusSystemPrompt, {
                             residentContext: participantBlock,
                             sessionEvidence: sharedSessionEvidence,
+                            authorizedMoment: authorizedMomentIds.join(', '),
+                            visibleUserActionEvidence: visibleUserActionEvidence.map(entry => entry.publicText).join('\n'),
                             taskPayload: focusAction.value
                         });
                         const res = await callAI(prompt, focusSystemPrompt, 2200, ThinkingLevel.LOW, { label: `FOCUS LOG · ${participants.length} CAT${participants.length > 1 ? 'S' : ''}` });
-                        const updates = parseAIJSON(res);
+                        const parsedResponse = parseAIJSON(res);
+                        const updates = Array.isArray(parsedResponse) ? parsedResponse : parsedResponse?.residentUpdates;
+                        const sharedMoment = Array.isArray(parsedResponse) ? null : validateFocusSharedMoment(parsedResponse?.sharedMoment, {
+                            authorizedParticipants: authorizedMomentParticipants,
+                            allParticipants: cats.value,
+                            frozenForms: focusSessionForms,
+                            userActionEvidence: visibleUserActionEvidence
+                        });
                         const updateById = new Map(Array.isArray(updates) ? updates.map(item => [String(item?.id), item]) : []);
                         const timeStr = getCurrentTimeStr();
                         const selectedVoiceCatId = currentFocusVoiceEntry.value?.catId;
                         const nextVoiceEntries = [];
-                        const logParts = [];
 
                         participants.forEach(cat => {
                             const update = updateById.get(String(cat.id));
                             const action = cleanText(update?.status || update?.action || '仍留在专注现场，以自己的方式陪伴馆长。');
                             const voice = cleanText(update?.innerVoice || update?.voice || '先把这一段时间守住。');
-                            logParts.push(`${cat.name}：${action}`);
                             setCatStatus(cat, action, { innerVoice: voice, source: 'focus', forceLog: true });
                             nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
                         });
-                        if (logParts.length) currentFocusLog.value.unshift(`${timeStr}｜${logParts.join('；')}`);
+                        if (sharedMoment) currentFocusLog.value.unshift(`${timeStr}｜${sharedMoment.content}`);
 
                         focusVoiceEntries.value = nextVoiceEntries;
                         const retainedIndex = nextVoiceEntries.findIndex(entry => String(entry.catId) === String(selectedVoiceCatId));
@@ -22051,6 +22846,8 @@ ${buildLeanAmbientContext(cat, {
                     focusTotalTime.value = focusSetupData.minutes * 60;
                     focusTime.value = focusSetupData.minutes * 60;
                     currentFocusLog.value = [];
+                    focusMomentSequence.value = 0;
+                    focusVisibleUserActionEvidence.value = [];
                     focusVoiceEntries.value = [];
                     focusVoiceIndex.value = 0;
                     focusWakeLockMessage.value = '';
@@ -22211,6 +23008,7 @@ ${buildLeanAmbientContext(cat, {
                     focusSettlementLoading.progress = 88;
                     archiveFocusReport(participants, success, minutes, affinityDelta);
                     Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
+                    focusVisibleUserActionEvidence.value = [];
                     focusSettlementLoading.progress = 100;
                     showMissionSettlementModal.value = true;
                     isFinishingFocus.value = false;
@@ -22240,9 +23038,10 @@ ${buildLeanAmbientContext(cat, {
                             const action = extractSection(res, 'ACTION') || cleanText(res);
                             setCatStatus(targetCat, action, { source: 'harass', forceLog: true });
                             appendInteractionEvent(targetCat, 'special', `馆长进行了互动：${action}`, { source: 'harass' });
-                            if (isFocusing.value) { const timeStr = getCurrentTimeStr(); currentFocusLog.value.unshift(`${timeStr} [${targetCat.name}] ${action}`); focusMessage.value = "骚扰成功！"; playLogSound(); setTimeout(() => focusMessage.value = '', 2000); } else { alert(`${targetCat.name}: ${action}`); refreshAllStatus(true, `User just harassed ${targetCat.name}. Reaction: ${action}`, [targetCat.id], action); }
+                            if (isFocusing.value) { recordFocusVisibleUserAction(targetCat); const timeStr = getCurrentTimeStr(); currentFocusLog.value.unshift(`${timeStr} [${targetCat.name}] ${action}`); focusMessage.value = "骚扰成功！"; playLogSound(); setTimeout(() => focusMessage.value = '', 2000); } else { alert(`${targetCat.name}: ${action}`); refreshAllStatus(true, `User just harassed ${targetCat.name}. Reaction: ${action}`, [targetCat.id], action); }
                         } catch (e) { }
                     } else if (isFocusing.value) {
+                        recordFocusVisibleUserAction(targetCat);
                         currentFocusLog.value.unshift(`${getCurrentTimeStr()} [${targetCat.name}] 抬眼看了看馆长，又把注意力放回自己的事情上。`);
                     }
                 };
@@ -23775,6 +24574,7 @@ ${statusOutputRules}`;
                         const data = JSON.stringify({
                             version: 2,
                             user, cats: cats.value, halls: halls.value, shopItems: shopItems.value, settings,
+                            hallSceneRecords: hallSceneRecords.value,
                             awayEpisodes: awayEpisodes.value,
                             lifeThreads: lifeThreads.value,
                             knowledgeLedger: knowledgeLedger.value,
@@ -23805,7 +24605,9 @@ ${statusOutputRules}`;
                             if (data.user) {
                                 Object.assign(user, data.user);
                                 ensurePendingAwayDiaryDays();
+                                if (!Array.isArray(user.attentionBidOpportunities)) user.attentionBidOpportunities = [];
                                 if (!user.phoneData || typeof user.phoneData !== 'object') user.phoneData = {};
+                                normalizePhoneGamesData(user.phoneData);
                                 ensurePhonePresenceConsiderationSchedule();
                             }
                             hallSceneRecords.value = normalizeHallSceneRecords(data.hallSceneRecords);
@@ -23814,6 +24616,7 @@ ${statusOutputRules}`;
                             if (data.halls) halls.value = data.halls;
                             mergeBuiltInCats();
                             normalizeResidentRelationshipRoster();
+                            normalizeAttentionBidOpportunities({ recoverGenerating: true });
                             normalizeExploreCases();
                             lifeThreads.value = normalizeLifeThreads(data.lifeThreads);
                             knowledgeLedger.value = normalizeKnowledgeLedger(data.knowledgeLedger);
@@ -23824,6 +24627,7 @@ ${statusOutputRules}`;
                             reconcilePhoneObservedMessageKnowledge();
                             void reconcilePhoneReplyOpportunities(new Date());
                             void reconcileNewsProjections(new Date());
+                            reconcileAttentionBidOpportunities(new Date());
                             if (data.settings) Object.assign(settings, data.settings);
                             if (data.catPaintAssets) await restoreCatPaintBackups(data.catPaintAssets);
                             if (!Array.isArray(settings.focusMusicPlaylist)) settings.focusMusicPlaylist = [];
@@ -24342,7 +25146,7 @@ ${episodicMemory}`;
                     window.setTimeout(refreshSafeAreaAndViewport, 800);
                     window.addEventListener('keydown', (e) => {
                         if (phoneState.currentApp !== 'games' || !phoneState.games.activeGame) return;
-                        if (phoneState.games.isSettling || phoneState.games.settlementResult) return;
+                        if (isSkillGameInteractionBlocked()) return;
                         if (phoneState.games.activeGame === 'tetris') {
                             if (['ArrowLeft', 'a', 'A'].includes(e.key)) tetrisAction('left');
                             if (['ArrowRight', 'd', 'D'].includes(e.key)) tetrisAction('right');
@@ -24367,12 +25171,13 @@ ${episodicMemory}`;
                     reconcileAwayEpisodes(new Date());
                     void reconcileLifeThreadContinuations(new Date());
                     void reconcileNewsProjections(new Date());
+                    reconcileAttentionBidOpportunities(new Date());
                     checkDailyInitialization();
                     applyUISettings();
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
-                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileHomepageHallAmbientRefreshes(now); currentTime.value = now; }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); currentTime.value = now; } });
+                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileHomepageHallAmbientRefreshes(now); currentTime.value = now; }, 30000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });
@@ -24465,6 +25270,9 @@ ${episodicMemory}`;
                     groupChatState, sendGroupMessage, catchInTheAct,
                     sendPhoneRealImage, sendPhoneLocation, sendPhoneMoney, openPhotoDesc,
                     phoneInputRef,
+                    openGamesApp, handleGamesHeaderBack, startSkillGame, openSlotsGame, abandonActiveSkillGame, returnToPark,
+                    pendingSkillGameRound, selectedSkillGameRound, showSkillGameRound, stashSkillGameRound, closeSkillGameResult, replaySkillGame, claimSkillGameRound,
+                    getGameDisplayName, getGameCardRecord, getSkillGameResultTitle, getSkillGameRoundComment,
                     initTetris, tetrisAction, endGame, tetrisState, mergeState, handleMergeTouchStart, handleMergeTouchEnd, matchState, initMerge, initMatch, matchClick,
                     SLOT_BETS, slotState, initSlots, spinSlots, collectSlotWin, gambleSlotWin, closeSlots,
                     watermelonState, initWatermelon, handleWatermelonInput, flappyState, initFlappy, startFlappy, flappyJump, reRollLastMessage,

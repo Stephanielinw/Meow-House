@@ -96,6 +96,8 @@ assert.doesNotMatch(catchSlice, /buildCatMemoryContext\(/);
 assert.match(scanSlice, /roomCats\.value\.filter\(isResidentInHall\)/);
 assert.match(groupSlice, /roomCats\.value\.filter\(isResidentInHall\)/);
 assert.match(focusSlice, /buildSharedFocusSessionEvidence\(currentFocusLog\.value, 3, 420\)/);
+assert.match(focusSlice, /validateFocusSharedMoment/);
+assert.match(focusSlice, /sharedMoment\.content/);
 assert.match(settlementSlice, /buildSharedFocusSessionEvidence\(\[\.\.\.chronologicalLogs\]\.reverse\(\), 6, 900\)/);
 assert.match(appSource, /getRelationshipBaseline\(left, right\)/);
 assert.doesNotMatch(appSource.slice(appSource.indexOf('const buildPublicSharedPeerRelationshipLines'), appSource.indexOf('const getEffectiveRelationshipProjection')), /residentRelationships/);
