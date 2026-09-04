@@ -5206,7 +5206,7 @@
 
                         <button v-if="getActiveAwayEpisode(cat)" @click.stop="openAwayRecordViewer(cat)"
                             class="sully-btn bg-red-950/80 border border-red-500/50 text-red-300 text-[9px] w-full mt-1.5 py-1 rounded-xl shadow hover:bg-red-900 transition flex items-center justify-center gap-1">
-                            <i class="fas fa-video text-xs"></i> 查看外出记录
+                            <i class="fas fa-video text-xs"></i> 查看离馆记录
                         </button>
 
                         <!-- Affinity Progress Bar -->
@@ -5479,7 +5479,7 @@
                                 <span class="text-[10px] font-bold text-gray-400">{{ getResidentPublicName(exploreState.companion)
                                     }}</span>
                             </div>
-                            <button @click="exploreState.showNotebook = !exploreState.showNotebook" class="text-[10px] text-yellow-500 font-bold">调查记录</button>
+                            <button @click="openExploreNotebook" class="text-[10px] text-yellow-500 font-bold">调查线索</button>
                         </div>
                     </div>
 
@@ -5489,15 +5489,6 @@
                         <div class="text-[9px] font-black text-yellow-600 uppercase tracking-widest mt-2">当前问题</div>
                         <p class="text-xs text-gray-300 mt-1">{{ getExploreCase().blueprint.coreQuestion }}</p>
                     </div>
-
-                    <section v-if="exploreState.showNotebook && getExploreCase()" class="p-3 border-b border-zinc-800 bg-zinc-950/70 space-y-2">
-                        <div class="text-[10px] font-black text-yellow-600">当前问题</div><p class="text-xs text-gray-300">{{ getExploreCase().blueprint.coreQuestion }}</p>
-                        <div class="text-[10px] font-black text-yellow-600 pt-1">已发现线索</div>
-                        <p v-for="id in getExploreCase().state.discoveredClueIds" :key="id" class="text-[11px] text-gray-400">• {{ getExploreClue(getExploreCase(), id)?.revealText }}</p>
-                        <p v-if="!getExploreCase().state.discoveredClueIds.length" class="text-[11px] text-zinc-600">尚未发现明确线索。</p>
-                        <div v-if="getExploreCase().state.revealedRevelationIds.length" class="text-[10px] font-black text-yellow-600 pt-1">已确认信息</div>
-                        <p v-for="id in getExploreCase().state.revealedRevelationIds" :key="'revelation-' + id" class="text-[11px] text-gray-300">• {{ getExploreCase().blueprint.revelations.find(item => item.id === id)?.text }}</p>
-                    </section>
 
                     <div class="meeow-explore-chat flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar"
                         ref="exploreChatRef">
@@ -8056,16 +8047,16 @@
 
         <!-- Away Record Viewer -->
         <div v-if="showAwayRecordModal && awayRecordCat" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="closeAwayRecordViewer">
-            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="`${awayRecordCat.name} 的外出记录`">
+            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="`${awayRecordCat.name} 的离馆记录`">
                 <div class="meeow-reader-header flex justify-between items-center mb-3 pb-3">
                     <div class="flex items-center gap-2.5 min-w-0">
                         <img :src="getCatAvatarSource(awayRecordCat)" class="w-9 h-9 rounded-xl object-contain border border-white/10" :class="{'grayscale': isResidentAway(awayRecordCat)}">
                         <div class="min-w-0">
                             <h2 class="text-base font-bold truncate">{{ awayRecordCat.name }}</h2>
-                            <p class="text-[10px] font-mono" style="color: var(--ui-text-muted);">外出记录</p>
+                            <p class="text-[10px] font-mono" style="color: var(--ui-text-muted);">离馆记录</p>
                         </div>
                     </div>
-                    <button @click="closeAwayRecordViewer" class="meeow-reader-close p-1" aria-label="关闭外出记录"><i class="fas fa-times text-xl"></i></button>
+                    <button @click="closeAwayRecordViewer" class="meeow-reader-close p-1" aria-label="关闭离馆记录"><i class="fas fa-times text-xl"></i></button>
                 </div>
                 <div class="meeow-reader-body flex-1 custom-scrollbar p-1 space-y-3">
                     <div class="rounded-xl border p-3" style="border-color: var(--ui-border); background: var(--ui-surface-soft);">
@@ -8089,6 +8080,45 @@
             </section>
         </div>
 
+        <!-- Explore Clue Notebook -->
+        <div v-if="exploreState.showNotebook && getExploreCase()" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="exploreState.showNotebook = false">
+            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" aria-label="调查线索">
+                <div class="meeow-reader-header flex justify-between items-center mb-3 pb-3">
+                    <div><h2 class="text-base font-bold">调查线索</h2><p class="text-[10px] mt-1" style="color: var(--ui-text-muted);">{{ getExploreCase().blueprint.coreQuestion }}</p></div>
+                    <button @click="exploreState.showNotebook = false" class="meeow-reader-close p-1" aria-label="关闭调查线索"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="text-[10px] rounded-lg p-2 mb-3" style="background: var(--ui-surface-soft); color: var(--ui-text-muted);">当前任务：{{ getExploreCase().blueprint.publicHook }}</div>
+                <div class="grid md:grid-cols-[10rem_1fr] gap-3 min-h-0 flex-1 overflow-hidden">
+                    <aside class="space-y-1 overflow-y-auto custom-scrollbar">
+                        <button v-for="entry in getExploreDiscoveredClues(getExploreCase())" :key="entry.id" @click="exploreState.selectedNotebookClueId = entry.id" class="w-full text-left rounded-lg p-2 text-xs" :style="exploreState.selectedNotebookClueId === entry.id ? 'background: var(--ui-surface-hover); color: var(--accent);' : 'color: var(--ui-text-muted);'">{{ getExploreClueDisplayTitle(getExploreCase(), entry.id) }}</button>
+                        <p v-if="!getExploreDiscoveredClues(getExploreCase()).length" class="text-xs italic p-2" style="color: var(--ui-text-muted);">尚未发现明确线索。</p>
+                    </aside>
+                    <section class="rounded-xl border p-3 overflow-y-auto custom-scrollbar" style="border-color: var(--ui-border); background: var(--ui-surface-soft);">
+                        <template v-if="exploreState.selectedNotebookClueId && getExploreClue(getExploreCase(), exploreState.selectedNotebookClueId)">
+                            <h3 class="text-sm font-bold">{{ getExploreClueDisplayTitle(getExploreCase(), exploreState.selectedNotebookClueId) }}</h3>
+                            <p class="text-sm leading-relaxed whitespace-pre-wrap mt-3">{{ getExploreClue(getExploreCase(), exploreState.selectedNotebookClueId).revealText }}</p>
+                        </template>
+                        <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">选择一条已发现线索查看详情。</p>
+                    </section>
+                </div>
+            </section>
+        </div>
+
+        <!-- Explore Public Transcript -->
+        <div v-if="showExploreTranscriptModal" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="showExploreTranscriptModal = false">
+            <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" aria-label="本次外出记录">
+                <div class="meeow-reader-header flex justify-between items-center mb-3 pb-3"><div><h2 class="text-base font-bold">本次外出记录</h2><p v-if="getExploreTranscriptCase()" class="text-[10px] mt-1" style="color: var(--ui-text-muted);">{{ getExploreTranscriptCase().blueprint.locationName }} · {{ getExploreTranscriptCase().blueprint.coreQuestion }}</p></div><button @click="showExploreTranscriptModal = false" class="meeow-reader-close p-1" aria-label="关闭外出记录"><i class="fas fa-times text-xl"></i></button></div>
+                <div v-if="getExploreTranscriptCase()?.publicTranscript?.length" class="meeow-reader-body flex-1 custom-scrollbar space-y-3">
+                    <article v-for="entry in getExploreTranscriptCase().publicTranscript" :key="entry.id" class="log-paper p-3">
+                        <div class="text-[10px] mb-2" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(entry.at) }} · {{ entry.role === 'user' ? user.nickname : '馆舍记录' }}</div>
+                        <p class="text-sm leading-relaxed whitespace-pre-wrap">{{ entry.content }}</p>
+                        <p v-if="entry.dice" class="text-[10px] mt-2" style="color: var(--ui-text-muted);">掷骰：{{ entry.dice }} · {{ entry.result }}</p>
+                    </article>
+                </div>
+                <p v-else class="py-10 text-center text-xs italic" style="color: var(--ui-text-muted);">这份旧记录只保留了游记，没有保存完整的公开过程。</p>
+            </section>
+        </div>
+
         <!-- Cat Archive -->
         <div v-if="showCatArchiveModal && catArchiveCat" class="meeow-reader-overlay fixed inset-0 flex items-center justify-center" @click.self="closeCatArchive">
             <section class="meeow-reader-card flex flex-col p-5" role="dialog" aria-modal="true" :aria-label="`${catArchiveCat.name} 的小猫档案`">
@@ -8105,8 +8135,8 @@
                 <div class="grid grid-cols-5 gap-1 mb-3 text-[10px]" role="tablist" aria-label="档案分类">
                     <button @click="selectCatArchiveTab('relationship')" :class="catArchiveTab === 'relationship' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'relationship' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'relationship'">关系</button>
                     <button @click="selectCatArchiveTab('daily')" :class="catArchiveTab === 'daily' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'daily' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'daily'">日记</button>
-                    <button @click="selectCatArchiveTab('away')" :class="catArchiveTab === 'away' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'away' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'away'">外出</button>
-                    <button @click="selectCatArchiveTab('explore')" :class="catArchiveTab === 'explore' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'explore' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'explore'">离馆</button>
+                    <button @click="selectCatArchiveTab('away')" :class="catArchiveTab === 'away' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'away' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'away'">离馆</button>
+                    <button @click="selectCatArchiveTab('explore')" :class="catArchiveTab === 'explore' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'explore' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'explore'">外出</button>
                     <button @click="selectCatArchiveTab('visit')" :class="catArchiveTab === 'visit' ? 'font-bold' : 'opacity-60'" class="sully-btn rounded-lg py-2 border" :style="catArchiveTab === 'visit' ? 'border-color: var(--accent); color: var(--accent);' : 'border-color: var(--ui-border); color: var(--ui-text-muted);'" role="tab" :aria-selected="catArchiveTab === 'visit'">跨馆</button>
                 </div>
                 <div v-if="catArchiveTab !== 'relationship' && getCatArchiveDateKeys(catArchiveCat, catArchiveTab).length" class="flex justify-end mb-3">
@@ -8193,7 +8223,7 @@
                         <template v-else-if="catArchiveTab === 'away'">
                             <article v-for="record in getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey)" :key="record.id" class="log-paper relative">
                                 <div class="border-b border-gray-400 pb-2 mb-3 flex flex-wrap justify-between gap-x-3 gap-y-1">
-                                    <span class="font-bold text-sm">{{ record.item.recoveredFromTravelogues ? '历史外出记录' : '离馆记录' }}</span>
+                                    <span class="font-bold text-sm">{{ record.item.recoveredFromTravelogues ? '历史离馆记录' : '离馆记录' }}</span>
                                     <span class="text-[10px]" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(record.item.recoveredFromTravelogues ? record.item.lastTraceAt : (record.item.returnedAt || record.item.plannedReturnAt)) }}</span>
                                 </div>
                                 <dl v-if="record.item.recoveredFromTravelogues" class="grid grid-cols-[4.5rem_1fr] gap-x-2 gap-y-2 text-xs leading-relaxed">
@@ -8211,22 +8241,23 @@
                                     <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ getUsablePlannedArchiveNarrative(record.item) }}</p>
                                 </section>
                                 <section class="mt-4">
-                                    <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">外出时间线</h3>
+                                    <h3 class="text-[10px] font-bold mb-2" style="color: var(--ui-text-muted);">离馆时间线</h3>
                                     <div v-if="getAwayArchiveTimeline(catArchiveCat, record.item).length" class="space-y-3">
                                         <div v-for="event in getAwayArchiveTimeline(catArchiveCat, record.item)" :key="event.id" class="border-l-2 pl-3" style="border-color: var(--ui-border);">
                                             <div class="text-[10px] font-mono" style="color: var(--ui-text-muted);">{{ formatAwayArchiveTime(event.at) }}</div>
                                             <p class="text-sm leading-relaxed whitespace-pre-wrap break-words mt-1">{{ event.content }}</p>
                                         </div>
                                     </div>
-                                    <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">这趟外出没有留下可归档的时间线记录。</p>
+                                    <p v-else class="text-xs italic" style="color: var(--ui-text-muted);">这次离馆没有留下可归档的时间线记录。</p>
                                 </section>
                             </article>
                         </template>
                         <template v-else>
                             <article v-for="record in getCatArchiveRecordsForDate(catArchiveCat, catArchiveTab, catArchiveDateKey)" :key="record.id" class="log-paper relative">
-                                <div class="border-b border-gray-400 pb-1 mb-2 flex flex-wrap justify-between gap-x-3 gap-y-1"><span class="font-bold text-xs">{{ catArchiveTab === 'explore' ? '探索记录' : '跨馆记录' }}</span><span class="text-[10px]" style="color: var(--ui-text-muted);">{{ cleanText(record.item.date) || formatAwayArchiveTime(record.item.at) }}</span></div>
+                                <div class="border-b border-gray-400 pb-1 mb-2 flex flex-wrap justify-between gap-x-3 gap-y-1"><span class="font-bold text-xs">{{ catArchiveTab === 'explore' ? '外出游记' : '跨馆记录' }}</span><span class="text-[10px]" style="color: var(--ui-text-muted);">{{ cleanText(record.item.date) || formatAwayArchiveTime(record.item.at) }}</span></div>
                                 <p v-if="record.item.location" class="text-[10px] mb-2" style="color: var(--ui-text-muted);"><i class="fas fa-map-marker-alt mr-1"></i>{{ cleanText(record.item.location) }}</p>
                                 <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">{{ cleanText(record.item.content) }}</p>
+                                <button v-if="catArchiveTab === 'explore' && record.item.caseId" @click="openExploreTranscript(record.item.caseId)" class="mt-3 text-xs font-bold" style="color: var(--accent);">查看本次外出记录</button>
                             </article>
                         </template>
                     </template>
@@ -10452,10 +10483,13 @@
                     returnProgress: 8,
                     returnIndeterminate: false,
                     showNotebook: false,
+                    selectedNotebookClueId: '',
                     showExitMenu: false
                 });
                 const exploreInput = ref('');
                 const showExploreSettlement = ref(false);
+                const showExploreTranscriptModal = ref(false);
+                const exploreTranscriptCaseId = ref('');
 
                 // --- CROSS-HALL VISITOR SYSTEM ---
                 const showCatVisitModal = ref(false);
@@ -10964,14 +10998,14 @@
                     gnnTab: 'trending'
                 });
 
-                const unlockCodexEntry = (category, title, content, icon = 'fas fa-file-shield') => {
+                const unlockCodexEntry = (category, title, content, icon = 'fas fa-file-shield', sourceId = '') => {
                     if (!user.phoneData.codex) user.phoneData.codex = [];
-                    if (user.phoneData.codex.find(e => e.title === title)) return;
+                    if (user.phoneData.codex.find(e => (sourceId && e.sourceId === sourceId) || e.title === title)) return;
 
                     user.phoneData.codex.unshift({
                         id: Date.now() + Math.random(),
                         category, title, content, icon,
-                        unlockedDate: new Date().toLocaleDateString()
+                        unlockedDate: new Date().toLocaleDateString(), ...(sourceId ? { sourceId } : {})
                     });
                     showNotification("资料库更新", `解锁了新的图鉴: ${title}`, "https://img.icons8.com/nolan/64/open-book.png");
                 };
@@ -13137,6 +13171,20 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     setContentScrollTop(hallScrollPositions[returnHallId] || 0);
                 };
 
+                // Hall-presentation Status is only meaningful while the USER is
+                // actually observing that Hall. This deliberately does not govern
+                // global Away/mail/Phone/Thread lifecycle work, which remains active
+                // regardless of the current UI surface.
+                const isContextuallyViewingHallPresentation = (hallId) => {
+                    const targetHallId = String(hallId || '');
+                    if (!targetHallId || String(activeHallId.value || '') !== targetHallId) return false;
+                    if (currentTab.value === 'lounge' && loungeView.value === 'room') return true;
+                    if (currentTab.value !== 'detail' || detailReturnOrigin.value !== '' || !hallSceneActive.value) return false;
+                    const resident = selectedCat.value;
+                    return Boolean(resident) && !isResidentAway(resident) && !isResidentInCuratorRoom(resident) &&
+                        String(getResidentPhysicalHallId(resident) || '') === targetHallId;
+                };
+
                 const HALL_ENTRY_REFRESH_COOLDOWN_MS = 30 * 60 * 1000;
                 const getHallLastEnteredAt = (hall) => Number(hall?.lastEnteredAt || 0);
                 const markHallEntered = (hall) => {
@@ -13673,6 +13721,7 @@ JSON 格式：
                     const clues = [];
                     rawClues.forEach((clue, index) => {
                         const revealText = compactExploreText(clue?.revealText, 160);
+                        const title = compactExploreText(clue?.title, 48);
                         const nodeRefs = Array.isArray(clue?.nodeIndexes) ? clue.nodeIndexes :
                             (Array.isArray(clue?.nodeIds) ? clue.nodeIds : [clue?.nodeIndex]);
                         const nodeIds = [...new Set(nodeRefs.map(resolveNodeId).filter(Boolean))];
@@ -13681,7 +13730,7 @@ JSON 格式：
                         if (!revealText || !nodeIds.length) return;
                         const id = `${caseId}:clue:${clues.length + 1}`;
                         rawClueIndexToId.set(index, id);
-                        clues.push({ id, nodeIds, revealText, discoveryModes: discoveryModes.length ? discoveryModes : ['observe'], check: compactExploreText(clue?.check, 16) || null });
+                        clues.push({ id, title, nodeIds, revealText, discoveryModes: discoveryModes.length ? discoveryModes : ['observe'], check: compactExploreText(clue?.check, 16) || null });
                     });
                     const resolveClueId = value => {
                         const numeric = typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value.trim())) ? Number(value) : null;
@@ -13737,6 +13786,27 @@ JSON 格式：
                         locationName: location?.name || ''
                     };
                 };
+                const EXPLORE_PUBLIC_TRANSCRIPT_TYPES = new Set(['opening', 'user-action', 'narration', 'dice', 'clue-reveal', 'revelation']);
+                const normalizeExplorePublicTranscript = (raw, history, createdAt) => {
+                    const source = Array.isArray(raw) ? raw : (Array.isArray(history) ? history.map(entry => ({
+                        id: entry.id, at: entry.at, role: entry.role, type: entry.checkId ? 'dice' : (entry.role === 'user' ? 'user-action' : 'narration'),
+                        content: entry.content, dice: entry.dice, result: entry.result, public: true
+                    })) : []);
+                    const seen = new Set();
+                    return source.map((entry, index) => {
+                        const type = EXPLORE_PUBLIC_TRANSCRIPT_TYPES.has(String(entry?.type || '')) ? String(entry.type) : '';
+                        const content = compactExploreText(entry?.content, 520);
+                        const id = String(entry?.id || `${createdAt}:public:${index + 1}`).trim();
+                        const at = validExploreDate(entry?.at) ? entry.at : createdAt;
+                        if (!entry?.public || !type || !id || !content || seen.has(id)) return null;
+                        seen.add(id);
+                        return {
+                            id, at, type, role: entry?.role === 'user' ? 'user' : 'narrator', public: true, content,
+                            dice: Number.isInteger(entry?.dice) ? entry.dice : null,
+                            result: compactExploreText(entry?.result, 16) || null
+                        };
+                    }).filter(Boolean);
+                };
                 const normalizeExploreCaseState = (raw, blueprint, companionId, createdAt) => {
                     const nodeIds = new Set(blueprint.nodes.map(node => node.id));
                     const clueIds = new Set(blueprint.clues.map(clue => clue.id));
@@ -13773,6 +13843,37 @@ JSON 格式：
                         lastVisibleScene: compactExploreText(raw?.lastVisibleScene, 420), updatedAt: validExploreDate(raw?.updatedAt) ? raw.updatedAt : createdAt
                     };
                 };
+                const normalizeExploreSettlementOperation = (raw, caseId, settlementState) => {
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+                        return settlementState === 'complete' ? { id: `explore-settlement:${caseId}`, legacyComplete: true, status: 'complete', receipts: {} } : null;
+                    }
+                    const receipts = raw.receipts && typeof raw.receipts === 'object' && !Array.isArray(raw.receipts) ? { ...raw.receipts } : {};
+                    return {
+                        id: String(raw.id || `explore-settlement:${caseId}`), legacyComplete: raw.legacyComplete === true,
+                        status: ['pending', 'complete'].includes(raw.status) ? raw.status : 'pending',
+                        rewards: raw.rewards && typeof raw.rewards === 'object' ? {
+                            coins: Math.max(0, Math.trunc(Number(raw.rewards.coins) || 0)),
+                            affinityChange: Math.max(0, Math.trunc(Number(raw.rewards.affinityChange) || 0))
+                        } : null,
+                        settlement: raw.settlement && typeof raw.settlement === 'object' ? {
+                            summary: compactExploreText(raw.settlement.summary, 260),
+                            loot: raw.settlement.loot && typeof raw.settlement.loot === 'object' ? {
+                                id: String(raw.settlement.loot.id || `explore-loot:${caseId}`), name: compactExploreText(raw.settlement.loot.name, 80),
+                                icon: compactExploreText(raw.settlement.loot.icon, 12), desc: compactExploreText(raw.settlement.loot.desc, 160)
+                            } : null,
+                            lore: raw.settlement.lore && typeof raw.settlement.lore === 'object' ? {
+                                id: String(raw.settlement.lore.id || `explore-lore:${caseId}`), category: compactExploreText(raw.settlement.lore.category, 40),
+                                title: compactExploreText(raw.settlement.lore.title, 90), content: compactExploreText(raw.settlement.lore.content, 420), icon: compactExploreText(raw.settlement.lore.icon, 40)
+                            } : null
+                        } : null,
+                        travelogue: raw.travelogue && typeof raw.travelogue === 'object' ? {
+                            status: ['pending', 'retryable', 'complete'].includes(raw.travelogue.status) ? raw.travelogue.status : 'pending',
+                            prompt: String(raw.travelogue.prompt || ''), content: compactExploreText(raw.travelogue.content, 280),
+                            attempts: Math.max(0, Math.trunc(Number(raw.travelogue.attempts) || 0)), retryAt: validExploreDate(raw.travelogue.retryAt) ? raw.travelogue.retryAt : ''
+                        } : { status: 'pending', prompt: '', content: '', attempts: 0, retryAt: '' },
+                        receipts
+                    };
+                };
                 const normalizeExploreCases = () => {
                     const knownCompanions = new Set(cats.value.map(cat => String(cat?.id || '')).filter(Boolean));
                     const normalized = (Array.isArray(user.exploreCases) ? user.exploreCases : []).map((raw, index) => {
@@ -13798,10 +13899,13 @@ JSON 格式：
                                     return { kind, presentationMode, refId: compactExploreText(item?.refId, 120), text: compactExploreText(item?.text, 220) };
                                 }).filter(item => item.text).slice(0, 3)
                             } : { kind: 'fresh', publicFactIds: [], sourceEvidence: [] };
-                        return { id, status, createdAt, updatedAt: validExploreDate(raw?.updatedAt) ? raw.updatedAt : createdAt,
+                        const state = normalizeExploreCaseState(raw?.state, blueprint, companionId, createdAt);
+                        const settlementState = ['none', 'pending', 'complete'].includes(raw?.settlementState) ? raw.settlementState : 'none';
+                        return { id, status, createdAt, startedAt: validExploreDate(raw?.startedAt) ? raw.startedAt : createdAt, updatedAt: validExploreDate(raw?.updatedAt) ? raw.updatedAt : createdAt,
                             locationId: location.id, destinationHallId: String(raw?.destinationHallId || location.hallId || ''),
-                            source, blueprint: presentExploreEvidenceNow(blueprint, source), state: normalizeExploreCaseState(raw?.state, blueprint, companionId, createdAt),
-                            settlementState: ['none', 'pending', 'complete'].includes(raw?.settlementState) ? raw.settlementState : 'none' };
+                            source, blueprint: presentExploreEvidenceNow(blueprint, source), state,
+                            publicTranscript: normalizeExplorePublicTranscript(raw?.publicTranscript, state.history, createdAt),
+                            settlementState, settlementOperation: normalizeExploreSettlementOperation(raw?.settlementOperation, id, settlementState) };
                     }).filter(Boolean).slice(-24);
                     const wanted = String(user.activeExploreCaseId || '');
                     let active = normalized.find(item => item.status === 'open' && item.id === wanted) || normalized.find(item => item.status === 'open') || null;
@@ -13822,27 +13926,136 @@ JSON 格式：
                     if ((revelation.decisiveClueIds || []).some(id => discovered.has(id))) return true;
                     return (revelation.evidencePaths || []).some(path => path.length >= revelation.minEvidence && path.every(id => discovered.has(id)));
                 };
-                const reconcileExploreRevelations = caseRecord => {
+                const getNewEligibleExploreRevelationIds = caseRecord => {
                     const state = caseRecord?.state;
                     if (!state) return [];
-                    const newIds = (caseRecord.blueprint?.revelations || []).filter(revelation =>
+                    return (caseRecord.blueprint?.revelations || []).filter(revelation =>
                         !state.revealedRevelationIds.includes(revelation.id) && isExploreRevelationConfirmed(revelation, state.discoveredClueIds)
                     ).map(revelation => revelation.id);
-                    if (newIds.length) state.revealedRevelationIds.push(...newIds);
-                    const required = caseRecord.blueprint?.solution?.requiredRevelationIds || [];
-                    if (required.length && required.every(id => state.revealedRevelationIds.includes(id))) {
-                        caseRecord.status = 'solved'; caseRecord.solvedAt = caseRecord.solvedAt || new Date().toISOString();
-                        if (user.activeExploreCaseId === caseRecord.id) user.activeExploreCaseId = '';
+                };
+                const persistExploreCase = caseRecord => {
+                    try {
+                        touchExploreCase(caseRecord);
+                        return persistNow() === true;
+                    } catch (error) {
+                        addLog(`EXPLORE CASE PERSIST FAILED: ${getReadableAPIError(error)}`, 'warn');
+                        return false;
                     }
-                    return newIds;
                 };
-                const appendExploreCaseHistory = (caseRecord, entry) => {
-                    if (!caseRecord?.state) return;
-                    caseRecord.state.history.push({ id: makeExploreCaseId('explore-history'), role: entry?.role === 'user' ? 'user' : 'narrator', checkId: compactExploreText(entry?.checkId, 100) || '',
-                        content: compactExploreText(entry?.content, 420), at: new Date().toISOString(), dice: entry?.dice || null, result: entry?.result || null });
-                    caseRecord.state.history = caseRecord.state.history.slice(-EXPLORE_HISTORY_LIMIT);
+                const getExplorePublicEventById = (caseRecord, eventId) => (caseRecord?.publicTranscript || [])
+                    .find(entry => String(entry?.id || '') === String(eventId || '')) || null;
+                const runExplorePublicFirstCommit = ({ caseRecord, event, authorityIds = null, authorityId = '', appendPublicEvent, persist }) => {
+                    if (!caseRecord?.state || !event?.id || typeof appendPublicEvent !== 'function' || typeof persist !== 'function') return false;
+                    const eventId = String(event.id);
+                    if (!getExplorePublicEventById(caseRecord, eventId)) {
+                        const historyBefore = [...(caseRecord.state.history || [])];
+                        const transcriptBefore = [...(caseRecord.publicTranscript || [])];
+                        appendPublicEvent(caseRecord, event);
+                        if (!persist(caseRecord)) {
+                            caseRecord.state.history = historyBefore;
+                            caseRecord.publicTranscript = transcriptBefore;
+                            touchExploreCase(caseRecord);
+                            return false;
+                        }
+                    }
+                    if (!Array.isArray(authorityIds) || !authorityId || authorityIds.includes(authorityId)) return true;
+                    authorityIds.push(authorityId);
+                    if (persist(caseRecord)) return true;
+                    const index = authorityIds.lastIndexOf(authorityId);
+                    if (index >= 0) authorityIds.splice(index, 1);
                     touchExploreCase(caseRecord);
+                    return false;
                 };
+                const commitExploreSolvedState = caseRecord => {
+                    const state = caseRecord?.state;
+                    const required = caseRecord?.blueprint?.solution?.requiredRevelationIds || [];
+                    if (!state || !required.length || !required.every(id => state.revealedRevelationIds.includes(id))) return false;
+                    if (caseRecord.status === 'solved') return true;
+                    const priorStatus = caseRecord.status;
+                    const priorSolvedAt = caseRecord.solvedAt;
+                    const priorActiveCaseId = user.activeExploreCaseId;
+                    caseRecord.status = 'solved';
+                    caseRecord.solvedAt = caseRecord.solvedAt || new Date().toISOString();
+                    if (user.activeExploreCaseId === caseRecord.id) user.activeExploreCaseId = '';
+                    if (persistExploreCase(caseRecord)) return true;
+                    caseRecord.status = priorStatus;
+                    caseRecord.solvedAt = priorSolvedAt;
+                    user.activeExploreCaseId = priorActiveCaseId;
+                    touchExploreCase(caseRecord);
+                    return false;
+                };
+                const commitExplorePublicFirstAuthority = (caseRecord, { kind, authorityId, content }) => {
+                    const authorityIds = kind === 'clue'
+                        ? caseRecord?.state?.discoveredClueIds
+                        : caseRecord?.state?.revealedRevelationIds;
+                    const eventId = kind === 'clue'
+                        ? `explore-clue-reveal:${caseRecord.id}:${authorityId}`
+                        : `explore-revelation:${caseRecord.id}:${authorityId}`;
+                    return runExplorePublicFirstCommit({
+                        caseRecord,
+                        event: { id: eventId, role: 'narrator', type: kind === 'clue' ? 'clue-reveal' : 'revelation', public: true, content },
+                        authorityIds,
+                        authorityId,
+                        appendPublicEvent: appendExploreCaseHistory,
+                        persist: persistExploreCase
+                    });
+                };
+                const reconcileExploreRevelations = caseRecord => {
+                    const newIds = getNewEligibleExploreRevelationIds(caseRecord);
+                    const committed = [];
+                    newIds.forEach(id => {
+                        const revelation = (caseRecord?.blueprint?.revelations || []).find(item => item.id === id);
+                        if (revelation && commitExplorePublicFirstAuthority(caseRecord, {
+                            kind: 'revelation', authorityId: id, content: `确认信息：${revelation.text}`
+                        })) committed.push(id);
+                    });
+                    commitExploreSolvedState(caseRecord);
+                    return committed;
+                };
+                const appendExplorePublicTranscriptEntry = (caseRecord, entry) => {
+                    if (!caseRecord || entry?.public !== true || !EXPLORE_PUBLIC_TRANSCRIPT_TYPES.has(String(entry?.type || ''))) return null;
+                    const content = compactExploreText(entry?.content, 520);
+                    if (!content) return null;
+                    if (!Array.isArray(caseRecord.publicTranscript)) caseRecord.publicTranscript = [];
+                    const id = String(entry?.id || makeExploreCaseId('explore-public')).trim();
+                    const existing = caseRecord.publicTranscript.find(item => String(item?.id || '') === id);
+                    if (existing) return existing;
+                    const record = {
+                        id, at: validExploreDate(entry?.at) ? entry.at : new Date().toISOString(),
+                        type: String(entry.type), role: entry?.role === 'user' ? 'user' : 'narrator', public: true, content,
+                        dice: Number.isInteger(entry?.dice) ? entry.dice : null, result: compactExploreText(entry?.result, 16) || null
+                    };
+                    caseRecord.publicTranscript.push(record);
+                    return record;
+                };
+                const appendExploreCaseHistory = (caseRecord, entry = {}) => {
+                    if (!caseRecord?.state) return null;
+                    const content = compactExploreText(entry?.content, 520);
+                    if (!content) return null;
+                    const id = String(entry?.id || makeExploreCaseId('explore-history')).trim();
+                    const at = validExploreDate(entry?.at) ? entry.at : new Date().toISOString();
+                    const record = { id, role: entry?.role === 'user' ? 'user' : 'narrator', checkId: compactExploreText(entry?.checkId, 100) || '',
+                        content: compactExploreText(content, 420), at, dice: Number.isInteger(entry?.dice) ? entry.dice : null, result: entry?.result || null };
+                    if (!caseRecord.state.history.some(item => String(item?.id || '') === id)) {
+                        caseRecord.state.history.push(record);
+                        caseRecord.state.history = caseRecord.state.history.slice(-EXPLORE_HISTORY_LIMIT);
+                    }
+                    if (entry.public === true) appendExplorePublicTranscriptEntry(caseRecord, { ...entry, id, at, content });
+                    touchExploreCase(caseRecord);
+                    return record;
+                };
+                const getExploreTemporalSnapshot = (caseRecord, nowInput = new Date()) => {
+                    const now = nowInput instanceof Date ? nowInput : new Date(nowInput);
+                    const safeNow = Number.isNaN(now.getTime()) ? new Date() : now;
+                    const hour = safeNow.getHours();
+                    const daypart = hour < 5 ? '深夜' : hour < 8 ? '清晨' : hour < 12 ? '上午' : hour < 17 ? '下午' : hour < 22 ? '傍晚' : '深夜';
+                    const started = new Date(caseRecord?.startedAt || caseRecord?.createdAt || safeNow);
+                    const elapsedMinutes = Math.max(0, Math.floor((safeNow.getTime() - (Number.isNaN(started.getTime()) ? safeNow.getTime() : started.getTime())) / 60000));
+                    const date = `${safeNow.getFullYear()}-${String(safeNow.getMonth() + 1).padStart(2, '0')}-${String(safeNow.getDate()).padStart(2, '0')}`;
+                    const clock = `${String(hour).padStart(2, '0')}:${String(safeNow.getMinutes()).padStart(2, '0')}`;
+                    return { nowIso: safeNow.toISOString(), date, clock, daypart, startedAt: (Number.isNaN(started.getTime()) ? safeNow : started).toISOString(), elapsedMinutes };
+                };
+                const formatExploreTemporalContext = snapshot => `[TIME AUTHORITY]\n当前本地日期：${snapshot.date}；当前本地时间：${snapshot.clock}；时段：${snapshot.daypart}。\n外出开始（ISO）：${snapshot.startedAt}；约已过去 ${snapshot.elapsedMinutes} 分钟。\n光线、天空、日月、环境活动必须符合以上当前时间；深夜不得写直射日光、正午天空、明亮日照海面等白天景象。不得自行把时间推进到早晨或白天；程序拥有时钟。`;
                 const syncExploreStateFromCase = caseRecord => {
                     if (!caseRecord) return false;
                     const companion = getExploreCompanion(caseRecord);
@@ -13860,11 +14073,12 @@ JSON 格式：
 
                 const EXPLORE_KP_SYSTEM_PROMPT = `你是喵喵馆外出调查的第三人称场景旁白。不要自称 KP、GM、主持人，不讨论模组、隐藏真相、状态机或规则。用户只能称为“你”。同行居民保持给定的冻结形态：CAT 是完整猫身且不能说人话；HUMAN 可以说人话。严格只依据调用方给出的当前场景、已发现证据和当前可用线索推进；不要编造未提供的秘密、远处地点、NPC 私密动机或结局。失败必须前进但带来已提供的合理代价。不要替用户选择、不要自动结束调查。返回严格 JSON。`;
 
-                const buildExploreNarrationContext = ({ caseRecord, phase = 'scene', userAction = '', dice = null } = {}) => {
+                const buildExploreNarrationContext = ({ caseRecord, phase = 'scene', userAction = '', dice = null, authority = null, temporal = null } = {}) => {
                     const companion = getExploreCompanion(caseRecord);
                     const node = getExploreNode(caseRecord);
                     const state = caseRecord?.state;
-                    const eligibleClues = getEligibleExploreClues(caseRecord).map(clue => `- ${clue.id}: ${clue.revealText}`).join('\n') || '无';
+                    const eligibleSet = new Set((authority?.eligibleClueIds || getEligibleExploreClues(caseRecord).map(clue => clue.id)).map(String));
+                    const eligibleClues = (caseRecord.blueprint?.clues || []).filter(clue => eligibleSet.has(String(clue.id))).map(clue => `- ${clue.id}: 程序可公开呈现的规范线索`).join('\n') || '无';
                     const discovered = (state?.discoveredClueIds || []).map(id => getExploreClue(caseRecord, id)?.revealText).filter(Boolean).join('；') || '尚无';
                     const revelations = (state?.revealedRevelationIds || []).map(id => (caseRecord.blueprint.revelations || []).find(item => item.id === id)?.text).filter(Boolean).join('；') || '尚无';
                     const events = (caseRecord.blueprint?.threatEvents || []).filter(event => event.nodeId === node?.id && !(state?.consumedThreatEventIds || []).includes(event.id))
@@ -13880,7 +14094,7 @@ JSON 格式：
 当前问题：${caseRecord.blueprint.coreQuestion}
 已发现证据：${discovered}
 已确认信息：${revelations}
-当前可呈现线索（只有完整原文出现在正文时才可标记发现）：
+当前授权线索 ID（只能提名这些 ID；程序会独立呈现规范线索文本）：
 ${eligibleClues}
 当前可触发的可见压力事件：
 ${events}
@@ -13888,6 +14102,7 @@ ${events}
 ${recent}
 ${userAction ? `馆长行动：${userAction}` : ''}
 ${diceText}
+${formatExploreTemporalContext(temporal || getExploreTemporalSnapshot(caseRecord))}
 [/CURRENT EXPLORE DIRECTOR CONTEXT]`;
                 };
                 const validateExploreNarration = raw => {
@@ -13971,7 +14186,8 @@ ${diceText}
                     return [`公开钩子：${caseRecord?.blueprint?.publicHook || ''}`, `当前问题：${caseRecord?.blueprint?.coreQuestion || ''}`,
                         clues.length ? `已发现线索：${clues.join('；')}` : '已发现线索：无',
                         revelations.length ? `已确认信息：${revelations.join('；')}` : '已确认信息：无',
-                        ...(state.history || []).slice(-EXPLORE_VISIBLE_TURN_LIMIT).map(item => `${item.role === 'user' ? '馆长' : '场景'}：${item.content}`)
+                        ...(Array.isArray(caseRecord?.publicTranscript) ? caseRecord.publicTranscript : []).slice(-EXPLORE_VISIBLE_TURN_LIMIT)
+                            .map(item => `${item.role === 'user' ? '馆长' : '场景'}：${item.content}`)
                     ].join('\n');
                 };
                 const createExplorePendingCheck = (caseRecord, requested, userAction) => {
@@ -13991,24 +14207,36 @@ ${diceText}
                     };
                     caseRecord.state.pendingCheck = check; touchExploreCase(caseRecord); return check;
                 };
-                const applyExploreNarration = (caseRecord, narration, { userAction = '', pendingCheck = null } = {}) => {
+                const freezeExploreNarrationAuthority = (caseRecord, pendingCheck = null) => {
+                    const node = getExploreNode(caseRecord);
+                    return {
+                        eligibleClueIds: pendingCheck ? [...(pendingCheck.eligibleClueIds || [])] : getEligibleExploreClues(caseRecord).map(clue => clue.id),
+                        eligibleNodeIds: pendingCheck ? [...(pendingCheck.eligibleNodeIds || [])] : [...(node?.exits || [])],
+                        eligibleThreatEventIds: pendingCheck ? [...(pendingCheck.eligibleThreatEventIds || [])] : (caseRecord?.blueprint?.threatEvents || [])
+                            .filter(event => event.nodeId === node?.id && !(caseRecord?.state?.consumedThreatEventIds || []).includes(event.id)).map(event => event.id)
+                    };
+                };
+                const applyExploreNarration = (caseRecord, narration, { userAction = '', pendingCheck = null, authority = null } = {}) => {
                     if (!caseRecord || caseRecord.status !== 'open' && caseRecord.status !== 'solved') return { applied: false };
                     const state = caseRecord.state;
                     const currentNode = getExploreNode(caseRecord);
                     if (!currentNode || !narration.content) return { applied: false };
-                    const eligibleClues = pendingCheck ? new Set(pendingCheck.eligibleClueIds) : new Set(getEligibleExploreClues(caseRecord).map(clue => clue.id));
-                    // Visible evidence, rather than optional metadata, owns discovery.
-                    const visibleClueIds = [...eligibleClues].filter(id => {
+                    const frozenAuthority = authority || freezeExploreNarrationAuthority(caseRecord, pendingCheck);
+                    const eligibleClues = new Set((frozenAuthority.eligibleClueIds || []).map(String));
+                    const nominatedClueIds = [...new Set((narration.discoveredClueIds || []).map(String))]
+                        .filter(id => eligibleClues.has(id) && !state.discoveredClueIds.includes(id));
+                    const committedClueIds = [];
+                    nominatedClueIds.forEach(id => {
                         const clue = getExploreClue(caseRecord, id);
-                        return clue && narration.content.includes(clue.revealText);
+                        if (clue && commitExplorePublicFirstAuthority(caseRecord, {
+                            kind: 'clue', authorityId: id, content: `发现线索：${clue.revealText}`
+                        })) committedClueIds.push(id);
                     });
-                    visibleClueIds.forEach(id => { if (!state.discoveredClueIds.includes(id)) state.discoveredClueIds.push(id); });
-                    const allowedMoveIds = new Set(pendingCheck ? pendingCheck.eligibleNodeIds : currentNode.exits || []);
+                    const allowedMoveIds = new Set((frozenAuthority.eligibleNodeIds || []).map(String));
                     if (narration.moveToNodeId && allowedMoveIds.has(narration.moveToNodeId)) {
                         state.lastNodeId = state.currentNodeId; state.currentNodeId = narration.moveToNodeId;
                     }
-                    const eligibleThreatIds = new Set(pendingCheck ? pendingCheck.eligibleThreatEventIds : (caseRecord.blueprint.threatEvents || [])
-                        .filter(event => event.nodeId === currentNode.id && !state.consumedThreatEventIds.includes(event.id)).map(event => event.id));
+                    const eligibleThreatIds = new Set((frozenAuthority.eligibleThreatEventIds || []).map(String));
                     narration.triggeredThreatEventIds.filter(id => eligibleThreatIds.has(id)).forEach(id => {
                         const event = (caseRecord.blueprint.threatEvents || []).find(item => item.id === id);
                         if (event && narration.content.includes(event.visibleEffect) && !state.consumedThreatEventIds.includes(id)) {
@@ -14018,29 +14246,31 @@ ${diceText}
                     state.visitedNodeIds = [...new Set([...state.visitedNodeIds, state.currentNodeId])];
                     state.suggestedActions = narration.suggestedActions;
                     state.lastVisibleScene = narration.content;
-                    appendExploreCaseHistory(caseRecord, { role: 'narrator', content: narration.content });
+                    appendExploreCaseHistory(caseRecord, { role: 'narrator', type: 'narration', public: true, content: narration.content });
                     const revealed = reconcileExploreRevelations(caseRecord);
                     if (caseRecord.status === 'solved') state.pendingCheck = null;
                     else if (narration.requestedCheck) createExplorePendingCheck(caseRecord, narration.requestedCheck, userAction);
                     else state.pendingCheck = null;
                     touchExploreCase(caseRecord);
-                    return { applied: true, discoveredClueIds: visibleClueIds, revealedRevelationIds: revealed };
+                    return { applied: true, discoveredClueIds: committedClueIds, revealedRevelationIds: revealed };
                 };
-                const buildExploreNarrationPrompt = ({ caseRecord, phase, userAction = '', dice = null } = {}) => {
+                const buildExploreNarrationPrompt = ({ caseRecord, phase, userAction = '', dice = null, authority = null, temporal = null } = {}) => {
                     const currentNode = getExploreNode(caseRecord);
                     const checkRule = dice ? '本轮是已经冻结的骰子结果：根据结果推进，但只能从当前授权机会中选择后果；失败必须前进而不是堵死。' : '仅在真实存在失败代价时请求一次检定；简单行动直接叙述结果。';
                     return `[EXPLORE INVESTIGATION SCENE]
 写 120–180 字简体中文可见场景。${checkRule}
 不要自动结束、暂停、放弃或解决调查；这些由程序和用户控制。不要透露未提供的秘密。
 仅返回 JSON：{"content":"可见叙事","requestedCheck":null|{"skill":"侦查","eligibleClueIds":[],"eligibleNodeIds":[],"eligibleThreatEventIds":[]},"discoveredClueIds":[],"moveToNodeId":"","triggeredThreatEventIds":[],"suggestedActions":["..."]}
-Sidecar 只能引用当前上下文提供的 ID；它是可选的。线索只有其完整 revealText 已逐字出现在 content 中才会被程序记录。不要把建议写成剧透。
+Sidecar 只能引用当前上下文提供的 ID；它是可选的。若提名 discoveredClueIds，程序会在内容之外公开展示对应的规范线索文本；不要在 content 中复述或要求逐字匹配 revealText。不要把建议写成剧透。
 ${buildResidentPublicNameContract([getExploreCompanion(caseRecord)])}
-${buildExploreNarrationContext({ caseRecord, phase, userAction, dice })}`;
+${buildExploreNarrationContext({ caseRecord, phase, userAction, dice, authority, temporal })}`;
                 };
                 const requestExploreCaseNarration = async (caseRecord, options = {}) => {
                     const phase = options.phase || 'scene';
-                    const raw = await requestExploreNarration(buildExploreNarrationPrompt({ caseRecord, ...options }), `EXPLORE ${phase.toUpperCase()} · ${caseRecord.blueprint.locationName}`);
-                    return parseExploreNarration(raw);
+                    const authority = options.authority || freezeExploreNarrationAuthority(caseRecord, options.pendingCheck || null);
+                    const temporal = getExploreTemporalSnapshot(caseRecord, new Date());
+                    const raw = await requestExploreNarration(buildExploreNarrationPrompt({ caseRecord, ...options, authority, temporal }), `EXPLORE ${phase.toUpperCase()} · ${caseRecord.blueprint.locationName}`);
+                    return { ...parseExploreNarration(raw), _authority: authority };
                 };
                 const submitDiceRoll = () => {
                     const caseRecord = getExploreCase();
@@ -14065,47 +14295,205 @@ ${buildExploreNarrationContext({ caseRecord, phase, userAction, dice })}`;
                     const revelations = caseRecord.state.revealedRevelationIds.length;
                     return { coins: Math.min(200, 60 + clues * 10 + revelations * 30), affinityChange: Math.min(10, 2 + revelations * 2) };
                 };
-                const settleSolvedExploreCase = async caseRecord => {
-                    if (!caseRecord || caseRecord.status !== 'solved' || caseRecord.settlementState === 'complete') return;
-                    const companion = getExploreCompanion(caseRecord);
-                    if (!companion) return;
-                    caseRecord.settlementState = 'pending'; touchExploreCase(caseRecord);
-                    const rewards = getProgramExploreRewards(caseRecord);
-                    const visibleDigest = getExploreCaseVisibleDigest(caseRecord);
-                    const prompt = `[EXPLORE SOLVED SETTLEMENT]
-根据以下用户已经看见的调查内容，生成安全的简短结算 JSON。不得提及任何未提供的信息。
-${visibleDigest}
-只返回 {"summary":"","loot":null|{"name":"","icon":"","desc":""},"lore":null|{"category":"","title":"","content":"","icon":""}}。不返回数字奖励。`;
-                    let data = null;
-                    try { data = parseAIJSON(await requestStructuredEngine(prompt, { systemPrompt: 'You write only public, user-observed Explore settlement flavor in Simplified Chinese.', maxTokens: 700, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · SETTLEMENT', priority: 'foreground' })); } catch (error) { addLog(`EXPLORE SETTLEMENT FLAVOR FAILED: ${getReadableAPIError(error)}`, 'warn'); }
-                    const summary = compactExploreText(data?.summary, 260) || `你和${getResidentPublicName(companion)}把已确认的线索逐一整理好，带着答案离开了现场。`;
-                    exploreState.settlement = { summary, coins: rewards.coins, affinityChange: rewards.affinityChange, loot: data?.loot && typeof data.loot === 'object' ? {
-                        name: compactExploreText(data.loot.name, 80), icon: compactExploreText(data.loot.icon, 12), desc: compactExploreText(data.loot.desc, 160)
-                    } : null };
-                    user.coins += rewards.coins;
-                    companion.affinity = Math.min(100, Math.max(0, Number(companion.affinity || 0) + rewards.affinityChange));
-                    if (exploreState.settlement.loot?.name) user.inventory.push({ ...exploreState.settlement.loot, id: Date.now(), type: 'collectible' });
-                    if (data?.lore?.title && data?.lore?.content) unlockCodexEntry(compactExploreText(data.lore.category, 40), compactExploreText(data.lore.title, 90), compactExploreText(data.lore.content, 420), compactExploreText(data.lore.icon, 40));
-                    const traveloguePrompt = `[EXPLORE TRAVELOGUE]
-只依据以下用户已发现、可公开复述的信息，为同行居民写 150–260 字第一人称游记。不得补充任何秘密、未发现线索或隐藏真相。
-居民：${getResidentPublicName(companion)}；人格：${compactExploreText(companion.personality, 220)}；冻结形态：${caseRecord.state.sessionForm}
-${visibleDigest}`;
+                const getExploreSettlementReceiptId = (caseRecord, name) => `explore-settlement:${caseRecord.id}:${name}`;
+                const hasExploreSettlementReceipt = (operation, name) => Boolean(operation?.receipts?.[name]);
+                const writeExploreSettlementReceipt = (caseRecord, operation, name) => {
+                    if (!operation.receipts) operation.receipts = {};
+                    operation.receipts[name] = getExploreSettlementReceiptId(caseRecord, name);
+                    return persistExploreCase(caseRecord);
+                };
+                const normalizeExploreSettlementFlavor = (caseRecord, data, companion) => {
+                    const loot = data?.loot && typeof data.loot === 'object' && compactExploreText(data.loot.name, 80) ? {
+                        id: getExploreSettlementReceiptId(caseRecord, 'loot'), name: compactExploreText(data.loot.name, 80),
+                        icon: compactExploreText(data.loot.icon, 12), desc: compactExploreText(data.loot.desc, 160)
+                    } : null;
+                    const lore = data?.lore && typeof data.lore === 'object' && compactExploreText(data.lore.title, 90) && compactExploreText(data.lore.content, 420) ? {
+                        id: getExploreSettlementReceiptId(caseRecord, 'lore'), category: compactExploreText(data.lore.category, 40),
+                        title: compactExploreText(data.lore.title, 90), content: compactExploreText(data.lore.content, 420), icon: compactExploreText(data.lore.icon, 40)
+                    } : null;
+                    return { summary: compactExploreText(data?.summary, 260) || `你和${getResidentPublicName(companion)}把已确认的线索逐一整理好，带着答案离开了现场。`, loot, lore };
+                };
+                const exploreSettlementFlavorInFlight = new Map();
+                const exploreTravelogueInFlight = new Map();
+                const coalesceExploreOperation = (inFlight, key, createTask) => {
+                    const existing = inFlight.get(key);
+                    if (existing) return existing;
+                    const task = Promise.resolve().then(createTask);
+                    const shared = task.finally(() => {
+                        if (inFlight.get(key) === shared) inFlight.delete(key);
+                    });
+                    inFlight.set(key, shared);
+                    return shared;
+                };
+                const ensureExploreSettlementOperation = async (caseRecord, companion) => {
+                    if (caseRecord.settlementOperation?.legacyComplete) return caseRecord.settlementOperation;
+                    let operation = caseRecord.settlementOperation;
+                    if (!operation) {
+                        operation = { id: `explore-settlement:${caseRecord.id}`, status: 'pending', legacyComplete: false,
+                            rewards: getProgramExploreRewards(caseRecord), settlement: null,
+                            travelogue: { status: 'pending', prompt: '', content: '', attempts: 0, retryAt: '' }, receipts: {} };
+                        caseRecord.settlementOperation = operation; caseRecord.settlementState = 'pending';
+                        if (!persistExploreCase(caseRecord)) return null;
+                    }
+                    if (!operation.settlement) {
+                        const operationId = operation.id;
+                        return coalesceExploreOperation(exploreSettlementFlavorInFlight, operationId, async () => {
+                            if (operation.settlement) return operation;
+                            const temporal = getExploreTemporalSnapshot(caseRecord, new Date());
+                            const visibleDigest = getExploreCaseVisibleDigest(caseRecord);
+                            const prompt = `[EXPLORE SOLVED SETTLEMENT]\n根据以下用户已经看见的调查内容，生成安全的简短结算 JSON。不得提及任何未提供的信息。\n${formatExploreTemporalContext(temporal)}\n${visibleDigest}\n只返回 {"summary":"","loot":null|{"name":"","icon":"","desc":""},"lore":null|{"category":"","title":"","content":"","icon":""}}。不返回数字奖励。`;
+                            let data = null;
+                            try { data = parseAIJSON(await requestStructuredEngine(prompt, { systemPrompt: 'You write only public, user-observed Explore settlement flavor in Simplified Chinese.', maxTokens: 700, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · SETTLEMENT', priority: 'foreground' })); }
+                            catch (error) { addLog(`EXPLORE SETTLEMENT FLAVOR FAILED: ${getReadableAPIError(error)}`, 'warn'); }
+                            const priorSettlement = operation.settlement;
+                            operation.settlement = normalizeExploreSettlementFlavor(caseRecord, data, companion);
+                            if (persistExploreCase(caseRecord)) return operation;
+                            operation.settlement = priorSettlement;
+                            touchExploreCase(caseRecord);
+                            return null;
+                        });
+                    }
+                    return operation;
+                };
+                const isValidExploreTravelogue = content => {
+                    const text = cleanText(content || '');
+                    const hanCount = (text.match(/[\u3400-\u9fff]/g) || []).length;
+                    return text && hanCount >= 80 && hanCount <= 240 && /我/.test(text);
+                };
+                const buildFrozenExploreTraveloguePrompt = (caseRecord, companion) => {
+                    const temporal = getExploreTemporalSnapshot(caseRecord, new Date());
+                    return `[EXPLORE TRAVELOGUE]\n只依据以下用户已经看见、可公开复述的信息，为同行居民写约 100–200 个汉字的第一人称游记。必须有“我”的第一人称视角和鲜明人格。不得补充任何秘密、未发现线索、隐藏真相、身份或引擎信息。\n${formatExploreTemporalContext(temporal)}\n居民：${getResidentPublicName(companion)}；人格：${compactExploreText(companion.personality, 220)}；冻结形态：${caseRecord.state.sessionForm}\n${getExploreCaseVisibleDigest(caseRecord)}`;
+                };
+                const applyExploreReturnPresentation = async (caseRecord, companion, operation) => {
+                    if (hasExploreSettlementReceipt(operation, 'returnPresentation')) return true;
+                    let applied = false;
                     try {
-                        const travelogueContent = cleanText(await requestStructuredEngine(traveloguePrompt, { systemPrompt: CORE_ROLEPLAY_PROMPT, maxTokens: 1000, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · TRAVELOGUE', priority: 'foreground' }));
-                        if (travelogueContent) {
-                            if (!Array.isArray(companion.travelogues)) companion.travelogues = [];
-                            companion.travelogues.push({ date: new Date().toLocaleString(), location: caseRecord.blueprint.locationName, content: travelogueContent, source: 'explore', caseId: caseRecord.id });
-                            companion.logs.push({ date: new Date().toLocaleDateString(), content: `【外出游记】\n地点：${caseRecord.blueprint.locationName}\n\n${travelogueContent}` });
+                        const returnHallId = String(getCatHallId(companion) || activeHallId.value || '');
+                        const returnHall = halls.value.find(hall => String(hall?.id || '') === returnHallId) || currentHall.value;
+                        applied = await refreshAllStatus(true, '', [companion.id], '', false, true, {
+                            frozenCatsToUpdate: [companion], lifeThreadCaptureEnabled: false, skipHallFreshnessCommit: true,
+                            exploreReturnPresentation: true, requestHallId: returnHallId, requestHall: { ...returnHall },
+                            priority: 'foreground', label: `EXPLORE RETURN STATUS · ${getResidentPublicName(companion)}`
+                        });
+                    } catch (error) { addLog(`EXPLORE RETURN STATUS ERROR: ${getReadableAPIError(error)}`, 'warn'); }
+                    if (!applied) setCatStatus(companion, '刚从外出回来，正在安静地重新安顿下来。', { source: 'explore-return', forceLog: true });
+                    return writeExploreSettlementReceipt(caseRecord, operation, 'returnPresentation');
+                };
+                const getExploreTravelogueRetryMs = operation => {
+                    const value = new Date(operation?.travelogue?.retryAt || '').getTime();
+                    return Number.isFinite(value) ? value : 0;
+                };
+                const canRunExploreTravelogueAttempt = (operation, nowMs = Date.now()) =>
+                    operation?.travelogue?.status !== 'retryable' || getExploreTravelogueRetryMs(operation) <= nowMs;
+                const generateExploreTravelogue = (caseRecord, companion, operation) => {
+                    if (!operation || operation.travelogue?.status === 'complete') return Promise.resolve(true);
+                    if (!canRunExploreTravelogueAttempt(operation)) return Promise.resolve(false);
+                    const operationId = operation.id;
+                    return coalesceExploreOperation(exploreTravelogueInFlight, operationId, async () => {
+                        if (!operation.travelogue.prompt) {
+                            operation.travelogue.prompt = buildFrozenExploreTraveloguePrompt(caseRecord, companion);
+                            if (!persistExploreCase(caseRecord)) return false;
                         }
-                    } catch (error) { addLog(`EXPLORE TRAVELOGUE FAILED: ${getReadableAPIError(error)}`, 'warn'); }
-                    appendInteractionEvent(companion, 'explore-end', `与馆长完成了${caseRecord.blueprint.locationName}的调查。`, { source: 'explore', caseId: caseRecord.id });
-                    appendMonitorEvent(companion, `与馆长完成了${caseRecord.blueprint.locationName}的一次外出调查。`, 'explore', { caseId: caseRecord.id });
-                    caseRecord.settlementState = 'complete'; touchExploreCase(caseRecord); persistNow(); showExploreSettlement.value = true;
+                        const priorAttempts = operation.travelogue.attempts;
+                        operation.travelogue.attempts = priorAttempts + 1;
+                        if (!persistExploreCase(caseRecord)) {
+                            operation.travelogue.attempts = priorAttempts;
+                            touchExploreCase(caseRecord);
+                            return false;
+                        }
+                        try {
+                            const content = cleanText(await requestStructuredEngine(operation.travelogue.prompt, { systemPrompt: CORE_ROLEPLAY_PROMPT, maxTokens: 1000, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · TRAVELOGUE', priority: 'foreground' }));
+                            if (!isValidExploreTravelogue(content)) throw new Error('游记未满足公开第一人称长度要求。');
+                            const travelogueId = getExploreSettlementReceiptId(caseRecord, 'travelogue');
+                            const traveloguesBefore = [...(companion.travelogues || [])];
+                            const logsBefore = [...(companion.logs || [])];
+                            const travelogueBefore = { ...operation.travelogue };
+                            operation.travelogue.content = content;
+                            if (!Array.isArray(companion.travelogues)) companion.travelogues = [];
+                            if (!companion.travelogues.some(record => String(record?.id || record?.sourceId || '') === travelogueId || String(record?.caseId || '') === String(caseRecord.id))) {
+                                companion.travelogues.push({ id: travelogueId, sourceId: travelogueId, at: new Date().toISOString(), date: new Date().toLocaleString(), location: caseRecord.blueprint.locationName, content, source: 'explore', caseId: caseRecord.id });
+                            }
+                            if (!Array.isArray(companion.logs)) companion.logs = [];
+                            if (!companion.logs.some(record => String(record?.sourceId || '') === travelogueId)) companion.logs.push({ sourceId: travelogueId, date: new Date().toLocaleDateString(), content: `【外出游记】\n地点：${caseRecord.blueprint.locationName}\n\n${content}` });
+                            const receiptBefore = operation.receipts?.travelogue;
+                            operation.travelogue.status = 'complete'; operation.travelogue.retryAt = '';
+                            if (writeExploreSettlementReceipt(caseRecord, operation, 'travelogue')) return true;
+                            companion.travelogues = traveloguesBefore;
+                            companion.logs = logsBefore;
+                            Object.assign(operation.travelogue, travelogueBefore);
+                            if (receiptBefore) operation.receipts.travelogue = receiptBefore;
+                            else delete operation.receipts.travelogue;
+                            touchExploreCase(caseRecord);
+                            return false;
+                        } catch (error) {
+                            operation.travelogue.status = 'retryable'; operation.travelogue.retryAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+                            if (!persistExploreCase(caseRecord)) return false;
+                            addLog(`EXPLORE TRAVELOGUE FAILED: ${getReadableAPIError(error)}`, 'warn');
+                            showExploreSettlement.value = true;
+                            return false;
+                        }
+                    });
+                };
+                const settleSolvedExploreCase = async caseRecord => {
+                    if (!caseRecord || caseRecord.status !== 'solved') return false;
+                    const companion = getExploreCompanion(caseRecord);
+                    if (!companion) return false;
+                    const operation = await ensureExploreSettlementOperation(caseRecord, companion);
+                    if (!operation || operation.legacyComplete) return false;
+                    const rewards = operation.rewards || getProgramExploreRewards(caseRecord);
+                    const settlement = operation.settlement || normalizeExploreSettlementFlavor(caseRecord, null, companion);
+                    exploreState.settlement = { summary: settlement.summary, coins: rewards.coins, affinityChange: rewards.affinityChange, loot: settlement.loot };
+                    const receipt = name => hasExploreSettlementReceipt(operation, name);
+                    if (!receipt('coins')) { user.coins += rewards.coins; if (!writeExploreSettlementReceipt(caseRecord, operation, 'coins')) return false; }
+                    if (!receipt('affinity')) { companion.affinity = Math.min(100, Math.max(0, Number(companion.affinity || 0) + rewards.affinityChange)); if (!writeExploreSettlementReceipt(caseRecord, operation, 'affinity')) return false; }
+                    if (settlement.loot && !receipt('loot')) {
+                        if (!Array.isArray(user.inventory)) user.inventory = [];
+                        if (!user.inventory.some(item => String(item?.sourceId || item?.id || '') === settlement.loot.id)) user.inventory.push({ ...settlement.loot, id: settlement.loot.id, sourceId: settlement.loot.id, type: 'collectible' });
+                        if (!writeExploreSettlementReceipt(caseRecord, operation, 'loot')) return false;
+                    }
+                    if (settlement.lore && !receipt('lore')) { unlockCodexEntry(settlement.lore.category, settlement.lore.title, settlement.lore.content, settlement.lore.icon, settlement.lore.id); if (!writeExploreSettlementReceipt(caseRecord, operation, 'lore')) return false; }
+                    if (!receipt('interaction')) {
+                        const sourceKey = getExploreSettlementReceiptId(caseRecord, 'interaction');
+                        if (!(companion.todayInteractions || []).some(event => event?.sourceKey === sourceKey)) appendInteractionEvent(companion, 'explore-end', `与馆长完成了${caseRecord.blueprint.locationName}的调查。`, { source: 'explore', caseId: caseRecord.id, sourceKey });
+                        if (!writeExploreSettlementReceipt(caseRecord, operation, 'interaction')) return false;
+                    }
+                    if (!receipt('monitor')) {
+                        const sourceKey = getExploreSettlementReceiptId(caseRecord, 'monitor');
+                        if (!(companion.diary || []).some(event => event?.sourceKey === sourceKey)) appendMonitorEvent(companion, `与馆长完成了${caseRecord.blueprint.locationName}的一次外出调查。`, 'explore', { caseId: caseRecord.id, sourceKey });
+                        if (!writeExploreSettlementReceipt(caseRecord, operation, 'monitor')) return false;
+                    }
+                    if (!await applyExploreReturnPresentation(caseRecord, companion, operation)) return false;
+                    if (operation.travelogue.status !== 'complete' && !await generateExploreTravelogue(caseRecord, companion, operation)) return false;
+                    const priorOperationStatus = operation.status;
+                    const priorSettlementState = caseRecord.settlementState;
+                    operation.status = 'complete'; caseRecord.settlementState = 'complete';
+                    if (!persistExploreCase(caseRecord)) {
+                        operation.status = priorOperationStatus;
+                        caseRecord.settlementState = priorSettlementState;
+                        touchExploreCase(caseRecord);
+                        return false;
+                    }
+                    showExploreSettlement.value = true;
+                    return true;
                 };
                 const leaveSolvedExploreCase = async () => {
                     const caseRecord = getExploreCase();
                     if (!caseRecord || caseRecord.status !== 'solved') return;
                     await settleSolvedExploreCase(caseRecord);
+                };
+                let exploreSettlementRecoveryInFlight = false;
+                const reconcileIncompleteExploreSettlements = async (nowInput = new Date()) => {
+                    if (exploreSettlementRecoveryInFlight || !settings.apiKey) return false;
+                    const now = nowInput instanceof Date ? nowInput : new Date(nowInput);
+                    const candidate = (Array.isArray(user.exploreCases) ? user.exploreCases : []).find(caseRecord => {
+                        const operation = caseRecord?.settlementOperation;
+                        if (caseRecord?.status !== 'solved' || !operation || operation.legacyComplete || operation.status === 'complete') return false;
+                        return canRunExploreTravelogueAttempt(operation, now.getTime());
+                    });
+                    if (!candidate) return false;
+                    exploreSettlementRecoveryInFlight = true;
+                    try { return await settleSolvedExploreCase(candidate); }
+                    finally { exploreSettlementRecoveryInFlight = false; }
                 };
                 const processDiceResult = async caseId => {
                     const caseRecord = getExploreCase(caseId);
@@ -14113,10 +14501,10 @@ ${visibleDigest}`;
                     if (!caseRecord || !pending || !Number.isInteger(pending.roll) || !pending.result) return;
                     exploreState.isProcessing = true;
                     const target = getSkillValue(pending.skill);
-                    if (!caseRecord.state.history.some(entry => entry.checkId === pending.id)) appendExploreCaseHistory(caseRecord, { role: 'user', checkId: pending.id, content: `掷骰检定：${pending.skill}（目标 ${target}）`, dice: pending.roll, result: pending.result });
+                    if (!caseRecord.state.history.some(entry => entry.checkId === pending.id)) appendExploreCaseHistory(caseRecord, { role: 'user', type: 'dice', public: true, checkId: pending.id, content: `掷骰检定：${pending.skill}（目标 ${target}）`, dice: pending.roll, result: pending.result });
                     try {
-                        const narration = await requestExploreCaseNarration(caseRecord, { phase: 'dice', userAction: pending.userActionSnapshot, dice: { skill: pending.skill, target, roll: pending.roll, result: pending.result } });
-                        applyExploreNarration(caseRecord, narration, { userAction: pending.userActionSnapshot, pendingCheck: pending });
+                        const narration = await requestExploreCaseNarration(caseRecord, { phase: 'dice', userAction: pending.userActionSnapshot, pendingCheck: pending, dice: { skill: pending.skill, target, roll: pending.roll, result: pending.result } });
+                        applyExploreNarration(caseRecord, narration, { userAction: pending.userActionSnapshot, pendingCheck: pending, authority: narration._authority });
                         syncExploreStateFromCase(caseRecord);
                     } catch (error) {
                         pending.status = 'retryable'; touchExploreCase(caseRecord); addLog(`EXPLORE DICE NARRATION FAILED: ${getReadableAPIError(error)}`, 'warn'); showToast('判定叙事连接异常，可稍后继续。', 'error');
@@ -14536,6 +14924,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 // blueprint, so active Cases survive ordinary reloads unchanged.
                 const restoredExploreCase = normalizeExploreCases();
                 if (restoredExploreCase) syncExploreStateFromCase(restoredExploreCase);
+                window.setTimeout(() => { void reconcileIncompleteExploreSettlements(); }, 0);
                 const buildExploreNewsFollowupSource = () => {
                     const projection = publishedNewsProjections.value.find(item => item?.readAt && String(item?.projectionContext?.hallId || '') === String(exploreState.destinationHallId || '') &&
                         (item.disclosedPublicFactIds || []).some(id => userKnowsFact(id)));
@@ -14657,7 +15046,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     if (!exploreState.location || !exploreState.companion || !exploreState.goal) return;
                     exploreState.isGeneratingModule = true;
                     const frozenSource = freezeExploreSource(exploreState.source || buildExploreSourceEvidence());
-                    const prompt = `[EXPLORE INVESTIGATION BLUEPRINT]\n${buildExploreModuleBrief(frozenSource)}\n设计一次紧凑、来源世界一致的调查。publicHook/coreQuestion 只能基于上面的用户可见证据；hiddenTruth 仅 Case 内部。标作“尚未观察”的证据若采用，必须把完整原文作为今天首次注意到的公开钩子，绝不能写成馆长已经记得、读过或知道。CAT 不能说人话；HUMAN 可以。不要默认现代/Gotham。\n严格 JSON：{"publicHook":"","coreQuestion":"","hiddenTruth":"","nodes":[{"name":"","visibleDescription":"","exitIndexes":[1]}],"clues":[{"nodeIndexes":[0],"revealText":"完整可见证据句","discoveryModes":["observe"],"check":"侦查"}],"revelations":[{"text":"","minEvidence":2,"evidencePaths":[[0,1],[2,3]],"decisiveClueIndexes":[]}],"threatEvents":[{"nodeIndex":0,"trigger":"","delta":1,"visibleEffect":""}],"companionPlan":"","solution":{"requiredRevelationIndexes":[0]},"endings":{"solved":"","paused":"","abandoned":""}}。核心结论正常至少需要两条证据；只有明确 decisiveClueIndexes 才可由单条决定性证据确认。`;
+                    const prompt = `[EXPLORE INVESTIGATION BLUEPRINT]\n${buildExploreModuleBrief(frozenSource)}\n设计一次紧凑、来源世界一致的调查。publicHook/coreQuestion 只能基于上面的用户可见证据；hiddenTruth 仅 Case 内部。标作“尚未观察”的证据若采用，必须把完整原文作为今天首次注意到的公开钩子，绝不能写成馆长已经记得、读过或知道。每条 clue 可提供简短、公开、无剧透的 title。CAT 不能说人话；HUMAN 可以。不要默认现代/Gotham。\n严格 JSON：{"publicHook":"","coreQuestion":"","hiddenTruth":"","nodes":[{"name":"","visibleDescription":"","exitIndexes":[1]}],"clues":[{"title":"线索名称","nodeIndexes":[0],"revealText":"完整可见证据句","discoveryModes":["observe"],"check":"侦查"}],"revelations":[{"text":"","minEvidence":2,"evidencePaths":[[0,1],[2,3]],"decisiveClueIndexes":[]}],"threatEvents":[{"nodeIndex":0,"trigger":"","delta":1,"visibleEffect":""}],"companionPlan":"","solution":{"requiredRevelationIndexes":[0]},"endings":{"solved":"","paused":"","abandoned":""}}。核心结论正常至少需要两条证据；只有明确 decisiveClueIndexes 才可由单条决定性证据确认。`;
                     try {
                         const raw = await requestStructuredEngine(prompt, { systemPrompt: 'You are a concise source-world-consistent investigation designer. Return valid JSON only.', maxTokens: 1200, thinkingLevel: ThinkingLevel.LOW, label: `EXPLORE CASE · ${exploreState.location.name}`, priority: 'foreground', validateResponse: validateExploreModuleSeed });
                         const now = new Date().toISOString(), caseId = makeExploreCaseId();
@@ -14665,22 +15054,41 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         if (!blueprint) throw new Error('调查蓝图未通过本地验证。');
                         if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
                         user.exploreCases.forEach(item => { if (item.status === 'open') item.status = 'paused'; });
-                        const caseRecord = { id: caseId, status: 'open', createdAt: now, updatedAt: now, locationId: exploreState.location.id, destinationHallId: exploreState.destinationHallId,
+                        const caseRecord = { id: caseId, status: 'open', createdAt: now, startedAt: now, updatedAt: now, locationId: exploreState.location.id, destinationHallId: exploreState.destinationHallId,
                             // Store only the already visible text snapshot. refId is provenance
                             // only; no Explore prompt later dereferences it into Away or Thread state.
                             source: frozenSource, blueprint,
-                            state: normalizeExploreCaseState({ companionId: String(exploreState.companion.id), sessionForm: getResidentForm(exploreState.companion), visitedNodeIds: [blueprint.nodes[0].id] }, blueprint, String(exploreState.companion.id), now), settlementState: 'none' };
-                        user.exploreCases.push(caseRecord); user.activeExploreCaseId = caseId; persistNow(); syncExploreStateFromCase(caseRecord); await startExploration();
+                            state: normalizeExploreCaseState({ companionId: String(exploreState.companion.id), sessionForm: getResidentForm(exploreState.companion), visitedNodeIds: [blueprint.nodes[0].id] }, blueprint, String(exploreState.companion.id), now),
+                            publicTranscript: [], settlementState: 'none' };
+                        user.exploreCases.push(caseRecord); user.activeExploreCaseId = caseId;
+                        const openingPersisted = runExplorePublicFirstCommit({
+                            caseRecord,
+                            event: { id: `explore-opening:${caseId}`, role: 'narrator', type: 'opening', public: true, content: `外出调查开始：${blueprint.publicHook}` },
+                            appendPublicEvent: appendExploreCaseHistory,
+                            persist: persistExploreCase
+                        });
+                        if (!openingPersisted) {
+                            caseRecord.status = 'paused';
+                            if (user.activeExploreCaseId === caseId) user.activeExploreCaseId = '';
+                            touchExploreCase(caseRecord);
+                            showToast('外出开场未能保存，调查已保留为可恢复状态。', 'error');
+                            return;
+                        }
+                        syncExploreStateFromCase(caseRecord); await startExploration();
                     } catch (error) { addLog(`EXPLORE CASE FAILED: ${getReadableAPIError(error)}`, 'error'); showToast(`调查设计失败：${getReadableAPIError(error)}`, 'error'); }
                     finally { exploreState.isGeneratingModule = false; }
                 };
                 const startExploration = async () => {
                     const caseRecord = getExploreCase();
-                    if (!caseRecord || caseRecord.status !== 'open' || caseRecord.state.history.length) return;
+                    const openingEventId = caseRecord ? `explore-opening:${caseRecord.id}` : '';
+                    const hasOpeningNarration = (caseRecord?.state?.history || []).some(entry =>
+                        entry.role === 'narrator' && String(entry.id || '') !== openingEventId
+                    );
+                    if (!caseRecord || caseRecord.status !== 'open' || hasOpeningNarration) return;
                     exploreState.isProcessing = true;
                     try {
                         const narration = await requestExploreCaseNarration(caseRecord, { phase: 'opening' });
-                        applyExploreNarration(caseRecord, narration); syncExploreStateFromCase(caseRecord); exploreState.showGoalModal = false;
+                        applyExploreNarration(caseRecord, narration, { authority: narration._authority }); syncExploreStateFromCase(caseRecord); exploreState.showGoalModal = false;
                         const companion = getExploreCompanion(caseRecord);
                         appendInteractionEvent(companion, 'explore-start', `与馆长前往 ${caseRecord.blueprint.locationName} 调查。`, { source: 'explore', caseId: caseRecord.id });
                         appendMonitorEvent(companion, `与馆长一同前往${caseRecord.blueprint.locationName}展开调查。`, 'explore', { caseId: caseRecord.id });
@@ -14690,8 +15098,8 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const advanceExploration = async () => {
                     const caseRecord = getExploreCase(), action = compactExploreText(exploreInput.value, 240);
                     if (!caseRecord || !['open', 'solved'].includes(caseRecord.status) || !action || exploreState.isProcessing || caseRecord.state.pendingCheck) return;
-                    exploreInput.value = ''; appendExploreCaseHistory(caseRecord, { role: 'user', content: action }); exploreState.isProcessing = true;
-                    try { applyExploreNarration(caseRecord, await requestExploreCaseNarration(caseRecord, { phase: 'scene', userAction: action }), { userAction: action }); syncExploreStateFromCase(caseRecord); }
+                    exploreInput.value = ''; appendExploreCaseHistory(caseRecord, { role: 'user', type: 'user-action', public: true, content: action }); exploreState.isProcessing = true;
+                    try { const narration = await requestExploreCaseNarration(caseRecord, { phase: 'scene', userAction: action }); applyExploreNarration(caseRecord, narration, { userAction: action, authority: narration._authority }); syncExploreStateFromCase(caseRecord); }
                     catch (error) { addLog(`EXPLORE SCENE FAILED: ${getReadableAPIError(error)}`, 'warn'); showToast('行动已保留；场景连接异常，可稍后继续。', 'error'); }
                     finally { exploreState.isProcessing = false; nextTick(() => { if (exploreChatRef.value) exploreChatRef.value.scrollTop = exploreChatRef.value.scrollHeight; }); }
                 };
@@ -14703,8 +15111,30 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     if (caseRecord.status === 'paused') { user.exploreCases.forEach(item => { if (item.status === 'open') item.status = 'paused'; }); caseRecord.status = 'open'; user.activeExploreCaseId = caseRecord.id; touchExploreCase(caseRecord); persistNow(); }
                     syncExploreStateFromCase(caseRecord); if (caseRecord.state.pendingCheck?.status === 'retryable') void processDiceResult(caseRecord.id);
                 };
+                const getExploreDiscoveredClues = caseRecord => (caseRecord?.state?.discoveredClueIds || [])
+                    .map((id, index) => ({ clue: getExploreClue(caseRecord, id), id: String(id), ordinal: index + 1 }))
+                    .filter(entry => entry.clue);
+                const getExploreClueDisplayTitle = (caseRecord, clueId) => {
+                    const entries = getExploreDiscoveredClues(caseRecord);
+                    const index = entries.findIndex(entry => entry.id === String(clueId));
+                    const clue = index >= 0 ? entries[index].clue : null;
+                    return compactExploreText(clue?.title, 48) || `线索 ${index >= 0 ? index + 1 : 1}`;
+                };
+                const openExploreNotebook = () => {
+                    const caseRecord = getExploreCase();
+                    if (!caseRecord) return;
+                    const discovered = getExploreDiscoveredClues(caseRecord);
+                    exploreState.selectedNotebookClueId = discovered.some(entry => entry.id === exploreState.selectedNotebookClueId)
+                        ? exploreState.selectedNotebookClueId : (discovered[0]?.id || '');
+                    exploreState.showNotebook = true;
+                };
+                const openExploreTranscript = caseId => {
+                    exploreTranscriptCaseId.value = String(caseId || '');
+                    showExploreTranscriptModal.value = true;
+                };
+                const getExploreTranscriptCase = () => getExploreCase(exploreTranscriptCaseId.value);
                 const applyExploreSuggestedAction = action => { exploreInput.value = compactExploreText(action, 100); };
-                const closeExplore = () => { exploreState.active = false; exploreState.caseId = ''; exploreState.location = null; exploreState.companion = null; exploreState.sessionForm = null; exploreState.history = []; exploreState.currentCheck = null; exploreState.waitingForDice = false; exploreState.lastDiceResult = null; exploreState.settlement = null; exploreState.showNotebook = false; exploreState.showExitMenu = false; showExploreSettlement.value = false; };
+                const closeExplore = () => { exploreState.active = false; exploreState.caseId = ''; exploreState.location = null; exploreState.companion = null; exploreState.sessionForm = null; exploreState.history = []; exploreState.currentCheck = null; exploreState.waitingForDice = false; exploreState.lastDiceResult = null; exploreState.settlement = null; exploreState.showNotebook = false; exploreState.selectedNotebookClueId = ''; exploreState.showExitMenu = false; showExploreSettlement.value = false; };
 
                 const checkAffinityThreshold = async (cat) => {
                     const id = String(cat?.id ?? '');
@@ -22609,6 +23039,11 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
 
                 const autoUpdateLogic = async () => {
                     if (!settings.autoUpdate) return;
+                    const requestHallId = String(activeHallId.value || '');
+                    if (!isContextuallyViewingHallPresentation(requestHallId)) {
+                        addLog(`AUTO-SYNC: skipped Hall presentation; hall=${requestHallId || 'none'} is not contextually observed.`, 'info');
+                        return;
+                    }
                     const now = Date.now();
                     const lastSync = parseInt(localStorage.getItem('last_sync_time') || '0');
                     if (now - lastSync < 20 * 60 * 1000) return;
@@ -23521,6 +23956,8 @@ ${buildLeanAmbientContext(cat, {
 
                 const formatAwayDecisionSummary = ({ hall, requested, activeEpisodeExcluded, recentlySettledExcluded, stayedHome, proposedAway, plansPresent, plansValid, departed, discarded, legacyContinued, legacyReturned }) =>
                     `STATUS SYNC AWAY SUMMARY: hall=${hall}; requested=${requested}; activeEpisodeExcluded=${activeEpisodeExcluded}; recentlySettledExcluded=${recentlySettledExcluded}; stayedHome=${stayedHome}; proposedAway=${proposedAway}; plansPresent=${plansPresent}; plansValid=${plansValid}; departed=${departed}; discarded=${discarded}; legacyContinued=${legacyContinued}; legacyReturned=${legacyReturned}`;
+                const shouldCommitHallStatusFreshness = ({ curatorRoomStatusSync = null, skipHallFreshnessCommit = false } = {}) =>
+                    !curatorRoomStatusSync && skipHallFreshnessCommit !== true;
 
                 // Status Sync is a shared model request. Its packet must therefore
                 // contain only public/current authority, never a resident's stored
@@ -23699,12 +24136,14 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         statusCompletion.softFormMismatchIds = [];
                     }
                     const isBackgroundStatusSync = requestOptions.priority === 'background';
+                    const exploreReturnPresentation = requestOptions.exploreReturnPresentation === true;
                     const curatorRoomStatusSync = requestOptions.curatorRoomStatusSync && typeof requestOptions.curatorRoomStatusSync === 'object'
                         ? requestOptions.curatorRoomStatusSync
                         : null;
                     // Only a normal, accepted Hall Status Sync may propose this hidden
                     // sidecar. Homepage/Curator/prevalidated paths never receive it.
                     const lifeThreadCaptureEnabled = !curatorRoomStatusSync &&
+                        !exploreReturnPresentation &&
                         requestOptions.lifeThreadCaptureEnabled !== false &&
                         !Object.prototype.hasOwnProperty.call(requestOptions, 'prevalidatedStatusUpdates') &&
                         !requestOptions.frozenCatsToUpdate && !activeCatIds.length && !isFocusEnd && !isExploreEnd;
@@ -23878,7 +24317,7 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                                 ? { ...requestOptions.awayMailDecisions }
                                 : buildAwayMailDecisions(presenceDirectives, carriedAwayMailDecisions)
                         );
-                        const fridgeNoteCandidates = curatorRoomStatusSync
+                        const fridgeNoteCandidates = curatorRoomStatusSync || exploreReturnPresentation
                             ? []
                             : buildFridgeNoteReactionCandidates({
                                 hallId: requestHallId,
@@ -23935,7 +24374,7 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         }
 
                         const homeCats = physicalHallCats.filter(cat => !cat.isOut);
-                        const hallSocialContext = curatorRoomStatusSync
+                        const hallSocialContext = curatorRoomStatusSync || exploreReturnPresentation
                             ? ''
                             : homeCats.length >= 2
                             ? `\n[HALL SOCIAL — HOME RESIDENTS ONLY]: At home: ${homeCats.map(cat => getResidentPublicName(cat)).join(', ')}. You may include 1–2 natural, canon-faithful cat-to-cat moments; named cats need coherent counterpart statuses. Never force intimacy, romance, reconciliation, rivalry, or generic cute behavior. This never applies to a CURATOR_ROOM resident.`
@@ -24547,13 +24986,15 @@ ${statusOutputRules}`;
 
                             if (!curatorRoomStatusSync) {
                                 const completedStatusSyncAt = new Date().toISOString();
-                                const persistedHall = halls.value.find(hall => String(hall?.id || '') === String(requestHallId));
-                                if (persistedHall) persistedHall.lastSuccessfulStatusSyncAt = completedStatusSyncAt;
-                                // Keep the legacy app-wide automatic-sync gate intact;
-                                // per-Hall ambient scheduling reads the Hall-owned field above.
-                                localStorage.setItem('last_sync_time', String(new Date(completedStatusSyncAt).getTime()));
+                                if (requestOptions.skipHallFreshnessCommit !== true) {
+                                    const persistedHall = halls.value.find(hall => String(hall?.id || '') === String(requestHallId));
+                                    if (persistedHall) persistedHall.lastSuccessfulStatusSyncAt = completedStatusSyncAt;
+                                    // Keep the legacy app-wide automatic-sync gate intact;
+                                    // per-Hall ambient scheduling reads the Hall-owned field above.
+                                    localStorage.setItem('last_sync_time', String(new Date(completedStatusSyncAt).getTime()));
+                                }
                             }
-                            if (!curatorRoomStatusSync && (!requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)) && activeHallId.value === requestHallId) {
+                            if (shouldCommitHallStatusFreshness({ curatorRoomStatusSync, skipHallFreshnessCommit: requestOptions.skipHallFreshnessCommit }) && (!requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)) && activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
@@ -24580,8 +25021,29 @@ ${statusOutputRules}`;
                     }
                 };
 
-                const settleHallStatusRefresh = ({ requestHallId, didRefresh, trackBackgroundPending, statusCompletion, backgroundFailureToast, presentationAllowed = true }) => {
+                // A full Hall-wide Status success supersedes any older Homepage
+                // ambient opportunity for that Hall. This is presentation queue
+                // cleanup only: narrow resident updates (Curator/Explore return),
+                // failures, and other Halls must leave pending ambient work intact.
+                const isQualifyingHallWidePresentationStatusRequest = ({ requestOptions = {}, activeCatIds = [], isFocusEnd = false, isExploreEnd = false } = {}) =>
+                    !requestOptions.curatorRoomStatusSync &&
+                    requestOptions.skipHallFreshnessCommit !== true &&
+                    !Array.isArray(requestOptions.frozenCatsToUpdate) &&
+                    !(Array.isArray(activeCatIds) ? activeCatIds : []).length &&
+                    !isFocusEnd && !isExploreEnd;
+                const consumeSupersededHomepageHallAmbientRefresh = ({ requestHallId, didRefresh, qualifyingHallWideRefresh, successfulAt = Date.now() }) => {
+                    if (!didRefresh || !qualifyingHallWideRefresh) return false;
+                    const record = homepageHallAmbientRefreshPending.get(requestHallId);
+                    const queuedAt = Number(record?.queuedAt);
+                    const completedAt = Number(successfulAt);
+                    if (!record || !Number.isFinite(queuedAt) || !Number.isFinite(completedAt) || completedAt < queuedAt) return false;
+                    homepageHallAmbientRefreshPending.delete(requestHallId);
+                    addLog(`HOMEPAGE AMBIENT SUPERSEDED: hall=${requestHallId}; queuedAt=${new Date(queuedAt).toISOString()}`, 'info');
+                    return true;
+                };
+                const settleHallStatusRefresh = ({ requestHallId, didRefresh, trackBackgroundPending, statusCompletion, backgroundFailureToast, presentationAllowed = true, qualifyingHallWideRefresh = false, successfulAt }) => {
                     if (didRefresh) {
+                        consumeSupersededHomepageHallAmbientRefresh({ requestHallId, didRefresh, qualifyingHallWideRefresh, successfulAt });
                         if (hallStatusRefreshPending.delete(requestHallId)) {
                             addLog(`STATUS SYNC BACKGROUND RECOVERED: hall=${requestHallId}`, 'sent');
                         }
@@ -24598,12 +25060,21 @@ ${statusOutputRules}`;
 
                 const refreshAllStatus = (...args) => {
                     const requestOptions = (args[6] && typeof args[6] === 'object') ? args[6] : {};
+                    const activeCatIds = Array.isArray(args[2]) ? args[2] : [];
+                    const isFocusEnd = args[4] === true;
+                    const isExploreEnd = args[5] === true;
                     const requestHallId = requestOptions.requestHallId || activeHallId.value;
                     const requestHall = requestOptions.requestHall || {
                         ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value)
                     };
                     const requestPriority = requestOptions.priority || 'normal';
                     const trackBackgroundPending = requestPriority === 'background' && requestOptions.trackBackgroundPending === true;
+                    const qualifyingHallWideRefresh = isQualifyingHallWidePresentationStatusRequest({
+                        requestOptions,
+                        activeCatIds,
+                        isFocusEnd,
+                        isExploreEnd
+                    });
                     const statusCompletion = requestOptions.statusCompletion && typeof requestOptions.statusCompletion === 'object'
                         ? requestOptions.statusCompletion
                         : {
@@ -24649,7 +25120,9 @@ ${statusOutputRules}`;
                             trackBackgroundPending,
                             statusCompletion,
                             backgroundFailureToast: requestOptions.backgroundFailureToast,
-                            presentationAllowed: !requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)
+                            presentationAllowed: !requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId),
+                            qualifyingHallWideRefresh,
+                            successfulAt: didRefresh ? Date.now() : 0
                         });
                     };
 
@@ -24717,6 +25190,9 @@ ${statusOutputRules}`;
                             homepageHallAmbientRefreshPending.delete(hallId);
                             return;
                         }
+                        // Keep the opportunity pending until the USER returns to this
+                        // Hall; stale activeHallId alone is not presentation authority.
+                        if (!isContextuallyViewingHallPresentation(hallId)) return;
                         if (record.retryAt && nowMs < record.retryAt) return;
                         if (isHallAmbientRefreshFresh(hall, nowMs)) return;
                         // Do not join an already-dispatched request: its protected IDs
@@ -25461,7 +25937,7 @@ ${episodicMemory}`;
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
                     setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileHomepageHallAmbientRefreshes(now); currentTime.value = now; }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); currentTime.value = now; } });
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });
@@ -25529,8 +26005,8 @@ ${episodicMemory}`;
                     newSchedule, addSchedule, sortedSchedule, icsInput, handleIcsImport, showIcsHelp,
                     currentTime, calendarContainer, currentTimePixels, getEventTop, toggleScheduleDone, deleteSchedule, handleTimelineClick, handleAddClick,
                     confirmSettlement, affinityChangeValue, chatMessagesRef,
-                    exploreState, exploreInput, showExploreSettlement, EXPLORE_LOCATIONS,
-                    getExploreCase, getExploreClue, selectExploreLocation, selectExploreCompanion, generateExploreGoals, selectGoal, submitCustomGoal, startExploration, advanceExploration, closeExplore, pauseExploreCase, abandonExploreCase, resumeExploreCase, applyExploreSuggestedAction, leaveSolvedExploreCase, exploreChatRef,
+                    exploreState, exploreInput, showExploreSettlement, showExploreTranscriptModal, EXPLORE_LOCATIONS,
+                    getExploreCase, getExploreClue, getExploreDiscoveredClues, getExploreClueDisplayTitle, getExploreTranscriptCase, openExploreNotebook, openExploreTranscript, selectExploreLocation, selectExploreCompanion, generateExploreGoals, selectGoal, submitCustomGoal, startExploration, advanceExploration, closeExplore, pauseExploreCase, abandonExploreCase, resumeExploreCase, applyExploreSuggestedAction, leaveSolvedExploreCase, exploreChatRef,
                     totalStats, totalSkills, isCharValid, adjustStat, adjustSkill, finishCharCreation,
                     getDiceResultClass, getSkillValue, submitDiceRoll,
                     showCalendarManager, deleteCalendarSource, currentBagTab, currentBagItems,
