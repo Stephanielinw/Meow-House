@@ -357,9 +357,9 @@ const _runAIRequest = async (request) => {
     // Background work (status sync, wording polish, phone photo)
     // must not overwrite a user-facing notification such as a new
     // friend request. Its progress remains visible in the system log.
-    if (request.priority !== 'background') dependencies.showToast('正在建立加密通道...', 'loading');
+    if (request.uiMode !== 'background') dependencies.showToast('正在建立加密通道...', 'loading');
     request.guardedInputChars = promptBudget.totalPromptChars;
-    dependencies.addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; model=${dependencies.getSettings().model || 'default'} maxTokens=${request.maxTokens}; input=${request.guardedInputChars} chars; attempts=${maxAttempts}.`);
+    dependencies.addLog(`API REQUEST #${request.id} QUEUED: ${request.label}; origin=${request.origin}; surface=${request.originSurface}; model=${dependencies.getSettings().model || 'default'} maxTokens=${request.maxTokens}; input=${request.guardedInputChars} chars; attempts=${maxAttempts}.`);
     request.onProgress?.({ stage: 'queued', requestId: request.id, label: request.label, attempt: 0, round: request.round });
 
     while (!request.cancelled && !request.preempted && !cancelledApiBatches.has(request.batchId)) {
@@ -375,7 +375,7 @@ const _runAIRequest = async (request) => {
             try {
                 if (attempt > 1) {
                     dependencies.addLog(`API REQUEST #${request.id} RETRY ${attempt}/${maxAttempts} (round ${request.round})...`, 'warn');
-                    if (request.priority !== 'background') dependencies.showToast(`🔄 重试中 (${attempt}/${maxAttempts})...`, "loading");
+                    if (request.uiMode !== 'background') dependencies.showToast(`🔄 重试中 (${attempt}/${maxAttempts})...`, "loading");
                     request.onProgress?.({ stage: 'retrying', requestId: request.id, label: request.label, attempt, round: request.round });
                     await new Promise(r => setTimeout(r, 800 * attempt));
                     if (request.preempted) throw new AIRequestPreemptedError();
@@ -395,7 +395,7 @@ const _runAIRequest = async (request) => {
                 }
                 request.validationMs = Date.now() - validationStartedAt;
                 request.onProgress?.({ stage: 'complete', requestId: request.id, label: request.label, attempt, round: request.round });
-                if (request.priority !== 'background') dependencies.showToast('数据传输完成', 'success');
+                if (request.uiMode !== 'background') dependencies.showToast('数据传输完成', 'success');
                 const elapsed = request.startedAt ? ((Date.now() - request.startedAt) / 1000).toFixed(1) : '—';
                 dependencies.addLog(`API REQUEST #${request.id} SUCCESS (round ${request.round}, attempt ${attempt}). ${elapsed}s; output=${content.length} chars; validation=${request.validationMs || 0}ms.`, 'sent');
                 return content;
@@ -416,17 +416,17 @@ const _runAIRequest = async (request) => {
             }
         }
 
-        if (request.priority === 'background') {
+        if (request.uiMode === 'background') {
             dependencies.addLog(`API REQUEST #${request.id} BACKGROUND FAILED AFTER ${attemptsUsed}/${maxAttempts}; releasing queue.`, 'warn');
             throw lastError || new Error('后台请求未返回有效内容。');
         }
         dependencies.addLog(`API REQUEST #${request.id} ${immediateDecision ? 'NEEDS CONFIGURATION DECISION' : `FAILED ${maxAttempts} TIMES`}. Waiting for user decision.`, 'error');
-        if (request.priority !== 'background') dependencies.showToast(immediateDecision ? '连接配置或反代路由有误，请查看错误窗口' : `连续 ${maxAttempts} 次请求失败，请查看错误窗口`, "error");
+        if (request.uiMode !== 'background') dependencies.showToast(immediateDecision ? '连接配置或反代路由有误，请查看错误窗口' : `连续 ${maxAttempts} 次请求失败，请查看错误窗口`, "error");
         const decision = await _waitForRetryDecision(request, lastError, attemptsUsed, immediateDecision);
         if (decision !== 'retry' || request.cancelled || cancelledApiBatches.has(request.batchId)) {
             throw new AIRequestCancelledError();
         }
-        if (request.priority !== 'background') dependencies.showToast('重新开始重试...', 'loading');
+        if (request.uiMode !== 'background') dependencies.showToast('重新开始重试...', 'loading');
     }
     if (request.preempted) throw new AIRequestPreemptedError();
     throw new AIRequestCancelledError();
@@ -470,6 +470,9 @@ const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, op
         validateResponse: options.validateResponse || null,
         onProgress: typeof options.onProgress === 'function' ? options.onProgress : null,
         label: options.label || 'MEEOW HOUSE AI REQUEST',
+        origin: options.origin || (options.priority === 'background' ? 'world-autonomy' : 'user-action'),
+        originSurface: options.originSurface || 'app',
+        uiMode: options.uiMode || (options.priority === 'background' ? 'background' : 'foreground'),
         batchId: options.batchId || `single-${Date.now()}-${apiRequestSequence}`,
         cancelBatchOnAbort: options.cancelBatchOnAbort !== false,
         round: 0,

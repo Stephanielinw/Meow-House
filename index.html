@@ -11287,6 +11287,20 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const requestedForm = normalizeFormValue(cat.currentForm);
                     const unlocked = Boolean(cat.hasRevealedHumanForm || legacyHuman || requestedForm === 'HUMAN');
                     cat.hasRevealedHumanForm = unlocked;
+                    if (unlocked) {
+                        const prior = cat.humanReveal && typeof cat.humanReveal === 'object' ? cat.humanReveal : {};
+                        cat.humanReveal = {
+                            eligibleAt: typeof prior.eligibleAt === 'string' ? prior.eligibleAt : '',
+                            authorizedAt: typeof prior.authorizedAt === 'string' ? prior.authorizedAt : (cat.lastFormChangeAt || ''),
+                            revealedAt: typeof prior.revealedAt === 'string' ? prior.revealedAt : (cat.lastFormChangeAt || ''),
+                            firstRevealEventId: typeof prior.firstRevealEventId === 'string' && prior.firstRevealEventId ? prior.firstRevealEventId : `legacy-human-reveal:${String(cat.id)}`
+                        };
+                    } else if (cat.humanReveal && typeof cat.humanReveal === 'object') {
+                        cat.humanReveal = {
+                            eligibleAt: typeof cat.humanReveal.eligibleAt === 'string' ? cat.humanReveal.eligibleAt : '',
+                            authorizedAt: '', revealedAt: '', firstRevealEventId: ''
+                        };
+                    }
                     cat.currentForm = unlocked && (requestedForm === 'HUMAN' || legacyHuman) ? 'HUMAN' : 'CAT';
                     cat.isHuman = cat.currentForm === 'HUMAN';
                     cat.lastFormChangeAt = parseFormTimestamp(cat.lastFormChangeAt) ? cat.lastFormChangeAt : null;
@@ -11360,9 +11374,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         normalizeResidentFormState(cat);
                         const id = String(cat.id);
                         const currentForm = getResidentForm(cat);
-                        // Form state is sampled only by a real, frozen in-Hall Status
-                        // Sync request. The old persisted cooldown is no longer an
-                        // eligibility gate and UI/reload paths never call this helper.
+                        ensureResidentFormSchedule(cat, now);
                         const eligible = Boolean(
                             cat.hasRevealedHumanForm &&
                             !locked.has(id) &&
@@ -11372,22 +11384,24 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                             isResidentInHall(cat) &&
                             !getActiveAwayEpisode(cat, now)
                         );
-                        const roll = eligible ? rollPercent() : null;
-                        const targetForm = eligible && roll <= 30
+                        const due = eligible && isFormReconsiderationDue(cat, now);
+                        const roll = due ? rollPercent() : null;
+                        const targetForm = due && roll <= 30
                             ? (currentForm === 'CAT' ? 'HUMAN' : 'CAT')
                             : currentForm;
+                        if (due && targetForm === currentForm) scheduleNextFormReconsideration(cat, now, 'KEEP');
                         directives[id] = {
                             currentForm,
                             targetForm,
                             requiredForm: targetForm,
                             roll,
                             transitioned: targetForm !== currentForm,
-                            automatic: eligible
+                            automatic: due
                         };
                         return directives;
                     }, {});
                 };
-                const formatFormLifecycleAuthority = (directives) => `[FORM LIFECYCLE AUTHORITY]\n${Object.entries(directives || {}).map(([id, directive]) => `${id} → current=${directive.currentForm}; target=${directive.targetForm}; automaticRoll=${directive.roll ?? 'none'}; transition=${directive.transitioned ? 'AUTHORIZED' : 'NONE'}`).join('\n') || 'None'}\nForm is local lifecycle authority. Copy the supplied target form exactly as compatibility metadata; never choose a form yourself. A transition may be narrated naturally only when transition=AUTHORIZED. When transition=NONE, the resident remains in the supplied form and must not spontaneously transform in prose. CAT and HUMAN expression rules remain binding and never change canon personality.`;
+                const formatFormLifecycleAuthority = (directives) => `[FORM LIFECYCLE AUTHORITY]\n${Object.entries(directives || {}).map(([id, directive]) => `${id} → current=${directive.currentForm}; target=${directive.targetForm}; automaticRoll=${directive.roll ?? 'none'}; transition=${directive.transitioned ? 'AUTHORIZED' : 'NONE'}`).join('\n') || 'None'}\nForm is local lifecycle authority. Copy the supplied target form exactly as compatibility metadata; never choose a form yourself. Every listed resident already knows both established forms; a later CAT/HUMAN change is an ordinary intentional preference, comfort, convenience, or mood choice, never a first reveal, involuntary mutation, identity confession, or trust loss. CAT reversion never means reduced trust. A transition may be narrated naturally only when transition=AUTHORIZED. When transition=NONE, the resident remains in the supplied form and must not spontaneously transform in prose. CAT and HUMAN expression rules remain binding and never change canon personality.`;
                 const validateFormDirectives = (entries, directives = {}) => {
                     // Form echoes are compatibility signals, not AI authority. Keep
                     // this compatibility shim non-fatal; callers classify every slice
@@ -11422,7 +11436,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     if (!cat || !directive?.automatic || !directive?.transitioned) return false;
                     const current = getResidentForm(cat);
                     const target = normalizeFormValue(directive.targetForm) || current;
-                    const changed = setResidentForm(cat, target, { now, scheduleNext: false });
+                    const changed = setResidentForm(cat, target, { now, scheduleNext: true });
                     addLog(`FORM STATUS ROLL: resident=${String(cat.id)}; roll=${directive?.roll ?? 'locked'}; current=${current}; target=${target}; changed=${changed}`, 'info');
                     return true;
                 };
@@ -13600,7 +13614,7 @@ JSON 格式：
                     const requestHall = { ...(halls.value.find(hall => hall.id === requestHallId) || currentHall.value) };
                     const frozenNow = new Date();
                     const previousFocusIds = getValidHallSceneFocusIds(requestHallId, frozenNow);
-                    const sceneOutcome = { quarantined: false };
+                    const sceneOutcome = { quarantined: false, softInvalid: false, reason: '' };
                     showToast(`正在编织${requestHall.name}的馆内片段...`, 'loading');
                     const success = await refreshAllStatus(true, `USER shared scene action: ${rawUserText}`, [], '', false, false, {
                         priority: 'foreground',
@@ -13625,15 +13639,17 @@ JSON 格式：
                             }))
                         }
                     });
-                    if (success && !sceneOutcome.quarantined) {
+                    if (success && !sceneOutcome.quarantined && !sceneOutcome.softInvalid) {
                         sharedSceneComposer.text = '';
                         showToast('馆内片段已写下。', 'success');
                     } else if (success && sceneOutcome.quarantined) {
                         showToast('本次馆内片段因形态回包不安全而未写入；已保留原文。', 'warning');
+                    } else if (success && sceneOutcome.softInvalid) {
+                        showToast('馆内片段回包不完整，居民状态已更新；已保留原文供你稍后重试。', 'warning');
                     } else {
                         showToast('这段馆内片段没有完整写成，请稍后重试。', 'error');
                     }
-                    return success && !sceneOutcome.quarantined;
+                    return success && !sceneOutcome.quarantined && !sceneOutcome.softInvalid;
                 };
 
                 // --- EXPLORE SYSTEM METHODS ---
@@ -15136,12 +15152,35 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const applyExploreSuggestedAction = action => { exploreInput.value = compactExploreText(action, 100); };
                 const closeExplore = () => { exploreState.active = false; exploreState.caseId = ''; exploreState.location = null; exploreState.companion = null; exploreState.sessionForm = null; exploreState.history = []; exploreState.currentCheck = null; exploreState.waitingForDice = false; exploreState.lastDiceResult = null; exploreState.settlement = null; exploreState.showNotebook = false; exploreState.selectedNotebookClueId = ''; exploreState.showExitMenu = false; showExploreSettlement.value = false; };
 
-                const checkAffinityThreshold = async (cat) => {
+                const checkAffinityThreshold = async (cat, { directInteraction = false } = {}) => {
                     const id = String(cat?.id ?? '');
                     if (!cat || cat.affinity < 50 || cat.hasRevealedHumanForm || firstHumanRevealInFlight.has(id)) return false;
-                    if (!settings.apiKey) return false;
+                    if (!directInteraction || !isResidentInHall(cat) || isResidentAway(cat) || cat.isVisiting || isResidentInCuratorRoom(cat)) return false;
                     firstHumanRevealInFlight.add(id);
                     try {
+                        const now = new Date();
+                        // The program-owned authorization is only real once its
+                        // durable receipt is saved. Keep an exact in-memory
+                        // rollback snapshot for a failed local write.
+                        const priorReveal = cat.humanReveal ? { ...cat.humanReveal } : null;
+                        const priorForm = {
+                            currentForm: cat.currentForm,
+                            isHuman: cat.isHuman,
+                            hasRevealedHumanForm: cat.hasRevealedHumanForm,
+                            humanFormUnlocked: cat.humanFormUnlocked,
+                            lastFormChangeAt: cat.lastFormChangeAt,
+                            nextFormReconsiderAt: cat.nextFormReconsiderAt
+                        };
+                        cat.humanReveal = {
+                            eligibleAt: cat.humanReveal?.eligibleAt || now.toISOString(), authorizedAt: now.toISOString(),
+                            revealedAt: now.toISOString(), firstRevealEventId: cat.humanReveal?.firstRevealEventId || `human-reveal:${id}:${now.getTime()}`
+                        };
+                        unlockResidentHumanForm(cat, { now });
+                        if (!persistNow()) {
+                            cat.humanReveal = priorReveal;
+                            Object.assign(cat, priorForm);
+                            return false;
+                        }
                         return await triggerHumanFormEvent(cat);
                     } finally {
                         firstHumanRevealInFlight.delete(id);
@@ -15149,7 +15188,6 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 };
 
                 const triggerHumanFormEvent = async (cat) => {
-                    if (!settings.apiKey) return;
                     const prompt = `
                     [FIRST WITNESSED HUMAN REVEAL]
                     Resident: ${getResidentPublicName(cat)}. Affinity has reached the existing first-reveal threshold.
@@ -15166,7 +15204,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     Write one cohesive 250–450 Chinese-character scene in Simplified Chinese. It is a compact but substantial shared moment, not a heading, checklist, lore monologue, proclamation, exposition dump, or chat transcript.
 
                     SCENE AUTHORITY:
-                    - Let ${getResidentPublicName(cat)} make a character-specific decision, hesitation, impulse, or quiet commitment before transforming. The emotional shape must fit: ${cat.personality}. Pride, deliberate calm, defiance, tenderness, awkwardness, theatrical bravado, irritation, curiosity, or restraint may all be valid; do not make every resident timid or vulnerable.
+                    - This is an intentional, accepted act of trust: ${getResidentPublicName(cat)} knows both forms exist and is choosing to reveal/use HUMAN form before USER because sufficient trust has been established. Never describe an inexplicable involuntary mutation, confusion about becoming human, or an identity-mystery confession. The emotional shape must fit: ${cat.personality}. Pride, deliberate calm, defiance, tenderness, awkwardness, theatrical bravado, irritation, curiosity, or restraint may all be valid; do not make every resident timid or vulnerable.
                     - Embody the transformation enough to feel real without body horror or sexualization: changing height or balance, paws becoming hands/feet, hair/ears settling into HUMAN anatomy, tail repositioning, an unfamiliar human voice, or a brief need to orient in the room are possible natural details. Preserve recognizable feline traits.
                     - Let ears, tail, posture, hands, expression, distance, or pause reveal emotion before or alongside the resident's first spoken human-language words from this physically revealed HUMAN form. The words may be ordinary, sharp, dry, formal, playful, blunt, or dramatic only when that genuinely fits this resident. Do not impose archaic speech, a catchphrase, or a speech length.
                     - The resident may look toward the USER and try to read the visible reaction space, but the USER's actual reaction is UNKNOWN unless explicitly established in supplied interaction context. Never narrate, decide, or assume USER dialogue, touch, acceptance, reassurance, fear, understanding, forgiveness, smile, embrace, internal emotion, or any action the USER did not provide. Do not force recoil either.
@@ -15175,9 +15213,9 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     `;
 
                     try {
+                        if (!settings.apiKey) throw new Error('No API Key');
                         const content = cleanText(await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1000, ThinkingLevel.HIGH));
                         if (!content) throw new Error('首次拟人化内容为空。');
-                        unlockResidentHumanForm(cat, { now: new Date() });
                         storeFirstHumanRevealMemory(cat);
                         currentSpecialEventContent.value = content;
                         pendingSpecialEvent.value = { cat: cat, content, type: 'human-reveal' };
@@ -15185,7 +15223,13 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         return true;
                     } catch (e) {
                         console.error(e);
-                        return false;
+                        const fallback = `${getResidentPublicName(cat)}安静地站在原地，耳朵微微动了动，像是早已想好要把这一面交给你看。对方没有解释成意外，只留下一段让你自行回应的安静。`;
+                        storeFirstHumanRevealMemory(cat);
+                        currentSpecialEventContent.value = fallback;
+                        pendingSpecialEvent.value = { cat: cat, content: fallback, type: 'human-reveal' };
+                        showSpecialEventModal.value = true;
+                        addLog(`HUMAN REVEAL PRESENTATION FALLBACK: resident=${String(cat.id)}; authority=already-authorized`, 'warn');
+                        return true;
                     }
                 };
 
@@ -15457,6 +15501,14 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const appendPhoneMessage = (contactId, role, type, content, extra = {}) => {
                     const catId = getCanonicalCatId(contactId);
                     const cat = cats.value.find(item => sameCatId(item.id, catId));
+                    const stableId = typeof extra?.id === 'string' ? extra.id : '';
+                    // Reply delivery is exactly-once by stable bubble identity. A
+                    // recovery that observes an already durable live/archive row
+                    // must reuse it rather than create another notification/event.
+                    if (stableId) {
+                        const existing = getAllStoredPhoneMessages(catId).find(message => String(message?.id || '') === stableId);
+                        if (existing) return existing;
+                    }
                     const now = new Date();
                     const message = {
                         id: `phone-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -15838,6 +15890,9 @@ RULES:
                 const PHONE_REPLY_MAX_DELAY_MS = 12 * 60 * 1000;
                 const PHONE_REPLY_RETRY_DELAYS_MS = [60 * 1000, 3 * 60 * 1000, 8 * 60 * 1000];
                 const PHONE_REPLY_BUBBLE_DELAY_MS = 750;
+                // Recovered social work is legitimate, but a long offline period
+                // must not drain every contact into the global AI queue at once.
+                const PHONE_RECOVERY_MIN_INTERVAL_MS = 60 * 1000;
                 // This is deliberately a hard budget for exact, whole Life Thread
                 // facts. Partial facts can change their epistemic meaning, so a fact
                 // that does not fit is omitted rather than truncated.
@@ -15845,7 +15900,7 @@ RULES:
                 const PHONE_REPLY_KNOWLEDGE_MAX_CHARS = 520;
                 const PHONE_REPLY_EPISODIC_MAX_MEMORIES = 2;
                 const PHONE_REPLY_EPISODIC_MAX_CHARS = 700;
-                const PHONE_REPLY_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'delivering', 'completed', 'failed']);
+                const PHONE_REPLY_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'delivering', 'completed', 'failed', 'integrity-mismatch']);
                 const phoneReplyGenerationInFlight = new Set();
                 let phoneReplyReconciliationTimer = null;
 
@@ -15927,13 +15982,18 @@ RULES:
                             // This is recovery, not a reroll: preserve every frozen
                             // source and use a persisted immediate retry timestamp.
                             raw.retryAt = isValidPhoneReplyTime(raw.retryAt) ? raw.retryAt : nowIso;
+                            raw.recoveryPending = true;
                         }
                         const dueAt = isValidPhoneReplyTime(raw.dueAt) ? raw.dueAt : nowIso;
                         const retryAt = isValidPhoneReplyTime(raw.retryAt) ? raw.retryAt : '';
+                        if (recoverInFlight && (status === 'scheduled' || status === 'retryable') &&
+                            new Date(status === 'retryable' && retryAt ? retryAt : dueAt).getTime() <= now.getTime()) raw.recoveryPending = true;
                         const messages = Array.isArray(raw.messages)
                             ? raw.messages.map(value => cleanText(String(value || ''))).filter(Boolean).slice(0, 4)
                             : [];
-                        const nextDeliveryIndex = Math.max(0, Math.min(messages.length, Number(raw.nextDeliveryIndex) || 0));
+                        const requestedCursor = Number(raw.nextDeliveryIndex);
+                        const malformedCursor = Number.isFinite(requestedCursor) && (requestedCursor < 0 || requestedCursor > messages.length);
+                        const nextDeliveryIndex = malformedCursor ? requestedCursor : Math.max(0, Math.min(messages.length, requestedCursor || 0));
                         const nextDeliveryAt = isValidPhoneReplyTime(raw.nextDeliveryAt)
                             ? raw.nextDeliveryAt
                             : (status === 'delivering' && nextDeliveryIndex < messages.length ? nowIso : '');
@@ -15975,6 +16035,10 @@ RULES:
                             userDisclosedFactIds, userDisclosureScopeFrozen,
                             knowledgeDisclosureFactIdsByBubble,
                             messages, nextDeliveryIndex, nextDeliveryAt,
+                            generatedBubbleIds: Array.from({ length: messages.length }, (_, index) =>
+                                String(Array.isArray(raw.generatedBubbleIds) ? raw.generatedBubbleIds[index] || '' : '') || `phone-reply-bubble:${String(raw.id)}:${index}`),
+                            recoveryPending: raw.recoveryPending === true,
+                            integrityState: malformedCursor ? 'invalid-cursor' : cleanText(String(raw.integrityState || '')).slice(0, 80),
                             completedAt: isValidPhoneReplyTime(raw.completedAt) ? raw.completedAt : '',
                             lastError: cleanText(String(raw.lastError || '')).slice(0, 240)
                         };
@@ -15997,9 +16061,20 @@ RULES:
                 const schedulePhoneReplyReconciliation = () => {
                     if (phoneReplyReconciliationTimer) clearTimeout(phoneReplyReconciliationTimer);
                     const now = Date.now();
+                    const lastRecoveryDispatchAt = new Date(user.phoneData?.lastPhoneRecoveryDispatchAt || '').getTime() || 0;
                     const candidates = getPhoneReplyOpportunities().map(opportunity => {
                         if (opportunity.status === 'delivering' && opportunity.nextDeliveryAt) return new Date(opportunity.nextDeliveryAt).getTime();
-                        if (opportunity.status === 'scheduled' || opportunity.status === 'retryable') return phoneReplyDueTime(opportunity);
+                        if (opportunity.status === 'scheduled' || opportunity.status === 'retryable') {
+                            const dueAt = phoneReplyDueTime(opportunity);
+                            // A due recovered reply stays queued, but its timer waits
+                            // for the same centralized recovery gate used by claim.
+                            // This avoids a zero-delay reconciliation loop while a
+                            // multi-day startup backlog is intentionally throttled.
+                            if (opportunity.recoveryPending && !isExactPhoneConversationOpen(opportunity.contactId)) {
+                                return Math.max(dueAt, lastRecoveryDispatchAt + PHONE_RECOVERY_MIN_INTERVAL_MS);
+                            }
+                            return dueAt;
+                        }
                         return null;
                     }).filter(Number.isFinite);
                     if (!candidates.length) { phoneReplyReconciliationTimer = null; return; }
@@ -16031,7 +16106,7 @@ RULES:
                         knowledgeFactIds: [], knowledgeFactSnapshots: [], knowledgeScopeFrozen: false, knowledgeFactRefs: [],
                         episodicMemorySnapshots: [], episodicMemoryScopeFrozen: false, episodicMemoryContextText: '',
                         userDisclosedFactIds: [], userDisclosureScopeFrozen: false, knowledgeDisclosureFactIdsByBubble: [],
-                        messages: [],
+                        messages: [], generatedBubbleIds: [], recoveryPending: false, integrityState: '',
                         nextDeliveryIndex: 0, nextDeliveryAt: '', completedAt: '', lastError: ''
                     };
                     opportunities.push(opportunity);
@@ -16230,24 +16305,95 @@ RULES:
                     if (message.type === 'red-envelope' || message.type === 'transfer') return `馆长发送${message.type === 'red-envelope' ? '红包' : '转账'}：${message.content} G`;
                     return `馆长：${message.content}`;
                 };
-                const hasDeliveredPhoneReplyBubble = (opportunity, index) => getAllStoredPhoneMessages(opportunity.contactId)
-                    .some(message => message?.phoneReplyOpportunityId === opportunity.id && Number(message?.phoneReplyBubbleIndex) === index);
-                const flushPhoneReplyDeliveries = (now = new Date()) => {
-                    const nowMs = now.getTime();
-                    const opportunities = getPhoneReplyOpportunities()
-                        .filter(item => item.status === 'delivering' && item.nextDeliveryAt && new Date(item.nextDeliveryAt).getTime() <= nowMs)
-                        .sort((left, right) => new Date(left.nextDeliveryAt).getTime() - new Date(right.nextDeliveryAt).getTime());
-                    opportunities.forEach(opportunity => {
-                        const cat = cats.value.find(item => sameCatId(item.id, opportunity.contactId));
-                        const index = opportunity.nextDeliveryIndex;
-                        if (!cat || !opportunity.messages[index]) {
+                const getPhoneReplyBubbleId = (opportunity, index) => String(opportunity?.generatedBubbleIds?.[index] || `phone-reply-bubble:${String(opportunity?.id || '')}:${index}`);
+                const getDeliveredPhoneReplyBubbles = opportunity => getAllStoredPhoneMessages(opportunity.contactId)
+                    .filter(message => String(message?.phoneReplyOpportunityId || '') === String(opportunity?.id || ''));
+                const hasDeliveredPhoneReplyBubble = (opportunity, index) => getDeliveredPhoneReplyBubbles(opportunity)
+                    .some(message => (String(message?.id || '') === getPhoneReplyBubbleId(opportunity, index)) || Number(message?.phoneReplyBubbleIndex) === index);
+                const getDurablePhoneReplyBubbleCount = opportunity => (opportunity?.messages || []).reduce((count, _message, index) =>
+                    count + (hasDeliveredPhoneReplyBubble(opportunity, index) ? 1 : 0), 0);
+                const hasActivePhoneReplyLane = (contactId, exceptId = '') => getPhoneReplyOpportunities().some(opportunity =>
+                    sameCatId(opportunity.contactId, getCanonicalCatId(contactId)) && String(opportunity.id) !== String(exceptId) &&
+                    ['in-flight', 'delivering'].includes(opportunity.status));
+                const getPhoneReplyLaneOrder = opportunity => new Date(
+                    opportunity?.claimedAt || opportunity?.createdAt || opportunity?.dueAt || 0
+                ).getTime() || 0;
+                // One contact is a chronological reply lane, not merely a
+                // generation mutex. A recovered older turn—including a durable
+                // delivery mismatch—must settle or be explicitly quarantined
+                // before a newer turn for that contact is allowed to overtake it.
+                const isPhoneReplyLaneHead = (opportunity) => {
+                    const unresolved = getPhoneReplyOpportunities()
+                        .filter(item => sameCatId(item.contactId, opportunity?.contactId) &&
+                            ['scheduled', 'retryable', 'in-flight', 'delivering', 'integrity-mismatch'].includes(item.status))
+                        .sort((left, right) => getPhoneReplyLaneOrder(left) - getPhoneReplyLaneOrder(right) ||
+                            String(left.id).localeCompare(String(right.id)));
+                    return unresolved.length > 0 && String(unresolved[0].id) === String(opportunity?.id);
+                };
+                const markPhoneReplyIntegrityMismatch = (opportunity, reason) => {
+                    const expectedCount = Array.isArray(opportunity?.messages) ? opportunity.messages.length : 0;
+                    const durableCount = getDurablePhoneReplyBubbleCount(opportunity);
+                    opportunity.status = 'integrity-mismatch';
+                    opportunity.integrityState = cleanText(reason || 'integrity-mismatch').slice(0, 80);
+                    opportunity.nextDeliveryAt = '';
+                    addLog(`PHONE REPLY INTEGRITY MISMATCH: opportunity=${opportunity.id}; expectedCount=${expectedCount}; durableCount=${durableCount}; state=${opportunity.integrityState}`, 'warn');
+                    persistNow();
+                    return false;
+                };
+                const reconcilePhoneReplyDeliveryIntegrity = (opportunity, now = new Date()) => {
+                    const expectedCount = Array.isArray(opportunity?.messages) ? opportunity.messages.length : 0;
+                    if (opportunity?.integrityState === 'invalid-cursor' || !Number.isInteger(opportunity?.nextDeliveryIndex) ||
+                        opportunity.nextDeliveryIndex < 0 || opportunity.nextDeliveryIndex > expectedCount) {
+                        return markPhoneReplyIntegrityMismatch(opportunity, 'invalid-cursor');
+                    }
+                    const durableCount = getDurablePhoneReplyBubbleCount(opportunity);
+                    if (opportunity.status === 'completed') {
+                        if (expectedCount && durableCount === expectedCount) return true;
+                        if (expectedCount) {
+                            opportunity.status = 'delivering';
+                            opportunity.nextDeliveryIndex = Array.from({ length: expectedCount }, (_, index) => index)
+                                .find(index => !hasDeliveredPhoneReplyBubble(opportunity, index));
+                            opportunity.nextDeliveryAt = now.toISOString();
+                            opportunity.integrityState = '';
+                            if (persistNow()) return true;
+                        }
+                        return markPhoneReplyIntegrityMismatch(opportunity, 'completed-missing-bubble');
+                    }
+                    if (opportunity.status === 'delivering' && opportunity.nextDeliveryIndex === expectedCount) {
+                        if (expectedCount && durableCount === expectedCount) {
                             opportunity.status = 'completed';
                             opportunity.completedAt = now.toISOString();
                             opportunity.nextDeliveryAt = '';
-                            return;
+                            opportunity.integrityState = '';
+                            if (persistNow()) {
+                                addLog(`PHONE REPLY COMPLETED: opportunity=${opportunity.id}; expectedCount=${expectedCount}; durableCount=${durableCount}`, 'sent');
+                                return false;
+                            }
                         }
+                        return markPhoneReplyIntegrityMismatch(opportunity, 'delivering-finalization-mismatch');
+                    }
+                    return true;
+                };
+                const flushPhoneReplyDeliveries = (now = new Date()) => {
+                    const nowMs = now.getTime();
+                    // A stale completed marker is not trusted. Reconcile its
+                    // durable payload first; it either resumes delivery or is
+                    // quarantined with an explicit integrity record.
+                    getPhoneReplyOpportunities()
+                        .filter(item => item.status === 'completed' && Array.isArray(item.messages) && item.messages.length)
+                        .forEach(item => reconcilePhoneReplyDeliveryIntegrity(item, now));
+                    const opportunities = getPhoneReplyOpportunities()
+                        .filter(item => item.status === 'delivering' && item.nextDeliveryAt && new Date(item.nextDeliveryAt).getTime() <= nowMs)
+                        .filter(isPhoneReplyLaneHead)
+                        .sort((left, right) => new Date(left.nextDeliveryAt).getTime() - new Date(right.nextDeliveryAt).getTime());
+                    opportunities.forEach(opportunity => {
+                        if (!reconcilePhoneReplyDeliveryIntegrity(opportunity, now)) return;
+                        const cat = cats.value.find(item => sameCatId(item.id, opportunity.contactId));
+                        const index = opportunity.nextDeliveryIndex;
+                        if (!cat || !opportunity.messages[index]) return markPhoneReplyIntegrityMismatch(opportunity, 'missing-generated-bubble');
                         if (!hasDeliveredPhoneReplyBubble(opportunity, index)) {
                             appendPhoneMessage(opportunity.contactId, 'assistant', 'text', opportunity.messages[index], {
+                                id: getPhoneReplyBubbleId(opportunity, index),
                                 batchId: opportunity.responseBatchId || opportunity.id,
                                 phoneReplyOpportunityId: opportunity.id,
                                 phoneReplyBubbleIndex: index,
@@ -16258,12 +16404,16 @@ RULES:
                         }
                         opportunity.nextDeliveryIndex = index + 1;
                         if (opportunity.nextDeliveryIndex >= opportunity.messages.length) {
-                            opportunity.status = 'completed';
-                            opportunity.completedAt = now.toISOString();
-                            opportunity.nextDeliveryAt = '';
+                            const durableCount = getDurablePhoneReplyBubbleCount(opportunity);
+                            if (durableCount !== opportunity.messages.length) return markPhoneReplyIntegrityMismatch(opportunity, 'completion-missing-bubble');
+                            opportunity.status = 'completed'; opportunity.completedAt = now.toISOString(); opportunity.nextDeliveryAt = ''; opportunity.integrityState = '';
+                            if (!persistNow()) return markPhoneReplyIntegrityMismatch(opportunity, 'completion-persist-failed');
+                            addLog(`PHONE REPLY COMPLETED: opportunity=${opportunity.id}; expectedCount=${opportunity.messages.length}; durableCount=${durableCount}`, 'sent');
                         } else {
                             opportunity.nextDeliveryAt = new Date(nowMs + PHONE_REPLY_BUBBLE_DELAY_MS).toISOString();
+                            if (!persistNow()) return markPhoneReplyIntegrityMismatch(opportunity, 'bubble-persist-failed');
                         }
+                        addLog(`PHONE BUBBLE DELIVERED: opportunity=${opportunity.id}; bubbleIndex=${index}; messageId=${getPhoneReplyBubbleId(opportunity, index)}`, 'sent');
                     });
                     schedulePhoneReplyReconciliation();
                 };
@@ -16278,6 +16428,9 @@ RULES:
                         opportunity.retryAt = new Date(now.getTime() + retryDelay).toISOString();
                     }
                     addLog(`PHONE REPLY: opportunity=${opportunity.id}; result=${opportunity.status}; attempt=${opportunity.attemptCount}; error=${message}`, 'warn');
+                    // Retry state is itself recovery authority; do not leave it
+                    // dependent on a later deep-watch save after a request fails.
+                    persistNow();
                 };
                 const runPhoneReplyOpportunity = async (opportunity) => {
                     const catId = getCanonicalCatId(opportunity.contactId);
@@ -16331,13 +16484,23 @@ ${pendingText}
                     try {
                         const reply = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 450, ThinkingLevel.LOW, {
                             label: `PHONE CHAT · ${contact.name}`,
-                            priority: 'foreground',
+                            priority: wasOpen ? 'foreground' : 'background',
+                            uiMode: wasOpen ? 'foreground' : 'background',
+                            origin: wasOpen ? 'user-action' : 'startup-recovery',
+                            originSurface: 'phone',
                             validateResponse: validatePhoneChatReply
                         });
                         const envelope = parsePhoneChatReplyEnvelope(reply);
                         const messages = envelope.messages;
                         if (!messages.length) throw new Error('喵信回复格式无效。');
+                        const priorGenerated = {
+                            messages: [...(opportunity.messages || [])], generatedBubbleIds: [...(opportunity.generatedBubbleIds || [])],
+                            status: opportunity.status, responseBatchId: opportunity.responseBatchId,
+                            nextDeliveryIndex: opportunity.nextDeliveryIndex, nextDeliveryAt: opportunity.nextDeliveryAt,
+                            lastError: opportunity.lastError, integrityState: opportunity.integrityState || ''
+                        };
                         opportunity.messages = messages;
+                        opportunity.generatedBubbleIds = messages.map((_message, index) => `phone-reply-bubble:${opportunity.id}:${index}`);
                         opportunity.knowledgeDisclosureFactIdsByBubble = validatePhoneReplyKnowledgeDisclosures(
                             opportunity, messages, envelope.knowledgeDisclosures
                         );
@@ -16346,6 +16509,19 @@ ${pendingText}
                         opportunity.nextDeliveryAt = new Date().toISOString();
                         opportunity.status = 'delivering';
                         opportunity.lastError = '';
+                        opportunity.integrityState = '';
+                        // A provider success is not a completed reply until this
+                        // generated bundle is durably recoverable across reload.
+                        if (!persistNow()) {
+                            Object.assign(opportunity, priorGenerated);
+                            opportunity.status = 'retryable';
+                            opportunity.retryAt = new Date(Date.now() + PHONE_REPLY_RETRY_DELAYS_MS[0]).toISOString();
+                            opportunity.lastError = '已生成回复未能写入本地存档。';
+                            persistNow();
+                            throw new Error('回复生成结果未能持久化；尚未开始投递。');
+                        }
+                        addLog(`PHONE REPLY GENERATED: contact=${catId}; opportunity=${opportunity.id}; bubbleCount=${messages.length}`, 'sent');
+                        addLog(`PHONE REPLY DURABLE: opportunity=${opportunity.id}; bubbleCount=${messages.length}`, 'sent');
                         flushPhoneReplyDeliveries(new Date());
                     } catch (error) {
                         markPhoneReplyFailure(opportunity, error, new Date());
@@ -16363,10 +16539,18 @@ ${pendingText}
                     normalizePhoneReplyOpportunities({ now });
                     flushPhoneReplyDeliveries(now);
                     const nowMs = now.getTime();
+                    const lastRecoveryDispatchAt = new Date(user.phoneData?.lastPhoneRecoveryDispatchAt || '').getTime() || 0;
                     const due = getPhoneReplyOpportunities()
                         .filter(item => (item.status === 'scheduled' || item.status === 'retryable') && phoneReplyDueTime(item) <= nowMs)
-                        .sort((left, right) => phoneReplyDueTime(left) - phoneReplyDueTime(right))
-                        .find(item => !phoneReplyGenerationInFlight.has(item.id));
+                        .filter(item => !phoneReplyGenerationInFlight.has(item.id) &&
+                            !hasActivePhoneReplyLane(item.contactId, item.id) && isPhoneReplyLaneHead(item))
+                        .sort((left, right) => {
+                            const leftOpen = isExactPhoneConversationOpen(left.contactId) ? 0 : 1;
+                            const rightOpen = isExactPhoneConversationOpen(right.contactId) ? 0 : 1;
+                            return leftOpen - rightOpen || phoneReplyDueTime(left) - phoneReplyDueTime(right) || String(left.id).localeCompare(String(right.id));
+                        })
+                        .find(item => !item.recoveryPending || isExactPhoneConversationOpen(item.contactId) ||
+                            nowMs - lastRecoveryDispatchAt >= PHONE_RECOVERY_MIN_INTERVAL_MS);
                     if (!due) { schedulePhoneReplyReconciliation(); return false; }
                     // Claim before assembling the request. From this point source IDs
                     // are immutable, so later USER messages form a subsequent turn.
@@ -16374,6 +16558,8 @@ ${pendingText}
                     due.claimedAt = due.claimedAt || now.toISOString();
                     due.retryAt = '';
                     due.attemptCount = Math.max(0, Number(due.attemptCount) || 0) + 1;
+                    if (due.recoveryPending) user.phoneData.lastPhoneRecoveryDispatchAt = now.toISOString();
+                    due.recoveryPending = false;
                     // Freeze and durably save the USER's exact disclosure scope
                     // before it can alter the resident's prompt knowledge. A reload
                     // resumes these IDs and this claimedAt; it never rereads prose.
@@ -22901,6 +23087,9 @@ ${JSON.stringify(diaryContext)}
                                     batchId: initializationBatchId,
                                     cancelBatchOnAbort: true,
                                     priority: 'foreground',
+                                    uiMode: 'background',
+                                    origin: 'startup-recovery',
+                                    originSurface: 'daily-archive',
                                     onProgress: (event) => applyAPILoadingEvent(event, 'app')
                                 });
                                 loadingOperation.phase = '正在写入已校验的归档包';
@@ -23362,6 +23551,9 @@ ${outputContract}`;
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
                         sendingCat.lastInteractionTimestamp = Date.now();
+                        // A first HUMAN reveal can only be authorized by this
+                        // successful, direct, in-person Homepage interaction.
+                        if (!isReRoll && !isItemUse) void checkAffinityThreshold(sendingCat, { directInteraction: true });
                         if (!isReRoll && !isItemUse) {
                             // This queues only a frozen, low-information public
                             // observation. It never exposes this direct prompt or
@@ -23638,8 +23830,8 @@ ${buildLeanAmbientContext(cat, {
                         coinsDelta
                     });
 
-                    // Keep threshold events, but never let an optional AI scene delay or undo archival.
-                    participants.forEach(cat => void checkAffinityThreshold(cat));
+                    // Form eligibility is deliberately claimed only by a successful
+                    // direct in-person interaction, never by Focus settlement.
                 };
 
                 const finishFocus = async (minutes, success) => {
@@ -23852,21 +24044,11 @@ ${buildLeanAmbientContext(cat, {
                         ? validateLocalPresenceDirectives(payload.updates, presenceDirectives, curatorAnchors)
                         : updateValidation;
                     if (directiveValidation !== true) return directiveValidation;
-                    // Form compatibility mismatches are intentionally soft-salvaged
-                    // during application; they never reject this otherwise valid JSON.
-                    if (!sceneOptions?.sceneMode) return true;
-                    const hasUnsafeFormSlice = [...classifyFormDirectiveCompatibility(payload.updates, formDirectives).values()]
-                        .some(result => !result.safe);
-                    if (hasUnsafeFormSlice) return true;
-                    const sceneValidation = validateOptionalHallScene({
-                        scene: payload.scene,
-                        sceneMode: sceneOptions.sceneMode,
-                        sceneContext: sceneOptions.sceneContext || {},
-                        updates: payload.updates,
-                        requestHallId: sceneOptions.requestHallId,
-                        sceneRequired: Boolean(sceneOptions.sceneRequired)
-                    });
-                    return sceneValidation.valid ? true : `Status Sync shared scene invalid: ${sceneValidation.error}`;
+                    // A Hall scene is a presentation sidecar.  It is deliberately
+                    // validated only after this hard resident envelope is accepted:
+                    // malformed prose must never spend provider retries or discard
+                    // otherwise authoritative resident updates.
+                    return true;
                 };
                 const validateOptionalHallScene = ({ scene, sceneMode, sceneContext, updates, requestHallId, sceneRequired = false }) => {
                     if (scene === null) {
@@ -23896,7 +24078,7 @@ ${buildLeanAmbientContext(cat, {
                     if (requiredIds.length && (participantIds.length !== requiredIds.length || participantIds.some(id => !requiredIds.includes(id)))) {
                         return { valid: false, error: 'scene participants must exactly match the frozen composer selection.' };
                     }
-                    const content = cleanText(scene.content || '');
+                        const content = cleanText(scene.content || '');
                     const chineseCharacters = (content.match(/[\u3400-\u9fff]/g) || []).length;
                     if (!content || content.length > 600 || chineseCharacters < 12) {
                         return { valid: false, error: 'scene requires concise Chinese shared presentation prose.' };
@@ -23937,6 +24119,9 @@ ${buildLeanAmbientContext(cat, {
                         const frozenForm = normalizeFormValue(sceneContext?.participantForms?.[id]) || getResidentForm(cat);
                         if (hasCatReactionHumanDialogue(reactionById.get(id), frozenForm)) {
                             return { valid: false, error: `CAT-form participant ${id} has quoted human dialogue.` };
+                        }
+                        if (hasCatReactionHumanDialogue(content, frozenForm)) {
+                            return { valid: false, error: `CAT-form participant ${id} has quoted human dialogue in scene content.` };
                         }
                     }
                     return {
@@ -24871,7 +25056,13 @@ ${statusOutputRules}`;
                                 }
                                 if (!sceneValidation.valid) {
                                     addLog(`HALL SCENE INVALID: hall=${requestHallId}; ${sceneValidation.error}`, 'warn');
-                                    if (requestOptions.sceneRequired) return false;
+                                    if (requestOptions.sceneOutcome && typeof requestOptions.sceneOutcome === 'object') {
+                                        requestOptions.sceneOutcome.softInvalid = true;
+                                        requestOptions.sceneOutcome.reason = sceneValidation.error;
+                                    }
+                                    const receivedType = optionalScene && typeof optionalScene === 'object'
+                                        ? String(optionalScene.type || 'missing') : String(optionalScene === null ? 'null' : typeof optionalScene);
+                                    addLog(`HALL SCENE SOFT INVALID: mode=${sceneMode || 'none'}; receivedType=${receivedType}; residentUpdatesApplied=true; sceneDiscarded=true`, 'warn');
                                 } else if (sceneValidation.scene) {
                                     const followSceneFeed = sceneMode === 'user-directed' || isHallSceneFeedNearBottom();
                                     const record = appendHallSceneRecord({
@@ -25823,8 +26014,8 @@ ${episodicMemory}`;
                         showBag.value = false;
                         showToast(`${targetItem.name} 已用于 ${targetCat.name}`, 'success');
 
-                        // Keep the original threshold scene as an optional legacy side effect.
-                        void checkAffinityThreshold(targetCat);
+                        // First HUMAN reveal is reserved for a direct in-person turn,
+                        // never a background item follow-up.
                         void refreshAllStatus(true, `User used ${targetItem.name} with ${targetCat.name}.`, [targetCatId], reaction, false, false, {
                             label: `ITEM FOLLOW-UP STATUS · ${currentHall.value.name}`,
                             priority: 'background',
@@ -25882,15 +26073,8 @@ ${episodicMemory}`;
                 // 兼容旧事件名：所有好友申请统一走唯一的、带首互动去重的入口。
                 const triggerLogicD = async (cat) => cat?.id ? sendFriendRequest(cat.id) : undefined;
 
-                // Watchers for events
-                watch(cats, (newCats, oldCats) => {
-                    newCats.forEach(cat => {
-                        // Check for reveal
-                        if (cat.affinity >= 50 && !cat.hasRevealedHumanForm) {
-                            void triggerHumanRevealEvent(cat);
-                        }
-                    });
-                }, { deep: true });
+                // Human reveal authority is not attached to the deep resident
+                // watcher: unrelated state mutations must never cause surprise UI.
 
                 onMounted(() => {
                     syncAppViewport();
