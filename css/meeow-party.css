@@ -1,0 +1,46 @@
+#app .meeow-party { --party-paper: #f2ebdf; --party-ink: #332b2a; --party-red: #863e43; position:absolute; inset:0; z-index:22; display:flex; flex-direction:column; min-height:0; overflow:hidden; color:var(--party-ink); background:var(--party-paper); font-size:12px; }
+#app .meeow-party-header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border-bottom:1px solid #332b2a22; flex-shrink:0; }
+#app .meeow-party-header h3 { margin:0; font-size:14px; color:var(--party-ink); }
+#app .meeow-party button { min-height:42px; border:1px solid #863e4340; border-radius:12px; padding:8px 12px; color:var(--party-ink); background:#fffcf5; cursor:pointer; }
+#app .meeow-party button:disabled { opacity:.45; cursor:default; }
+#app .meeow-party button:focus-visible { outline:2px solid var(--party-red); outline-offset:2px; }
+#app .meeow-party .meeow-party-primary { color:#fff8ed; background:var(--party-red); border-color:var(--party-red); }
+#app .meeow-party-body { flex:1; min-height:0; overflow-y:auto; padding:16px 12px; }
+#app .meeow-party-intro { padding:12px 0 18px; line-height:1.7; }
+#app .meeow-party-intro h4 { font-size:23px; margin:0 0 6px; }
+#app .meeow-party-picker { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#app .meeow-party-picker button { display:flex; align-items:center; gap:7px; text-align:left; min-width:0; }
+#app .meeow-party-picker button[aria-pressed=true] { border-color:var(--party-red); background:#ead8cf; box-shadow:inset 0 0 0 1px var(--party-red); }
+#app .meeow-party img { width:32px; height:32px; border-radius:10px; object-fit:cover; flex-shrink:0; }
+#app .meeow-party-roster { display:flex; gap:9px; padding:10px 12px; overflow-x:auto; flex-shrink:0; border-bottom:1px solid #332b2a15; }
+#app .meeow-party-person { display:flex; align-items:center; gap:5px; white-space:nowrap; font-size:10px; }
+#app .meeow-party-person span { max-width:90px; overflow:hidden; text-overflow:ellipsis; }
+#app .meeow-party-event { display:flex; align-items:flex-start; gap:7px; margin-bottom:14px; overflow-wrap:anywhere; }
+#app .meeow-party-event article { min-width:0; max-width:88%; }
+#app .meeow-party-event small { display:block; font-size:9px; opacity:.65; margin:0 0 4px; }
+#app .meeow-party-bubble { margin:0; white-space:pre-wrap; line-height:1.65; background:#fffcf5; border:1px solid #5c45321a; border-radius:2px 13px 13px 13px; padding:9px 11px; }
+#app .meeow-party-event.meeow-party-user { justify-content:flex-end; }
+#app .meeow-party-user .meeow-party-bubble { background:#ead8cf; border-radius:13px 2px 13px 13px; }
+#app .meeow-party-system { justify-content:center; text-align:center; font-size:10px; color:#6c5551; }
+#app .meeow-party-system .meeow-party-bubble { background:#e7dfd1; border:0; border-radius:10px; }
+#app .meeow-party-actions { padding:10px 12px max(12px,env(safe-area-inset-bottom)); flex-shrink:0; border-top:1px solid #332b2a22; background:var(--party-paper); display:flex; flex-direction:column; gap:8px; max-height:48%; overflow:auto; }
+#app .meeow-party-action-row { display:flex; gap:8px; }
+#app .meeow-party-action-row > button { flex:1; }
+#app .meeow-party textarea { width:100%; min-height:68px; max-height:130px; resize:vertical; border:1px solid #863e4340; background:#fffcf5; color:#332b2a; border-radius:10px; padding:9px; font-size:14px; box-sizing:border-box; }
+#app .meeow-party-error { color:#8e2732; line-height:1.5; margin:0; }
+#app .meeow-party-hint { font-size:10px; line-height:1.5; margin:0; color:#775e55; }
+#app .meeow-party-dice { text-align:center; border:1px solid #b79c8940; border-radius:16px; background:#e8ded0; padding:14px 6px; margin-bottom:12px; }
+#app .meeow-dice-stage { position:relative; display:flex; justify-content:center; align-items:center; gap:36px; min-height:132px; padding:25px 20px 42px; perspective:700px; color:#713d41; box-sizing:border-box; }
+#app .meeow-dice-cube { position:relative; flex-shrink:0; width:54px; height:54px; transform-style:preserve-3d; transform:rotateX(0deg) rotateY(0deg); animation:meeow-dice-tumble var(--meeow-dice-duration,650ms) cubic-bezier(.15,.6,.2,1) both; }
+#app .meeow-dice-plane { position:absolute; inset:0; display:flex; justify-content:center; align-items:center; border:1px solid #b6a897; border-radius:9px; background:#faf3e5; color:#713d41; font:900 26px Georgia,serif; backface-visibility:hidden; box-shadow:inset 0 0 10px #b5a08340; }
+#app .meeow-dice-front { transform:translateZ(27px); }
+#app .meeow-dice-back { transform:rotateY(180deg) translateZ(27px); }
+#app .meeow-dice-left { transform:rotateY(-90deg) translateZ(27px); }
+#app .meeow-dice-right { transform:rotateY(90deg) translateZ(27px); }
+#app .meeow-dice-top { transform:rotateX(90deg) translateZ(27px); }
+#app .meeow-dice-bottom { transform:rotateX(-90deg) translateZ(27px); }
+#app .meeow-dice-total { position:absolute; bottom:5px; left:0; right:0; text-align:center; color:inherit; font-size:17px; letter-spacing:1px; animation:meeow-dice-reveal var(--meeow-dice-duration,650ms) ease-out both; }
+@keyframes meeow-dice-reveal { 0%,75% { opacity:0; } 100% { opacity:1; } }
+@keyframes meeow-dice-tumble { 0% { transform:rotateX(-690deg) rotateY(570deg) scale(.65); } 65% { transform:rotateX(25deg) rotateY(-30deg) scale(1.07); } 100% { transform:rotateX(0deg) rotateY(0deg) scale(1); } }
+@media(max-width:360px) { #app .meeow-party-picker { grid-template-columns:1fr; } #app .meeow-party-header { padding:6px 8px; } #app .meeow-party-body { padding:10px 8px; } #app .meeow-party-roster img { width:26px; height:26px; } }
+@media(prefers-reduced-motion:reduce) { #app .meeow-dice-cube, #app .meeow-dice-total { animation:none; } }
