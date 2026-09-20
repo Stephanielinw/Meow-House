@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import { execFileSync } from 'node:child_process';
 
 const helperSource = fs.readFileSync(new URL('../js/meeow-resident-visual.js', import.meta.url), 'utf8');
+const dataSource = fs.readFileSync(new URL('../js/meeow-data.js', import.meta.url), 'utf8');
 const indexSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const sandbox = { console };
 sandbox.globalThis = sandbox;
@@ -27,6 +29,64 @@ assert.equal(seeded.torso, 'classic_tabby');
 assert.equal(seeded.eyeLeft, 'green');
 assert.equal(seeded.eyeRight, 'gold');
 assert.equal(visual.seedIdentity({ ...baseResident, breed: '纯黑长毛缅因猫' }).coat, visual.DEFAULT_CONFIG.coat, 'non-allowlisted prose must not use substring inference');
+
+// Every built-in resident receives one authored canonical first draft while
+// arbitrary residents retain the conservative structured-field seed path.
+const dataSandbox = {};
+dataSandbox.window = dataSandbox;
+vm.runInNewContext(dataSource, dataSandbox, { filename: 'meeow-data.js' });
+const builtinResidents = dataSandbox.Meeow.data.ALL_BUILTIN_CATS;
+const builtinIds = Array.from(builtinResidents, resident => resident.id).sort();
+const presetIds = Object.keys(visual.BUILTIN_VISUAL_PRESETS).sort();
+assert.equal(builtinResidents.length, 55);
+assert.equal(new Set(builtinIds).size, 55);
+assert.deepEqual(presetIds, builtinIds, 'built-in visual presets must exactly cover the canonical resident roster');
+assert.ok(Object.isFrozen(visual.BUILTIN_VISUAL_PRESETS));
+for (const resident of builtinResidents) {
+    const before = JSON.stringify(resident);
+    const preset = visual.getBuiltinVisualPreset(resident.id);
+    assert.ok(preset, `missing built-in visual preset: ${resident.id}`);
+    assert.deepEqual(visual.seedIdentity(resident), preset, `first draft must use the built-in preset: ${resident.id}`);
+    assert.equal(Object.keys(preset).length, Object.keys(visual.DEFAULT_CONFIG).length, `preset must canonicalize completely: ${resident.id}`);
+    assert.equal(JSON.stringify(resident), before, `preset resolution must not mutate resident data: ${resident.id}`);
+    assert.equal(resident.visual, undefined, `preset resolution must not persist resident.visual: ${resident.id}`);
+}
+const canonicalPresetSnapshot = JSON.stringify(Object.fromEntries(
+    presetIds.map(residentId => [residentId, visual.getBuiltinVisualPreset(residentId)])
+));
+assert.equal(
+    crypto.createHash('sha256').update(canonicalPresetSnapshot).digest('hex'),
+    '697c78677f2d5b9b55945b8fea027c6183d24f338bd3946da68f59a2f655f8a4',
+    'the approved 55-resident visual preset spec must not drift silently'
+);
+assert.deepEqual(
+    { eyeLeft: visual.seedIdentity({ id: 'marvel-wade' }).eyeLeft, eyeRight: visual.seedIdentity({ id: 'marvel-wade' }).eyeRight },
+    { eyeLeft: '#5798d0', eyeRight: '#7b4c2b' },
+    'Wade uses the approved provisional left-blue/right-brown assignment'
+);
+assert.deepEqual(
+    { eyeLeft: visual.seedIdentity({ id: 'greek-zagreus' }).eyeLeft, eyeRight: visual.seedIdentity({ id: 'greek-zagreus' }).eyeRight },
+    { eyeLeft: '#48a267', eyeRight: '#c84747' },
+    'Zagreus preserves canonical left-green/right-red laterality'
+);
+assert.equal(visual.getBuiltinVisualPreset('not-a-builtin'), null);
+assert.equal(visual.seedIdentity({ id: 'not-a-builtin', appearance: { coatColor: '黑色' } }).coat, 'black');
+
+const savedBuiltin = {
+    id: 'gotham-bruce',
+    visual: {
+        renderer: 'meeow-cat', rendererVersion: 1, configVersion: 1, assetPackVersion: 'v1', enabled: true, revision: 7,
+        identityConfig: { ...visual.DEFAULT_CONFIG, body: 'slim', coat: 'ginger', eyeLeft: 'gold', eyeRight: 'green' }
+    }
+};
+const savedBuiltinResolution = visual.resolveResidentVisual(savedBuiltin, { allowDerived: true });
+assert.equal(savedBuiltinResolution.source, 'saved');
+assert.equal(savedBuiltinResolution.revision, 7);
+assert.equal(savedBuiltinResolution.config.body, 'slim');
+assert.equal(savedBuiltinResolution.config.coat, 'ginger');
+const unsavedBuiltinResolution = visual.resolveResidentVisual({ id: 'gotham-bruce' }, { allowDerived: true });
+assert.equal(unsavedBuiltinResolution.source, 'derived');
+assert.deepEqual(unsavedBuiltinResolution.config, visual.getBuiltinVisualPreset('gotham-bruce'));
 
 // Opening/editing uses detached JSON state.
 const opening = visual.seedIdentity(baseResident);

@@ -28,6 +28,266 @@
         frontLeftColor: 'white', frontRightColor: 'white', rearLeftColor: 'white', rearRightColor: 'white',
         tailColor: 'dark', eyeLeft: 'original', eyeRight: 'original'
     });
+    const freezePresetMap = presets => Object.freeze(Object.fromEntries(
+        Object.entries(presets).map(([residentId, preset]) => [residentId, Object.freeze({ ...preset })])
+    ));
+    // Built-in residents use these authored visual interpretations only when
+    // they have no valid saved resident.visual. Unspecified fields inherit
+    // DEFAULT_CONFIG; user-saved visuals always remain authoritative.
+    const BUILTIN_VISUAL_PRESETS = freezePresetMap({
+        'gotham-barbara': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: 'ginger', bib: 'bib',
+            face: 'blaze', faceColor: 'white', frontLeft: 'medium_socks', frontRight: 'medium_socks',
+            rearLeft: 'long_socks', rearRight: 'long_socks', tailmark: 'tip_short', tailColor: 'white',
+            eyeLeft: '#2E8B57', eyeRight: '#2E8B57'
+        },
+        'gotham-bruce': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: 'black',
+            eyeLeft: '#4682B4', eyeRight: '#4682B4'
+        },
+        'gotham-cassandra': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: 'black',
+            eyeLeft: '#4A2F22', eyeRight: '#4A2F22'
+        },
+        'gotham-damian': {
+            body: 'slim', ear: 'large', tail: 'long', coat: 'black',
+            eyeLeft: '#238B57', eyeRight: '#238B57'
+        },
+        'gotham-dick': {
+            body: 'slim', ear: 'tufted', tail: 'fluffy', coat: 'black',
+            torso: 'large_patches', torsoColor: '#244F87', tailmark: 'broad_ring', tailColor: '#244F87',
+            eyeLeft: '#2585FF', eyeRight: '#2585FF'
+        },
+        'gotham-jason': {
+            body: 'standard', ear: 'standard', tail: 'kinked', coat: 'black', bib: 'bib',
+            torso: 'large_patches', torsoColor: 'white', face: 'blaze', faceColor: 'white',
+            frontLeft: 'medium_socks', rearRight: 'long_socks', tailmark: 'tip_short', tailColor: 'white',
+            eyeLeft: '#2456C4', eyeRight: '#2456C4'
+        },
+        'gotham-stephanie': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: 'lilac',
+            torso: 'mackerel_tabby', torsoColor: '#725F83', tailmark: 'rings', tailColor: '#725F83',
+            eyeLeft: '#558FD4', eyeRight: '#558FD4'
+        },
+        'gotham-tim': {
+            body: 'slim', ear: 'large', tail: 'long', coat: '#665148', face: 'point', faceColor: '#2F2826',
+            frontLeft: 'long_socks', frontLeftColor: '#2F2826', frontRight: 'long_socks', frontRightColor: '#2F2826',
+            rearLeft: 'long_socks', rearLeftColor: '#2F2826', rearRight: 'long_socks', rearRightColor: '#2F2826',
+            tailmark: 'half_tail', tailColor: '#2F2826', eyeLeft: '#A9DAFF', eyeRight: '#A9DAFF'
+        },
+        'marvel-bucky': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#6E747B',
+            eyeLeft: '#4682B4', eyeRight: '#4682B4'
+        },
+        'marvel-clint': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: '#8A5438',
+            torso: 'mackerel_tabby', torsoColor: '#4F3528', tailmark: 'rings', tailColor: '#4F3528',
+            eyeLeft: '#8A693D', eyeRight: '#8A693D'
+        },
+        'marvel-harry': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#294A3D',
+            eyeLeft: '#708F79', eyeRight: '#708F79'
+        },
+        'marvel-loki': {
+            body: 'slim', ear: 'large', tail: 'long', coat: '#193E34',
+            eyeLeft: '#238B57', eyeRight: '#238B57'
+        },
+        'marvel-natasha': {
+            body: 'slim', ear: 'large', tail: 'long', coat: '#A75C43',
+            eyeLeft: '#708F79', eyeRight: '#708F79'
+        },
+        'marvel-peter': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: '#B53C42',
+            torso: 'large_patches', torsoColor: '#365D91', face: 'eye_patch', faceColor: '#365D91',
+            tailmark: 'broad_ring', tailColor: '#365D91', eyeLeft: '#8A693D', eyeRight: '#8A693D'
+        },
+        'marvel-steve': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: 'silver', bib: 'bib',
+            face: 'blaze', faceColor: 'white', frontLeft: 'medium_socks', frontRight: 'medium_socks',
+            rearLeft: 'medium_socks', rearRight: 'medium_socks', tailmark: 'tip_short', tailColor: 'white',
+            eyeLeft: '#A9DAFF', eyeRight: '#A9DAFF'
+        },
+        'marvel-thor': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#D5B36D',
+            eyeLeft: '#59B9FF', eyeRight: '#59B9FF'
+        },
+        'marvel-tony': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: '#D19A3E',
+            torso: 'saddle_cape', torsoColor: '#A53B32', tailmark: 'broad_ring', tailColor: '#A53B32',
+            eyeLeft: '#C68A2A', eyeRight: '#C68A2A'
+        },
+        'marvel-wade': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: 'black',
+            torso: 'mackerel_tabby', torsoColor: '#A62F35', tailmark: 'rings', tailColor: '#A62F35',
+            eyeLeft: '#5798D0', eyeRight: '#7B4C2B'
+        },
+        'marvel-yelena': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: 'cream', bib: 'bib',
+            eyeLeft: '#7A90A7', eyeRight: '#7A90A7'
+        },
+        'greek-amphinomos': {
+            body: 'fluffy', ear: 'standard', tail: 'fluffy', coat: '#87543A',
+            torso: 'saddle_cape', torsoColor: '#C3984E', eyeLeft: '#D29B50', eyeRight: '#D29B50'
+        },
+        'greek-antinous': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: 'black',
+            torso: 'saddle_cape', torsoColor: 'gold', tailmark: 'tip_long', tailColor: 'gold',
+            eyeLeft: '#4A3326', eyeRight: '#4A3326'
+        },
+        'greek-eurymachus': {
+            body: 'slim', ear: 'standard', tail: 'long', coat: '#78533E', bib: 'bib',
+            torso: 'large_patches', torsoColor: 'white', frontLeft: 'short_socks', frontRight: 'medium_socks',
+            rearLeft: 'medium_socks', rearRight: 'long_socks', eyeLeft: '#C38A34', eyeRight: '#C38A34'
+        },
+        'greek-melanthios': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: '#736052',
+            torso: 'mackerel_tabby', torsoColor: '#45382F', tailmark: 'rings', tailColor: '#45382F',
+            eyeLeft: '#A97945', eyeRight: '#A97945'
+        },
+        'greek-peiraios': {
+            body: 'slim', ear: 'standard', tail: 'long', coat: '#985039',
+            eyeLeft: '#8E6630', eyeRight: '#8E6630'
+        },
+        'greek-peisistratus': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#D6B46C',
+            eyeLeft: '#89A8BF', eyeRight: '#89A8BF'
+        },
+        'greek-telegonus': {
+            body: 'standard', ear: 'round', tail: 'thick', coat: '#B3AEA4',
+            eyeLeft: '#D5B267', eyeRight: '#D5B267'
+        },
+        'greek-telemachus': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: '#788794', bib: 'bib',
+            torso: 'large_patches', torsoColor: 'white', face: 'blaze', faceColor: 'white',
+            frontLeft: 'short_socks', frontRight: 'short_socks', rearLeft: 'medium_socks', rearRight: 'medium_socks',
+            tailmark: 'tip_short', tailColor: 'white', eyeLeft: '#3E86B7', eyeRight: '#3E86B7'
+        },
+        'greek-diomendes': {
+            body: 'chubby', ear: 'standard', tail: 'thick', coat: 'silver',
+            eyeLeft: '#646B73', eyeRight: '#646B73'
+        },
+        'greek-odysseus': {
+            body: 'standard', ear: 'standard', tail: 'kinked', coat: '#756A5C',
+            torso: 'mackerel_tabby', torsoColor: '#443B33', tailmark: 'rings', tailColor: '#443B33',
+            eyeLeft: '#687581', eyeRight: '#687581'
+        },
+        'troy-aeneas': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: '#98543D',
+            eyeLeft: '#A8792D', eyeRight: '#A8792D'
+        },
+        'troy-agamemnon': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#B27440',
+            eyeLeft: '#C68A2A', eyeRight: '#C68A2A'
+        },
+        'troy-ajax': {
+            body: 'chubby', ear: 'round', tail: 'thick', coat: 'blue',
+            eyeLeft: '#8A5A3B', eyeRight: '#8A5A3B'
+        },
+        'troy-hector': {
+            body: 'standard', ear: 'standard', tail: 'standard', coat: '#5E4639',
+            eyeLeft: '#7B5A43', eyeRight: '#7B5A43'
+        },
+        'troy-menelaus': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#C99C4A', bib: 'bib',
+            torso: 'large_patches', torsoColor: 'white', face: 'blaze', faceColor: 'white',
+            frontLeft: 'medium_socks', frontRight: 'medium_socks', rearLeft: 'long_socks', rearRight: 'long_socks',
+            eyeLeft: '#3E86B7', eyeRight: '#3E86B7'
+        },
+        'troy-nestor': {
+            body: 'fluffy', ear: 'standard', tail: 'fluffy', coat: 'silver', bib: 'bib', face: 'muzzle',
+            frontLeft: 'short_socks', frontRight: 'short_socks', rearLeft: 'short_socks', rearRight: 'short_socks',
+            eyeLeft: '#B69B7C', eyeRight: '#B69B7C'
+        },
+        'troy-paris': {
+            body: 'fluffy', ear: 'small', tail: 'fluffy', coat: 'cream', face: 'muzzle', bib: 'bib',
+            eyeLeft: '#A6B9C9', eyeRight: '#A6B9C9'
+        },
+        'troy-sarpedon': {
+            body: 'fluffy', ear: 'standard', tail: 'fluffy', coat: '#C9A461',
+            eyeLeft: '#B26A3C', eyeRight: '#B26A3C'
+        },
+        'greek-zagreus': {
+            body: 'standard', ear: 'large', tail: 'long', coat: 'black',
+            torso: 'large_patches', torsoColor: '#60416F', tailmark: 'broad_ring', tailColor: '#60416F',
+            eyeLeft: '#48A267', eyeRight: '#C84747'
+        },
+        'underworld-achilles': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#DDD3B7',
+            eyeLeft: '#4C9A8B', eyeRight: '#4C9A8B'
+        },
+        'underworld-hades': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#222426',
+            eyeLeft: '#506B86', eyeRight: '#506B86'
+        },
+        'underworld-hypnos': {
+            body: 'slim', ear: 'large', tail: 'long', coat: 'lilac', face: 'point', faceColor: '#554A61',
+            frontLeft: 'long_socks', frontLeftColor: '#554A61', frontRight: 'long_socks', frontRightColor: '#554A61',
+            rearLeft: 'long_socks', rearLeftColor: '#554A61', rearRight: 'long_socks', rearRightColor: '#554A61',
+            tailmark: 'half_tail', tailColor: '#554A61', eyeLeft: '#9B7BB5', eyeRight: '#9B7BB5'
+        },
+        'underworld-patroclus': {
+            body: 'fluffy', ear: 'standard', tail: 'fluffy', coat: '#B9A5AB',
+            eyeLeft: '#D5B56F', eyeRight: '#D5B56F'
+        },
+        'underworld-thanatos': {
+            body: 'slim', ear: 'large', tail: 'long', coat: '#484E56',
+            eyeLeft: '#ADB8C5', eyeRight: '#ADB8C5'
+        },
+        'olympus-aphrodite': {
+            body: 'fluffy', ear: 'round', tail: 'fluffy', coat: 'cream', bib: 'bib',
+            torso: 'large_patches', torsoColor: '#D39BA6', tailmark: 'tip_short', tailColor: '#D39BA6',
+            eyeLeft: '#B76E79', eyeRight: '#B76E79'
+        },
+        'olympus-apollo': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#D5A63B',
+            eyeLeft: '#D4A62A', eyeRight: '#D4A62A'
+        },
+        'olympus-ares': {
+            body: 'chubby', ear: 'standard', tail: 'thick', coat: '#8F4A40',
+            eyeLeft: '#B16A3C', eyeRight: '#B16A3C'
+        },
+        'olympus-artemis': {
+            body: 'slim', ear: 'standard', tail: 'long', coat: '#D8DEE6',
+            eyeLeft: '#DEE8F3', eyeRight: '#DEE8F3'
+        },
+        'olympus-athena': {
+            body: 'slim', ear: 'large', tail: 'standard', coat: '#9099A3',
+            eyeLeft: '#7990A8', eyeRight: '#7990A8'
+        },
+        'olympus-demeter': {
+            body: 'chubby', ear: 'round', tail: 'thick', coat: '#C3A25D',
+            eyeLeft: '#C3A25D', eyeRight: '#C3A25D'
+        },
+        'olympus-dionysus': {
+            body: 'chubby', ear: 'round', tail: 'thick', coat: '#76506F',
+            eyeLeft: '#7D5AA6', eyeRight: '#7D5AA6'
+        },
+        'olympus-hephaestus': {
+            body: 'chubby', ear: 'standard', tail: 'thick', coat: '#55585D',
+            frontLeft: 'toe_tips', frontLeftColor: '#44464A', frontRight: 'toe_tips', frontRightColor: '#44464A',
+            rearLeft: 'toe_tips', rearLeftColor: '#44464A', rearRight: 'toe_tips', rearRightColor: '#44464A',
+            eyeLeft: '#D26932', eyeRight: '#D26932'
+        },
+        'olympus-hera': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#285E6D', bib: 'bib',
+            torso: 'large_patches', torsoColor: 'white', face: 'blaze', faceColor: 'white',
+            frontLeft: 'medium_socks', frontRight: 'medium_socks', rearLeft: 'long_socks', rearRight: 'long_socks',
+            tailmark: 'tip_long', tailColor: 'white', eyeLeft: '#286B7A', eyeRight: '#286B7A'
+        },
+        'olympus-hermes': {
+            body: 'slim', ear: 'large', tail: 'long', coat: '#B77A3E',
+            eyeLeft: '#C48736', eyeRight: '#C48736'
+        },
+        'olympus-poseidon': {
+            body: 'standard', ear: 'round', tail: 'thick', coat: '#244B67',
+            eyeLeft: '#2E6E66', eyeRight: '#2E6E66'
+        },
+        'olympus-zeus': {
+            body: 'fluffy', ear: 'tufted', tail: 'fluffy', coat: '#89919B', bib: 'bib',
+            torso: 'large_patches', torsoColor: 'white', face: 'blaze', faceColor: 'white',
+            tailmark: 'tip_short', tailColor: 'white', eyeLeft: '#A7B4C5', eyeRight: '#A7B4C5'
+        }
+    });
     const KEYS = Object.keys(DEFAULT_CONFIG);
     const HEX = /^#[0-9a-f]{6}$/i;
     const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
@@ -75,7 +335,13 @@
         蓬松猫: { body: 'fluffy' }, 圆润猫: { body: 'chubby' }, 纤细猫: { body: 'slim' }
     });
     const mapExact = (table, value) => table[exact(value)] || table[String(value || '').trim()] || null;
+    const getBuiltinVisualPreset = residentId => {
+        const preset = BUILTIN_VISUAL_PRESETS[String(residentId || '').trim()];
+        return preset ? canonicalizeIdentity({ ...DEFAULT_CONFIG, ...preset }) : null;
+    };
     const seedIdentity = resident => {
+        const builtinPreset = getBuiltinVisualPreset(resident?.id);
+        if (builtinPreset) return builtinPreset;
         const seeded = { ...DEFAULT_CONFIG };
         const appearance = plain(resident?.appearance) ? resident.appearance : {};
         const body = mapExact(STRUCTURED_MAPS.body, appearance.bodyType ?? resident?.bodyType);
@@ -326,5 +592,5 @@
     };
     const isCurrentPreviewRequest = (token, currentToken, editorOpen = true) => editorOpen === true && token === currentToken;
 
-    Object.assign(visual, { OPTIONS, COATS, MARKS, EYES, MUZZLES, POSE_CAPABILITY_CODES, DEFAULT_CONFIG, canonicalizeIdentity, stableIdentity, identityHash, seedIdentity, normalizeVisual, resolveResidentVisual, makeSpriteCacheKey, makeGroundAnchorPlacement, createSpriteRequestCoordinator, createSpriteFailureBackoff, createSpriteRetryWakeup, makeVisual, saveVisual, renderStandingWithFallback, isCurrentPreviewRequest, clone });
+    Object.assign(visual, { OPTIONS, COATS, MARKS, EYES, MUZZLES, POSE_CAPABILITY_CODES, DEFAULT_CONFIG, BUILTIN_VISUAL_PRESETS, canonicalizeIdentity, stableIdentity, identityHash, getBuiltinVisualPreset, seedIdentity, normalizeVisual, resolveResidentVisual, makeSpriteCacheKey, makeGroundAnchorPlacement, createSpriteRequestCoordinator, createSpriteFailureBackoff, createSpriteRetryWakeup, makeVisual, saveVisual, renderStandingWithFallback, isCurrentPreviewRequest, clone });
 })(typeof window !== 'undefined' ? window : globalThis);
