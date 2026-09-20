@@ -9345,6 +9345,10 @@
                     // world truth; they only protect claimed Attention prose from
                     // being regenerated across a reload.
                     attentionBidOpportunities: [],
+                    // One short-lived, program-owned physical/social presentation
+                    // may be active per Hall. Hall-scene prose remains historical;
+                    // these records alone own the temporary joined presentation.
+                    activeSocialPresences: [],
                     phoneData: {
                         chats: [],
                         chatArchives: {},
@@ -9649,6 +9653,13 @@
                         migrateResidentIdField(userPayload, 'lastMailSenderId', idMap);
                         migrateResidentRecordArrays(userPayload.mailbox, 'catId', null, idMap);
                         migrateResidentRecordArrays(userPayload.pendingAwayDiaryDays, 'residentId', null, idMap);
+                        if (Array.isArray(userPayload.activeSocialPresences)) {
+                            userPayload.activeSocialPresences.forEach(record => {
+                                if (!record || typeof record !== 'object') return;
+                                migrateResidentIdField(record, 'anchorResidentId', idMap);
+                                migrateResidentIdField(record, 'participantResidentId', idMap);
+                            });
+                        }
                         if (Array.isArray(userPayload.missionReports)) {
                             userPayload.missionReports.forEach(report => {
                                 if (!Array.isArray(report?.participants)) return;
@@ -9996,6 +10007,7 @@
                             if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
                             if (typeof user.activeExploreCaseId !== 'string') user.activeExploreCaseId = '';
                             if (!Array.isArray(user.attentionBidOpportunities)) user.attentionBidOpportunities = [];
+                            if (!Array.isArray(user.activeSocialPresences)) user.activeSocialPresences = [];
                             if (!user.ordinaryAwayAutonomy || typeof user.ordinaryAwayAutonomy !== 'object' || Array.isArray(user.ordinaryAwayAutonomy)) user.ordinaryAwayAutonomy = { lastAIDispatchAt: '' };
                             else if (Number.isNaN(new Date(user.ordinaryAwayAutonomy.lastAIDispatchAt || '').getTime())) user.ordinaryAwayAutonomy.lastAIDispatchAt = '';
                             if (!user.phoneData) user.phoneData = {};
@@ -11539,6 +11551,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const scheduled = parseFormTimestamp(cat.nextFormReconsiderAt);
                     return Boolean(scheduled && scheduled.getTime() <= now.getTime());
                 };
+                let terminateActiveSocialPresenceForResident = () => {};
                 const setResidentForm = (cat, nextForm, options = {}) => {
                     const form = normalizeFormValue(nextForm);
                     if (!cat || !form || (form === 'HUMAN' && !cat.hasRevealedHumanForm)) return false;
@@ -11552,6 +11565,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         const scheduleMode = options.reconsiderationMode === 'KEEP' && !changed ? 'KEEP' : 'SWITCH';
                         scheduleNextFormReconsideration(cat, options.now || new Date(), scheduleMode);
                     }
+                    if (changed) terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority');
                     return changed;
                 };
                 const unlockResidentHumanForm = (cat, options = {}) => {
@@ -13438,6 +13452,11 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 const handleCatClick = (cat) => {
                     if (showCatVisualEditor.value) { requestCatVisualEditorClose(() => handleCatClick(cat)); return; }
                     rememberHallScrollPosition();
+                    terminateActiveSocialPresencesForNavigation({
+                        nextResidentId: String(cat?.id || ''),
+                        nextHallId: String(cat?.hallId || (cat?.isMarvel ? 'marvel' : 'gotham')),
+                        reason: 'navigation'
+                    });
                     activeHallId.value = cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham');
                     hallSceneActive.value = true;
                     loungeView.value = 'room';
@@ -13445,6 +13464,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     detailReturnOrigin.value = '';
                     currentTab.value = 'detail';
                     showEasterEggBtn.value = (cat.affinity >= 90 && Math.random() < 0.05);
+                    reconcileActiveSocialPresences(new Date());
                 };
 
                 const canInviteResidentToCuratorRoom = (cat) => Boolean(cat && !isResidentInCuratorRoom(cat) && !isResidentAway(cat) && !getActiveAwayEpisode(cat) && !cat.isVisiting);
@@ -13458,6 +13478,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         showToast(`馆长室目前有 ${getResidentPublicName(currentResident)}，请先送回喵喵馆。`, 'warn');
                         return false;
                     }
+                    terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority');
                     cat.curatorRoomPresence = { anchor: 'floor', enteredAt: new Date().toISOString() };
                     curatorRoomMapPreviewCat.value = null;
                     addLog(`CURATOR ROOM INVITE: resident=${String(cat.id)}; anchor=floor`, 'info');
@@ -13696,6 +13717,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         (currentTab.value === 'lounge' && loungeView.value === 'curator') ||
                         (currentTab.value === 'detail' && detailReturnOrigin.value === 'curator');
                     if (!continuingCuratorVisit) activeCuratorRoomVisitId = ++curatorRoomVisitSequence;
+                    terminateActiveSocialPresencesForNavigation({ nextHallId: '__curator-room__', reason: 'navigation' });
                     rememberHallScrollPosition();
                     // A Hall Status request may keep updating world state after the
                     // USER leaves, but it no longer owns any foreground Hall UI.
@@ -13913,6 +13935,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const enterHall = (hall) => {
                     if (showCatVisualEditor.value) { requestCatVisualEditorClose(() => enterHall(hall)); return; }
                     if (!hall) return;
+                    terminateActiveSocialPresencesForNavigation({ nextHallId: String(hall.id), reason: 'navigation' });
                     reconcileAwayEpisodes(new Date());
                     curatorRoomMapPreviewCat.value = null;
                     detailReturnOrigin.value = '';
@@ -13929,6 +13952,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         markHallEntered(hall);
                         alfredMessage.value = `${hall.guardian || '馆舍管家'}：欢迎回来。馆内动态仍在刚才的时间线上，无需重复同步。`;
                         addLog(`ENTER HALL CACHED: ${hall.name} / ${Math.max(0, Math.floor(elapsedSinceLastEntry / 60000))}m since previous entry`, 'info');
+                        reconcileActiveSocialPresences(new Date());
                         if (hallStatusRefreshPending.has(hall.id)) startHallArrivalRefresh(hall, true);
                         return;
                     }
@@ -13946,6 +13970,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     markHallEntered(hall);
                     addLog(`ENTER HALL: ${hall.name} / guardian=${hall.guardian}`, 'info');
                     addLog(`ENTER HALL READY: ${hall.name} / using saved state while refresh runs`, 'info');
+                    reconcileActiveSocialPresences(new Date());
                     startHallArrivalRefresh(hall);
                 };
 
@@ -13962,6 +13987,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     const targetHall = halls.value.find(hall => hall.id === visitTargetHallId.value);
                     if (!cat || !targetHall || isResidentAway(cat) || cat.isVisiting || isResidentInCuratorRoom(cat)) return;
                     visitIsProcessing.value = true;
+                    terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority');
                     const originHallId = cat.hallId || activeHallId.value;
                     cat.visitOriginHallId = originHallId;
                     cat.visitStartedAt = new Date().toISOString();
@@ -14185,9 +14211,11 @@ JSON 格式：
                     const frozenNow = new Date();
                     const previousFocusIds = getValidHallSceneFocusIds(requestHallId, frozenNow);
                     const sceneOutcome = { quarantined: false, softInvalid: false, reason: '' };
+                    addLog(`HALL SCENE REQUEST: hall=${requestHallId}; mode=user-directed; participants=[${selectedIds.join(', ')}]`, 'info');
                     showToast(`正在编织${requestHall.name}的馆内片段...`, 'loading');
                     const success = await refreshAllStatus(true, `USER shared scene action: ${rawUserText}`, [], '', false, false, {
                         priority: 'foreground',
+                        label: `USER-DIRECTED HALL SCENE · ${requestHall.name}`,
                         maxAttempts: 2,
                         requestHallId,
                         requestHall,
@@ -15677,6 +15705,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         entry.role === 'narrator' && String(entry.id || '') !== openingEventId
                     );
                     if (!caseRecord || caseRecord.status !== 'open' || hasOpeningNarration) return;
+                    terminateActiveSocialPresenceForResident(caseRecord.state?.companionId, 'stronger-authority');
                     exploreState.isProcessing = true;
                     try {
                         const narration = await requestExploreCaseNarration(caseRecord, { phase: 'opening' });
@@ -18438,7 +18467,7 @@ ${pendingText}
                     // Curator Room is a physical location outside any Hall. Its status may
                     // refresh through the home-Hall scheduler, but must never overwrite the
                     // resident's stored Hall-map position.
-                    if (!isResidentInCuratorRoom(cat) || options.allowHallMap === true) {
+                    if (options.preserveHallMap !== true && (!isResidentInCuratorRoom(cat) || options.allowHallMap === true)) {
                         const explicitPoint = findMapPoint(options.mapPoint || options.mapSpot);
                         staged.mapRoom = explicitPoint?.roomId || (MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
                             ? options.mapRoom
@@ -20546,9 +20575,10 @@ ${pendingText}
                 });
 
                 // --- Social Attention / Attention Bids ---
-                // A bid is a small display-only Hall moment. It deliberately has a
-                // separate durable operation from Status Sync: Homepage Direct never
-                // hands its private foreground context to another resident.
+                // A bid has a separate durable operation from Status Sync: Homepage
+                // Direct never hands its private foreground context to another
+                // resident. Only the narrow physical bid classes may establish the
+                // bounded presentation lifecycle below; every other bid stays display-only.
                 const ATTENTION_BID_TYPES = Object.freeze([
                     'approach', 'physical-bid', 'vocal-bid', 'observe',
                     'playful-bid', 'jealous-bid', 'protective-bid', 'withdraw', 'offer'
@@ -20565,8 +20595,14 @@ ${pendingText}
                 const ATTENTION_OPERATION_RETENTION_MS = 48 * 60 * 60 * 1000;
                 const ATTENTION_OPERATION_MAX_RECORDS = 30;
                 const ATTENTION_PUBLIC_TEXT_MAX_CHARS = 320;
+                const ACTIVE_SOCIAL_PRESENCE_BID_TYPES = new Set(['approach', 'physical-bid']);
+                const ACTIVE_SOCIAL_PRESENCE_TURN_THRESHOLD = 2;
+                const ACTIVE_SOCIAL_PRESENCE_PROGRESSION_DELAY_MS = 3 * 60 * 1000;
+                const ACTIVE_SOCIAL_PRESENCE_MAX_LIFETIME_MS = 12 * 60 * 1000;
+                const ACTIVE_SOCIAL_PRESENCE_PROGRESS_STATES = new Set(['pending', 'generating', 'complete']);
                 let attentionBidSequence = 0;
                 const attentionBidInFlight = new Set();
+                const socialPresenceProgressionInFlight = new Set();
                 const makeAttentionBidId = (at = Date.now()) =>
                     `attention-bid-${at}-${(++attentionBidSequence).toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
                 const stableAttentionHash = (value) => {
@@ -20578,6 +20614,145 @@ ${pendingText}
                     return hash >>> 0;
                 };
                 const validAttentionDate = value => typeof value === 'string' && !Number.isNaN(new Date(value).getTime());
+                const isPresenceEstablishingAttentionBid = bidType => ACTIVE_SOCIAL_PRESENCE_BID_TYPES.has(String(bidType || ''));
+                const cloneSocialPresenceValue = value => JSON.parse(JSON.stringify(value));
+                const restoreSocialPresenceObject = (target, snapshot) => {
+                    Object.keys(target || {}).forEach(key => { if (!Object.prototype.hasOwnProperty.call(snapshot || {}, key)) delete target[key]; });
+                    Object.assign(target, cloneSocialPresenceValue(snapshot || {}));
+                };
+                const getActiveSocialPresences = () => {
+                    if (!Array.isArray(user.activeSocialPresences)) user.activeSocialPresences = [];
+                    return user.activeSocialPresences;
+                };
+                const normalizeSocialPresenceMapSnapshot = raw => {
+                    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+                    const snapshot = {
+                        mapRoom: String(raw.mapRoom || '').trim(),
+                        mapPoint: String(raw.mapPoint || '').trim(),
+                        mapSpot: String(raw.mapSpot || '').trim(),
+                        mapFurniture: cleanText(raw.mapFurniture || ''),
+                        mapPositionLabel: cleanText(raw.mapPositionLabel || '')
+                    };
+                    return snapshot.mapPoint || snapshot.mapSpot ? snapshot : null;
+                };
+                const normalizeActiveSocialPresences = () => {
+                    const byHall = new Map();
+                    getActiveSocialPresences().forEach(raw => {
+                        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+                        const id = String(raw.id || '').trim();
+                        const hallId = String(raw.hallId || '').trim();
+                        const anchorResidentId = String(raw.anchorResidentId || '').trim();
+                        const participantResidentId = String(raw.participantResidentId || '').trim();
+                        const sourceAttentionBidId = String(raw.sourceAttentionBidId || '').trim();
+                        const bidType = String(raw.bidType || '').trim();
+                        const participantForm = normalizeFormValue(raw.participantForm);
+                        const operationalDayKey = String(raw.operationalDayKey || '').trim();
+                        const progressionState = ACTIVE_SOCIAL_PRESENCE_PROGRESS_STATES.has(raw.progressionState) ? raw.progressionState : 'pending';
+                        const presentationToken = String(raw.presentationToken || '').trim();
+                        const entryPresentationFingerprint = String(raw.entryPresentationFingerprint || '').trim();
+                        if (!id || !hallId || !anchorResidentId || !participantResidentId || anchorResidentId === participantResidentId ||
+                            !sourceAttentionBidId || !isPresenceEstablishingAttentionBid(bidType) || !participantForm || !operationalDayKey ||
+                            !validAttentionDate(raw.enteredAt) || !validAttentionDate(raw.committedAt) || !validAttentionDate(raw.expiresAt) ||
+                            !presentationToken || !entryPresentationFingerprint) return;
+                        const normalized = {
+                            id, hallId, anchorResidentId, participantResidentId, sourceAttentionBidId, bidType,
+                            participantForm, operationalDayKey,
+                            enteredAt: raw.enteredAt,
+                            committedAt: raw.committedAt,
+                            presentedAt: validAttentionDate(raw.presentedAt) ? raw.presentedAt : '',
+                            lastProgressedAt: validAttentionDate(raw.lastProgressedAt) ? raw.lastProgressedAt : '',
+                            expiresAt: raw.expiresAt,
+                            anchorTurnsSinceEntry: Math.max(0, Math.trunc(Number(raw.anchorTurnsSinceEntry) || 0)),
+                            progressionState,
+                            progressionClaimedAt: validAttentionDate(raw.progressionClaimedAt) ? raw.progressionClaimedAt : '',
+                            presentationToken,
+                            entryPresentationFingerprint,
+                            priorMapSnapshot: normalizeSocialPresenceMapSnapshot(raw.priorMapSnapshot)
+                        };
+                        const previous = byHall.get(hallId);
+                        if (!previous || new Date(normalized.enteredAt).getTime() >= new Date(previous.enteredAt).getTime()) byHall.set(hallId, normalized);
+                    });
+                    const retainedParticipants = new Set();
+                    user.activeSocialPresences = [...byHall.values()]
+                        .sort((left, right) => new Date(right.enteredAt) - new Date(left.enteredAt) || left.id.localeCompare(right.id))
+                        .filter(record => {
+                            if (retainedParticipants.has(record.participantResidentId)) return false;
+                            retainedParticipants.add(record.participantResidentId);
+                            return true;
+                        })
+                        .sort((left, right) => new Date(left.enteredAt) - new Date(right.enteredAt) || left.id.localeCompare(right.id));
+                    return user.activeSocialPresences;
+                };
+                const getSocialPresenceMapPointSemanticText = point => [
+                    point?.id, point?.name, point?.furnitureId, point?.description, ...(point?.aliases || [])
+                ].filter(Boolean).join(' ').toLocaleLowerCase();
+                const isValidSocialPresenceMapPoint = (point, roomId) => {
+                    const resolved = findMapPoint(point?.id, roomId);
+                    const hasGeometry = Boolean((Array.isArray(resolved?.anchors) && resolved.anchors.length) || resolved?.region);
+                    return Boolean(resolved && resolved.roomId === roomId && hasGeometry);
+                };
+                const rankSocialPresenceMapPoint = (point, purpose) => {
+                    const text = getSocialPresenceMapPointSemanticText(point);
+                    const userNear = /(?:馆长|脚边|身边|owner|user[\s_-]*near|near[\s_-]*user)/i.test(text);
+                    const neutralFloor = /(?:地面|地毯|前方|区域|floor|ground|carpet|rug|front)/i.test(text);
+                    const unsafe = /(?:炉|灶|火|水池|水槽|盆里|柜顶|台面|窗台|椅面|软垫|桌下|柜下|hearth|stove|sink|basin|top|upper|middle|sill|seat|cushion|under)/i.test(text);
+                    if (unsafe) return null;
+                    if (purpose === 'entry') {
+                        if (userNear) return 300 + (neutralFloor ? 20 : 0);
+                        return neutralFloor ? 100 : null;
+                    }
+                    return neutralFloor && !userNear ? 100 : null;
+                };
+                const resolveSocialPresenceMapPoint = (roomId, purpose = 'entry') => {
+                    const room = MAP_ROOM_DEFINITIONS.find(item => String(item?.id || '') === String(roomId || ''));
+                    if (!room) return null;
+                    return buildAllMapPoints(MAP_ROOM_DEFINITIONS)
+                        .filter(point => String(point?.roomId || '') === String(room.id))
+                        .filter(point => isValidSocialPresenceMapPoint(point, room.id))
+                        .map(point => ({ point: findMapPoint(point.id, room.id), score: rankSocialPresenceMapPoint(point, purpose) }))
+                        .filter(entry => Number.isFinite(entry.score))
+                        .sort((left, right) => right.score - left.score || String(left.point.id).localeCompare(String(right.point.id)))[0]?.point || null;
+                };
+                const captureSocialPresenceMapSnapshot = cat => {
+                    const point = findMapPoint(cat?.mapPoint || cat?.mapSpot, cat?.mapRoom || '');
+                    if (!point || !isValidSocialPresenceMapPoint(point, point.roomId)) return null;
+                    return {
+                        mapRoom: point.roomId,
+                        mapPoint: point.id,
+                        mapSpot: point.id,
+                        mapFurniture: cleanText(cat?.mapFurniture || point.furnitureId || ''),
+                        mapPositionLabel: cleanText(cat?.mapPositionLabel || point.name || '')
+                    };
+                };
+                const resolveSocialPresenceExitPoint = (record, participant) => {
+                    const prior = normalizeSocialPresenceMapSnapshot(record?.priorMapSnapshot);
+                    const priorPoint = prior ? findMapPoint(prior.mapPoint || prior.mapSpot, prior.mapRoom || '') : null;
+                    if (priorPoint && isValidSocialPresenceMapPoint(priorPoint, prior.mapRoom)) return { point: priorPoint, snapshot: prior };
+                    const roomId = getMapRoomForCat(participant);
+                    const neutral = resolveSocialPresenceMapPoint(roomId, 'exit');
+                    return neutral ? { point: neutral, snapshot: null } : null;
+                };
+                const getSocialPresenceOwnedPresentation = cat => ({
+                    status: cleanText(cat?.status || ''),
+                    posture: String(cat?.statusActivity?.posture || ''),
+                    statusPresentationForm: normalizeFormValue(cat?.statusPresentationForm),
+                    mapRoom: String(cat?.mapRoom || ''),
+                    mapPoint: String(cat?.mapPoint || ''),
+                    mapSpot: String(cat?.mapSpot || ''),
+                    mapFurniture: cleanText(cat?.mapFurniture || ''),
+                    mapPositionLabel: cleanText(cat?.mapPositionLabel || '')
+                });
+                const getSocialPresencePresentationFingerprint = cat =>
+                    `sp-${stableAttentionHash(JSON.stringify(getSocialPresenceOwnedPresentation(cat))).toString(16)}`;
+                const socialPresenceOwnsPresentation = (record, cat) => Boolean(record && cat &&
+                    record.entryPresentationFingerprint === getSocialPresencePresentationFingerprint(cat));
+                const isSocialPresenceForegroundAnchor = record => Boolean(record && currentTab.value === 'detail' &&
+                    detailReturnOrigin.value === '' && hallSceneActive.value &&
+                    String(activeHallId.value || '') === String(record.hallId || '') &&
+                    String(selectedCat.value?.id || '') === String(record.anchorResidentId || ''));
+                const getActiveSocialPresenceParticipantIds = hallId => getActiveSocialPresences()
+                    .filter(record => String(record.hallId) === String(hallId || ''))
+                    .map(record => String(record.participantResidentId));
                 const normalizeAttentionAuthorizedObject = value => {
                     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
                     const id = String(value.id || '').trim();
@@ -20726,10 +20901,17 @@ ${pendingText}
                     const eventText = operation.source === 'explicit-public'
                         ? `USER made this explicitly public, target-specific statement/action: ${JSON.stringify(operation.observableEvent.publicText)}`
                         : `USER is visibly spending sustained attention on ${operation.observableEvent.activeResidentPublicName || getResidentPublicName(activeResident)} in this Hall. No private conversation content is known.`;
+                    const physicalEntry = isPresenceEstablishingAttentionBid(operation.bidType);
+                    const outputShape = physicalEntry
+                        ? '{"content":"...","entryStatus":"...","entryPosture":"standing|sitting|lying|crouching"}'
+                        : '{"content":"..."}';
                     return `[SOCIAL ATTENTION BID]
-Write one concise, third-person Simplified Chinese Hall moment (35–150 characters) for the already-authorized resident only. Return JSON only: {"content":"..."}.
+Write one concise, third-person Simplified Chinese Hall moment (35–150 characters) for the already-authorized resident only. Return JSON only: ${outputShape}.
 - Authorized resident: ${getResidentPublicName(candidate)}; machine ID: ${String(candidate.id)}; authoritative form: ${operation.candidateForm}.
 - Authorized bid type: ${operation.bidType}. Express only that social scale; do not turn it into violence, confession, travel, a relationship change, or a world event.
+- ${physicalEntry
+                        ? 'PROGRAM has classified this as a physical join. The resident must physically enter the immediate shared USER/active-resident vicinity. content, entryStatus, and entryPosture must describe that same completed entry; distant observation is invalid. entryStatus is a concise third-person current state after arriving, and entryPosture must exactly match it.'
+                        : 'This bid is presentation-only. Return content only; do not claim the resident physically joined the immediate USER/active-resident interaction.'}
 - ${eventText}
 - ${baseline?.label ? `Public canonical relationship to ${getResidentPublicName(activeResident)}: ${baseline.label}.` : `No public canonical B-to-A relationship cue is supplied.`}
 ${operation.authorizedObject ? `- Authorized existing object only: id=${operation.authorizedObject.id}; name=${operation.authorizedObject.name}; source=${operation.authorizedObject.source}. You may present or touch this exact existing object, but never create, consume, transfer, rename, or invent an object.` : '- No object is authorized. Never offer, create, transfer, or invent an object.'}
@@ -20742,20 +20924,393 @@ ${buildForegroundUserRelationshipBaseline(candidate)}
 [FORM RULE]
 ${operation.candidateForm === 'CAT' ? 'CAT: feline sound/action/posture only; never human-language spoken dialogue.' : 'HUMAN: human-shaped kemonomimi anatomy; natural short speech is allowed when appropriate.'}
 [PRIVACY]
-Do not claim knowledge of any private USER/resident conversation, thought, memory, Knowledge fact, Thread, Away purpose, or hidden fact. This moment changes no game state.`;
+Do not claim knowledge of any private USER/resident conversation, thought, memory, Knowledge fact, Thread, Away purpose, or hidden fact.${physicalEntry ? ' PROGRAM alone commits the bounded physical presentation after delivery checks.' : ' This moment changes no game state.'}`;
                 };
                 const validateAttentionBidResponse = (raw, operation) => {
                     const payload = parseAIJSON(raw);
                     const content = cleanText(payload?.content || '');
-                    if (!content || content.length > 180) return 'Attention Bid 缺少有效短 moment。';
+                    if (!content || content.length > 180 || !/[\u3400-\u9fff]/.test(content)) return 'Attention Bid 缺少有效简体中文短 moment。';
                     const objectAction = /(?:递(?:来|给)|送(?:来|给)|拿出|捧着|献上|给你(?:一|个)|礼物|玩具|物品|offer)/i;
                     if (operation?.bidType !== 'offer' && objectAction.test(content)) return 'Attention Bid 未授权物品呈现。';
                     if (operation?.bidType === 'offer' && (!operation.authorizedObject || !content.includes(operation.authorizedObject.name))) return 'Attention Bid offer 必须呈现冻结的既有物品。';
                     if (operation?.candidateForm === 'CAT' && /[“”"「」『』]/.test(content)) return 'CAT Attention Bid 不可包含人类台词。';
+                    if (isPresenceEstablishingAttentionBid(operation?.bidType)) {
+                        const entryStatus = cleanText(payload?.entryStatus || '');
+                        if (!entryStatus || entryStatus.length > 80 || !/[\u3400-\u9fff]/.test(entryStatus)) return 'Physical Attention Bid 缺少有效 entryStatus。';
+                        const postureValidation = statusPosture.validateStatusPosture(entryStatus, payload?.entryPosture);
+                        if (!postureValidation.valid) return `Physical Attention Bid posture invalid: ${postureValidation.error}`;
+                        if (operation?.candidateForm === 'CAT' && /[“”"「」『』]/.test(entryStatus)) return 'CAT Physical Attention Bid entryStatus 不可包含人类台词。';
+                        const distantOnly = /(?:仍|依旧|继续|只)?(?:在|从)?(?:远处|远远|房间另一边|隔着[^，。]{0,12})(?:观察|看|望|注视|停留)|(?:from afar|keeps? (?:its |their )?distance|across the room)/i;
+                        if (distantOnly.test(`${content} ${entryStatus}`)) return 'Physical Attention Bid cannot describe distant observation.';
+                        const immediateJoin = /(?:走近|走到|靠近|来到|凑近|挨近|贴近|蹭|轻碰|拱到|停在.{0,8}(?:脚边|身边|旁边)|跳到.{0,8}(?:脚边|身边|旁边)|approach|comes? over|moves? beside)/i;
+                        if (!immediateJoin.test(`${content} ${entryStatus}`)) return 'Physical Attention Bid must describe an immediate physical join.';
+                    }
                     return true;
                 };
                 const getAttentionSceneRecord = operation => normalizeHallSceneRecords(hallSceneRecords.value)
                     .find(record => record.type === 'attention-bid' && String(record.attentionBidId || '') === String(operation?.id || '')) || null;
+                const markAttentionBidSuppressed = (operation, reason) => {
+                    operation.status = 'failed';
+                    operation.deliveredSceneId = '';
+                    operation.deliveredAt = '';
+                    operation.generation.retryAt = '';
+                    operation.generation.lastError = cleanText(reason || 'physical entry superseded').slice(0, 240);
+                    persistNow();
+                    addLog(`ATTENTION BID SUPPRESSED: id=${operation.id}; hall=${operation.hallId}; candidate=${operation.candidateId}; reason=${operation.generation.lastError}`, 'warn');
+                    return false;
+                };
+                const applySocialPresencePresentation = ({ cat, status, posture, point = null, snapshot = null, source }) => {
+                    const mapOptions = point ? {
+                        mapRoom: point.roomId,
+                        mapPoint: point.id,
+                        mapSpot: point.id,
+                        mapFurniture: cleanText(snapshot?.mapFurniture || point.furnitureId || ''),
+                        mapPositionLabel: cleanText(snapshot?.mapPositionLabel || point.name || '')
+                    } : { preserveHallMap: true };
+                    setCatStatus(cat, status, {
+                        posture,
+                        source,
+                        forceLog: true,
+                        presentationForm: getResidentForm(cat),
+                        ...mapOptions
+                    });
+                    return cleanText(cat.status || '') === cleanText(status || '') &&
+                        String(cat.statusActivity?.posture || '') === String(posture || '') &&
+                        (!point || (String(cat.mapRoom || '') === String(point.roomId) && String(cat.mapPoint || '') === String(point.id)));
+                };
+                const rollbackSocialPresenceTransaction = (snapshot, label, failedOperationId = '', failure = null) => {
+                    restoreSocialPresenceObject(snapshot.participant, snapshot.participantState);
+                    hallSceneRecords.value = cloneSocialPresenceValue(snapshot.hallScenes);
+                    user.attentionBidOpportunities = cloneSocialPresenceValue(snapshot.attentionOperations);
+                    user.activeSocialPresences = cloneSocialPresenceValue(snapshot.presences);
+                    const restoredOperation = getAttentionBidOpportunities().find(item => String(item.id) === String(failedOperationId || ''));
+                    if (restoredOperation) {
+                        restoredOperation.status = 'failed';
+                        restoredOperation.deliveredSceneId = '';
+                        restoredOperation.deliveredAt = '';
+                        restoredOperation.generation.retryAt = '';
+                        restoredOperation.generation.lastError = cleanText(failure?.message || failure || 'physical entry transaction failed').slice(0, 240);
+                    }
+                    if (!persistNow()) addLog(`SOCIAL PRESENCE ROLLBACK CRITICAL: ${label}`, 'error');
+                };
+                const commitPhysicalAttentionPresence = (operation, payload) => {
+                    const candidate = cats.value.find(cat => String(cat.id) === String(operation.candidateId));
+                    const anchor = cats.value.find(cat => String(cat.id) === String(operation.activeResidentId));
+                    const currentDayKey = getOperationalDayKey();
+                    const operationDayKey = getOperationalDayKey(new Date(operation.createdAt));
+                    const authorityRecord = {
+                        hallId: operation.hallId,
+                        anchorResidentId: operation.activeResidentId
+                    };
+                    if (!candidate || !anchor || operation.status !== 'generating' ||
+                        !isAttentionBidCandidateEligible(candidate, operation.hallId) ||
+                        !isAttentionBidCandidateEligible(anchor, operation.hallId) ||
+                        getResidentForm(candidate) !== operation.candidateForm ||
+                        currentDayKey !== operationDayKey || !isSocialPresenceForegroundAnchor(authorityRecord)) {
+                        return markAttentionBidSuppressed(operation, 'physical entry authority expired before delivery');
+                    }
+                    if (getActiveSocialPresences().some(record => String(record.hallId) === String(operation.hallId) ||
+                        String(record.participantResidentId) === String(operation.candidateId))) {
+                        return markAttentionBidSuppressed(operation, 'conflicting active social presence');
+                    }
+                    const anchorRoom = getMapRoomForCat(anchor);
+                    const entryPoint = resolveSocialPresenceMapPoint(anchorRoom, 'entry');
+                    const priorMapSnapshot = captureSocialPresenceMapSnapshot(candidate);
+                    const fallbackExitPoint = resolveSocialPresenceMapPoint(getMapRoomForCat(candidate), 'exit');
+                    if (!entryPoint || (!priorMapSnapshot && !fallbackExitPoint)) {
+                        return markAttentionBidSuppressed(operation, 'no safe current-topology entry/exit path');
+                    }
+                    const content = cleanText(payload.content || '');
+                    const entryStatus = cleanText(payload.entryStatus || '');
+                    const entryPosture = String(payload.entryPosture || '');
+                    const now = new Date();
+                    const presence = {
+                        id: `social-presence-${now.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
+                        hallId: String(operation.hallId),
+                        anchorResidentId: String(anchor.id),
+                        participantResidentId: String(candidate.id),
+                        sourceAttentionBidId: String(operation.id),
+                        bidType: String(operation.bidType),
+                        participantForm: operation.candidateForm,
+                        operationalDayKey: currentDayKey,
+                        enteredAt: now.toISOString(),
+                        committedAt: now.toISOString(),
+                        presentedAt: '',
+                        lastProgressedAt: '',
+                        expiresAt: new Date(now.getTime() + ACTIVE_SOCIAL_PRESENCE_MAX_LIFETIME_MS).toISOString(),
+                        anchorTurnsSinceEntry: 0,
+                        progressionState: 'pending',
+                        progressionClaimedAt: '',
+                        presentationToken: `social-presence-presentation:${operation.id}:${now.getTime()}`,
+                        entryPresentationFingerprint: '',
+                        priorMapSnapshot
+                    };
+                    const snapshot = {
+                        participant: candidate,
+                        participantState: cloneSocialPresenceValue(candidate),
+                        hallScenes: cloneSocialPresenceValue(hallSceneRecords.value),
+                        attentionOperations: cloneSocialPresenceValue(getAttentionBidOpportunities()),
+                        presences: cloneSocialPresenceValue(getActiveSocialPresences())
+                    };
+                    try {
+                        if (!applySocialPresencePresentation({
+                            cat: candidate, status: entryStatus, posture: entryPosture, point: entryPoint,
+                            source: 'social-presence-entry'
+                        })) throw new Error('social presence entry presentation could not be staged');
+                        presence.entryPresentationFingerprint = getSocialPresencePresentationFingerprint(candidate);
+                        getActiveSocialPresences().push(presence);
+                        const record = appendHallSceneRecord({
+                            id: `attention-scene:${operation.id}`,
+                            hallId: operation.hallId,
+                            operationalDayKey: currentDayKey,
+                            type: 'attention-bid',
+                            participantIds: [operation.candidateId],
+                            content,
+                            reactions: [{ id: operation.candidateId, content }],
+                            participantForms: { [operation.candidateId]: operation.candidateForm },
+                            attentionBidId: operation.id
+                        });
+                        if (!record) throw new Error('physical Attention Hall scene could not be staged');
+                        operation.status = 'delivered';
+                        operation.deliveredSceneId = record.id;
+                        operation.deliveredAt = now.toISOString();
+                        operation.generation.retryAt = '';
+                        operation.generation.lastError = '';
+                        if (!persistNow()) throw new Error('physical Attention transaction persistence failed');
+                    } catch (error) {
+                        rollbackSocialPresenceTransaction(snapshot, `entry id=${operation.id}`, operation.id, error);
+                        throw error;
+                    }
+                    try {
+                        showNotification(`${getResidentPublicName(candidate)} 过来了`, content, '', 'info');
+                        presence.presentedAt = new Date().toISOString();
+                        scheduleSave();
+                    } catch (error) {
+                        addLog(`SOCIAL PRESENCE NOTIFICATION FAILED: participant=${presence.participantResidentId}; error=${cleanText(error.message || error)}`, 'warn');
+                    }
+                    if (activeHallId.value === operation.hallId && isHallSceneFeedNearBottom()) scrollHallSceneFeedToBottom(operation.hallId);
+                    addLog(`SOCIAL PRESENCE ENTER: hall=${presence.hallId}; anchor=${presence.anchorResidentId}; participant=${presence.participantResidentId}; source=${presence.sourceAttentionBidId}; expiresAt=${presence.expiresAt}`, 'sent');
+                    return true;
+                };
+                const terminateActiveSocialPresence = (recordOrId, reason, options = {}) => {
+                    const record = typeof recordOrId === 'string'
+                        ? getActiveSocialPresences().find(item => item.id === recordOrId)
+                        : recordOrId;
+                    if (!record) return false;
+                    const participant = cats.value.find(cat => String(cat.id) === String(record.participantResidentId));
+                    const recordIndex = getActiveSocialPresences().findIndex(item => item.id === record.id);
+                    if (recordIndex < 0) return false;
+                    const snapshot = {
+                        participant,
+                        participantState: participant ? cloneSocialPresenceValue(participant) : null,
+                        presences: cloneSocialPresenceValue(getActiveSocialPresences())
+                    };
+                    const ownsPresentation = participant && socialPresenceOwnsPresentation(record, participant);
+                    const mayMutate = ownsPresentation && !isResidentAway(participant) && !isResidentInCuratorRoom(participant) &&
+                        String(getResidentPhysicalHallId(participant) || '') === String(record.hallId) &&
+                        getResidentForm(participant) === record.participantForm;
+                    const wasObservable = isSocialPresenceForegroundAnchor(record);
+                    try {
+                        if (mayMutate) {
+                            const destination = resolveSocialPresenceExitPoint(record, participant);
+                            const status = cleanText(options.status || '正从这段互动中退开，回到馆内普通活动。');
+                            const posture = String(options.posture || 'standing');
+                            if (!applySocialPresencePresentation({
+                                cat: participant,
+                                status,
+                                posture,
+                                point: destination?.point || null,
+                                snapshot: destination?.snapshot || null,
+                                source: options.source || 'social-presence-exit'
+                            })) throw new Error('social presence exit presentation could not be staged');
+                        }
+                        getActiveSocialPresences().splice(recordIndex, 1);
+                        if (!persistNow()) throw new Error('social presence exit persistence failed');
+                        if (options.content && wasObservable) {
+                            showNotification(`${getResidentPublicName(participant)} 离开了`, cleanText(options.content), '', 'info');
+                        }
+                        addLog(`SOCIAL PRESENCE EXIT: participant=${record.participantResidentId}; reason=${reason}`, 'info');
+                        return true;
+                    } catch (error) {
+                        if (participant && snapshot.participantState) restoreSocialPresenceObject(participant, snapshot.participantState);
+                        user.activeSocialPresences = cloneSocialPresenceValue(snapshot.presences);
+                        if (!persistNow()) addLog(`SOCIAL PRESENCE ROLLBACK CRITICAL: exit id=${record.id}`, 'error');
+                        addLog(`SOCIAL PRESENCE EXIT FAILED: participant=${record.participantResidentId}; reason=${reason}; error=${cleanText(error.message || error)}`, 'error');
+                        return false;
+                    }
+                };
+                const validateSocialPresenceProgressionResponse = (raw, record) => {
+                    const payload = parseAIJSON(raw);
+                    if (!payload || !['stay', 'leave'].includes(payload.decision)) return 'Social Presence progression decision must be stay or leave.';
+                    const content = cleanText(payload.content || '');
+                    const status = cleanText(payload.status || '');
+                    if (!content || content.length > 180 || !/[\u3400-\u9fff]/.test(content)) return 'Social Presence progression requires concise Simplified Chinese content.';
+                    if (!status || status.length > 80 || !/[\u3400-\u9fff]/.test(status)) return 'Social Presence progression requires a concise Simplified Chinese status.';
+                    const postureValidation = statusPosture.validateStatusPosture(status, payload.posture);
+                    if (!postureValidation.valid) return `Social Presence progression posture invalid: ${postureValidation.error}`;
+                    if (record?.participantForm === 'CAT' && /[“”"「」『』]/.test(`${content} ${status}`)) return 'CAT Social Presence progression cannot contain human dialogue.';
+                    return true;
+                };
+                const buildSocialPresenceProgressionPrompt = (record, participant, anchor, now = new Date()) => {
+                    const relationship = getCanonicalRelationshipBaseline(participant, anchor);
+                    const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - new Date(record.enteredAt).getTime()) / 60000));
+                    return `[SOCIAL PRESENCE PROGRESSION]
+Return JSON only: {"decision":"stay|leave","content":"...","status":"...","posture":"standing|sitting|lying|crouching"}.
+- Resident: ${getResidentPublicName(participant)}; form=${record.participantForm}; Hall=${record.hallId}; room=${getMapRoomForCat(participant)}.
+- Authorized source: ${record.bidType}. The resident previously entered the immediate USER/${getResidentPublicName(anchor)} vicinity ${elapsedMinutes} minute(s) ago.
+- Current public status: ${getResidentLiveStatus(participant, '正在馆内活动。')}
+- Public canonical relationship to ${getResidentPublicName(anchor)}: ${relationship?.label || 'not supplied'}.
+- USER is visibly continuing to interact with ${getResidentPublicName(anchor)}. Choose one bounded next beat: stay briefly or disengage/leave.
+- content and status must describe the same visible beat. posture must match status. Do not create travel, gifts, relationship changes, memories, Knowledge, Away decisions, or another participant.
+${record.participantForm === 'CAT' ? '- CAT form: feline sound/action/body language only; no human-language dialogue.' : '- HUMAN form: human-shaped kemonomimi anatomy; concise natural speech is allowed.'}
+[PRIVACY]
+You do not know the USER's private message, ${getResidentPublicName(anchor)}'s reply, inner voice, memories, Knowledge, private relationship evidence, Life Threads, or Away details. Never infer or mention them.
+[RESIDENT CANON]
+${buildCatIdentityBlock(participant)}`;
+                };
+                const runActiveSocialPresenceProgression = async (record) => {
+                    if (!record || record.progressionState !== 'pending' || socialPresenceProgressionInFlight.has(record.id) || !isSocialPresenceForegroundAnchor(record)) return false;
+                    const participant = cats.value.find(cat => String(cat.id) === String(record.participantResidentId));
+                    const anchor = cats.value.find(cat => String(cat.id) === String(record.anchorResidentId));
+                    if (!participant || !anchor || !socialPresenceOwnsPresentation(record, participant)) return false;
+                    const presenceSnapshot = cloneSocialPresenceValue(getActiveSocialPresences());
+                    record.progressionState = 'generating';
+                    record.progressionClaimedAt = new Date().toISOString();
+                    if (!persistNow()) {
+                        user.activeSocialPresences = presenceSnapshot;
+                        if (!persistNow()) addLog(`SOCIAL PRESENCE ROLLBACK CRITICAL: progression-claim id=${record.id}`, 'error');
+                        return false;
+                    }
+                    socialPresenceProgressionInFlight.add(record.id);
+                    const requestPresentationToken = String(record.presentationToken || '');
+                    try {
+                        const raw = await requestStructuredEngine(buildSocialPresenceProgressionPrompt(record, participant, anchor), {
+                            systemPrompt: CORE_ROLEPLAY_PROMPT,
+                            maxTokens: 320,
+                            thinkingLevel: ThinkingLevel.LOW,
+                            label: `SOCIAL PRESENCE PROGRESSION · ${getResidentPublicName(participant)}`,
+                            priority: 'background',
+                            maxAttempts: 1,
+                            validateResponse: content => validateSocialPresenceProgressionResponse(content, record),
+                            dedupeKey: `social-presence-progression:${record.id}:${requestPresentationToken}`
+                        });
+                        const latest = getActiveSocialPresences().find(item => item.id === record.id);
+                        if (!latest || latest.progressionState !== 'generating' || String(latest.presentationToken || '') !== requestPresentationToken) return false;
+                        const validation = validateSocialPresenceProgressionResponse(raw, latest);
+                        if (validation !== true) throw new Error(validation);
+                        const payload = parseAIJSON(raw);
+                        if (payload.decision === 'leave') {
+                            const exited = terminateActiveSocialPresence(latest, 'ai-leave', {
+                                status: cleanText(payload.status), posture: payload.posture,
+                                content: cleanText(payload.content), source: 'social-presence-progression-leave'
+                            });
+                            if (exited) addLog(`SOCIAL PRESENCE PROGRESSION: participant=${latest.participantResidentId}; result=leave`, 'info');
+                            return exited;
+                        }
+                        const latestParticipant = cats.value.find(cat => String(cat.id) === String(latest.participantResidentId));
+                        const currentPoint = findMapPoint(latestParticipant?.mapPoint || latestParticipant?.mapSpot, latestParticipant?.mapRoom || '');
+                        const transactionSnapshot = {
+                            participant: cloneSocialPresenceValue(latestParticipant),
+                            presences: cloneSocialPresenceValue(getActiveSocialPresences())
+                        };
+                        if (!applySocialPresencePresentation({
+                            cat: latestParticipant,
+                            status: cleanText(payload.status),
+                            posture: payload.posture,
+                            point: currentPoint,
+                            source: 'social-presence-progression-stay'
+                        })) throw new Error('Social Presence stay presentation could not be staged.');
+                        latest.lastProgressedAt = new Date().toISOString();
+                        latest.progressionState = 'complete';
+                        latest.entryPresentationFingerprint = getSocialPresencePresentationFingerprint(latestParticipant);
+                        if (!persistNow()) {
+                            restoreSocialPresenceObject(latestParticipant, transactionSnapshot.participant);
+                            user.activeSocialPresences = transactionSnapshot.presences;
+                            if (!persistNow()) addLog(`SOCIAL PRESENCE ROLLBACK CRITICAL: progression-stay id=${latest.id}`, 'error');
+                            throw new Error('Social Presence stay persistence failed.');
+                        }
+                        if (isSocialPresenceForegroundAnchor(latest)) showNotification(`${getResidentPublicName(latestParticipant)} 还在这里`, cleanText(payload.content), '', 'info');
+                        addLog(`SOCIAL PRESENCE PROGRESSION: participant=${latest.participantResidentId}; result=stay`, 'info');
+                        return true;
+                    } catch (error) {
+                        const latest = getActiveSocialPresences().find(item => item.id === record.id);
+                        if (latest) terminateActiveSocialPresence(latest, 'progression-failed');
+                        addLog(`SOCIAL PRESENCE PROGRESSION FAILED: participant=${record.participantResidentId}; error=${cleanText(error.message || error)}`, 'warn');
+                        return false;
+                    } finally {
+                        socialPresenceProgressionInFlight.delete(record.id);
+                    }
+                };
+                const reconcileActiveSocialPresences = (nowInput = new Date(), { recovering = false, allowProgression = true } = {}) => {
+                    const now = nowInput instanceof Date ? nowInput : new Date(nowInput);
+                    const nowMs = now.getTime();
+                    if (!Number.isFinite(nowMs)) return;
+                    [...getActiveSocialPresences()].forEach(record => {
+                        const participant = cats.value.find(cat => String(cat.id) === String(record.participantResidentId));
+                        const anchor = cats.value.find(cat => String(cat.id) === String(record.anchorResidentId));
+                        if (!participant) {
+                            terminateActiveSocialPresence(record, 'participant-invalid');
+                            return;
+                        }
+                        if (!socialPresenceOwnsPresentation(record, participant)) {
+                            terminateActiveSocialPresence(record, 'superseded');
+                            return;
+                        }
+                        if (isResidentAway(participant) || isResidentInCuratorRoom(participant) ||
+                            String(getResidentPhysicalHallId(participant) || '') !== String(record.hallId) ||
+                            getResidentForm(participant) !== record.participantForm ||
+                            (isFocusing.value && focusCats.value.some(cat => String(cat?.id) === String(participant.id))) ||
+                            (exploreState.active && String(exploreState.companion?.id || '') === String(participant.id))) {
+                            terminateActiveSocialPresence(record, 'participant-invalid');
+                            return;
+                        }
+                        if (!anchor || isResidentAway(anchor) || isResidentInCuratorRoom(anchor) ||
+                            String(getResidentPhysicalHallId(anchor) || '') !== String(record.hallId)) {
+                            terminateActiveSocialPresence(record, 'anchor-invalid');
+                            return;
+                        }
+                        if (record.operationalDayKey !== getOperationalDayKey(now)) {
+                            terminateActiveSocialPresence(record, 'operational-day');
+                            return;
+                        }
+                        if (new Date(record.expiresAt).getTime() <= nowMs) {
+                            terminateActiveSocialPresence(record, 'expired');
+                            return;
+                        }
+                        if (recovering && record.progressionState === 'generating') {
+                            terminateActiveSocialPresence(record, 'progression-interrupted');
+                            return;
+                        }
+                        const dueByTurns = record.anchorTurnsSinceEntry >= ACTIVE_SOCIAL_PRESENCE_TURN_THRESHOLD;
+                        const dueByTime = nowMs - new Date(record.enteredAt).getTime() >= ACTIVE_SOCIAL_PRESENCE_PROGRESSION_DELAY_MS;
+                        if (allowProgression && record.progressionState === 'pending' && (dueByTurns || dueByTime) && isSocialPresenceForegroundAnchor(record)) {
+                            if (settings.apiKey) void runActiveSocialPresenceProgression(record);
+                            else terminateActiveSocialPresence(record, 'progression-unavailable');
+                        }
+                    });
+                };
+                const advanceActiveSocialPresenceAfterDirect = (anchorResident, now = new Date()) => {
+                    const record = getActiveSocialPresences().find(item => String(item.anchorResidentId) === String(anchorResident?.id || '') &&
+                        String(item.hallId) === String(getResidentPhysicalHallId(anchorResident) || ''));
+                    if (!record) return false;
+                    record.anchorTurnsSinceEntry += 1;
+                    scheduleSave();
+                    reconcileActiveSocialPresences(now);
+                    return true;
+                };
+                const terminateActiveSocialPresencesForNavigation = ({ nextResidentId = '', nextHallId = '', reason = 'navigation' } = {}) => {
+                    [...getActiveSocialPresences()].forEach(record => {
+                        if ((nextHallId && String(nextHallId) !== String(record.hallId)) ||
+                            (nextResidentId && String(nextResidentId) !== String(record.anchorResidentId))) {
+                            terminateActiveSocialPresence(record, reason);
+                        }
+                    });
+                };
+                terminateActiveSocialPresenceForResident = (residentId, reason = 'stronger-authority') => {
+                    [...getActiveSocialPresences()]
+                        .filter(record => String(record.anchorResidentId) === String(residentId) || String(record.participantResidentId) === String(residentId))
+                        .forEach(record => terminateActiveSocialPresence(record, reason));
+                };
                 const markAttentionBidFailure = (operation, error, now = new Date()) => {
                     operation.generation.attemptCount = Math.max(1, Number(operation.generation?.attemptCount || 0));
                     operation.generation.lastError = cleanText(error?.message || error || '请求失败').slice(0, 240) || '请求失败';
@@ -20793,6 +21348,7 @@ Do not claim knowledge of any private USER/resident conversation, thought, memor
                         return;
                     }
                     attentionBidInFlight.add(operation.id);
+                    const requestGenerationToken = String(operation.generation.token || '');
                     try {
                         const raw = await requestStructuredEngine(operation.promptText, {
                             systemPrompt: CORE_ROLEPLAY_PROMPT,
@@ -20805,10 +21361,15 @@ Do not claim knowledge of any private USER/resident conversation, thought, memor
                             dedupeKey: `attention-bid:${operation.id}:${operation.generation.token}`
                         });
                         const latest = getAttentionBidOpportunities().find(item => item.id === operation.id);
-                        if (!latest || latest.status !== 'generating') return;
+                        if (!latest || latest.status !== 'generating' || String(latest.generation.token || '') !== requestGenerationToken) return;
                         const validation = validateAttentionBidResponse(raw, latest);
                         if (validation !== true) throw new Error(validation);
-                        const content = cleanText(parseAIJSON(raw)?.content || '');
+                        const payload = parseAIJSON(raw);
+                        const content = cleanText(payload?.content || '');
+                        if (isPresenceEstablishingAttentionBid(latest.bidType)) {
+                            commitPhysicalAttentionPresence(latest, payload);
+                            return;
+                        }
                         let record = getAttentionSceneRecord(latest);
                         if (!record) {
                             record = appendHallSceneRecord({
@@ -22904,10 +23465,12 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     awayEpisodes.value = result.episodes;
                     void reconcileOrdinaryAwayAutonomy(reconciliationTime);
                     if (result.returnedResidentIds?.length) void reconcileLifeThreadContinuations(reconciliationTime);
+                    reconcileActiveSocialPresences(reconciliationTime, { allowProgression: false });
                     return { count: result.count, returnedResidentIds: result.returnedResidentIds };
                 };
                 hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value);
                 normalizeAttentionBidOpportunities({ recoverGenerating: true });
+                normalizeActiveSocialPresences();
                 awayEpisodes.value = normalizeAwayEpisodes(awayEpisodes.value);
                 // Missing legacy data is intentionally an empty prospective world-engine store.
                 lifeThreads.value = normalizeLifeThreads(savedLifeThreads);
@@ -24220,6 +24783,9 @@ ${outputContract}`;
                         // successful, direct, in-person Homepage interaction.
                         if (!isReRoll && !isItemUse) void checkAffinityThreshold(sendingCat, { directInteraction: true });
                         if (!isReRoll && !isItemUse) {
+                            // Active Social Presence observes only that another private
+                            // A turn completed; B never receives this turn's text/reply.
+                            advanceActiveSocialPresenceAfterDirect(sendingCat, new Date(sendingCat.lastInteractionTimestamp));
                             // This queues only a frozen, low-information public
                             // observation. It never exposes this direct prompt or
                             // response to the candidate or to Status Sync.
@@ -24419,6 +24985,7 @@ ${buildLeanAmbientContext(cat, {
                 const startFocus = () => {
                     if (!canStartFocus.value) return;
                     focusCats.value = roomCats.value.filter(c => focusSetupData.selectedCatIds.includes(c.id));
+                    focusCats.value.forEach(cat => terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority'));
                     Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
                     focusCats.value.forEach(cat => { focusSessionForms[String(cat.id)] = getResidentForm(cat); });
                     focusAction.value = focusSetupData.action;
@@ -24731,10 +25298,22 @@ ${buildLeanAmbientContext(cat, {
                         ? validateLocalPresenceDirectives(payload.updates, presenceDirectives, curatorAnchors)
                         : updateValidation;
                     if (directiveValidation !== true) return directiveValidation;
-                    // A Hall scene is a presentation sidecar.  It is deliberately
-                    // validated only after this hard resident envelope is accepted:
-                    // malformed prose must never spend provider retries or discard
-                    // otherwise authoritative resident updates.
+                    if (sceneOptions?.sceneMode === 'user-directed' && sceneOptions.sceneRequired === true) {
+                        const requiredSceneValidation = validateOptionalHallScene({
+                            scene: payload.scene,
+                            sceneMode: sceneOptions.sceneMode,
+                            sceneContext: sceneOptions.sceneContext,
+                            updates: payload.updates,
+                            requestHallId: sceneOptions.requestHallId,
+                            sceneRequired: true
+                        });
+                        if (!requiredSceneValidation.valid) {
+                            return `Required Hall scene invalid: ${requiredSceneValidation.error}`;
+                        }
+                    }
+                    // Ambient Hall scenes remain optional presentation sidecars.
+                    // Their malformed prose is soft-discarded after the hard
+                    // resident envelope is accepted rather than spending retries.
                     return true;
                 };
                 const validateOptionalHallScene = ({ scene, sceneMode, sceneContext, updates, requestHallId, sceneRequired = false }) => {
@@ -24747,25 +25326,33 @@ ${buildLeanAmbientContext(cat, {
                         return { valid: false, error: 'scene is not null or a valid object.' };
                     }
                     const expectedType = sceneMode === 'ambient' ? 'ambient' : 'user-directed';
-                    if (scene.type !== expectedType) return { valid: false, error: `scene type must be ${expectedType}.` };
-                    const participantIds = Array.isArray(scene.participantIds)
-                        ? scene.participantIds.map(id => String(id || '').trim()).filter(Boolean)
-                        : [];
-                    const minimumParticipants = expectedType === 'ambient' ? 2 : 1;
-                    if (participantIds.length < minimumParticipants || new Set(participantIds).size !== participantIds.length) {
-                        return { valid: false, error: `scene requires ${minimumParticipants}+ unique participant IDs.` };
-                    }
+                    const requiredIds = [...new Set((sceneContext?.requiredParticipantIds || [])
+                        .map(id => String(id || '').trim()).filter(Boolean))];
                     const allowedIds = new Set(expectedType === 'user-directed'
-                        ? (sceneContext?.candidateIds || []).map(id => String(id))
-                        : (sceneContext?.physicalParticipantIds || (updates || []).map(update => String(update?.id || '')).filter(Boolean)).map(String));
+                        ? (sceneContext?.candidateIds || []).map(id => String(id || '').trim()).filter(Boolean)
+                        : (sceneContext?.physicalParticipantIds || (updates || []).map(update => String(update?.id || '')).filter(Boolean))
+                            .map(id => String(id || '').trim()).filter(Boolean));
+                    let participantIds;
+                    if (expectedType === 'user-directed') {
+                        if (!requiredIds.length) {
+                            return { valid: false, error: 'user-directed scene requires a non-empty frozen participant selection.' };
+                        }
+                        if (requiredIds.some(id => !allowedIds.has(id))) {
+                            return { valid: false, error: 'user-directed frozen participant selection includes an ineligible resident.' };
+                        }
+                        participantIds = requiredIds;
+                    } else {
+                        participantIds = Array.isArray(scene.participantIds)
+                            ? scene.participantIds.map(id => String(id || '').trim()).filter(Boolean)
+                            : [];
+                        if (participantIds.length < 2 || new Set(participantIds).size !== participantIds.length) {
+                            return { valid: false, error: 'ambient scene requires 2+ unique participant IDs.' };
+                        }
+                    }
                     if (participantIds.some(id => !allowedIds.has(id))) {
                         return { valid: false, error: 'scene includes an ID outside its allowed participant pool.' };
                     }
-                    const requiredIds = [...new Set((sceneContext?.requiredParticipantIds || []).map(id => String(id)).filter(Boolean))];
-                    if (requiredIds.length && (participantIds.length !== requiredIds.length || participantIds.some(id => !requiredIds.includes(id)))) {
-                        return { valid: false, error: 'scene participants must exactly match the frozen composer selection.' };
-                    }
-                        const content = cleanText(scene.content || '');
+                    const content = cleanText(scene.content || '');
                     const chineseCharacters = (content.match(/[\u3400-\u9fff]/g) || []).length;
                     if (!content || content.length > 600 || chineseCharacters < 12) {
                         return { valid: false, error: 'scene requires concise Chinese shared presentation prose.' };
@@ -24778,16 +25365,47 @@ ${buildLeanAmbientContext(cat, {
                     const memoryMeta = normalizeSharedSceneMemoryMeta(scene.memoryMeta);
                     const reactions = Array.isArray(scene.reactions) ? scene.reactions : [];
                     const reactionById = new Map();
-                    for (const reaction of reactions) {
-                        const id = String(reaction?.id || '').trim();
-                        const content = cleanText(reaction?.content || '');
-                        if (!id || !content || !/[\u3400-\u9fff]/.test(content) || reactionById.has(id)) {
-                            return { valid: false, error: 'scene reactions must have unique non-empty Simplified Chinese content.' };
+                    if (expectedType === 'user-directed') {
+                        if (reactions.length !== participantIds.length) {
+                            return { valid: false, error: `user-directed scene reaction count mismatch: expected=${participantIds.length}; received=${reactions.length}.` };
                         }
-                        reactionById.set(id, content);
-                    }
-                    if (reactionById.size !== participantIds.length || participantIds.some(id => !reactionById.has(id))) {
-                        return { valid: false, error: 'scene reactions must exactly cover scene participants.' };
+                        for (let index = 0; index < reactions.length; index += 1) {
+                            const reactionContent = typeof reactions[index] === 'string' ? cleanText(reactions[index]) : '';
+                            if (!reactionContent) {
+                                return { valid: false, error: `user-directed scene reaction at index=${index} is empty.` };
+                            }
+                            if (!/[\u3400-\u9fff]/.test(reactionContent)) {
+                                return { valid: false, error: `user-directed scene reaction at index=${index} must contain Simplified Chinese.` };
+                            }
+                            reactionById.set(participantIds[index], reactionContent);
+                        }
+                    } else {
+                        for (let index = 0; index < reactions.length; index += 1) {
+                            const reaction = reactions[index];
+                            const id = String(reaction?.id || '').trim();
+                            const reactionContent = cleanText(reaction?.content || '');
+                            if (!id) {
+                                return { valid: false, error: `ambient scene reaction at index=${index} has a missing or blank ID.` };
+                            }
+                            if (reactionById.has(id)) {
+                                return { valid: false, error: `ambient scene reaction has duplicate participant ID=${id}.` };
+                            }
+                            if (!reactionContent) {
+                                return { valid: false, error: `ambient scene reaction for participant ID=${id} is empty.` };
+                            }
+                            if (!/[\u3400-\u9fff]/.test(reactionContent)) {
+                                return { valid: false, error: `ambient scene reaction for participant ID=${id} must contain Simplified Chinese.` };
+                            }
+                            reactionById.set(id, reactionContent);
+                        }
+                        const unexpectedReactionIds = [...reactionById.keys()].filter(id => !participantIds.includes(id));
+                        if (unexpectedReactionIds.length) {
+                            return { valid: false, error: `ambient scene reactions include unexpected participant IDs=[${unexpectedReactionIds.join(', ')}].` };
+                        }
+                        const missingReactionIds = participantIds.filter(id => !reactionById.has(id));
+                        if (missingReactionIds.length) {
+                            return { valid: false, error: `ambient scene reactions are missing participant IDs=[${missingReactionIds.join(', ')}].` };
+                        }
                     }
                     const updatesById = new Map((updates || []).map(update => [String(update?.id || ''), update]));
                     let sharedRoomId = '';
@@ -24970,9 +25588,11 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                     const updateRule = curatorRoomStatusSync
                         ? 'Each update needs id,status,posture,innerVoice,isOut:false,isHuman compatibility echo, and the exact supplied curatorRoomAnchor; never include Hall map fields.'
                         : 'Each update needs id,status,posture,innerVoice,isOut compatibility echo,isHuman compatibility echo. posture must be standing|sitting|lying|crouching and match status prose. HOME requires valid Hall map fields; CURATOR_ROOM requires valid curatorRoomAnchor and no Hall map fields; DEPARTING_NOW has no authority to depart without a valid matching Away plan.';
-                    const sceneRule = sceneMode
-                        ? `If scene is returned, use the already-specified ${sceneMode} scene shape; otherwise scene:null.`
-                        : 'scene must be null.';
+                    const sceneRule = sceneMode === 'user-directed'
+                        ? 'Program owns user-directed mode and the exact frozen participant set/order. scene.type and scene.participantIds may be omitted and never select authority because code normalizes both. scene.reactions must be a content-only string array in frozen participant order with exactly one Simplified Chinese reaction per participant. A non-null scene is required by the composer contract.'
+                        : sceneMode === 'ambient'
+                            ? 'Program owns ambient mode, while the AI must propose 2+ unique physically eligible scene.participantIds for any non-null scene and scene.reactions must use {id,content} objects that exactly cover them; scene.type may be omitted and never selects the mode. scene:null remains valid.'
+                            : 'scene must be null.';
                     const sidecars = [
                         hasFridgeNoteSidecar ? '"fridgeNoteReactions":[]' : '',
                         hasLifeThreadSidecar ? '"lifeThreadCandidates":[]' : ''
@@ -25067,7 +25687,9 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
 
                     isUpdatingStatus.value = true;
                     addLog(`STATUS SYNC: ${forceUpdate ? 'Manual' : 'Auto'} update initiated...`, "info");
-                    if (!isBackgroundStatusSync) showToast(`正在扫描${requestHall.name}信号...`, "loading");
+                    if (!isBackgroundStatusSync && requestOptions.sceneMode !== 'user-directed') {
+                        showToast(`正在扫描${requestHall.name}信号...`, "loading");
+                    }
 
                     const timeStr = getCurrentTimeStr();
                     const h = now.getHours();
@@ -25246,6 +25868,10 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         }
 
                         const homeCats = physicalHallCats.filter(cat => !cat.isOut);
+                        const activeSocialPresenceIds = getActiveSocialPresenceParticipantIds(requestHallId);
+                        const automaticUserContactAuthority = !curatorRoomStatusSync && sceneMode === 'ambient' && !isFocusEnd && !isExploreEnd
+                            ? `\n[AUTOMATIC USER-CONTACT AUTHORITY]\n- Authorized Active Social Presence resident IDs: [${activeSocialPresenceIds.join(', ')}].\n- A resident outside that list must not newly invent or continue sustained immediate USER bodily contact, clinging, lap/arm occupancy, or following the USER from place to place. Advance any stale contact presentation into nearby observation or independent Hall activity instead.\n- Residents may notice the USER, watch from nearby, or react at a distance. This rule does not authorize contact for anyone and does not apply to explicit user-directed or feature-owned interactions.`
+                            : '';
                         const hallSocialContext = curatorRoomStatusSync || exploreReturnPresentation
                             ? ''
                             : homeCats.length >= 2
@@ -25269,11 +25895,12 @@ Frozen required participant IDs: [${(sceneContext.requiredParticipantIds || []).
 Candidates: ${sceneCandidateCats.map(cat => `${getSharedSceneResidentDisplayName(cat)} (${String(cat.id)})`).join(', ') || 'None'}
 Frozen participant anatomy: ${sceneCandidateCats.map(cat => `${String(cat.id)} → ${describeResidentForm(sceneContext?.participantForms?.[String(cat.id)] || getResidentForm(cat))}`).join(' | ') || 'None'}
 ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || []).map(id => sceneCandidateCats.find(cat => String(cat.id) === String(id))).filter(Boolean))}
-- This is an explicit composer action. You MUST return one non-null user-directed scene whose participantIds exactly equal Frozen required participant IDs: no additions, omissions, substitutions, or reordering-based duplicates.
+- This is an explicit composer action. You MUST return one non-null user-directed scene. Program owns the exact Frozen required participant IDs and their order; scene.participantIds is non-authoritative and may be omitted, and code will normalize it to that frozen set.
+- Program owns this request's user-directed mode. scene.type is non-authoritative and may be omitted; never use it to choose or change the mode.
 - scene.content is required: write one cohesive, short, third-person Simplified Chinese prose fragment. It must hold the USER action, participant-to-participant reactions, movement or pause, and causal continuity inside the same physical moment. Do not write separate “Name: reply” rows, unrelated individual reactions, or a chat transcript.
 - scene.userStatus is required: a concise Simplified Chinese summary of what the USER is now doing in this shared moment, using the same short current-status convention as direct homepage interaction (15 Chinese characters or fewer).
 - scene.memoryMeta is optional and may be null. Use it only for a genuinely durable shared moment: {"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}. It never replaces the scene prose or reactions.
-- Structured reactions remain required validation evidence for every selected resident, but they are not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
+- scene.reactions is required as a content-only JSON string array in the exact Frozen required participant order, with exactly one non-empty Simplified Chinese reaction per selected resident. Do not return resident IDs or reaction objects; program code binds each string to its frozen participant ID. These reactions are validation evidence, not the presentation format. The raw USER input plus scene.content, reactions, and statuses must describe one same physical moment; participants should notice, interrupt, answer, or physically respond to one another when natural, never generate unrelated simultaneous activities.
 - Every physical participant must remain in hall, use isOut:false, and end in the same mapRoom. Their mapPoint/mapPositionLabel must be spatially compatible with the shared event, but do not invent map topology.
 - Frozen participant anatomy is the per-participant expression authority for this immutable scene, even if a resident's visible form changes later. CAT-form residents have full feline bodies and use feline sounds, action, and body language only; never give them human-language quoted speech. HUMAN-form residents have human-shaped bodies with natural feline ears/tails. Human language is their normal, first-class communication channel, not a rare exception: when the shared moment naturally calls for verbal exchange—especially a direct USER question, explanation, promise, concrete conflict, negotiation, reconciliation, argument, or HUMAN-to-HUMAN information exchange—normally let them communicate in brief, natural human-language dialogue. Ears, tail, posture, gesture, and expression should enrich speech rather than replace it by default. Keep cohesive third-person prose, never dialogue-row screenplay formatting, and never force a spoken line or answer: silence remains valid when it reads as an intentional, character-specific refusal, hesitation, withdrawal, restraint, or other meaningful choice. innerVoice remains that resident's private perspective.
 - relationshipDeltas is optional metadata. Use it only when the visible shared event meaningfully establishes, reinforces, weakens, complicates, or resolves an interpersonal tendency; an empty array is normal. Each entry is directional and must use frozen participant IDs with integer familiarityDelta 0 or 1, integer warmthDelta/trustDelta/tensionDelta from -1 to 1, and only these tags: protective, competitive, wary, affectionate, amused, resentful, fascinated, awkward, deferential. A direction's judgment must rely only on the visible scene, that resident's own observable reaction, events that resident actually witnessed, and legitimate existing canon characterization. Ignore private/hidden context, inner voices, diaries, episodic memories, Away material, other residents' private context, and USER-only hidden knowledge. Do not force symmetry or invent a relationship update for ordinary shared presence.
@@ -25315,7 +25942,7 @@ ${buildUserDirectedRelationshipContext((sceneContext.requiredParticipantIds || [
 ${statusHeader}
 ${publicResidentNameContract}
 ${sharedStatusUserContext}
-${newOperationalDayContext}${activeCatContext}${hallSocialContext}
+${newOperationalDayContext}${activeCatContext}${hallSocialContext}${automaticUserContactAuthority}
 - [SCHEDULED AWAY RESIDENTS] ${scheduledAwaySummary || 'None'}. They are context only: do not output updates for them, invent a destination/activity, or place them in Hall scenes.
 ${buildStatusSyncSharedCanonicalRelationships(physicalHallCats)}
 
@@ -25362,6 +25989,7 @@ ${statusOutputRules}`;
 
                         let updates;
                         let optionalScene;
+                        let sceneValidation = null;
                         let awayPlans = [];
                         let fridgeNoteReactions = [];
                         let lifeThreadCandidates = [];
@@ -25410,6 +26038,23 @@ ${statusOutputRules}`;
                             lifeThreadCandidates = lifeThreadCaptureEnabled && Array.isArray(parsedResponse?.lifeThreadCandidates)
                                 ? parsedResponse.lifeThreadCandidates
                                 : [];
+                        }
+
+                        if (sceneMode) {
+                            sceneValidation = validateOptionalHallScene({
+                                scene: optionalScene,
+                                sceneMode,
+                                sceneContext,
+                                updates,
+                                requestHallId,
+                                sceneRequired: Boolean(requestOptions.sceneRequired)
+                            });
+                            if (requestOptions.sceneRequired && !sceneValidation.valid) {
+                                const validationError = `Required Hall scene failed defensive validation: ${sceneValidation.error}`;
+                                if (statusCompletion) statusCompletion.lastError = validationError;
+                                addLog(`HALL SCENE REQUIRED VALIDATION FAILED: hall=${requestHallId}; ${sceneValidation.error}`, 'error');
+                                return false;
+                            }
                         }
 
                         if (Array.isArray(updates)) {
@@ -25730,54 +26375,45 @@ ${statusOutputRules}`;
                             let appliedSceneRecord = null;
                             const hasUnsafeFormSlice = unsafeFormIds.size > 0;
                             if (sceneMode) {
-                                const sceneValidation = hasUnsafeFormSlice
+                                const sceneToApply = sceneMode === 'ambient' && hasUnsafeFormSlice
                                     ? { valid: true, scene: null, quarantined: true }
-                                    : validateOptionalHallScene({
-                                    scene: optionalScene,
-                                    sceneMode,
-                                    sceneContext,
-                                    updates,
-                                    requestHallId,
-                                    sceneRequired: Boolean(requestOptions.sceneRequired)
-                                });
-                                if (sceneValidation.quarantined) {
+                                    : sceneValidation;
+                                if (sceneToApply.quarantined) {
                                     addLog(`HALL SCENE QUARANTINED: hall=${requestHallId}; reason=form-presentation-unsafe; authority=not-consumed`, 'warn');
                                     if (requestOptions.sceneOutcome && typeof requestOptions.sceneOutcome === 'object') requestOptions.sceneOutcome.quarantined = true;
                                 }
-                                if (!sceneValidation.valid) {
-                                    addLog(`HALL SCENE INVALID: hall=${requestHallId}; ${sceneValidation.error}`, 'warn');
+                                if (!sceneToApply.valid) {
+                                    addLog(`HALL SCENE INVALID: hall=${requestHallId}; ${sceneToApply.error}`, 'warn');
                                     if (requestOptions.sceneOutcome && typeof requestOptions.sceneOutcome === 'object') {
                                         requestOptions.sceneOutcome.softInvalid = true;
-                                        requestOptions.sceneOutcome.reason = sceneValidation.error;
+                                        requestOptions.sceneOutcome.reason = sceneToApply.error;
                                     }
-                                    const receivedType = optionalScene && typeof optionalScene === 'object'
-                                        ? String(optionalScene.type || 'missing') : String(optionalScene === null ? 'null' : typeof optionalScene);
-                                    addLog(`HALL SCENE SOFT INVALID: mode=${sceneMode || 'none'}; receivedType=${receivedType}; residentUpdatesApplied=true; sceneDiscarded=true`, 'warn');
-                                } else if (sceneValidation.scene) {
+                                    addLog(`HALL SCENE SOFT INVALID: mode=${sceneMode || 'none'}; residentUpdatesApplied=true; sceneDiscarded=true`, 'warn');
+                                } else if (sceneToApply.scene) {
                                     const followSceneFeed = sceneMode === 'user-directed' || isHallSceneFeedNearBottom();
                                     const record = appendHallSceneRecord({
                                         hallId: requestHallId,
                                         operationalDayKey,
-                                        type: sceneValidation.scene.type,
-                                        participantIds: sceneValidation.scene.participantIds,
+                                        type: sceneToApply.scene.type,
+                                        participantIds: sceneToApply.scene.participantIds,
                                         userText: sceneMode === 'user-directed' ? String(sceneContext?.rawUserText || '') : null,
-                                        content: sceneValidation.scene.content,
-                                        reactions: sceneValidation.scene.reactions,
-                                        participantForms: sceneValidation.scene.participantForms
+                                        content: sceneToApply.scene.content,
+                                        reactions: sceneToApply.scene.reactions,
+                                        participantForms: sceneToApply.scene.participantForms
                                     });
                                     if (record) {
                                         appliedSceneRecord = record;
-                                        storeSharedSceneEpisodicMemories(record, sceneValidation.scene.memoryMeta);
-                                        applyResidentRelationshipDeltas(record, sceneValidation.scene.relationshipDeltas);
+                                        storeSharedSceneEpisodicMemories(record, sceneToApply.scene.memoryMeta);
+                                        applyResidentRelationshipDeltas(record, sceneToApply.scene.relationshipDeltas);
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
-                                        if (sceneMode === 'user-directed') applySuccessfulInteractionUserStatus(sceneValidation.scene.userStatus);
+                                        if (sceneMode === 'user-directed') applySuccessfulInteractionUserStatus(sceneToApply.scene.userStatus);
                                         if (followSceneFeed) scrollHallSceneFeedToBottom(record.hallId);
-                                        addLog(`HALL SCENE WRITTEN: hall=${requestHallId}; type=${sceneValidation.scene.type}; participants=[${record.participantIds.join(', ')}]`, 'sent');
+                                        addLog(`HALL SCENE WRITTEN: hall=${requestHallId}; type=${sceneToApply.scene.type}; participants=[${record.participantIds.join(', ')}]`, 'sent');
                                     } else if (requestOptions.sceneRequired) {
                                         addLog(`HALL SCENE WRITE FAILED: hall=${requestHallId}; required scene was not persisted.`, 'warn');
                                         return false;
                                     }
-                                } else if (!sceneValidation.quarantined && sceneMode === 'user-directed' && activeHallId.value === requestHallId) {
+                                } else if (!sceneToApply.quarantined && sceneMode === 'user-directed' && activeHallId.value === requestHallId) {
                                     clearHallSceneFocus();
                                 }
                             }
@@ -25878,6 +26514,7 @@ ${statusOutputRules}`;
                             if (shouldCommitHallStatusFreshness({ curatorRoomStatusSync, skipHallFreshnessCommit: requestOptions.skipHallFreshnessCommit }) && (!requestOptions.hallEntryPresentation || ownsHallEntryPresentation(requestHallId)) && activeHallId.value === requestHallId) {
                                 alfredMessage.value = (todayEvent.value ? todayEvent.value + " " : "") + `${requestHall.guardian} 已将${requestHall.name}监控同步至 ${timeStr}。`;
                             }
+                            reconcileActiveSocialPresences(now);
                             addLog(`STATUS SYNC SUCCESS: expected=${requestedIds.length}; received=${responseEntries.length}; matched=${matched}`, "sent");
                             return true;
                         } else {
@@ -25938,6 +26575,10 @@ ${statusOutputRules}`;
                         showToast(backgroundFailureToast, 'warning');
                     }
                 };
+                const queueUserDirectedHallSceneRefresh = (existingTask, startRefresh) =>
+                    Promise.resolve(existingTask)
+                        .catch(() => false)
+                        .then(() => Promise.resolve().then(startRefresh));
 
                 const refreshAllStatus = (...args) => {
                     const requestOptions = (args[6] && typeof args[6] === 'object') ? args[6] : {};
@@ -25970,8 +26611,39 @@ ${statusOutputRules}`;
                             complete: false
                         };
                     const existing = statusRefreshInFlight.get(requestHallId);
+                    const replacesBackground = Boolean(existing && existing.priority === 'background' && requestPriority === 'foreground');
 
-                    if (existing && !(existing.priority === 'background' && requestPriority === 'foreground')) {
+                    if (existing && requestOptions.sceneMode === 'user-directed' && !replacesBackground) {
+                        const sceneContext = requestOptions.sceneContext && typeof requestOptions.sceneContext === 'object'
+                            ? requestOptions.sceneContext
+                            : null;
+                        const queuedArgs = [...args];
+                        queuedArgs[6] = {
+                            ...requestOptions,
+                            requestHallId,
+                            requestHall: { ...requestHall },
+                            frozenNow: requestOptions.frozenNow instanceof Date
+                                ? new Date(requestOptions.frozenNow.getTime())
+                                : requestOptions.frozenNow,
+                            statusCompletion,
+                            protectedSceneParticipantIds: Array.isArray(requestOptions.protectedSceneParticipantIds)
+                                ? [...requestOptions.protectedSceneParticipantIds]
+                                : requestOptions.protectedSceneParticipantIds,
+                            sceneContext: sceneContext ? {
+                                ...sceneContext,
+                                explicitMentionIds: Array.isArray(sceneContext.explicitMentionIds) ? [...sceneContext.explicitMentionIds] : sceneContext.explicitMentionIds,
+                                previousFocusIds: Array.isArray(sceneContext.previousFocusIds) ? [...sceneContext.previousFocusIds] : sceneContext.previousFocusIds,
+                                candidateIds: Array.isArray(sceneContext.candidateIds) ? [...sceneContext.candidateIds] : sceneContext.candidateIds,
+                                requiredParticipantIds: Array.isArray(sceneContext.requiredParticipantIds) ? [...sceneContext.requiredParticipantIds] : sceneContext.requiredParticipantIds,
+                                participantForms: sceneContext.participantForms && typeof sceneContext.participantForms === 'object'
+                                    ? { ...sceneContext.participantForms }
+                                    : sceneContext.participantForms
+                            } : sceneContext
+                        };
+                        addLog(`HALL SCENE QUEUED: hall=${requestHallId}; waitingFor=active-status-refresh`, 'info');
+                        return queueUserDirectedHallSceneRefresh(existing.task, () => refreshAllStatus(...queuedArgs));
+                    }
+                    if (existing && !replacesBackground) {
                         addLog('STATUS SYNC JOINED: Reusing the active status refresh.', 'info');
                         return existing.task;
                     }
@@ -26051,14 +26723,19 @@ ${statusOutputRules}`;
                     return true;
                 };
                 const getHomepageAmbientProtectedResidentIds = (record, nowMs = Date.now()) => {
-                    if (!record?.latestDirectAtByResident) return [];
-                    return [...record.latestDirectAtByResident.entries()]
+                    const recentDirectIds = !record?.latestDirectAtByResident ? [] : [...record.latestDirectAtByResident.entries()]
                         .filter(([residentId, completedAt]) => {
                             const cat = cats.value.find(item => String(item?.id || '') === String(residentId));
                             return isEligibleHomepageAmbientHallResident(cat, record.hallId) &&
                                 nowMs - Number(completedAt || 0) < HOMEPAGE_DIRECT_FRESHNESS_MS;
                         })
                         .map(([residentId]) => String(residentId));
+                    const activePresenceIds = getActiveSocialPresenceParticipantIds(record?.hallId)
+                        .filter(residentId => {
+                            const cat = cats.value.find(item => String(item?.id || '') === String(residentId));
+                            return isEligibleHomepageAmbientHallResident(cat, record?.hallId);
+                        });
+                    return [...new Set([...recentDirectIds, ...activePresenceIds])];
                 };
                 const reconcileHomepageHallAmbientRefreshes = (nowInput = new Date()) => {
                     const now = nowInput instanceof Date ? nowInput : new Date(nowInput);
@@ -26245,6 +26922,7 @@ ${statusOutputRules}`;
                                 Object.assign(user, data.user);
                                 ensurePendingAwayDiaryDays();
                                 if (!Array.isArray(user.attentionBidOpportunities)) user.attentionBidOpportunities = [];
+                                if (!Array.isArray(user.activeSocialPresences)) user.activeSocialPresences = [];
                                 if (!user.ordinaryAwayAutonomy || typeof user.ordinaryAwayAutonomy !== 'object' || Array.isArray(user.ordinaryAwayAutonomy)) user.ordinaryAwayAutonomy = { lastAIDispatchAt: '' };
                                 else if (Number.isNaN(new Date(user.ordinaryAwayAutonomy.lastAIDispatchAt || '').getTime())) user.ordinaryAwayAutonomy.lastAIDispatchAt = '';
                                 if (!user.phoneData || typeof user.phoneData !== 'object') user.phoneData = {};
@@ -26263,6 +26941,8 @@ ${statusOutputRules}`;
                             });
                             normalizeResidentRelationshipRoster();
                             normalizeAttentionBidOpportunities({ recoverGenerating: true });
+                            normalizeActiveSocialPresences();
+                            reconcileActiveSocialPresences(new Date(), { recovering: true, allowProgression: false });
                             normalizeExploreCases();
                             lifeThreads.value = normalizeLifeThreads(data.lifeThreads);
                             knowledgeLedger.value = normalizeKnowledgeLedger(data.knowledgeLedger);
@@ -26822,12 +27502,14 @@ ${episodicMemory}`;
                     void reconcileLifeThreadContinuations(new Date());
                     void reconcileNewsProjections(new Date());
                     reconcileAttentionBidOpportunities(new Date());
+                    normalizeActiveSocialPresences();
+                    reconcileActiveSocialPresences(new Date(), { recovering: true, allowProgression: false });
                     checkDailyInitialization();
                     applyUISettings();
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
-                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileHomepageHallAmbientRefreshes(now); currentTime.value = now; }, 30000);
-                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); currentTime.value = now; } });
+                    setInterval(updateCountdown, 1000); setInterval(() => { autoUpdateLogic(); }, 20 * 60 * 1000); setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); currentTime.value = now; }, 30000);
+                    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); currentTime.value = now; } });
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });

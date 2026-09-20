@@ -131,12 +131,13 @@ const findCalls = (source, token) => {
     return calls;
 };
 const statusCalls = findCalls(indexSource, 'setCatStatus(');
-assert.equal(statusCalls.length, 13);
+assert.equal(statusCalls.length, 14);
 for (const call of statusCalls) assert.match(call, /\bposture\b\s*(?::|[,}])/, `missing posture in ${call.slice(0, 120)}`);
 assert.deepEqual(indexSource.match(/cat\.status\s*=/g), ['cat.status ='], 'only daily snapshot restoration may directly restore status');
 for (const producerMarker of [
     'Homepage Chat posture 无效', 'residentUpdates":[{"id"', 'Light interaction posture invalid',
-    'entry ${index} has invalid posture', 'plannedReturnPosture', 'Character Generator posture invalid'
+    'entry ${index} has invalid posture', 'plannedReturnPosture', 'Character Generator posture invalid',
+    'social-presence-entry'
 ]) assert.ok(indexSource.includes(producerMarker), `missing producer posture contract: ${producerMarker}`);
 assert.ok(inventorySource.includes('validateStatusPosture(status, posture)'));
 

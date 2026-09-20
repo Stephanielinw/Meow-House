@@ -28,6 +28,7 @@ const now = Date.now();
 const makeHall = (id, lastSuccessfulStatusSyncAt = '') => ({ id, name: `Hall ${id}`, lastSuccessfulStatusSyncAt });
 const makeResident = (id, hallId, overrides = {}) => ({ id, hallId, physicalHallId: hallId, ...overrides });
 const calls = [];
+const activePresenceIdsByHall = new Map();
 let nextResult = true;
 const sandbox = {
     Date,
@@ -49,6 +50,7 @@ const sandbox = {
     isResidentAway: cat => Boolean(cat?.away),
     isResidentInCuratorRoom: cat => Boolean(cat?.curator),
     getResidentPhysicalHallId: cat => String(cat?.physicalHallId || ''),
+    getActiveSocialPresenceParticipantIds: hallId => [...(activePresenceIdsByHall.get(String(hallId)) || [])],
     addLog: () => {},
     showToast: () => {},
     refreshAllStatus: (...args) => {
@@ -79,6 +81,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 const hall = id => sandbox.halls.value.find(entry => entry.id === id);
 const reset = () => {
     calls.length = 0;
+    activePresenceIdsByHall.clear();
     nextResult = true;
     scheduler.pending.clear();
     sandbox.hallStatusRefreshPending.clear();
@@ -173,6 +176,30 @@ assert.equal(calls.length, 1);
 assert.deepEqual([...calls[0][2]], ['b'], 'A has expired while B remains protected by its newer direct reply');
 assert.equal(calls[0][6].activeIdsAreExclusionsOnly, true);
 assert.equal(calls[0][1], '');
+await flush();
+
+// An Active Social Presence participant is protected independently from the
+// rolling direct-reply window, then becomes eligible again when the lifecycle
+// record is removed.
+reset();
+hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
+const anchorA = makeResident('anchor-a', 'a');
+const presenceB = makeResident('presence-b', 'a');
+const ambientC = makeResident('ambient-c', 'a');
+sandbox.cats.value = [anchorA, presenceB, ambientC];
+activePresenceIdsByHall.set('a', new Set(['presence-b']));
+scheduler.queueHomepageHallAmbientRefresh(anchorA, now - 21 * 60 * 1000);
+scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
+assert.equal(calls.length, 1);
+assert.deepEqual([...calls[0][2]], ['presence-b'], 'active presence participant must remain excluded from ambient Status authority');
+await flush();
+
+calls.length = 0;
+activePresenceIdsByHall.clear();
+scheduler.pending.set('a', { hallId: 'a', queuedAt: now - 60_000, lastQueuedAt: now - 60_000 });
+scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
+assert.equal(calls.length, 1);
+assert.deepEqual([...calls[0][2]], [], 'ended presence must not leave a stale ambient exclusion');
 await flush();
 
 // No request is made when every physical resident is still protected.
@@ -342,5 +369,5 @@ assert.doesNotMatch(schedulerSource, /recentConversation|episodicMemory|knowledg
 console.log(JSON.stringify({
     fixture: 'homepage-ambient-refresh',
     status: 'PASS',
-    checks: ['per-hall-freshness', 'coalescing', 'per-resident-protection', 'failure-delay', 'hall-presentation-isolation', 'entry-no-duplicate', 'legacy-auto-gate', 'prompt-isolation']
+    checks: ['per-hall-freshness', 'coalescing', 'per-resident-protection', 'active-presence-protection', 'failure-delay', 'hall-presentation-isolation', 'entry-no-duplicate', 'legacy-auto-gate', 'prompt-isolation']
 }));

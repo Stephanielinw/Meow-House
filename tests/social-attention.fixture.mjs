@@ -17,10 +17,22 @@ const otherHall = { id: 'other', name: 'Other', humanName: 'Other', hallId: 'oth
 const cats = [active, candidate, visitor, away, otherHall];
 const scenes = [];
 const user = { attentionBidOpportunities: [] };
+const mapRooms = [{
+    id: 'living', name: 'Living', zones: [
+        { id: 'alpha-floor', name: '安静地面', roomId: 'living', anchors: [{ x: 1, y: 1 }] },
+        { id: 'owner-near', name: '馆长脚边', roomId: 'living', anchors: [{ x: 2, y: 2 }] },
+        { id: 'window-seat', name: '窗台软垫', roomId: 'living', anchors: [{ x: 3, y: 3 }] }
+    ]
+}];
+const allMapPoints = mapRooms.flatMap(room => room.zones.map(point => ({ ...point, roomId: room.id, roomName: room.name })));
 const sandbox = {
     Date, Map, Set, Math, JSON, console,
     user, cats: { value: cats }, halls: { value: [{ id: 'h', name: 'Hall H' }] }, hallSceneRecords: { value: scenes },
     activeHallId: { value: 'h' }, isFocusing: { value: false }, focusCats: { value: [] }, exploreState: { active: false, companion: null },
+    currentTab: { value: 'detail' }, detailReturnOrigin: { value: '' }, hallSceneActive: { value: true }, selectedCat: { value: active },
+    MAP_ROOM_DEFINITIONS: mapRooms,
+    buildAllMapPoints: () => allMapPoints.map(point => ({ ...point })),
+    findMapPoint: (id, roomId = '') => allMapPoints.find(point => point.id === id && (!roomId || point.roomId === roomId)) || null,
     cleanText: value => String(value ?? '').replace(/\s+/g, ' ').trim(),
     normalizeFormValue: value => String(value || '').toUpperCase() === 'HUMAN' ? 'HUMAN' : String(value || '').toUpperCase() === 'CAT' ? 'CAT' : '',
     getResidentForm: cat => cat.currentForm || 'CAT',
@@ -32,6 +44,12 @@ const sandbox = {
     buildForegroundUserRelationshipBaseline: cat => `affinity ${cat.affinity}`,
     getResidentLiveStatus: cat => cat.status || '',
     parseAIJSON: raw => JSON.parse(raw),
+    statusPosture: {
+        validateStatusPosture: (status, posture) => ({
+            valid: ['standing', 'sitting', 'lying', 'crouching'].includes(posture) && Boolean(String(status || '').trim()),
+            error: 'invalid posture'
+        })
+    },
     getOperationalDayKey: () => '2026-09-01',
     normalizeHallSceneRecords: records => records,
     appendHallSceneRecord: data => { scenes.push(data); return data; },
@@ -41,13 +59,26 @@ const sandbox = {
     ThinkingLevel: { LOW: 'LOW' }
 };
 vm.runInNewContext(`${attentionSource}
-globalThis.attention = { extractExplicitPublicAttentionEvent, isAttentionBidCandidateEligible, selectAttentionBidType, buildAttentionBidPrompt, validateAttentionBidResponse, normalizeAttentionBidOpportunities, queueAttentionBidOpportunity, getRecentAmbientEngagementCount, ATTENTION_BID_TYPES };`, sandbox, { filename: 'index.html:social-attention' });
+globalThis.attention = { extractExplicitPublicAttentionEvent, isAttentionBidCandidateEligible, selectAttentionBidType, buildAttentionBidPrompt, validateAttentionBidResponse, normalizeAttentionBidOpportunities, queueAttentionBidOpportunity, getRecentAmbientEngagementCount, isPresenceEstablishingAttentionBid, resolveSocialPresenceMapPoint, getSocialPresenceOwnedPresentation, ATTENTION_BID_TYPES };`, sandbox, { filename: 'index.html:social-attention' });
 const attention = sandbox.attention;
 
 assert.equal(attention.isAttentionBidCandidateEligible(candidate, 'h'), true);
 assert.equal(attention.isAttentionBidCandidateEligible(visitor, 'h'), true, 'physical visitors may observe');
 assert.equal(attention.isAttentionBidCandidateEligible(away, 'h'), false);
 assert.equal(attention.isAttentionBidCandidateEligible(otherHall, 'h'), false);
+
+for (const type of attention.ATTENTION_BID_TYPES) {
+    assert.equal(attention.isPresenceEstablishingAttentionBid(type), ['approach', 'physical-bid'].includes(type), `${type} classification must remain program-owned`);
+}
+
+assert.equal(attention.resolveSocialPresenceMapPoint('living', 'entry').id, 'owner-near', 'entry must prefer topology-defined USER-near semantics');
+assert.equal(attention.resolveSocialPresenceMapPoint('living', 'exit').id, 'alpha-floor', 'exit must prefer topology-defined neutral floor');
+assert.equal(attention.resolveSocialPresenceMapPoint('missing', 'entry'), null, 'unknown topology cannot invent a point');
+assert.doesNotMatch(attentionSource, /living\s*(?:=>|:).*owner-feet|dorm\s*(?:=>|:).*dorm-carpet|dining\s*(?:=>|:).*kitchen-island-front/);
+assert.deepEqual(Object.keys(attention.getSocialPresenceOwnedPresentation({
+    status: 'x', statusActivity: { posture: 'standing' }, statusPresentationForm: 'CAT', mapRoom: 'living', mapPoint: 'alpha-floor',
+    mapSpot: 'alpha-floor', mapFurniture: 'floor', mapPositionLabel: 'ground', innerVoice: 'private', lastStatusUpdateTime: 1, affinity: 9
+})).sort(), ['mapFurniture', 'mapPoint', 'mapPositionLabel', 'mapRoom', 'mapSpot', 'posture', 'status', 'statusPresentationForm'].sort());
 
 const explicit = attention.extractExplicitPublicAttentionEvent({
     text: '我当着 Antinous 的面说：你真的很烦。然后我悄悄对 Telemachus 说别告诉他。', activeResident: active, hallId: 'h'
@@ -68,6 +99,18 @@ const offerOperation = {
     authorizedObject: { id: 'item-1', name: '绒球', source: 'hall-visible-item' },
     observableEvent: { kind: 'ambient-engagement', publicText: '', activeResidentPublicName: 'Telemachus', targetResidentId: '' }, candidateForm: 'CAT'
 };
+const physicalOperation = { ...offerOperation, bidType: 'approach', authorizedObject: null, candidateForm: 'CAT' };
+assert.equal(attention.validateAttentionBidResponse(JSON.stringify({
+    content: 'Antinous 走到你和 Telemachus 身边，尾巴轻轻扫过你的裤脚。',
+    entryStatus: '正站在你和 Telemachus 身边。',
+    entryPosture: 'standing'
+}), physicalOperation), true);
+assert.equal(attention.validateAttentionBidResponse(JSON.stringify({
+    content: 'Antinous 仍从远处安静观察。',
+    entryStatus: '正站在远处观察。',
+    entryPosture: 'standing'
+}), physicalOperation), 'Physical Attention Bid cannot describe distant observation.');
+assert.equal(attention.validateAttentionBidResponse('{"content":"Antinous 在远处看了一眼。"}', { ...offerOperation, bidType: 'observe', authorizedObject: null }), true, 'presentation-only bid keeps content-only wire shape');
 const offerPrompt = attention.buildAttentionBidPrompt(offerOperation);
 assert.match(offerPrompt, /id=item-1; name=绒球/);
 assert.match(offerPrompt, /never create, consume, transfer/);
@@ -100,5 +143,5 @@ assert.doesNotMatch(attentionSource, /knowledgeLedger|lifeThreads|buildCatMemory
 
 console.log(JSON.stringify({
     fixture: 'social-attention', status: 'PASS',
-    checks: ['public-span-isolation', 'physical-eligibility', 'ambient-threshold', 'offer-authority', 'prompt-isolation', 'display-only-scene', 'persistence-shape']
+    checks: ['public-span-isolation', 'physical-eligibility', 'narrow-presence-classification', 'physical-contract', 'generic-topology', 'owned-presentation-scope', 'ambient-threshold', 'offer-authority', 'prompt-isolation', 'display-only-scene', 'persistence-shape']
 }));

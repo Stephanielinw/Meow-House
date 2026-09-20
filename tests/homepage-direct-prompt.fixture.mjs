@@ -105,6 +105,9 @@ assert.doesNotMatch(directSlice, /fridgeNoteReactions/);
 assert.match(directSlice, /reconcileAwayEpisodes\(frozenNow\)/);
 assert.match(directSlice, /queueHomepageHallAmbientRefresh\(sendingCat, sendingCat\.lastInteractionTimestamp\)/);
 assert.match(directSlice, /reconcileHomepageHallAmbientRefreshes\(new Date\(sendingCat\.lastInteractionTimestamp\)\)/);
+assert.match(directSlice, /if \(!isReRoll && !isItemUse\) \{[\s\S]*advanceActiveSocialPresenceAfterDirect\(sendingCat, new Date\(sendingCat\.lastInteractionTimestamp\)\)/);
+assert.doesNotMatch(directSlice, /buildSocialPresenceProgressionPrompt|SOCIAL PRESENCE PROGRESSION|participantResidentId/,
+    'Homepage Direct must report only the completed anchor turn and never embed B or progression context in A\'s request');
 assert.doesNotMatch(directSlice, /refreshAllStatus\(/);
 assert.match(directSlice, /label: `HOMEPAGE DIRECT/);
 assert.match(directSlice, /buildHomepageDirectPresenceContext/);
