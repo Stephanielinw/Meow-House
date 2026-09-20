@@ -1,0 +1,471 @@
+{
+  "version": 1,
+  "canvas": [
+    112,
+    104
+  ],
+  "pose": "standing",
+  "body": "Chubby",
+  "kind": "user-fixed-standing-chassis",
+  "tree": {
+    "base": {
+      "png": "../standing-standard-v1/base.png"
+    },
+    "tailOwn": {
+      "png": "../standing-standard-v1/tail_region.png"
+    },
+    "tailCoordinates": {
+      "png": "../standing-standard-v1/tail_coordinates.png"
+    },
+    "torsoUV": {
+      "png": "../standing-standard-v1/torso_uv.png"
+    },
+    "front_leftUV": {
+      "png": "../standing-standard-v1/front_left_uv.png"
+    },
+    "front_rightUV": {
+      "png": "../standing-standard-v1/front_right_uv.png"
+    },
+    "hind_farUV": {
+      "png": "../standing-standard-v1/hind_far_uv.png"
+    },
+    "hind_nearUV": {
+      "png": "../standing-standard-v1/hind_near_uv.png"
+    },
+    "tailUV": {
+      "png": "../standing-standard-v1/tail_uv.png"
+    },
+    "tails": {
+      "standard": {
+        "base": {
+          "png": "../standing-standard-v1/tails/standard/component.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/tails/standard/component.png"
+        },
+        "masks": {
+          "none": {
+            "png": "../standing-standard-v1/tails/standard/none.png"
+          },
+          "tip_short": {
+            "png": "../standing-standard-v1/tails/standard/tip_short.png"
+          },
+          "tip_long": {
+            "png": "../standing-standard-v1/tails/standard/tip_long.png"
+          },
+          "half_tail": {
+            "png": "../standing-standard-v1/tails/standard/half_tail.png"
+          },
+          "rings": {
+            "png": "../standing-standard-v1/tails/standard/rings.png"
+          },
+          "broad_ring": {
+            "png": "../standing-standard-v1/tails/standard/broad_ring.png"
+          }
+        }
+      },
+      "long": {
+        "base": {
+          "png": "../standing-standard-v1/tails/long/component.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/tails/long/component.png"
+        },
+        "foreground": {
+          "png": "../standing-standard-v1/tails/long/foreground.png"
+        },
+        "masks": {
+          "none": {
+            "png": "../standing-standard-v1/tails/long/none.png"
+          },
+          "tip_short": {
+            "png": "../standing-standard-v1/tails/long/tip_short.png"
+          },
+          "tip_long": {
+            "png": "../standing-standard-v1/tails/long/tip_long.png"
+          },
+          "half_tail": {
+            "png": "../standing-standard-v1/tails/long/half_tail.png"
+          },
+          "rings": {
+            "png": "../standing-standard-v1/tails/long/rings.png"
+          },
+          "broad_ring": {
+            "png": "../standing-standard-v1/tails/long/broad_ring.png"
+          }
+        }
+      },
+      "thick": {
+        "base": {
+          "png": "../standing-standard-v1/tails/thick/component.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/tails/thick/component.png"
+        },
+        "foreground": {
+          "png": "../standing-standard-v1/tails/thick/foreground.png"
+        },
+        "masks": {
+          "none": {
+            "png": "../standing-standard-v1/tails/thick/none.png"
+          },
+          "tip_short": {
+            "png": "../standing-standard-v1/tails/thick/tip_short.png"
+          },
+          "tip_long": {
+            "png": "../standing-standard-v1/tails/thick/tip_long.png"
+          },
+          "half_tail": {
+            "png": "../standing-standard-v1/tails/thick/half_tail.png"
+          },
+          "rings": {
+            "png": "../standing-standard-v1/tails/thick/rings.png"
+          },
+          "broad_ring": {
+            "png": "../standing-standard-v1/tails/thick/broad_ring.png"
+          }
+        }
+      },
+      "fluffy": {
+        "base": {
+          "png": "../standing-standard-v1/tails/fluffy/component.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/tails/fluffy/component.png"
+        },
+        "foreground": {
+          "png": "../standing-standard-v1/tails/fluffy/foreground.png"
+        },
+        "masks": {
+          "none": {
+            "png": "../standing-standard-v1/tails/fluffy/none.png"
+          },
+          "tip_short": {
+            "png": "../standing-standard-v1/tails/fluffy/tip_short.png"
+          },
+          "tip_long": {
+            "png": "../standing-standard-v1/tails/fluffy/tip_long.png"
+          },
+          "half_tail": {
+            "png": "../standing-standard-v1/tails/fluffy/half_tail.png"
+          },
+          "rings": {
+            "png": "../standing-standard-v1/tails/fluffy/rings.png"
+          },
+          "broad_ring": {
+            "png": "../standing-standard-v1/tails/fluffy/broad_ring.png"
+          }
+        }
+      },
+      "short": {
+        "base": {
+          "png": "../standing-standard-v1/tails/short/component.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/tails/short/component.png"
+        },
+        "foreground": {
+          "png": "../standing-standard-v1/tails/short/foreground.png"
+        },
+        "masks": {
+          "none": {
+            "png": "../standing-standard-v1/tails/short/none.png"
+          },
+          "tip_short": {
+            "png": "../standing-standard-v1/tails/short/tip_short.png"
+          },
+          "tip_long": {
+            "png": "../standing-standard-v1/tails/short/tip_long.png"
+          },
+          "half_tail": {
+            "png": "../standing-standard-v1/tails/short/half_tail.png"
+          },
+          "rings": {
+            "png": "../standing-standard-v1/tails/short/rings.png"
+          },
+          "broad_ring": {
+            "png": "../standing-standard-v1/tails/short/broad_ring.png"
+          }
+        }
+      },
+      "kinked": {
+        "base": {
+          "png": "../standing-standard-v1/tails/kinked/component.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/tails/kinked/component.png"
+        },
+        "foreground": {
+          "png": "../standing-standard-v1/tails/kinked/foreground.png"
+        },
+        "masks": {
+          "none": {
+            "png": "../standing-standard-v1/tails/kinked/none.png"
+          },
+          "tip_short": {
+            "png": "../standing-standard-v1/tails/kinked/tip_short.png"
+          },
+          "tip_long": {
+            "png": "../standing-standard-v1/tails/kinked/tip_long.png"
+          },
+          "half_tail": {
+            "png": "../standing-standard-v1/tails/kinked/half_tail.png"
+          },
+          "rings": {
+            "png": "../standing-standard-v1/tails/kinked/rings.png"
+          },
+          "broad_ring": {
+            "png": "../standing-standard-v1/tails/kinked/broad_ring.png"
+          }
+        }
+      }
+    },
+    "ears": {
+      "standard": {
+        "d": {
+          "png": "../standing-standard-v1/ears/standard/d.png"
+        },
+        "mask": {
+          "png": "../standing-standard-v1/ears/standard/d.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/ears/standard/d.png"
+        },
+        "inner": {
+          "png": "../standing-standard-v1/ears/standard/inner.png"
+        }
+      },
+      "large": {
+        "d": {
+          "png": "../standing-standard-v1/ears/large/d.png"
+        },
+        "mask": {
+          "png": "../standing-standard-v1/ears/large/d.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/ears/large/d.png"
+        },
+        "inner": {
+          "png": "../standing-standard-v1/ears/large/inner.png"
+        }
+      },
+      "small": {
+        "d": {
+          "png": "../standing-standard-v1/ears/small/d.png"
+        },
+        "mask": {
+          "png": "../standing-standard-v1/ears/small/d.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/ears/small/d.png"
+        },
+        "inner": {
+          "png": "../standing-standard-v1/ears/small/inner.png"
+        }
+      },
+      "round": {
+        "d": {
+          "png": "../standing-standard-v1/ears/round/d.png"
+        },
+        "mask": {
+          "png": "../standing-standard-v1/ears/round/d.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/ears/round/d.png"
+        },
+        "inner": {
+          "png": "../standing-standard-v1/ears/round/inner.png"
+        }
+      },
+      "folded": {
+        "d": {
+          "png": "../standing-standard-v1/ears/folded/d.png"
+        },
+        "mask": {
+          "png": "../standing-standard-v1/ears/folded/d.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/ears/folded/d.png"
+        },
+        "inner": {
+          "png": "../standing-standard-v1/ears/folded/inner.png"
+        }
+      },
+      "tufted": {
+        "d": {
+          "png": "../standing-standard-v1/ears/tufted/d.png"
+        },
+        "mask": {
+          "png": "../standing-standard-v1/ears/tufted/d.png"
+        },
+        "own": {
+          "png": "../standing-standard-v1/ears/tufted/d.png"
+        },
+        "inner": {
+          "png": "../standing-standard-v1/ears/tufted/inner.png"
+        }
+      }
+    },
+    "chassisByBib": {
+      "none": {
+        "png": "chassis/bib-none.png"
+      },
+      "bib": {
+        "png": "chassis/bib.png"
+      }
+    },
+    "torsoMasks": {
+      "classic_tabby": {
+        "png": "../standing-standard-v1/torso/classic_tabby.png"
+      },
+      "mackerel_tabby": {
+        "png": "../standing-standard-v1/torso/mackerel_tabby.png"
+      },
+      "spotted": {
+        "png": "../standing-standard-v1/torso/spotted.png"
+      },
+      "large_patches": {
+        "png": "../standing-standard-v1/torso/large_patches.png"
+      },
+      "saddle_cape": {
+        "png": "../standing-standard-v1/torso/saddle_cape.png"
+      }
+    },
+    "faceMasks": {
+      "none": {
+        "png": "../standing-standard-v1/face-markings/none.png"
+      },
+      "muzzle": {
+        "png": "../standing-standard-v1/face-markings/muzzle.png"
+      },
+      "blaze": {
+        "png": "../standing-standard-v1/face-markings/blaze.png"
+      },
+      "point_face": {
+        "png": "../standing-standard-v1/face-markings/point_face.png"
+      },
+      "eye_patch": {
+        "png": "../standing-standard-v1/face-markings/eye_patch.png"
+      }
+    },
+    "foreheadTabbyByEarFit": {
+      "standard": {
+        "png": "../standing-standard-v1/face-markings/forehead-tabby/forehead_tabby_standard-ears.png"
+      },
+      "other": {
+        "png": "../standing-standard-v1/face-markings/forehead-tabby/forehead_tabby_other-ears.png"
+      }
+    },
+    "pawMasks": {
+      "front_left": {
+        "none": {
+          "png": "../standing-standard-v1/paws/front_left/none.png"
+        },
+        "toe_tips": {
+          "png": "../standing-standard-v1/paws/front_left/toe_tips.png"
+        },
+        "short_socks": {
+          "png": "../standing-standard-v1/paws/front_left/short_socks.png"
+        },
+        "medium_socks": {
+          "png": "../standing-standard-v1/paws/front_left/medium_socks.png"
+        },
+        "long_socks": {
+          "png": "../standing-standard-v1/paws/front_left/long_socks.png"
+        }
+      },
+      "front_right": {
+        "none": {
+          "png": "../standing-standard-v1/paws/front_right/none.png"
+        },
+        "toe_tips": {
+          "png": "../standing-standard-v1/paws/front_right/toe_tips.png"
+        },
+        "short_socks": {
+          "png": "../standing-standard-v1/paws/front_right/short_socks.png"
+        },
+        "medium_socks": {
+          "png": "../standing-standard-v1/paws/front_right/medium_socks.png"
+        },
+        "long_socks": {
+          "png": "../standing-standard-v1/paws/front_right/long_socks.png"
+        }
+      },
+      "back_left": {
+        "none": {
+          "png": "../standing-standard-v1/paws/back_left/none.png"
+        },
+        "toe_tips": {
+          "png": "../standing-standard-v1/paws/back_left/toe_tips.png"
+        },
+        "short_socks": {
+          "png": "../standing-standard-v1/paws/back_left/short_socks.png"
+        },
+        "medium_socks": {
+          "png": "../standing-standard-v1/paws/back_left/medium_socks.png"
+        },
+        "long_socks": {
+          "png": "../standing-standard-v1/paws/back_left/long_socks.png"
+        }
+      },
+      "back_right": {
+        "none": {
+          "png": "../standing-standard-v1/paws/back_right/none.png"
+        },
+        "toe_tips": {
+          "png": "../standing-standard-v1/paws/back_right/toe_tips.png"
+        },
+        "short_socks": {
+          "png": "../standing-standard-v1/paws/back_right/short_socks.png"
+        },
+        "medium_socks": {
+          "png": "../standing-standard-v1/paws/back_right/medium_socks.png"
+        },
+        "long_socks": {
+          "png": "../standing-standard-v1/paws/back_right/long_socks.png"
+        }
+      }
+    },
+    "torsoMasksByBib": {
+      "none": {
+        "classic_tabby": {
+          "png": "torso/none/classic_tabby.png"
+        },
+        "mackerel_tabby": {
+          "png": "torso/none/mackerel_tabby.png"
+        },
+        "spotted": {
+          "png": "torso/none/spotted.png"
+        },
+        "large_patches": {
+          "png": "torso/none/large_patches.png"
+        },
+        "saddle_cape": {
+          "png": "torso/none/saddle_cape.png"
+        }
+      },
+      "bib": {
+        "classic_tabby": {
+          "png": "torso/bib/classic_tabby.png"
+        },
+        "mackerel_tabby": {
+          "png": "torso/bib/mackerel_tabby.png"
+        },
+        "spotted": {
+          "png": "torso/bib/spotted.png"
+        },
+        "large_patches": {
+          "png": "torso/bib/large_patches.png"
+        },
+        "saddle_cape": {
+          "png": "torso/bib/saddle_cape.png"
+        }
+      }
+    }
+  },
+  "torsoMarkingLock": {
+    "status": "LOCKED / PRODUCTION",
+    "authority": "USER-approved Standing special torso review",
+    "runtimeRemapping": false
+  }
+}

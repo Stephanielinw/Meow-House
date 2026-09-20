@@ -1,0 +1,1438 @@
+{
+  "version": 1,
+  "canvas": [
+    112,
+    104
+  ],
+  "logicalFrameOffset": [
+    4,
+    0
+  ],
+  "tree": {
+    "assets": {
+      "Standard": {
+        "clear": {
+          "png": "assets/Standard/clear.png"
+        },
+        "none": {
+          "png": "assets/Standard/none.png"
+        },
+        "restore": {
+          "png": "assets/Standard/restore.png"
+        },
+        "full": {
+          "png": "assets/Standard/full.png"
+        },
+        "noneFull": {
+          "png": "assets/Standard/noneFull.png"
+        },
+        "chassisByBib": {
+          "none": {
+            "png": "assets/Standard/chassis/standard_sitting_bib-none.png"
+          },
+          "bib": {
+            "png": "assets/Standard/chassis/standard_sitting_bib.png"
+          }
+        },
+        "torso": {
+          "none": {
+            "png": "assets/Standard/torso/none.png"
+          },
+          "classic_tabby": {
+            "png": "assets/Standard/torso/classic_tabby.png"
+          },
+          "mackerel": {
+            "png": "assets/Standard/torso/mackerel.png"
+          },
+          "spotted": {
+            "png": "assets/Standard/torso/spotted.png"
+          },
+          "large_patches": {
+            "png": "assets/Standard/torso/large_patches.png"
+          },
+          "saddle_cape": {
+            "png": "assets/Standard/torso/saddle_cape.png"
+          }
+        },
+        "paws": {
+          "front_left": {
+            "none": {
+              "png": "assets/Standard/paws/front_left/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Standard/paws/front_left/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Standard/paws/front_left/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Standard/paws/front_left/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Standard/paws/front_left/long_socks.png"
+            }
+          },
+          "front_right": {
+            "none": {
+              "png": "assets/Standard/paws/front_right/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Standard/paws/front_right/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Standard/paws/front_right/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Standard/paws/front_right/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Standard/paws/front_right/long_socks.png"
+            }
+          },
+          "hind_visible": {
+            "none": {
+              "png": "assets/Standard/paws/hind_visible/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Standard/paws/hind_visible/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Standard/paws/hind_visible/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Standard/paws/hind_visible/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Standard/paws/hind_visible/long_socks.png"
+            }
+          }
+        },
+        "tails": {
+          "standard": {
+            "base": {
+              "png": "assets/Standard/tails/standard/base.png"
+            },
+            "own": {
+              "png": "assets/Standard/tails/standard/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/standard/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/standard/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/standard/broad_ring.png"
+              }
+            }
+          },
+          "long": {
+            "base": {
+              "png": "assets/Standard/tails/long/base.png"
+            },
+            "own": {
+              "png": "assets/Standard/tails/long/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/long/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/long/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/long/broad_ring.png"
+              }
+            }
+          },
+          "thick": {
+            "base": {
+              "png": "assets/Standard/tails/thick/base.png"
+            },
+            "own": {
+              "png": "assets/Standard/tails/thick/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/thick/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/thick/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/thick/broad_ring.png"
+              }
+            }
+          },
+          "fluffy": {
+            "base": {
+              "png": "assets/Standard/tails/fluffy/base.png"
+            },
+            "own": {
+              "png": "assets/Standard/tails/fluffy/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/broad_ring.png"
+              }
+            }
+          },
+          "short": {
+            "base": {
+              "png": "assets/Standard/tails/short/base.png"
+            },
+            "own": {
+              "png": "assets/Standard/tails/short/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/short/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/short/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/short/broad_ring.png"
+              }
+            }
+          },
+          "kinked": {
+            "base": {
+              "png": "assets/Standard/tails/kinked/base.png"
+            },
+            "own": {
+              "png": "assets/Standard/tails/kinked/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/kinked/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/kinked/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/kinked/broad_ring.png"
+              }
+            }
+          }
+        },
+        "foreheadTabbyByEarFit": {
+          "standard": {
+            "png": "assets/Standard/forehead-tabby/forehead_tabby_standard-ears.png"
+          },
+          "other": {
+            "png": "assets/Standard/forehead-tabby/forehead_tabby_other-ears.png"
+          }
+        },
+        "sittingFaces": {
+          "none": {
+            "png": "assets/Standard/face-markings/none.png"
+          },
+          "muzzle": {
+            "png": "assets/Standard/face-markings/muzzle.png"
+          },
+          "blaze": {
+            "png": "assets/Standard/face-markings/blaze.png"
+          },
+          "point_face": {
+            "png": "assets/Standard/face-markings/point_face.png"
+          },
+          "eye_patch": {
+            "png": "assets/Standard/face-markings/eye_patch.png"
+          }
+        }
+      },
+      "Chubby": {
+        "clear": {
+          "png": "assets/Chubby/clear.png"
+        },
+        "none": {
+          "png": "assets/Chubby/none.png"
+        },
+        "restore": {
+          "png": "assets/Chubby/restore.png"
+        },
+        "full": {
+          "png": "assets/Chubby/full.png"
+        },
+        "noneFull": {
+          "png": "assets/Chubby/noneFull.png"
+        },
+        "torso": {
+          "none": {
+            "png": "assets/Chubby/torso/none.png"
+          },
+          "classic_tabby": {
+            "png": "assets/Chubby/torso/classic_tabby.png"
+          },
+          "mackerel": {
+            "png": "assets/Chubby/torso/mackerel.png"
+          },
+          "spotted": {
+            "png": "assets/Chubby/torso/spotted.png"
+          },
+          "large_patches": {
+            "png": "assets/Chubby/torso/large_patches.png"
+          },
+          "saddle_cape": {
+            "png": "assets/Chubby/torso/saddle_cape.png"
+          }
+        },
+        "paws": {
+          "front_left": {
+            "none": {
+              "png": "assets/Chubby/paws/front_left/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Chubby/paws/front_left/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Chubby/paws/front_left/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Chubby/paws/front_left/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Chubby/paws/front_left/long_socks.png"
+            }
+          },
+          "front_right": {
+            "none": {
+              "png": "assets/Chubby/paws/front_right/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Chubby/paws/front_right/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Chubby/paws/front_right/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Chubby/paws/front_right/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Chubby/paws/front_right/long_socks.png"
+            }
+          },
+          "hind_visible": {
+            "none": {
+              "png": "assets/Chubby/paws/hind_visible/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Chubby/paws/hind_visible/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Chubby/paws/hind_visible/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Chubby/paws/hind_visible/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Chubby/paws/hind_visible/long_socks.png"
+            }
+          }
+        },
+        "tails": {
+          "standard": {
+            "base": {
+              "png": "assets/Chubby/tails/standard/base.png"
+            },
+            "own": {
+              "png": "assets/Chubby/tails/standard/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/standard/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/standard/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/standard/broad_ring.png"
+              }
+            }
+          },
+          "long": {
+            "base": {
+              "png": "assets/Chubby/tails/long/base.png"
+            },
+            "own": {
+              "png": "assets/Chubby/tails/long/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/long/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/long/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/long/broad_ring.png"
+              }
+            }
+          },
+          "thick": {
+            "base": {
+              "png": "assets/Chubby/tails/thick/base.png"
+            },
+            "own": {
+              "png": "assets/Chubby/tails/thick/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/thick/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/thick/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/thick/broad_ring.png"
+              }
+            }
+          },
+          "fluffy": {
+            "base": {
+              "png": "assets/Chubby/tails/fluffy/base.png"
+            },
+            "own": {
+              "png": "assets/Chubby/tails/fluffy/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/broad_ring.png"
+              }
+            }
+          },
+          "short": {
+            "base": {
+              "png": "assets/Chubby/tails/short/base.png"
+            },
+            "own": {
+              "png": "assets/Chubby/tails/short/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/short/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/short/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/short/broad_ring.png"
+              }
+            }
+          },
+          "kinked": {
+            "base": {
+              "png": "assets/Chubby/tails/kinked/base.png"
+            },
+            "own": {
+              "png": "assets/Chubby/tails/kinked/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/kinked/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/kinked/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/kinked/broad_ring.png"
+              }
+            }
+          }
+        },
+        "chassisByBib": {
+          "none": {
+            "png": "assets/Chubby/chassis/chubby_sitting_bib-none.png"
+          },
+          "bib": {
+            "png": "assets/Chubby/chassis/chubby_sitting_bib.png"
+          }
+        }
+      },
+      "Slim": {
+        "clear": {
+          "png": "assets/Slim/clear.png"
+        },
+        "none": {
+          "png": "assets/Slim/none.png"
+        },
+        "restore": {
+          "png": "assets/Slim/restore.png"
+        },
+        "full": {
+          "png": "assets/Slim/full.png"
+        },
+        "noneFull": {
+          "png": "assets/Slim/noneFull.png"
+        },
+        "torso": {
+          "none": {
+            "png": "assets/Slim/torso/none.png"
+          },
+          "classic_tabby": {
+            "png": "assets/Slim/torso/classic_tabby.png"
+          },
+          "mackerel": {
+            "png": "assets/Slim/torso/mackerel.png"
+          },
+          "spotted": {
+            "png": "assets/Slim/torso/spotted.png"
+          },
+          "large_patches": {
+            "png": "assets/Slim/torso/large_patches.png"
+          },
+          "saddle_cape": {
+            "png": "assets/Slim/torso/saddle_cape.png"
+          }
+        },
+        "paws": {
+          "front_left": {
+            "none": {
+              "png": "assets/Slim/paws/front_left/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Slim/paws/front_left/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Slim/paws/front_left/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Slim/paws/front_left/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Slim/paws/front_left/long_socks.png"
+            }
+          },
+          "front_right": {
+            "none": {
+              "png": "assets/Slim/paws/front_right/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Slim/paws/front_right/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Slim/paws/front_right/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Slim/paws/front_right/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Slim/paws/front_right/long_socks.png"
+            }
+          },
+          "hind_visible": {
+            "none": {
+              "png": "assets/Slim/paws/hind_visible/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Slim/paws/hind_visible/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Slim/paws/hind_visible/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Slim/paws/hind_visible/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Slim/paws/hind_visible/long_socks.png"
+            }
+          }
+        },
+        "tails": {
+          "standard": {
+            "base": {
+              "png": "assets/Slim/tails/standard/base.png"
+            },
+            "own": {
+              "png": "assets/Slim/tails/standard/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/standard/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/standard/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/standard/broad_ring.png"
+              }
+            }
+          },
+          "long": {
+            "base": {
+              "png": "assets/Slim/tails/long/base.png"
+            },
+            "own": {
+              "png": "assets/Slim/tails/long/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/long/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/long/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/long/broad_ring.png"
+              }
+            }
+          },
+          "thick": {
+            "base": {
+              "png": "assets/Slim/tails/thick/base.png"
+            },
+            "own": {
+              "png": "assets/Slim/tails/thick/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/thick/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/thick/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/thick/broad_ring.png"
+              }
+            }
+          },
+          "fluffy": {
+            "base": {
+              "png": "assets/Slim/tails/fluffy/base.png"
+            },
+            "own": {
+              "png": "assets/Slim/tails/fluffy/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/broad_ring.png"
+              }
+            }
+          },
+          "short": {
+            "base": {
+              "png": "assets/Slim/tails/short/base.png"
+            },
+            "own": {
+              "png": "assets/Slim/tails/short/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/short/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/short/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/short/broad_ring.png"
+              }
+            }
+          },
+          "kinked": {
+            "base": {
+              "png": "assets/Slim/tails/kinked/base.png"
+            },
+            "own": {
+              "png": "assets/Slim/tails/kinked/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/kinked/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/kinked/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/kinked/broad_ring.png"
+              }
+            }
+          }
+        },
+        "chassisByBib": {
+          "none": {
+            "png": "assets/Slim/chassis/slim_sitting_bib-none.png"
+          },
+          "bib": {
+            "png": "assets/Slim/chassis/slim_sitting_bib.png"
+          }
+        }
+      },
+      "Fluffy": {
+        "clear": {
+          "png": "assets/Fluffy/clear.png"
+        },
+        "none": {
+          "png": "assets/Fluffy/none.png"
+        },
+        "restore": {
+          "png": "assets/Fluffy/restore.png"
+        },
+        "full": {
+          "png": "assets/Fluffy/full.png"
+        },
+        "noneFull": {
+          "png": "assets/Fluffy/noneFull.png"
+        },
+        "torso": {
+          "none": {
+            "png": "assets/Fluffy/torso/none.png"
+          },
+          "classic_tabby": {
+            "png": "assets/Fluffy/torso/classic_tabby.png"
+          },
+          "mackerel": {
+            "png": "assets/Fluffy/torso/mackerel.png"
+          },
+          "spotted": {
+            "png": "assets/Fluffy/torso/spotted.png"
+          },
+          "large_patches": {
+            "png": "assets/Fluffy/torso/large_patches.png"
+          },
+          "saddle_cape": {
+            "png": "assets/Fluffy/torso/saddle_cape.png"
+          }
+        },
+        "paws": {
+          "front_left": {
+            "none": {
+              "png": "assets/Fluffy/paws/front_left/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Fluffy/paws/front_left/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Fluffy/paws/front_left/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Fluffy/paws/front_left/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Fluffy/paws/front_left/long_socks.png"
+            }
+          },
+          "front_right": {
+            "none": {
+              "png": "assets/Fluffy/paws/front_right/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Fluffy/paws/front_right/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Fluffy/paws/front_right/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Fluffy/paws/front_right/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Fluffy/paws/front_right/long_socks.png"
+            }
+          },
+          "hind_visible": {
+            "none": {
+              "png": "assets/Fluffy/paws/hind_visible/none.png"
+            },
+            "toe_tips": {
+              "png": "assets/Fluffy/paws/hind_visible/toe_tips.png"
+            },
+            "short_socks": {
+              "png": "assets/Fluffy/paws/hind_visible/short_socks.png"
+            },
+            "medium_socks": {
+              "png": "assets/Fluffy/paws/hind_visible/medium_socks.png"
+            },
+            "long_socks": {
+              "png": "assets/Fluffy/paws/hind_visible/long_socks.png"
+            }
+          }
+        },
+        "tails": {
+          "standard": {
+            "base": {
+              "png": "assets/Fluffy/tails/standard/base.png"
+            },
+            "own": {
+              "png": "assets/Fluffy/tails/standard/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/standard/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/standard/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/standard/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/standard/broad_ring.png"
+              }
+            }
+          },
+          "long": {
+            "base": {
+              "png": "assets/Fluffy/tails/long/base.png"
+            },
+            "own": {
+              "png": "assets/Fluffy/tails/long/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/long/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/long/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/long/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/long/broad_ring.png"
+              }
+            }
+          },
+          "thick": {
+            "base": {
+              "png": "assets/Fluffy/tails/thick/base.png"
+            },
+            "own": {
+              "png": "assets/Fluffy/tails/thick/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/thick/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/thick/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/thick/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/thick/broad_ring.png"
+              }
+            }
+          },
+          "fluffy": {
+            "base": {
+              "png": "assets/Fluffy/tails/fluffy/base.png"
+            },
+            "own": {
+              "png": "assets/Fluffy/tails/fluffy/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/fluffy/broad_ring.png"
+              }
+            }
+          },
+          "short": {
+            "base": {
+              "png": "assets/Fluffy/tails/short/base.png"
+            },
+            "own": {
+              "png": "assets/Fluffy/tails/short/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/short/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/short/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/short/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/short/broad_ring.png"
+              }
+            }
+          },
+          "kinked": {
+            "base": {
+              "png": "assets/Fluffy/tails/kinked/base.png"
+            },
+            "own": {
+              "png": "assets/Fluffy/tails/kinked/own.png"
+            },
+            "masks": {
+              "none": {
+                "png": "faces/none.png"
+              },
+              "tip_short": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_short.png"
+              },
+              "tip_long": {
+                "png": "shared/sitting/tail-markings-v2/kinked/tip_long.png"
+              },
+              "half_tail": {
+                "png": "shared/sitting/tail-markings-v2/kinked/half_tail.png"
+              },
+              "rings": {
+                "png": "shared/sitting/tail-markings-v2/kinked/rings.png"
+              },
+              "broad_ring": {
+                "png": "shared/sitting/tail-markings-v2/kinked/broad_ring.png"
+              }
+            }
+          }
+        },
+        "chassisByBib": {
+          "none": {
+            "png": "assets/Fluffy/chassis/fluffy_sitting_bib-none.png"
+          },
+          "bib": {
+            "png": "assets/Fluffy/chassis/fluffy_sitting_bib.png"
+          }
+        }
+      }
+    },
+    "legacyEars": {
+      "standard": {
+        "d": {
+          "png": "ears/standard/d.png"
+        },
+        "mask": {
+          "png": "ears/standard/mask.png"
+        },
+        "inner": {
+          "png": "ears/standard/inner.png"
+        },
+        "own": {
+          "png": "ears/standard/own.png"
+        }
+      },
+      "large": {
+        "d": {
+          "png": "ears/large/d.png"
+        },
+        "mask": {
+          "png": "ears/large/mask.png"
+        },
+        "inner": {
+          "png": "ears/large/inner.png"
+        },
+        "own": {
+          "png": "ears/large/own.png"
+        }
+      },
+      "small": {
+        "d": {
+          "png": "ears/small/d.png"
+        },
+        "mask": {
+          "png": "ears/small/mask.png"
+        },
+        "inner": {
+          "png": "ears/small/inner.png"
+        },
+        "own": {
+          "png": "ears/small/own.png"
+        }
+      },
+      "round": {
+        "d": {
+          "png": "ears/round/d.png"
+        },
+        "mask": {
+          "png": "ears/round/mask.png"
+        },
+        "inner": {
+          "png": "ears/round/inner.png"
+        },
+        "own": {
+          "png": "ears/round/own.png"
+        }
+      },
+      "folded": {
+        "d": {
+          "png": "ears/folded/d.png"
+        },
+        "mask": {
+          "png": "ears/folded/mask.png"
+        },
+        "inner": {
+          "png": "ears/folded/inner.png"
+        },
+        "own": {
+          "png": "ears/folded/own.png"
+        }
+      },
+      "tufted": {
+        "d": {
+          "png": "ears/tufted/d.png"
+        },
+        "mask": {
+          "png": "ears/tufted/mask.png"
+        },
+        "inner": {
+          "png": "ears/tufted/inner.png"
+        },
+        "own": {
+          "png": "ears/tufted/own.png"
+        }
+      }
+    },
+    "ears": {
+      "standard": {
+        "d": {
+          "png": "../component-contract-v2/sitting/ears/standard/d.png"
+        },
+        "mask": {
+          "png": "../component-contract-v2/sitting/ears/standard/mask.png"
+        },
+        "inner": {
+          "png": "../component-contract-v2/sitting/ears/standard/inner.png"
+        },
+        "own": {
+          "png": "../component-contract-v2/sitting/ears/standard/own.png"
+        }
+      },
+      "large": {
+        "d": {
+          "png": "../component-contract-v2/sitting/ears/large/d.png"
+        },
+        "mask": {
+          "png": "../component-contract-v2/sitting/ears/large/mask.png"
+        },
+        "inner": {
+          "png": "../component-contract-v2/sitting/ears/large/inner.png"
+        },
+        "own": {
+          "png": "../component-contract-v2/sitting/ears/large/own.png"
+        }
+      },
+      "small": {
+        "d": {
+          "png": "../component-contract-v2/sitting/ears/small/d.png"
+        },
+        "mask": {
+          "png": "../component-contract-v2/sitting/ears/small/mask.png"
+        },
+        "inner": {
+          "png": "../component-contract-v2/sitting/ears/small/inner.png"
+        },
+        "own": {
+          "png": "../component-contract-v2/sitting/ears/small/own.png"
+        }
+      },
+      "round": {
+        "d": {
+          "png": "../component-contract-v2/sitting/ears/round/d.png"
+        },
+        "mask": {
+          "png": "../component-contract-v2/sitting/ears/round/mask.png"
+        },
+        "inner": {
+          "png": "../component-contract-v2/sitting/ears/round/inner.png"
+        },
+        "own": {
+          "png": "../component-contract-v2/sitting/ears/round/own.png"
+        }
+      },
+      "folded": {
+        "d": {
+          "png": "../component-contract-v2/sitting/ears/folded/d.png"
+        },
+        "mask": {
+          "png": "../component-contract-v2/sitting/ears/folded/mask.png"
+        },
+        "inner": {
+          "png": "../component-contract-v2/sitting/ears/folded/inner.png"
+        },
+        "own": {
+          "png": "../component-contract-v2/sitting/ears/folded/own.png"
+        }
+      },
+      "tufted": {
+        "d": {
+          "png": "../component-contract-v2/sitting/ears/tufted/d.png"
+        },
+        "mask": {
+          "png": "../component-contract-v2/sitting/ears/tufted/mask.png"
+        },
+        "inner": {
+          "png": "../component-contract-v2/sitting/ears/tufted/inner.png"
+        },
+        "own": {
+          "png": "../component-contract-v2/sitting/ears/tufted/own.png"
+        }
+      }
+    },
+    "chassis": {
+      "earless": {
+        "png": "../component-contract-v2/sitting/chassis/earless_head_112x104.png"
+      },
+      "earClear": {
+        "png": "../component-contract-v2/sitting/chassis/ear_clear_region_112x104.png"
+      }
+    },
+    "faces": {
+      "none": {
+        "png": "faces/none.png"
+      },
+      "muzzle": {
+        "png": "faces/muzzle.png"
+      },
+      "blaze": {
+        "png": "faces/blaze.png"
+      },
+      "point_face": {
+        "png": "faces/point_face.png"
+      },
+      "eye_patch": {
+        "png": "faces/eye_patch.png"
+      },
+      "forehead_tabby": {
+        "png": "faces/forehead_tabby.png"
+      }
+    },
+    "sem": {
+      "eyes": {
+        "png": "sem/eyes.png"
+      },
+      "nose": {
+        "png": "sem/nose.png"
+      },
+      "mouth": {
+        "png": "sem/mouth.png"
+      },
+      "ear_inner_left": {
+        "png": "sem/ear_inner_left.png"
+      },
+      "ear_inner_right": {
+        "png": "sem/ear_inner_right.png"
+      },
+      "chest": {
+        "png": "sem/chest.png"
+      }
+    },
+    "sittingUniversalTails": {
+      "standard": {
+        "png": "shared/sitting/tails/tail_standard.png"
+      },
+      "long": {
+        "png": "shared/sitting/tails/tail_long.png"
+      },
+      "thick": {
+        "png": "shared/sitting/tails/tail_thick.png"
+      },
+      "fluffy": {
+        "png": "shared/sitting/tails/tail_fluffy.png"
+      },
+      "short": {
+        "png": "shared/sitting/tails/tail_short.png"
+      },
+      "kinked": {
+        "png": "shared/sitting/tails/tail_kinked.png"
+      }
+    }
+  },
+  "facePolicy": {
+    "status": "LOCKED",
+    "approvalStatus": "user-approved",
+    "scope": "Standard \u00d7 Sitting/Standing/Crouching/Lying",
+    "normalFaceLookup": "fixed-pose-png",
+    "foreheadLookup": "fixed-pose-ear-fit-png",
+    "automaticForeheadTorsoTraits": [
+      "classic_tabby",
+      "mackerel_tabby"
+    ],
+    "runtimeProceduralForeheadRequired": false,
+    "oldGlobalMuzzleEyePatchRequired": false
+  },
+  "sittingTailMarkings": {
+    "version": 2,
+    "sharedBodyTypes": [
+      "Standard",
+      "Chubby",
+      "Fluffy",
+      "Slim"
+    ],
+    "none": "empty mask; no marking",
+    "sha256": {
+      "shared/sitting/tail-markings-v2/standard/tip_short.png": "f049c66a338fd4588adb74a858ca5c20c187ffd4bb6d618716e876ca48fac498",
+      "shared/sitting/tail-markings-v2/standard/tip_long.png": "65d04c82741604213aee93b3de3a7ccb2ac7cfa9f429e9ccb78bb67f68521689",
+      "shared/sitting/tail-markings-v2/standard/half_tail.png": "9d73d75bf7a250ee8edd1a631d7fd6340f1e5a8c4febd85ad13e527d54e5e224",
+      "shared/sitting/tail-markings-v2/standard/rings.png": "bfba0d4a6c3560a744f449940c9bbe225b21d66128e15843da277c07bb9839e8",
+      "shared/sitting/tail-markings-v2/standard/broad_ring.png": "b492318f8e31e1784a46de2321ef27331394aae0525e7589c25e083341aa180f",
+      "shared/sitting/tail-markings-v2/long/tip_short.png": "31ecb8ca67f301d9c9aa13c8ab6edf7288d0538389dde9b71b3abc6df7911eef",
+      "shared/sitting/tail-markings-v2/long/tip_long.png": "2c08a876e3a963667bfc70535ac90341ac9ed5fb6dbc1f912058e53b00a619ba",
+      "shared/sitting/tail-markings-v2/long/half_tail.png": "786c763cfcb444b75596449cb7f44506522290256eb3a33f129787893942724a",
+      "shared/sitting/tail-markings-v2/long/rings.png": "7acbc805fd015611d58564e4dbff2a2208c0048b599791895d6011a30c761637",
+      "shared/sitting/tail-markings-v2/long/broad_ring.png": "b14d25ae7ead375e2990dcf8cf2a6c3d8c63927b951ef5d349875fb1f59fe000",
+      "shared/sitting/tail-markings-v2/thick/tip_short.png": "c5b66ba2c6c396cf9e7bf3a7f832811a4ea79c980e6f5b01b88e6fe946377e80",
+      "shared/sitting/tail-markings-v2/thick/tip_long.png": "0c28853b632fc31ac9d5b9c2ee8942103b205687c8eb5fe49c9737677b0dbdcd",
+      "shared/sitting/tail-markings-v2/thick/half_tail.png": "d0b54be34b88f708075b3d99c4154d88bd54ac94869198bd449bf53cb34c3611",
+      "shared/sitting/tail-markings-v2/thick/rings.png": "9f8813cf1322d4420d2500c250a8f98df35c1bb2d0a1a9a52f2003ad59f6442f",
+      "shared/sitting/tail-markings-v2/thick/broad_ring.png": "55e1a3cd8353192cd707e81916162a77f452b5ca640d62a6f894f9c50b4fcab4",
+      "shared/sitting/tail-markings-v2/fluffy/tip_short.png": "862134d7ddad1d9a18017ee523f7f30ecece95a20ed2c40b549a57915e8cc319",
+      "shared/sitting/tail-markings-v2/fluffy/tip_long.png": "fb1ef57455397f0b0adf933db5ac8b640df4299138a4903fe09b06a8259800e0",
+      "shared/sitting/tail-markings-v2/fluffy/half_tail.png": "a6db79fcfe815fa6b408aec7f7ea3d2b67c0bfa068a11aa033ae4c07ec77a907",
+      "shared/sitting/tail-markings-v2/fluffy/rings.png": "562c6933a6e6efd4f6a7aba1705f032361e4538307982e6ad4d3efb710b77852",
+      "shared/sitting/tail-markings-v2/fluffy/broad_ring.png": "04ff35c9726dd1209ed2f68954c79ee07236c34eb26352e12d2660710b9065c3",
+      "shared/sitting/tail-markings-v2/short/tip_short.png": "ad892ab19a50ce7b34733ca1dbbbc49e87c787871edf8f2ef5f676430af14b78",
+      "shared/sitting/tail-markings-v2/short/tip_long.png": "852e31aa597411917b653a8f8c02d18883e4e49aa6dd58e661258f8d3b0b8620",
+      "shared/sitting/tail-markings-v2/short/half_tail.png": "ff202dbe42c636e52386b3a96b508eb913bb52daa544e27db86267bb40938dd2",
+      "shared/sitting/tail-markings-v2/short/rings.png": "bc2c0b4ea415c3fe46de7215ed205d4708598538d8dba9da745ce996e8fd727e",
+      "shared/sitting/tail-markings-v2/short/broad_ring.png": "85baaa48d32356f9b2f4eaf2e1ebeb5558dbd318a72aa82af64b159b2ac45681",
+      "shared/sitting/tail-markings-v2/kinked/tip_short.png": "2c614c3d41cdf8aba91fe3853ff76a802015deb18088c30fb4ff02f8d28eda7b",
+      "shared/sitting/tail-markings-v2/kinked/tip_long.png": "c99e5794f81f46cf007e081c2ef8a646bc4c53c79a6fac69400183db89170f99",
+      "shared/sitting/tail-markings-v2/kinked/half_tail.png": "73cf0d1b670d995b8ebce4d5ab72739f4688d8ca94ab696a9e9f34de08244f58",
+      "shared/sitting/tail-markings-v2/kinked/rings.png": "fdb777ebe3d941e157fe3ced57a518933240cb9f4824f6b57fe5eadf4e3795c9",
+      "shared/sitting/tail-markings-v2/kinked/broad_ring.png": "1790e85af944e9a5847eadc6684d9a8ce98066853f020ba15ff55922e77fc12f"
+    }
+  },
+  "standardSittingTorsoSha256": {
+    "classic_tabby": "36ffb9cf33d155ad65b88435e561cb1d8e6c9d6606220cbd1a0add6ffb345e38",
+    "mackerel_tabby": "07fcef92754f383f2afc0951d9a8259df991b8c9fef3c589c8c3033fd47bb2aa",
+    "spotted": "8b6da254f9737ce9b70613bb19b897dfb7a0a6cbbbb9814a1211b1211b473818",
+    "large_patches": "bc5c387833183d61ce7999bb4389dfc01e1f78daf4441451108745d87490ee52",
+    "saddle_cape": "7aab60d9c772fba315facf57b6ea5a8d208174590de89b696384db558619bd72"
+  },
+  "standardFaceSystem": {
+    "status": "GRADUATED / LOCKED",
+    "approvalStatus": "user-approved",
+    "traits": [
+      "none",
+      "muzzle",
+      "blaze",
+      "point",
+      "eye_patch",
+      "forehead_m"
+    ],
+    "foreheadVariants": [
+      "standard",
+      "other"
+    ],
+    "poses": [
+      "sitting",
+      "standing",
+      "crouching",
+      "lying"
+    ],
+    "runtimeFaceMappingRequired": false,
+    "runtimeProceduralForeheadRequired": false
+  }
+}
