@@ -23,6 +23,7 @@
     const isPermanentOut = (cat) => dependencies.isPermanentOut(cat);
     const isResidentInHall = (cat) => dependencies.isResidentInHall(cat);
     const addLog = (message, type) => dependencies.addLog(message, type);
+    const normalizePosture = value => Meeow.statusPosture?.normalizePosture(value) || '';
 
     const getAwayActivityBeatCount = (durationMinutes) => {
         const duration = Number(durationMinutes) || 0;
@@ -130,6 +131,7 @@
                 plannedReturnAt,
                 destination: typeof episode.destination === 'string' ? cleanText(episode.destination) : '',
                 plannedReturnStatus: typeof episode.plannedReturnStatus === 'string' ? cleanText(episode.plannedReturnStatus) : '',
+                plannedReturnPosture: normalizePosture(episode.plannedReturnPosture),
                 plannedArchiveNarrative: typeof episode.plannedArchiveNarrative === 'string' ? cleanText(episode.plannedArchiveNarrative) : '',
                 activityPlans,
                 mailPlan,
@@ -319,7 +321,7 @@
         const duration = Number(plan.plannedDurationMinutes);
         if (!Number.isInteger(duration) || duration < AWAY_EPISODE_MIN_DURATION_MINUTES || duration > AWAY_EPISODE_MAX_DURATION_MINUTES) return null;
         if (mode === 'legacy-continuation') {
-            if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || plan.plannedActivities || plan.plannedArchiveNarrative || plan.plannedReturnStatus || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
+            if (plan.destination || plan.plannedResidentActivity || plan.publicTrace || plan.plannedActivities || plan.plannedArchiveNarrative || plan.plannedReturnStatus || plan.plannedReturnPosture || (Array.isArray(plan.mailPlan) && plan.mailPlan.length)) return null;
             return {
                 plan: { residentId: String(expectedId), mode, plannedDurationMinutes: duration },
                 mailResult: 'not-applicable',
@@ -328,10 +330,14 @@
         }
         const destination = cleanText(plan.destination || '');
         const plannedReturnStatus = typeof plan.plannedReturnStatus === 'string' ? cleanText(plan.plannedReturnStatus) : '';
+        const plannedReturnPosture = normalizePosture(plan.plannedReturnPosture);
+        const returnValidation = plannedReturnStatus
+            ? Meeow.statusPosture?.validateStatusPosture(plannedReturnStatus, plannedReturnPosture)
+            : { valid: !plan.plannedReturnPosture };
         const plannedArchiveNarrative = getValidAwayArchiveNarrative(plan.plannedArchiveNarrative);
         const expectedBeatCount = getAwayActivityBeatCount(duration);
         const timing = getAwayActivityTimingRules(duration, expectedBeatCount);
-        if (!destination || !plannedArchiveNarrative || !Array.isArray(plan.plannedActivities) || plan.plannedActivities.length !== expectedBeatCount) return null;
+        if (!destination || !plannedArchiveNarrative || !returnValidation?.valid || !Array.isArray(plan.plannedActivities) || plan.plannedActivities.length !== expectedBeatCount) return null;
         const plannedActivities = plan.plannedActivities.map(activity => {
             if (!activity || typeof activity !== 'object' || Array.isArray(activity)) return null;
             const afterMinutes = Number(activity.afterMinutes);
@@ -352,6 +358,7 @@
                 residentId: String(expectedId), mode, plannedDurationMinutes: duration,
                 destination, plannedActivities,
                 plannedReturnStatus: plannedReturnStatus.length <= 80 ? plannedReturnStatus : '',
+                plannedReturnPosture: plannedReturnStatus.length <= 80 ? plannedReturnPosture : '',
                 plannedArchiveNarrative,
                 mailPlan: optionalMail.mailPlan
             },
@@ -395,6 +402,7 @@
             plannedReturnAt: new Date(departure.getTime() + durationMs).toISOString(),
             destination: cleanText(plan.destination || ''),
             plannedReturnStatus: cleanText(plan.plannedReturnStatus || ''),
+            plannedReturnPosture: normalizePosture(plan.plannedReturnPosture),
             plannedArchiveNarrative: cleanText(plan.plannedArchiveNarrative || ''),
             activityPlans: plan.mode === 'departure' ? (plan.plannedActivities || []).map(activity => ({
                 activityAt: new Date(departure.getTime() + Number(activity.afterMinutes) * 60 * 1000).toISOString(),
@@ -444,11 +452,15 @@
         if (!cat || episode.status !== 'active') return false;
         const logicalReturnAt = parseLogicalDate(eventAt) || new Date();
         const settledPromptly = now.getTime() - logicalReturnAt.getTime() <= RECENT_RETURN_CONTINUITY_MS;
-        const returnStatus = settledPromptly
-            ? (getUsablePlannedReturnStatus(episode) || '刚回到馆内，正在门边安静整理前爪。')
-            : '正在馆内安静休息，偶尔整理前爪。';
+        const plannedReturnStatus = settledPromptly ? getUsablePlannedReturnStatus(episode) : '';
+        const returnStatus = plannedReturnStatus || (settledPromptly
+            ? '刚回到馆内，正站在门边安静整理前爪。'
+            : '正趴在馆内安静休息，偶尔整理前爪。');
+        const returnPosture = plannedReturnStatus
+            ? (normalizePosture(episode.plannedReturnPosture) || Meeow.statusPosture.getLegacyStatusPose(plannedReturnStatus))
+            : (settledPromptly ? 'standing' : 'lying');
         cat.isOut = false;
-        if (hooks.onSettleReturn?.({ cat, episode, logicalReturnAt, reconciledAt: now, returnStatus }) === false) return false;
+        if (hooks.onSettleReturn?.({ cat, episode, logicalReturnAt, reconciledAt: now, returnStatus, returnPosture }) === false) return false;
         // A frozen positive mail decision describes actual production, not a
         // best-effort slot reservation. Keep that one planned letter alive if
         // it has been deferred beyond the resident's return.

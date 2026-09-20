@@ -470,7 +470,7 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
             : DEFAULT_RESIDENT_AFFINITY);
     merged.hasRevealedHumanForm = Boolean(canonicalCat.hasRevealedHumanForm || legacyCat.hasRevealedHumanForm);
 
-    ['status', 'innerVoice', 'isOut', 'isHuman', 'currentForm', 'lastFormChangeAt', 'nextFormReconsiderAt', 'mapRoom', 'mapSpot', 'mapFurniture', 'mapPoint', 'mapPositionLabel', 'lastStatusUpdateTime', 'lastInteractionTimestamp', 'lastInteractionDate', 'lastFocusTime', 'lastStatusSyncAt', 'lastLogDate', 'isVisiting', 'visitOriginHallId', 'visitStartedAt'].forEach(field => {
+    ['status', 'statusActivity', 'innerVoice', 'isOut', 'isHuman', 'currentForm', 'lastFormChangeAt', 'nextFormReconsiderAt', 'mapRoom', 'mapSpot', 'mapFurniture', 'mapPoint', 'mapPositionLabel', 'lastStatusUpdateTime', 'lastInteractionTimestamp', 'lastInteractionDate', 'lastFocusTime', 'lastStatusSyncAt', 'lastLogDate', 'isVisiting', 'visitOriginHallId', 'visitStartedAt'].forEach(field => {
         if (latest[field] !== undefined) merged[field] = latest[field];
     });
 

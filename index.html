@@ -4111,6 +4111,14 @@
             transform: translate(-50%, -100%);
         }
         #app .curator-room-map-resident img { width: 100%; height: 100%; object-fit: contain; }
+        #app .curator-room-map-resident.has-cat-visual {
+            width: var(--meeow-map-cat-width, 72px);
+            height: var(--meeow-map-cat-height, 67px);
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            transform: translate(var(--meeow-map-anchor-x, -50%), var(--meeow-map-anchor-y, -100%));
+        }
         #app .curator-room-map-resident:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
         #app .curator-room-map-empty {
             position: absolute;
@@ -4228,6 +4236,39 @@
             height: 100%;
             object-fit: contain;
             image-rendering: pixelated;
+        }
+
+        #app .meeow-map-cat.has-cat-visual {
+            width: var(--meeow-map-cat-width, 72px);
+            height: var(--meeow-map-cat-height, 67px);
+            min-width: 0;
+            min-height: 0;
+            transform: translate(var(--meeow-map-anchor-x, -50%), var(--meeow-map-anchor-y, -100%));
+        }
+
+        #app .meeow-map-cat-sprite {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            object-fit: contain;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            filter: drop-shadow(0 5px 5px rgba(12, 10, 8, .28));
+            pointer-events: none;
+        }
+
+        #app .meeow-map-cat-sprite-loading {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--ui-surface-soft) 80%, transparent);
+            color: var(--accent);
         }
 
         #app .meeow-map-cat-badge {
@@ -4596,6 +4637,46 @@
         #app .reader-note-section { background:var(--ui-surface-hover); border:1px solid var(--ui-border); }
         #app .reader-note-section-label { color:var(--accent); letter-spacing:.08em; }
         #app .reader-note-legacy { border-left:3px solid var(--accent); }
+
+        /* ===== EXISTING-RESIDENT CAT VISUAL EDITOR ===== */
+        #app .cat-visual-edit-button { background:var(--accent-soft);color:var(--accent);border:1px solid var(--ui-active-border); }
+        #app .cat-visual-overlay { z-index:980; padding:14px; background:rgba(5,7,10,.78); }
+        #app .cat-visual-modal { width:min(560px,100%);height:min(760px,var(--app-height,94vh));max-height:var(--app-height,94vh);background:var(--ui-surface-strong);border:1px solid var(--ui-border);box-shadow:var(--ui-shadow-strong); }
+        #app .cat-visual-header { flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--ui-border); }
+        #app .cat-visual-header p { margin:0;color:var(--accent);font-size:9px;font-weight:900;letter-spacing:.15em; }
+        #app .cat-visual-header h3 { margin:3px 0 0;color:var(--ui-text);font-size:14px;font-weight:900; }
+        #app .cat-visual-close { width:36px;height:36px;border-radius:12px;background:var(--ui-surface-hover);color:var(--ui-text); }
+        #app .cat-visual-preview { flex:0 0 auto;min-height:222px;margin:12px 14px 0;padding:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid color-mix(in srgb,var(--accent) 18%,var(--ui-border));border-radius:20px;background:linear-gradient(145deg,#f3e8d1,#d9c6a7);box-shadow:inset 0 1px rgba(255,255,255,.55),0 8px 22px rgba(24,18,10,.12); }
+        #app .cat-visual-preview canvas { width:224px;height:208px;max-width:70vw;object-fit:contain; }
+        #app .cat-visual-preview p { margin:5px 0 0;max-width:400px;text-align:center;font-size:10px;color:var(--ui-text-muted); }
+        #app .cat-visual-pixel-canvas { image-rendering:pixelated;image-rendering:crisp-edges;background:transparent; }
+        #app .cat-visual-tabs { flex:0 0 auto;display:flex;gap:7px;overflow-x:auto;padding:10px 14px;border-block:1px solid var(--ui-border);scrollbar-width:thin; }
+        #app .cat-visual-tabs button { flex:0 0 auto;padding:7px 10px;border-radius:999px;border:1px solid var(--ui-border);background:var(--ui-surface-hover);color:var(--ui-text-muted);font-size:10px;font-weight:800; }
+        #app .cat-visual-tabs button.is-active { background:var(--accent);color:var(--ui-button-text);border-color:var(--accent); }
+        #app .cat-visual-controls { flex:1 1 auto;min-height:0;overflow-y:auto;padding:16px 16px 22px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:12px; }
+        #app .cat-visual-controls label { display:flex;flex-direction:column;gap:6px;color:var(--ui-text-muted);font-size:10px;font-weight:800; }
+        #app .cat-visual-controls select { width:100%;height:38px;padding:0 9px;border-radius:11px;border:1px solid var(--ui-border);background:var(--ui-input);color:var(--ui-text); }
+        #app .cat-visual-color-control { display:flex;flex-direction:column;gap:6px;color:var(--ui-text-muted);font-size:10px;font-weight:800;min-width:0; }
+        #app .cat-visual-color-row { display:grid;grid-template-columns:32px minmax(0,1fr) 38px;gap:7px;align-items:center; }
+        #app .cat-visual-color-swatch { width:32px;height:32px;border-radius:10px;border:1px solid color-mix(in srgb,var(--ui-border) 72%,#fff);box-shadow:inset 0 0 0 2px rgba(255,255,255,.18); }
+        #app .cat-visual-color-picker { position:relative;width:38px;height:38px;display:grid;place-items:center;border:1px solid var(--ui-border);border-radius:11px;background:var(--ui-surface-hover);color:var(--accent);cursor:pointer;overflow:hidden; }
+        #app .cat-visual-color-picker input[type=color] { position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer; }
+        #app .cat-visual-note { grid-column:1/-1;color:var(--ui-text-subtle);font-size:10px;line-height:1.6; }
+        #app .cat-visual-error { color:var(--ui-danger,#f87171)!important; }
+        #app .cat-visual-paw-grid { grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+        #app .cat-visual-paw-card { min-width:0;padding:10px;border:1px solid var(--ui-border);border-radius:14px;background:var(--ui-surface-soft);display:flex;flex-direction:column;gap:9px; }
+        #app .cat-visual-paw-card strong { color:var(--ui-text);font-size:11px; }
+        #app .cat-visual-paw-card > label { gap:4px; }
+        #app .cat-visual-footer { flex:0 0 auto;display:flex;gap:10px;padding:13px 16px;border-top:1px solid var(--ui-border);background:var(--ui-surface-strong); }
+        #app .cat-visual-footer button { flex:1;padding:11px;border-radius:13px;background:var(--ui-surface-hover);color:var(--ui-text);font-size:11px;font-weight:900; }
+        #app .cat-visual-footer .cat-visual-save { background:var(--accent);color:var(--ui-button-text); }
+        #app .cat-visual-confirm { position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.72);z-index:2; }
+        #app .cat-visual-confirm p { width:min(360px,100%);margin:0;padding:24px 20px 12px;border-radius:20px 20px 0 0;background:var(--ui-surface-strong);color:var(--ui-text);text-align:center;font-weight:900; }
+        #app .cat-visual-confirm div { width:min(360px,100%);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px 18px;border-radius:0 0 20px 20px;background:var(--ui-surface-strong); }
+        #app .cat-visual-confirm button { padding:10px 5px;border-radius:11px;background:var(--ui-surface-hover);color:var(--ui-text);font-size:10px;font-weight:900; }
+        #app .cat-visual-confirm button:last-child { background:var(--accent);color:var(--ui-button-text); }
+        @media(max-width:520px){#app .cat-visual-controls{grid-template-columns:1fr}#app .cat-visual-preview{min-height:184px}#app .cat-visual-preview canvas{width:184px;height:171px}}
+        @media(max-width:350px){#app .cat-visual-overlay{padding:6px}#app .cat-visual-modal{border-radius:20px}#app .cat-visual-header{padding:11px 12px}#app .cat-visual-preview{min-height:150px;margin:7px 9px 0;padding:7px}#app .cat-visual-preview canvas{width:150px;height:139px}#app .cat-visual-tabs{padding:8px 9px}#app .cat-visual-controls{padding:10px 10px 18px}#app .cat-visual-paw-grid{grid-template-columns:1fr;gap:8px}#app .cat-visual-paw-card{padding:9px}#app .cat-visual-footer{padding:9px 10px}}
     </style>
 </head>
 
@@ -4969,8 +5050,9 @@
                 <template v-else>
                     <section class="curator-room-map-stage" aria-label="馆长室地图">
                         <span v-for="(anchor, id) in CURATOR_ROOM_ANCHORS" :key="id" class="curator-room-map-anchor" :style="{ left: anchor.x + '%', top: anchor.y + '%' }">{{ anchor.label }}</span>
-                        <button v-if="curatorRoomResident" type="button" class="curator-room-map-resident" :style="getCuratorRoomMarkerStyle(curatorRoomResident)" :title="getResidentLiveStatus(curatorRoomResident)" @click.stop="handleCuratorRoomResidentTap(curatorRoomResident)" @dblclick.stop.prevent="openCuratorResidentDetail(curatorRoomResident)">
-                            <img :src="getMapCatAvatarSource(curatorRoomResident)" :alt="getResidentPublicName(curatorRoomResident) + ' 的馆长室标记'" @error="handleMapAvatarError($event, curatorRoomResident)">
+                        <button v-if="curatorRoomResident" type="button" :class="['curator-room-map-resident', {'has-cat-visual': !!curatorRoomCatVisual}]" :style="[getCuratorRoomMarkerStyle(curatorRoomResident), curatorRoomCatVisual?.style || {}]" :title="getResidentLiveStatus(curatorRoomResident)" @click.stop="handleCuratorRoomResidentTap(curatorRoomResident)" @dblclick.stop.prevent="openCuratorResidentDetail(curatorRoomResident)">
+                            <img v-if="curatorRoomCatVisual" class="meeow-map-cat-sprite" :src="curatorRoomCatVisual.src" :alt="getResidentPublicName(curatorRoomResident) + ' 的馆长室猫咪形象'">
+                            <img v-else :src="getMapCatAvatarSource(curatorRoomResident)" :alt="getResidentPublicName(curatorRoomResident) + ' 的馆长室标记'" @error="handleMapAvatarError($event, curatorRoomResident)">
                         </button>
                         <p v-if="!curatorRoomResident" class="curator-room-map-empty">房间里暂时没有居民。</p>
                     </section>
@@ -5253,8 +5335,9 @@
                     <div class="meeow-map-stage" :class="'meeow-map-room-' + activeMapRoom">
                         <img class="meeow-map-background" :src="getMapAssetPath(activeMapRoom, 'background')" :alt="activeMapRoomDefinition.name + '地图背景'">
                         <img v-for="layer in activeMapRoomDefinition.groundLayers" :key="'ground-' + layer" class="meeow-map-layer is-ground" :src="getMapAssetPath(activeMapRoom, layer)" alt="">
-                        <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" :class="['meeow-map-cat', marker.depthClass]" :style="marker.position" :title="getResidentLiveStatus(marker.cat)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
-                            <span class="meeow-map-cat-avatar">
+                        <button v-for="marker in activeMapCatMarkers" :key="'map-' + marker.cat.id" type="button" :class="['meeow-map-cat', marker.depthClass, {'has-cat-visual': !!marker.catVisual}]" :style="[marker.position, marker.catVisual?.style || {}]" :title="getResidentLiveStatus(marker.cat)" @click.stop="handleMapCatTap(marker.cat)" @dblclick.stop.prevent="openMapCatDetail(marker.cat)">
+                            <img v-if="marker.catVisual" class="meeow-map-cat-sprite" :src="marker.catVisual.src" :alt="getResidentPublicName(marker.cat) + ' 的馆内猫咪形象'">
+                            <span v-else class="meeow-map-cat-avatar">
                                 <img :src="getMapCatAvatarSource(marker.cat)" :alt="getResidentPublicName(marker.cat) + ' 的馆内标记'" @error="handleMapAvatarError($event, marker.cat)">
                             </span>
                         </button>
@@ -5595,7 +5678,10 @@
                     </div>
                     <div class="flex items-center gap-3.5">
                         <div class="relative shrink-0">
-                            <img :src="getCatAvatarSource(selectedCat)"
+                            <canvas v-if="usesPortfolioCatVisual(selectedCat) && !portfolioCatVisualError" ref="portfolioCatVisualCanvas"
+                                class="w-16 h-16 rounded-2xl object-contain border-2 border-yellow-500/50 shadow-xl cat-visual-pixel-canvas"
+                                :class="{'grayscale': isResidentAway(selectedCat)}" aria-label="已保存的猫咪形象"></canvas>
+                            <img v-else :src="getCatAvatarSource(selectedCat)"
                                 class="w-16 h-16 rounded-2xl object-contain border-2 border-yellow-500/50 shadow-xl"
                                 :class="{'grayscale': isResidentAway(selectedCat)}">
                             <span v-if="isResidentAway(selectedCat)" class="absolute -bottom-1 -right-1 bg-red-600 text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold shadow">{{ getResidentPresenceLabel(selectedCat) }}</span>
@@ -7971,24 +8057,9 @@
                 <div class="meeow-modal-body p-5">
                 <label class="text-[10px] font-mono mb-1 block" style="color: var(--ui-text-muted);">修改昵称</label>
                 <input v-model="selectedCat.name" class="mb-3 border text-xs rounded-xl px-3 py-2" style="background: var(--ui-surface-hover); border-color: var(--ui-border); color: var(--ui-text);">
-                <section class="rounded-2xl p-3 mb-4" style="background: var(--ui-surface-soft); border: 1px solid var(--ui-border);">
-                    <div class="flex items-center justify-between gap-2">
-                        <div>
-                            <h4 class="text-xs font-black" style="color: var(--ui-text);"><i class="fas fa-palette mr-1" style="color: var(--accent);"></i>共用白猫底图</h4>
-                            <p class="text-[10px] mt-1" style="color: var(--ui-text-muted);">上传一次透明 PNG，所有小猫共用；每只小猫的涂色稿独立保存。</p>
-                        </div>
-                        <label class="sully-btn shrink-0 px-2.5 py-2 rounded-xl text-[10px] font-black cursor-pointer" style="background: var(--accent); color: var(--ui-button-text);">
-                            <i class="fas fa-upload mr-1"></i>{{ settings.sharedCatTemplate ? '替换底图' : '上传底图' }}
-                            <input type="file" accept="image/png,.png" class="hidden" @change="handleSharedCatTemplateUpload">
-                        </label>
-                    </div>
-                    <div v-if="settings.sharedCatTemplate" class="flex items-center justify-between mt-2 text-[10px]" style="color: var(--ui-text-subtle);">
-                        <span>{{ settings.sharedCatTemplate.width }}×{{ settings.sharedCatTemplate.height }} PNG · v{{ settings.sharedCatTemplate.version }}</span>
-                        <span>{{ selectedCat.catPaint?.assetId ? '本猫已有涂色' : '本猫尚未上色' }}</span>
-                    </div>
-                    <p v-else class="text-[10px] mt-2" style="color: var(--ui-text-subtle);">尚未设置底图。请先上传白色猫身、深色轮廓、透明背景的 PNG。</p>
-                    <button v-if="settings.sharedCatTemplate" type="button" @click="openCatPaintWorkshop" class="sully-btn w-full mt-3 py-2.5 rounded-xl text-xs font-black" style="background: var(--ui-surface-hover); color: var(--ui-text); border: 1px solid var(--ui-active-border);"><i class="fas fa-brush mr-1" style="color: var(--accent);"></i>给 {{ selectedCat.name }} 上色</button>
-                </section>
+                <button type="button" @click="openManagedCatVisualEditor(selectedCat.id)" class="cat-visual-edit-button sully-btn mb-4 w-full py-2.5 rounded-xl text-xs font-black">
+                    <i class="fas fa-palette mr-1.5"></i>编辑猫咪形象
+                </button>
                 <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改照片 (默认形态)</label>
                 <input type="file" @change="(e)=>handleSpecificImageUpload(e, 'default')" class="mb-3 text-xs w-full text-gray-300">
                 <label class="text-[10px] text-gray-400 font-mono mb-1 block">修改照片 (拟人形态)</label>
@@ -7998,6 +8069,77 @@
                     <button @click="showEditCatModal = false" class="sully-btn flex-1 bg-white/10 hover:bg-white/20 text-gray-300 py-2.5 rounded-xl text-xs font-bold">取消</button>
                     <button @click="releaseCat" class="sully-btn flex-1 bg-red-900/80 hover:bg-red-800 text-red-200 py-2.5 rounded-xl text-xs font-bold border border-red-500/30" :disabled="isReleasing">{{ isReleasing ? '告别中...' : '放生 (删除)' }}</button>
                 </footer>
+            </div>
+        </div>
+
+        <!-- Existing-resident cosmetic CAT appearance editor. -->
+        <div v-if="showCatVisualEditor" class="meeow-modal-overlay fixed inset-0 flex items-center justify-center cat-visual-overlay"
+            @click.self="requestCatVisualEditorClose()">
+            <section class="sully-glass cat-visual-modal rounded-[2rem] flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-label="编辑猫咪形象">
+                <header class="cat-visual-header">
+                    <div><p>CAT CREATOR · RESIDENT VISUAL</p><h3>编辑 {{ catVisualEditorResident?.name || '居民' }} 的猫咪形象</h3></div>
+                    <button type="button" class="sully-btn cat-visual-close" @click="requestCatVisualEditorClose()" aria-label="关闭猫咪形象编辑器"><i class="fas fa-times"></i></button>
+                </header>
+                <div class="cat-visual-preview">
+                    <canvas ref="catVisualPreviewCanvas" class="cat-visual-pixel-canvas" aria-label="猫咪形象站姿预览"></canvas>
+                    <p v-if="catVisualPreviewLoading">正在装配猫咪形象…</p>
+                    <p v-else-if="catVisualPreviewError" class="cat-visual-error">{{ catVisualPreviewError }}</p>
+                    <p v-else-if="catVisualPreviewMeta.fallback" class="cat-visual-note">当前组合暂无站姿素材，预览已安全切换为坐姿；保存的外观不会改变。</p>
+                </div>
+                <nav class="cat-visual-tabs" role="tablist" aria-label="猫咪形象分类">
+                    <button v-for="tab in catVisualTabs" :key="tab.id" type="button" role="tab" :aria-selected="catVisualTab === tab.id" :class="{'is-active': catVisualTab === tab.id}" @click="catVisualTab = tab.id">{{ tab.label }}</button>
+                </nav>
+                <div v-if="catVisualDraft" class="cat-visual-controls custom-scrollbar">
+                    <template v-if="catVisualTab === 'body'">
+                        <label>体型<select v-model="catVisualDraft.body"><option v-for="value in catVisualOptions.body" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                        <div class="cat-visual-color-control"><span>基础毛色</span><div class="cat-visual-color-row"><span class="cat-visual-color-swatch" :style="{ background: catVisualPreviewColor(catVisualDraft.coat) }"></span><select v-model="catVisualDraft.coat"><option v-if="catVisualIsCustomColor(catVisualDraft.coat)" :value="catVisualDraft.coat">自定义 {{ catVisualDraft.coat }}</option><option v-for="value in catVisualCoats" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select><label class="cat-visual-color-picker" aria-label="选择自定义基础毛色"><i class="fas fa-eye-dropper"></i><input type="color" :value="catVisualPickerValue(catVisualDraft.coat)" @input="setCatVisualColor('coat', $event.target.value)"></label></div></div>
+                    </template>
+                    <template v-else-if="catVisualTab === 'bib'">
+                        <label>胸部 / Bib<select v-model="catVisualDraft.bib"><option v-for="value in catVisualOptions.bib" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                        <p class="cat-visual-note">胸部颜色由当前生产素材决定，不会建立虚假的独立颜色设置。</p>
+                    </template>
+                    <template v-else-if="catVisualTab === 'ears'">
+                        <label>耳型<select v-model="catVisualDraft.ear"><option v-for="value in catVisualOptions.ear" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                        <p class="cat-visual-note">耳朵毛色继承基础毛色。</p>
+                    </template>
+                    <template v-else-if="catVisualTab === 'face'">
+                        <label>脸部花纹<select v-model="catVisualDraft.face"><option v-for="value in catVisualOptions.face" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                        <div class="cat-visual-color-control"><span>花纹颜色</span><div class="cat-visual-color-row"><span class="cat-visual-color-swatch" :style="{ background: catVisualPreviewColor(catVisualDraft.faceColor) }"></span><select v-model="catVisualDraft.faceColor"><option v-if="catVisualIsCustomColor(catVisualDraft.faceColor)" :value="catVisualDraft.faceColor">自定义 {{ catVisualDraft.faceColor }}</option><option v-for="value in catVisualMarks" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select><label class="cat-visual-color-picker" aria-label="选择自定义脸部花纹色"><i class="fas fa-eye-dropper"></i><input type="color" :value="catVisualPickerValue(catVisualDraft.faceColor)" @input="setCatVisualColor('faceColor', $event.target.value)"></label></div></div>
+                        <label v-if="catVisualDraft.face === 'muzzle'">口鼻底色<select v-model="catVisualDraft.muzzleColor"><option v-for="value in catVisualMuzzles" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                    </template>
+                    <template v-else-if="catVisualTab === 'eye-left'">
+                        <div class="cat-visual-color-control"><span>左眼颜色</span><div class="cat-visual-color-row"><span class="cat-visual-color-swatch" :style="{ background: catVisualPreviewColor(catVisualDraft.eyeLeft) }"></span><select v-model="catVisualDraft.eyeLeft"><option v-if="catVisualIsCustomColor(catVisualDraft.eyeLeft)" :value="catVisualDraft.eyeLeft">自定义 {{ catVisualDraft.eyeLeft }}</option><option v-for="value in catVisualEyes" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select><label class="cat-visual-color-picker" aria-label="选择自定义左眼颜色"><i class="fas fa-eye-dropper"></i><input type="color" :value="catVisualPickerValue(catVisualDraft.eyeLeft)" @input="setCatVisualColor('eyeLeft', $event.target.value)"></label></div></div>
+                    </template>
+                    <template v-else-if="catVisualTab === 'eye-right'">
+                        <div class="cat-visual-color-control"><span>右眼颜色</span><div class="cat-visual-color-row"><span class="cat-visual-color-swatch" :style="{ background: catVisualPreviewColor(catVisualDraft.eyeRight) }"></span><select v-model="catVisualDraft.eyeRight"><option v-if="catVisualIsCustomColor(catVisualDraft.eyeRight)" :value="catVisualDraft.eyeRight">自定义 {{ catVisualDraft.eyeRight }}</option><option v-for="value in catVisualEyes" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select><label class="cat-visual-color-picker" aria-label="选择自定义右眼颜色"><i class="fas fa-eye-dropper"></i><input type="color" :value="catVisualPickerValue(catVisualDraft.eyeRight)" @input="setCatVisualColor('eyeRight', $event.target.value)"></label></div></div>
+                    </template>
+                    <template v-else-if="catVisualTab === 'torso'">
+                        <label>背部花纹<select v-model="catVisualDraft.torso"><option v-for="value in catVisualOptions.torso" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                        <div class="cat-visual-color-control"><span>花纹颜色</span><div class="cat-visual-color-row"><span class="cat-visual-color-swatch" :style="{ background: catVisualPreviewColor(catVisualDraft.torsoColor) }"></span><select v-model="catVisualDraft.torsoColor"><option v-if="catVisualIsCustomColor(catVisualDraft.torsoColor)" :value="catVisualDraft.torsoColor">自定义 {{ catVisualDraft.torsoColor }}</option><option v-for="value in catVisualMarks" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select><label class="cat-visual-color-picker" aria-label="选择自定义背部花纹色"><i class="fas fa-eye-dropper"></i><input type="color" :value="catVisualPickerValue(catVisualDraft.torsoColor)" @input="setCatVisualColor('torsoColor', $event.target.value)"></label></div></div>
+                    </template>
+                    <template v-else-if="catVisualTab === 'paws'">
+                        <div class="cat-visual-paw-grid">
+                            <article v-for="leg in catVisualLegs" :key="leg.key" class="cat-visual-paw-card">
+                                <strong>{{ leg.label }}</strong>
+                                <label>袜子样式<select v-model="catVisualDraft[leg.key]"><option v-for="value in catVisualOptions[leg.key]" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                                <div class="cat-visual-color-control"><span>袜子颜色</span><div class="cat-visual-color-row"><span class="cat-visual-color-swatch" :style="{ background: catVisualPreviewColor(catVisualDraft[leg.key + 'Color']) }"></span><select v-model="catVisualDraft[leg.key + 'Color']"><option v-if="catVisualIsCustomColor(catVisualDraft[leg.key + 'Color'])" :value="catVisualDraft[leg.key + 'Color']">自定义 {{ catVisualDraft[leg.key + 'Color'] }}</option><option v-for="value in catVisualMarks" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select><label class="cat-visual-color-picker" :aria-label="'选择' + leg.label + '自定义袜子颜色'"><i class="fas fa-eye-dropper"></i><input type="color" :value="catVisualPickerValue(catVisualDraft[leg.key + 'Color'])" @input="setCatVisualColor(leg.key + 'Color', $event.target.value)"></label></div></div>
+                            </article>
+                        </div>
+                    </template>
+                    <template v-else-if="catVisualTab === 'tail'">
+                        <label>尾型<select v-model="catVisualDraft.tail"><option v-for="value in catVisualOptions.tail" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                        <p class="cat-visual-note">尾巴底色继承基础毛色。</p>
+                    </template>
+                    <template v-else-if="catVisualTab === 'tailmark'">
+                        <label>尾巴花纹<select v-model="catVisualDraft.tailmark"><option v-for="value in catVisualOptions.tailmark" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select></label>
+                        <div class="cat-visual-color-control"><span>花纹颜色</span><div class="cat-visual-color-row"><span class="cat-visual-color-swatch" :style="{ background: catVisualPreviewColor(catVisualDraft.tailColor) }"></span><select v-model="catVisualDraft.tailColor"><option v-if="catVisualIsCustomColor(catVisualDraft.tailColor)" :value="catVisualDraft.tailColor">自定义 {{ catVisualDraft.tailColor }}</option><option v-for="value in catVisualMarks" :key="value" :value="value">{{ catVisualLabel(value) }}</option></select><label class="cat-visual-color-picker" aria-label="选择自定义尾巴花纹色"><i class="fas fa-eye-dropper"></i><input type="color" :value="catVisualPickerValue(catVisualDraft.tailColor)" @input="setCatVisualColor('tailColor', $event.target.value)"></label></div></div>
+                    </template>
+                </div>
+                <footer class="cat-visual-footer"><button type="button" class="sully-btn" @click="requestCatVisualEditorClose()">关闭</button><button type="button" class="sully-btn cat-visual-save" :disabled="catVisualSaving || !!catVisualPreviewError" @click="saveCatVisualEditor()">{{ catVisualSaving ? '保存中…' : '保存形象' }}</button></footer>
+            </section>
+            <div v-if="showCatVisualCloseConfirm" class="cat-visual-confirm" role="alertdialog" aria-modal="true" aria-label="是否保存对猫咪形象的修改">
+                <p>是否保存对猫咪形象的修改？</p>
+                <div><button type="button" @click="discardCatVisualChanges">不保存</button><button type="button" @click="continueCatVisualEditing">继续编辑</button><button type="button" :disabled="catVisualSaving" @click="saveCatVisualEditor(true)">保存</button></div>
             </div>
         </div>
 
@@ -9114,6 +9256,7 @@
     </div>
 
     <script src="./js/meeow-core.js"></script>
+    <script src="./js/meeow-status-posture.js"></script>
     <script src="./js/meeow-data.js"></script>
     <script src="./js/meeow-presence.js"></script>
     <script src="./js/meeow-away.js"></script>
@@ -9125,6 +9268,7 @@
     <script src="./js/meeow-inventory.js"></script>
     <script src="./js/meeow-dice.js"></script>
     <script src="./js/meeow-truth-or-dare.js"></script>
+    <script src="./js/meeow-resident-visual.js"></script>
     <script type="module">
         const { createApp, ref, reactive, onMounted, watch, computed, nextTick } = Vue;
         const ThinkingLevel = { LOW: "LOW", HIGH: "HIGH" };
@@ -9277,6 +9421,7 @@
                     applyCanonicalRosterIdentity,
                     mergeObsoleteIthacaCat
                 } = window.Meeow.data;
+                const statusPosture = window.Meeow.statusPosture;
 
                 const legacyGothamResidentIdMap = new Map(Object.entries(LEGACY_GOTHAM_RESIDENT_ID_MAP));
                 const migrateResidentIdValue = (value, idMap = legacyGothamResidentIdMap) => {
@@ -10213,6 +10358,7 @@
                 const curatorRoomMapPreviewCat = ref(null);
                 const detailReturnOrigin = ref('');
                 const curatorRoomResident = computed(() => cats.value.find(isResidentInCuratorRoom) || null);
+                const curatorRoomCatVisual = computed(() => curatorRoomResident.value ? getMapCatVisualPresentation(curatorRoomResident.value) : null);
                 const getCuratorRoomAnchor = (cat) => getCuratorRoomPresence(cat)?.anchor || 'floor';
                 const getCuratorRoomAnchorMeta = (cat) => CURATOR_ROOM_ANCHORS[getCuratorRoomAnchor(cat)] || CURATOR_ROOM_ANCHORS.floor;
                 const getCuratorRoomAnchorLabel = (cat) => getCuratorRoomAnchorMeta(cat).label;
@@ -10273,14 +10419,9 @@
                     for (const char of String(value || 'meeow')) hash = ((hash << 5) - hash) + char.charCodeAt(0);
                     return Math.abs(hash) % Math.max(1, length);
                 };
-                const getMapCatAction = (cat) => {
-                    const status = getResidentLiveStatus(cat, '');
-                    if (isResidentAway(cat) || /外出|出门|旅行|赶路|走|踱|跑|巡/.test(status)) return 'walk';
-                    if (/睡|休息|打盹|蜷|补眠/.test(status)) return 'sleep';
-                    if (/吃|食|饭|零食|喂/.test(status)) return 'eat';
-                    if (/坐|趴|蹲|伏/.test(status)) return 'sit';
-                    return 'stand';
-                };
+                // Status owns posture. Map points and furniture own location only.
+                // Legacy text inference is presentation-only and never persists authority.
+                const getMapCatPose = cat => statusPosture.resolveMapPose(cat);
                 const getSemanticMapTarget = (status) => {
                     const text = cleanText(status || '');
                     if (/水池里|水槽里|洗碗池|水池|水槽/.test(text)) return { room: 'dining', spot: 'sink-basin' };
@@ -10394,7 +10535,7 @@
                     const markers = roomCats.value.filter(isResidentInHall).map((cat) => {
                         const room = getMapRoomForCat(cat);
                         const spot = getMapSpotForCat(cat, room);
-                        return { cat, room, spot, action: getMapCatAction(cat) };
+                        return { cat, room, spot, pose: getMapCatPose(cat) };
                     });
                     return markers.map((marker) => {
                         const neighbors = markers
@@ -10412,7 +10553,9 @@
                     });
                 });
                 const activeMapRoomDefinition = computed(() => MAP_ROOM_DEFINITIONS.find(room => room.id === activeMapRoom.value) || MAP_ROOM_DEFINITIONS[0]);
-                const activeMapCatMarkers = computed(() => mapCatMarkers.value.filter(marker => marker.room === activeMapRoom.value));
+                const activeMapCatMarkers = computed(() => mapCatMarkers.value
+                    .filter(marker => marker.room === activeMapRoom.value)
+                    .map(marker => ({ ...marker, catVisual: getMapCatVisualPresentation(marker.cat) })));
                 const mapOutCats = computed(() => roomCats.value.filter(isResidentAway));
                 const setActiveMapRoom = (roomId) => {
                     if (!MAP_ROOM_DEFINITIONS.some(room => room.id === roomId)) return;
@@ -10591,6 +10734,19 @@
                 const catArchiveDateKey = ref('');
                 const catArchiveRelationshipTarget = ref(null);
                 const showEditCatModal = ref(false);
+                const showCatVisualEditor = ref(false);
+                const showCatVisualCloseConfirm = ref(false);
+                const catVisualDraft = ref(null);
+                const catVisualBaseline = ref('');
+                const catVisualEditorResidentId = ref('');
+                const catVisualTab = ref('body');
+                const catVisualPreviewCanvas = ref(null);
+                const portfolioCatVisualCanvas = ref(null);
+                const catVisualPreviewLoading = ref(false);
+                const catVisualPreviewError = ref('');
+                const portfolioCatVisualError = ref('');
+                const catVisualSaving = ref(false);
+                const catVisualPreviewMeta = reactive({ requestedPose: 'standing', renderedPose: '', fallback: false });
                 const currentShopCategory = ref('food');
                 const isReleasing = ref(false);
                 const gnnLoading = ref(false);
@@ -11496,7 +11652,10 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     addLog(`FORM STATUS ROLL: resident=${String(cat.id)}; roll=${directive?.roll ?? 'locked'}; current=${current}; target=${target}; changed=${changed}`, 'info');
                     return true;
                 };
-                cats.value.forEach(cat => normalizeResidentFormState(cat));
+                cats.value.forEach(cat => {
+                    normalizeResidentFormState(cat);
+                    statusPosture.normalizeResidentStatusActivity(cat);
+                });
 
                 const getPhoneContactDisplayName = (cat) => String(
                     phoneIdentities.value?.[getCanonicalCatId(cat?.id)]?.name || cat?.humanName || cat?.name || ''
@@ -12394,6 +12553,351 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 220" role="img" aria-label="' + escapeSvgText(name) + ' 的全身像素猫" shape-rendering="crispEdges"><g stroke="' + outline + '" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">' + tail + '<g fill="' + c.body + '">' + body + '<path d="M' + dimensions.headX + ' 78q0-28 ' + (dimensions.headW / 2) + '-28t' + (dimensions.headW / 2) + ' 28v29q0 24-' + (dimensions.headW / 2) + ' 24t-' + (dimensions.headW / 2) + ' 24z"/>' + ear + '</g><g fill="none">' + legs + '</g></g>' + marking + '<g><ellipse cx="65" cy="95" rx="7" ry="10" fill="' + c.eyeLeft + '" stroke="' + outline + '" stroke-width="4"/><ellipse cx="95" cy="95" rx="7" ry="10" fill="' + c.eyeRight + '" stroke="' + outline + '" stroke-width="4"/><path d="M78 104h4l-2 3z" fill="' + c.marking + '"/></g>' + faceDetail + accessory + '</svg>';
                     return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
                 };
+                const residentVisual = window.Meeow.residentVisual;
+                const catVisualOptions = residentVisual.OPTIONS;
+                const catVisualCoats = residentVisual.COATS;
+                const catVisualMarks = residentVisual.MARKS;
+                const catVisualEyes = residentVisual.EYES;
+                const catVisualMuzzles = residentVisual.MUZZLES;
+                const catVisualTabs = [
+                    { id: 'body', label: '身体' }, { id: 'bib', label: '胸部' }, { id: 'ears', label: '耳朵' },
+                    { id: 'face', label: '脸部花纹' }, { id: 'eye-left', label: '左眼' }, { id: 'eye-right', label: '右眼' },
+                    { id: 'torso', label: '背部花纹' }, { id: 'paws', label: '袜子 / 爪子' }, { id: 'tail', label: '尾巴' },
+                    { id: 'tailmark', label: '尾巴花纹' }
+                ];
+                const catVisualLegs = [
+                    { key: 'frontLeft', label: '左前腿' }, { key: 'frontRight', label: '右前腿' },
+                    { key: 'rearLeft', label: '左后腿' }, { key: 'rearRight', label: '右后腿' }
+                ];
+                const CAT_VISUAL_LABELS = Object.freeze({
+                    standard: '标准', chubby: '圆润', slim: '纤细', fluffy: '蓬松', large: '大耳', small: '小耳', round: '圆耳', folded: '折耳', tufted: '簇耳',
+                    long: '长尾', thick: '粗尾', short: '短尾', kinked: '折尾', none: '无', bib: '有胸部造型', muzzle: '口鼻', blaze: '鼻梁白斑', point: '重点色', eye_patch: '眼罩斑', forehead_m: '额头纹',
+                    classic_tabby: '经典虎斑', mackerel_tabby: '鱼骨虎斑', spotted: '斑点', large_patches: '大片花斑', saddle_cape: '鞍背', toe_tips: '脚尖', short_socks: '短袜', medium_socks: '中袜', long_socks: '长袜',
+                    tip_short: '短尾尖', tip_long: '长尾尖', half_tail: '半尾', rings: '环纹', broad_ring: '宽环', neutral: '原始色', ginger: '姜黄', cream: '奶油', blue: '蓝灰', chocolate: '巧克力', black: '黑色', lilac: '淡紫', silver: '银色',
+                    dark: '深色', white: '白色', brown: '棕色', pink: '粉色', gold: '金色', original: '原色', green: '绿色', base: '随基础毛色'
+                });
+                const catVisualLabel = value => CAT_VISUAL_LABELS[value] || value;
+                const CAT_VISUAL_COLOR_SWATCHES = Object.freeze({
+                    neutral: '#b9aa97', ginger: '#c88e57', cream: '#dbc9a4', blue: '#8395a7', chocolate: '#7e6050', black: '#484c55', lilac: '#af97ab', silver: '#bec2c8',
+                    dark: '#524541', white: '#ede3d0', brown: '#824f30', pink: '#c58c97', gold: '#c28941', green: '#58976f', original: '#b28b74'
+                });
+                const CAT_VISUAL_HEX = /^#[0-9a-f]{6}$/i;
+                const catVisualIsCustomColor = value => CAT_VISUAL_HEX.test(String(value || ''));
+                const catVisualPreviewColor = value => catVisualIsCustomColor(value) ? String(value).toLowerCase() : (CAT_VISUAL_COLOR_SWATCHES[value] || '#b9aa97');
+                const catVisualPickerValue = value => catVisualPreviewColor(value);
+                const setCatVisualColor = (key, value) => {
+                    if (!catVisualDraft.value || !Object.prototype.hasOwnProperty.call(catVisualDraft.value, key) || !CAT_VISUAL_HEX.test(String(value || ''))) return false;
+                    catVisualDraft.value[key] = String(value).toLowerCase();
+                    return true;
+                };
+                const catVisualEditorResident = computed(() => cats.value.find(cat => String(cat.id) === String(catVisualEditorResidentId.value)) || null);
+                const catVisualDirty = computed(() => {
+                    if (!showCatVisualEditor.value || !catVisualDraft.value) return false;
+                    try { return residentVisual.stableIdentity(catVisualDraft.value) !== catVisualBaseline.value; }
+                    catch (_) { return true; }
+                });
+                const catVisualScriptPromises = new Map();
+                const catVisualPosePromises = new Map();
+                const CAT_VISUAL_POSE_SCRIPTS = Object.freeze({
+                    standing: './js/meeow-cat-bank-standing.js',
+                    crouching: './js/meeow-cat-bank-crouching.js',
+                    lying: './js/meeow-cat-bank-lying.js'
+                });
+                let catVisualRendererPromise = null;
+                let catVisualPreviewToken = 0;
+                let portfolioCatVisualToken = 0;
+                let pendingCatVisualCloseAction = null;
+                const loadCatVisualScript = (src) => {
+                    if (catVisualScriptPromises.has(src)) return catVisualScriptPromises.get(src);
+                    const task = new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = src;
+                        script.async = false;
+                        script.onload = () => resolve(true);
+                        script.onerror = () => reject(new Error(`无法读取猫咪形象资源：${src}`));
+                        document.head.appendChild(script);
+                    });
+                    catVisualScriptPromises.set(src, task);
+                    return task;
+                };
+                const releaseCatVisualRuntimeBank = pose => {
+                    const banks = window.Meeow?.catRuntimeBanks;
+                    if (!banks) return;
+                    delete banks[pose];
+                    if (!Object.keys(banks).length) delete window.Meeow.catRuntimeBanks;
+                };
+                const ensureCatVisualRenderer = async (pose = 'sitting') => {
+                    const requestedPose = String(pose || 'sitting');
+                    if (requestedPose !== 'sitting' && !CAT_VISUAL_POSE_SCRIPTS[requestedPose]) throw new RangeError(`Unsupported cat runtime pose: ${requestedPose}`);
+                    if (!catVisualRendererPromise) {
+                        catVisualRendererPromise = (async () => {
+                            await loadCatVisualScript('./js/meeow-cat-runtime.js');
+                            await loadCatVisualScript('./js/meeow-cat-bank-sitting.js');
+                            const renderer = await window.Meeow.catRuntimeCore.createFileRenderer(window.Meeow.catRuntimeBanks);
+                            releaseCatVisualRuntimeBank('sitting');
+                            addLog('CAT VISUAL RUNTIME READY: poses=sitting; renderer=shared', 'info');
+                            return renderer;
+                        })().catch(error => { catVisualRendererPromise = null; throw error; });
+                    }
+                    const renderer = await catVisualRendererPromise;
+                    if (requestedPose === 'sitting') return renderer;
+                    if (!catVisualPosePromises.has(requestedPose)) {
+                        const task = (async () => {
+                            await loadCatVisualScript(CAT_VISUAL_POSE_SCRIPTS[requestedPose]);
+                            const packedBank = window.Meeow?.catRuntimeBanks?.[requestedPose];
+                            const registered = await window.Meeow.catRuntimeCore.registerFilePoseBank(renderer, packedBank);
+                            releaseCatVisualRuntimeBank(requestedPose);
+                            addLog(`CAT VISUAL POSE READY: pose=${requestedPose}; definitions=${registered.length}; renderer=shared`, 'info');
+                            return renderer;
+                        })().catch(error => {
+                            catVisualPosePromises.delete(requestedPose);
+                            throw error;
+                        });
+                        catVisualPosePromises.set(requestedPose, task);
+                    }
+                    return catVisualPosePromises.get(requestedPose);
+                };
+                const mapCatVisualRevision = ref(0);
+                const MAP_CAT_VISUAL_RETRY_DELAYS_MS = Object.freeze([1500, 5000, 15000, 30000]);
+                const mapCatVisualFailures = residentVisual.createSpriteFailureBackoff({ delays: MAP_CAT_VISUAL_RETRY_DELAYS_MS });
+                // App-lifetime subscription; render/navigation paths never register timers.
+                residentVisual.createSpriteRetryWakeup({ failures: mapCatVisualFailures, wake: () => { mapCatVisualRevision.value += 1; } });
+                const mapCatVisualResolvedKeys = new Map();
+                const mapCatVisualCoordinator = residentVisual.createSpriteRequestCoordinator(() => { mapCatVisualRevision.value += 1; });
+                const catVisualFrameDataUrl = frame => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = frame.width;
+                    canvas.height = frame.height;
+                    const context = canvas.getContext('2d');
+                    context.putImageData(new ImageData(new Uint8ClampedArray(frame.data), frame.width, frame.height), 0, 0);
+                    return canvas.toDataURL('image/png');
+                };
+                const resolveMapCatVisual = cat => {
+                    if (!cat || getResidentForm(cat) !== 'CAT') return null;
+                    const visual = residentVisual.resolveResidentVisual(cat, { allowDerived: true });
+                    if (!visual) return null;
+                    const pose = getMapCatPose(cat);
+                    return {
+                        visual,
+                        pose,
+                        key: residentVisual.makeSpriteCacheKey({ residentId: cat.id, effectiveForm: 'CAT', visual, pose, size: 72 })
+                    };
+                };
+                function getMapCatVisualPresentation(cat) {
+                    void mapCatVisualRevision.value;
+                    const residentId = String(cat?.id || '');
+                    const resolved = resolveMapCatVisual(cat);
+                    const previousKey = mapCatVisualResolvedKeys.get(residentId);
+                    if (!resolved) {
+                        if (previousKey) {
+                            mapCatVisualFailures.invalidateResident(residentId);
+                            mapCatVisualCoordinator.invalidate(residentId);
+                            mapCatVisualResolvedKeys.delete(residentId);
+                        }
+                        return null;
+                    }
+                    if (previousKey && previousKey !== resolved.key) {
+                        mapCatVisualFailures.invalidateResident(residentId);
+                        mapCatVisualCoordinator.invalidate(residentId);
+                    }
+                    mapCatVisualResolvedKeys.set(residentId, resolved.key);
+                    mapCatVisualFailures.retainResidentKey(residentId, resolved.key);
+                    const cached = mapCatVisualCoordinator.peek(cat.id, resolved.key);
+                    if (cached) {
+                        mapCatVisualFailures.clearSuccess(resolved.key);
+                        return cached;
+                    }
+                    if (!mapCatVisualFailures.canAttempt(resolved.key)) return null;
+                    if (!mapCatVisualCoordinator.inFlight.has(resolved.key)) {
+                        void mapCatVisualCoordinator.request({
+                            residentId: cat.id,
+                            key: resolved.key,
+                            load: async () => {
+                                const renderer = await ensureCatVisualRenderer(resolved.pose);
+                                const frame = renderer(resolved.visual.config, { pose: resolved.pose });
+                                const current = resolveMapCatVisual(cat);
+                                if (!current || current.key !== resolved.key) return null;
+                                const placement = residentVisual.makeGroundAnchorPlacement(frame, 72);
+                                return {
+                                    key: resolved.key,
+                                    source: resolved.visual.source,
+                                    pose: resolved.pose,
+                                    src: catVisualFrameDataUrl(frame),
+                                    style: {
+                                        '--meeow-map-cat-width': `${placement.width}px`,
+                                        '--meeow-map-cat-height': `${placement.height}px`,
+                                        '--meeow-map-anchor-x': `${-placement.anchorXPercent}%`,
+                                        '--meeow-map-anchor-y': `${-placement.anchorYPercent}%`
+                                    }
+                                };
+                            }
+                        }).then(result => {
+                            if (!result) return;
+                            const recovered = mapCatVisualFailures.clearSuccess(resolved.key);
+                            if (recovered) addLog(`MAP CAT SPRITE RECOVERED: resident=${residentId}; pose=${resolved.pose}; source=${resolved.visual.source}; attempt=${recovered.attempts + 1}`, 'info');
+                        }).catch(error => {
+                            const current = resolveMapCatVisual(cat);
+                            if (!current || current.key !== resolved.key) return;
+                            const errorCategory = catVisualErrorCategory(error);
+                            const failure = mapCatVisualFailures.recordFailure({ key: resolved.key, residentId, errorCategory });
+                            mapCatVisualRevision.value += 1;
+                            addLog(`MAP CAT SPRITE FAILED: resident=${residentId}; pose=${resolved.pose}; source=${resolved.visual.source}; attempt=${failure?.attempts || 1}; retryAfterMs=${failure?.retryAfterMs || MAP_CAT_VISUAL_RETRY_DELAYS_MS[0]}; error=${errorCategory}`, 'error');
+                        });
+                    }
+                    return null;
+                }
+                const invalidateMapCatVisual = residentId => {
+                    const safeResidentId = String(residentId || '');
+                    mapCatVisualFailures.invalidateResident(safeResidentId);
+                    mapCatVisualResolvedKeys.delete(safeResidentId);
+                    mapCatVisualCoordinator.invalidate(residentId);
+                };
+                const drawCatVisualFrame = (canvas, frame) => {
+                    if (!canvas || !frame) return false;
+                    canvas.width = frame.width;
+                    canvas.height = frame.height;
+                    const context = canvas.getContext('2d');
+                    context.clearRect(0, 0, frame.width, frame.height);
+                    context.putImageData(new ImageData(new Uint8ClampedArray(frame.data), frame.width, frame.height), 0, 0);
+                    return true;
+                };
+                const catVisualErrorCategory = error => String(error?.name || error?.constructor?.name || 'Error').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 48) || 'Error';
+                const logCatVisualPoseFallback = (residentId, rendered) => {
+                    if (!rendered?.fallback) return;
+                    addLog(`CAT VISUAL POSE FALLBACK: resident=${String(residentId || '')}; requested=standing; rendered=sitting; reason=${String(rendered.fallbackReason || 'UNKNOWN_CAPABILITY')}`, 'warn');
+                };
+                const logCatVisualStandingError = (residentId, error) => {
+                    const message = String(error?.message || error || 'unknown').replace(/\s+/g, ' ').slice(0, 180);
+                    addLog(`CAT VISUAL STANDING ERROR: resident=${String(residentId || '')}; category=${catVisualErrorCategory(error)}; message=${message}`, 'error');
+                };
+                const usesPortfolioCatVisual = cat => Boolean(cat && getResidentForm(cat) === 'CAT' && residentVisual.normalizeVisual(cat.visual));
+                const renderPortfolioCatVisual = async () => {
+                    const cat = selectedCat.value;
+                    const token = ++portfolioCatVisualToken;
+                    portfolioCatVisualError.value = '';
+                    if (currentTab.value !== 'detail' || !usesPortfolioCatVisual(cat)) return false;
+                    try {
+                        const renderer = await ensureCatVisualRenderer('standing');
+                        if (token !== portfolioCatVisualToken || cat !== selectedCat.value || !usesPortfolioCatVisual(cat)) return false;
+                        const visual = residentVisual.normalizeVisual(cat.visual);
+                        const rendered = residentVisual.renderStandingWithFallback(renderer, visual.identityConfig);
+                        logCatVisualPoseFallback(cat.id, rendered);
+                        await nextTick();
+                        if (token !== portfolioCatVisualToken) return false;
+                        return drawCatVisualFrame(portfolioCatVisualCanvas.value, rendered.frame);
+                    } catch (error) {
+                        if (token === portfolioCatVisualToken) {
+                            portfolioCatVisualError.value = String(error?.message || error);
+                            logCatVisualStandingError(cat?.id, error);
+                        }
+                        return false;
+                    }
+                };
+                const renderCatVisualPreview = async () => {
+                    if (!showCatVisualEditor.value || !catVisualDraft.value) return false;
+                    const token = ++catVisualPreviewToken;
+                    catVisualPreviewLoading.value = true;
+                    catVisualPreviewError.value = '';
+                    try {
+                        const renderer = await ensureCatVisualRenderer('standing');
+                        const rendered = residentVisual.renderStandingWithFallback(renderer, catVisualDraft.value);
+                        if (!residentVisual.isCurrentPreviewRequest(token, catVisualPreviewToken, showCatVisualEditor.value)) return false;
+                        logCatVisualPoseFallback(catVisualEditorResidentId.value, rendered);
+                        Object.assign(catVisualPreviewMeta, { requestedPose: rendered.requestedPose, renderedPose: rendered.renderedPose, fallback: rendered.fallback });
+                        await nextTick();
+                        if (!residentVisual.isCurrentPreviewRequest(token, catVisualPreviewToken, showCatVisualEditor.value)) return false;
+                        return drawCatVisualFrame(catVisualPreviewCanvas.value, rendered.frame);
+                    } catch (error) {
+                        if (residentVisual.isCurrentPreviewRequest(token, catVisualPreviewToken, showCatVisualEditor.value)) {
+                            catVisualPreviewError.value = `当前组合无法预览：${String(error?.message || error)}`;
+                            logCatVisualStandingError(catVisualEditorResidentId.value, error);
+                        }
+                        return false;
+                    } finally {
+                        if (token === catVisualPreviewToken) catVisualPreviewLoading.value = false;
+                    }
+                };
+                const openCatVisualEditor = cat => {
+                    if (!cat) return;
+                    const saved = residentVisual.normalizeVisual(cat.visual);
+                    const draft = saved ? residentVisual.clone(saved.identityConfig) : residentVisual.seedIdentity(cat);
+                    catVisualEditorResidentId.value = String(cat.id);
+                    catVisualDraft.value = draft;
+                    catVisualBaseline.value = residentVisual.stableIdentity(draft);
+                    catVisualTab.value = 'body';
+                    catVisualPreviewError.value = '';
+                    showCatVisualCloseConfirm.value = false;
+                    pendingCatVisualCloseAction = null;
+                    showCatVisualEditor.value = true;
+                    void nextTick(renderCatVisualPreview);
+                };
+                const openManagedCatVisualEditor = residentId => {
+                    const resident = cats.value.find(cat => String(cat.id) === String(residentId));
+                    if (!resident) {
+                        showToast('找不到这位居民，无法编辑猫咪形象。', 'error');
+                        return false;
+                    }
+                    showEditCatModal.value = false;
+                    openCatVisualEditor(resident);
+                    return true;
+                };
+                const finishCatVisualEditorClose = (afterClose = null) => {
+                    showCatVisualEditor.value = false;
+                    showCatVisualCloseConfirm.value = false;
+                    catVisualDraft.value = null;
+                    catVisualBaseline.value = '';
+                    catVisualEditorResidentId.value = '';
+                    catVisualPreviewError.value = '';
+                    pendingCatVisualCloseAction = null;
+                    if (typeof afterClose === 'function') afterClose();
+                };
+                const requestCatVisualEditorClose = (afterClose = null) => {
+                    if (!showCatVisualEditor.value) { if (typeof afterClose === 'function') afterClose(); return true; }
+                    if (!catVisualDirty.value) { finishCatVisualEditorClose(afterClose); return true; }
+                    pendingCatVisualCloseAction = typeof afterClose === 'function' ? afterClose : null;
+                    showCatVisualCloseConfirm.value = true;
+                    return false;
+                };
+                const continueCatVisualEditing = () => { showCatVisualCloseConfirm.value = false; pendingCatVisualCloseAction = null; };
+                const discardCatVisualChanges = () => { const action = pendingCatVisualCloseAction; finishCatVisualEditorClose(action); };
+                const verifyStoredCatVisual = (residentId, hadVisual, previous) => {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) return !hadVisual;
+                    const saved = JSON.parse(raw);
+                    const storedResident = Array.isArray(saved?.cats) ? saved.cats.find(cat => String(cat?.id || '') === String(residentId)) : null;
+                    if (!storedResident) return false;
+                    if (!hadVisual) return !Object.prototype.hasOwnProperty.call(storedResident, 'visual');
+                    return JSON.stringify(storedResident.visual) === JSON.stringify(previous);
+                };
+                const saveCatVisualEditor = (fromConfirmation = false) => {
+                    const resident = catVisualEditorResident.value;
+                    if (!resident || !catVisualDraft.value || catVisualSaving.value) return false;
+                    catVisualSaving.value = true;
+                    try {
+                        const hadVisual = Object.prototype.hasOwnProperty.call(resident, 'visual');
+                        const previous = residentVisual.clone(resident.visual);
+                        const result = residentVisual.saveVisual({ resident, identityConfig: catVisualDraft.value, persistNow, verifyStored: () => verifyStoredCatVisual(resident.id, hadVisual, previous) });
+                        if (!result.ok) {
+                            showToast(result.rollbackVerified ? '猫咪形象保存失败，原有形象已恢复。' : '猫咪形象保存失败，存档回滚未能确认，请勿关闭页面。', 'error');
+                            addLog(`CAT VISUAL SAVE FAILED: resident=${resident.id}; rollbackVerified=${result.rollbackVerified}`, 'error');
+                            return false;
+                        }
+                        const action = fromConfirmation ? pendingCatVisualCloseAction : null;
+                        showToast(result.unchanged ? '猫咪形象没有变化' : '猫咪形象已保存', 'success');
+                        if (!result.unchanged) invalidateMapCatVisual(resident.id);
+                        finishCatVisualEditorClose(action);
+                        void nextTick(renderPortfolioCatVisual);
+                        return true;
+                    } catch (error) {
+                        showToast(`猫咪形象无法保存：${String(error?.message || error)}`, 'error');
+                        return false;
+                    } finally { catVisualSaving.value = false; }
+                };
+                watch(catVisualDraft, () => { if (showCatVisualEditor.value) void nextTick(renderCatVisualPreview); }, { deep: true });
+                watch(() => [currentTab.value, selectedCat.value?.id, selectedCat.value?.visual?.revision, selectedCat.value?.currentForm, selectedCat.value?.hasRevealedHumanForm], () => { void nextTick(renderPortfolioCatVisual); });
+                window.addEventListener('keydown', event => { if (event.key === 'Escape' && showCatVisualEditor.value) { event.preventDefault(); requestCatVisualEditorClose(); } });
+                window.addEventListener('beforeunload', event => { if (!catVisualDirty.value) return; event.preventDefault(); event.returnValue = ''; });
+
                 const getCatAvatarSource = (cat, formOverride = null) => {
                     if (!cat) return makeStableCatAvatar('Cat');
                     if ((formOverride || getResidentForm(cat)) === 'HUMAN') return cat.image_human || cat.image || makeStableCatAvatar(cat.name, cat.color);
@@ -12510,7 +13014,9 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     if (!data.hall.guardian || !requireTextFields(data.hall.guardian, ['name', 'title']) || !/[A-Za-z]/.test(data.hall.guardian.name) || cleanText(data.hall.guardian.title).length > 24) {
                         return '管家格式必须包含原作英文或罗马化姓名与中文职称。';
                     }
-                    const validCats = data.cats.every(cat => requireTextFields(cat, ['name', 'humanName', 'breed', 'eyeColor', 'personality', 'status', 'innerVoice', 'prompt']) && /[A-Za-z]/.test(cat.name) && /^#[0-9a-f]{6}$/i.test(String(cat.color || '')));
+                    const validCats = data.cats.every(cat => requireTextFields(cat, ['name', 'humanName', 'breed', 'eyeColor', 'personality', 'status', 'posture', 'innerVoice', 'prompt']) &&
+                        /[A-Za-z]/.test(cat.name) && /^#[0-9a-f]{6}$/i.test(String(cat.color || '')) &&
+                        statusPosture.validateStatusPosture(cat.status, cat.posture).valid);
                     if (!validCats) return '角色档案缺少姓名、性格、外观或颜色字段。';
                     return true;
                 };
@@ -12930,6 +13436,7 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 };
 
                 const handleCatClick = (cat) => {
+                    if (showCatVisualEditor.value) { requestCatVisualEditorClose(() => handleCatClick(cat)); return; }
                     rememberHallScrollPosition();
                     activeHallId.value = cat.hallId || (cat.isMarvel ? 'marvel' : 'gotham');
                     hallSceneActive.value = true;
@@ -13112,6 +13619,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     addLog(`PHONE RETURN: origin=${route?.tab || 'unknown'}; restored=${currentTab.value}`, 'info');
                 };
                 const navigateToTab = (tab) => {
+                    if (showCatVisualEditor.value) { requestCatVisualEditorClose(() => navigateToTab(tab)); return; }
                     rememberHallScrollPosition();
                     if (currentTab.value === 'phone') rememberPhoneChatScrollPosition?.();
                     if (tab === 'phone') {
@@ -13183,6 +13691,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const openCuratorRoom = () => {
+                    if (showCatVisualEditor.value) { requestCatVisualEditorClose(openCuratorRoom); return; }
                     const continuingCuratorVisit =
                         (currentTab.value === 'lounge' && loungeView.value === 'curator') ||
                         (currentTab.value === 'detail' && detailReturnOrigin.value === 'curator');
@@ -13215,6 +13724,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const openHallDirectory = () => {
+                    if (showCatVisualEditor.value) { requestCatVisualEditorClose(openHallDirectory); return; }
                     clearHallSceneFocus();
                     hallScrollPositions[activeHallId.value] = 0;
                     currentTab.value = 'lounge';
@@ -13226,6 +13736,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const returnToHallRoom = () => {
+                    if (showCatVisualEditor.value) { requestCatVisualEditorClose(returnToHallRoom); return; }
                     if (detailReturnOrigin.value === 'curator') {
                         openCuratorRoom();
                         return;
@@ -13400,6 +13911,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const enterHall = (hall) => {
+                    if (showCatVisualEditor.value) { requestCatVisualEditorClose(() => enterHall(hall)); return; }
                     if (!hall) return;
                     reconcileAwayEpisodes(new Date());
                     curatorRoomMapPreviewCat.value = null;
@@ -13455,7 +13967,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     cat.visitStartedAt = new Date().toISOString();
                     cat.isVisiting = true;
                     cat.hallId = targetHall.id;
-                    setCatStatus(cat, `正在${targetHall.name}串门，观察新馆舍的气味与动静`, { source: 'visit', forceLog: true });
+                    setCatStatus(cat, `正站在${targetHall.name}观察新馆舍的气味与动静`, { posture: 'standing', source: 'visit', forceLog: true });
                     appendInteractionEvent(cat, 'visit-start', `前往${targetHall.name}串门`, { source: 'visit' });
                     addLog(`VISITOR PASS: ${cat.name} -> ${targetHall.name}`, 'info');
                     user.currentStatus = `已将 ${cat.name} 送往${targetHall.name}串门`;
@@ -13475,7 +13987,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     cat.isVisiting = false;
                     cat.visitOriginHallId = null;
                     cat.visitStartedAt = null;
-                    setCatStatus(cat, `刚从${visitedName}回来，带回了一段还没说完的故事`, { source: 'visit', forceLog: true });
+                    setCatStatus(cat, `刚从${visitedName}回来，正站在馆内整理一段还没说完的故事`, { posture: 'standing', source: 'visit', forceLog: true });
 
                     let travelogueContent = `${visitDate}，我离开了${originHall.name}，去了${visitedName}。那里有陌生的气味、不同的光线，还有一些只有馆内猫才懂的暗号。我假装只是随便看看，其实已经记住了每一条通往窗边的路。回来的时候，我把一小段新故事藏进了自己的胡须里。下次再有人问起，我会考虑只透露一半。`;
                     if (settings.apiKey) {
@@ -13537,14 +14049,15 @@ ${buildCatMemoryContext(selectedCat.value)}`;
 6. 管家只负责馆舍播报，不作为猫咪成员。
 7. 额外生成至少 5 个适合用户与猫咪探索的馆舍目的地，所有目的地必须属于该作品世界。
 8. hall.logo 只能输出抽象世界观徽章配置：symbol 仅可为 archive、scroll、star、crown、moon、flame、leaf、gear、wings、gem、key 之一；primary 与 secondary 必须是 #RRGGBB。徽章只概括世界观氛围，禁止复制原作商标、角色肖像、官方徽记或任何文字。
+9. 每只猫必须返回 posture，且只能是 standing、sitting、lying、crouching；它必须与 status 明确表达的身体姿势一致。家具/位置不决定姿势。
 
 JSON 格式：
 {
   "hall": {"name":"", "eyebrow":"", "description":"一句16至32字中文简介。", "atmosphere":"", "icon":"fa-book-open", "logo":{"symbol":"archive", "primary":"#64748b", "secondary":"#edf3f7"}, "guardian":{"name":"原作英文或罗马化名", "title":"中文馆舍职称"}},
   "cats": [
-    {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "innerVoice":"", "prompt":""},
-    {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "innerVoice":"", "prompt":""},
-    {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "innerVoice":"", "prompt":""}
+    {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "posture":"standing|sitting|lying|crouching", "innerVoice":"", "prompt":""},
+    {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "posture":"standing|sitting|lying|crouching", "innerVoice":"", "prompt":""},
+    {"name":"", "humanName":"", "breed":"", "eyeColor":"", "color":"#64748b", "personality":"", "status":"", "posture":"standing|sitting|lying|crouching", "innerVoice":"", "prompt":""}
   ],
   "destinations": [
     {"name":"", "atmosphere":"", "conflicts":"", "resonance":"", "loot":"", "checks":[""], "npcs":""}
@@ -13586,6 +14099,7 @@ JSON 格式：
                                 eyeColor: cleanText(cat.eyeColor || '未知'),
                                 personality: cleanText(cat.personality || '正在适应新的馆舍生活'),
                                 status: cleanText(cat.status || '初来乍到，观察周围环境'),
+                                statusActivity: { posture: statusPosture.normalizePosture(cat.posture) },
                                 innerVoice: cleanText(cat.innerVoice || '先看看这里是什么地方。'),
                                 image: makeStableCatAvatar(cat.name || `Cat${index + 1}`, color),
                                 image_human: '',
@@ -14454,7 +14968,7 @@ ${buildExploreNarrationContext({ caseRecord, phase, userAction, dice, authority,
                             priority: 'foreground', label: `EXPLORE RETURN STATUS · ${getResidentPublicName(companion)}`
                         });
                     } catch (error) { addLog(`EXPLORE RETURN STATUS ERROR: ${getReadableAPIError(error)}`, 'warn'); }
-                    if (!applied) setCatStatus(companion, '刚从外出回来，正在安静地重新安顿下来。', { source: 'explore-return', forceLog: true });
+                    if (!applied) setCatStatus(companion, '刚从外出回来，正坐在馆内安静地重新安顿下来。', { posture: 'sitting', source: 'explore-return', forceLog: true });
                     return writeExploreSettlementReceipt(caseRecord, operation, 'returnPresentation');
                 };
                 const getExploreTravelogueRetryMs = operation => {
@@ -17908,34 +18422,43 @@ ${pendingText}
                 const setCatStatus = (cat, status, options = {}) => {
                     if (!cat || !status) return false;
                     const clean = cleanText(String(status));
-                    const changed = clean !== cleanText(cat.status || '');
-                    cat.status = clean;
-                    if (options.innerVoice) cat.innerVoice = cleanText(options.innerVoice);
+                    const transition = statusPosture.prepareStatusTransition(cat, clean, options.posture);
+                    if (!transition.valid) {
+                        addLog(`STATUS POSTURE REJECTED: resident=${String(cat.id || '')}; source=${String(options.source || 'status')}; reason=${transition.error}`, 'warn');
+                        return false;
+                    }
+                    const staged = {
+                        ...transition.fields,
+                        lastStatusUpdateTime: Date.now()
+                    };
+                    if (options.innerVoice) staged.innerVoice = cleanText(options.innerVoice);
                     if (options.presentationForm !== false) {
-                        cat.statusPresentationForm = normalizeFormValue(options.presentationForm) || getResidentForm(cat);
+                        staged.statusPresentationForm = normalizeFormValue(options.presentationForm) || getResidentForm(cat);
                     }
                     // Curator Room is a physical location outside any Hall. Its status may
                     // refresh through the home-Hall scheduler, but must never overwrite the
                     // resident's stored Hall-map position.
                     if (!isResidentInCuratorRoom(cat) || options.allowHallMap === true) {
                         const explicitPoint = findMapPoint(options.mapPoint || options.mapSpot);
-                        cat.mapRoom = explicitPoint?.roomId || (MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
+                        staged.mapRoom = explicitPoint?.roomId || (MAP_ROOM_DEFINITIONS.some(room => room.id === options.mapRoom)
                             ? options.mapRoom
                             : inferMapRoomFromStatus(clean));
-                        const roomDefinition = MAP_ROOM_DEFINITIONS.find(room => room.id === cat.mapRoom);
-                        const validPoint = findMapPoint(options.mapPoint || options.mapSpot, cat.mapRoom);
+                        const roomDefinition = MAP_ROOM_DEFINITIONS.find(room => room.id === staged.mapRoom);
+                        const validPoint = findMapPoint(options.mapPoint || options.mapSpot, staged.mapRoom);
                         if (validPoint) {
-                            cat.mapPoint = validPoint.id;
-                            cat.mapSpot = validPoint.id;
-                            cat.mapFurniture = cleanText(options.mapFurniture || validPoint.furnitureId || '');
-                            cat.mapPositionLabel = cleanText(options.mapPositionLabel || validPoint.name || '');
+                            staged.mapPoint = validPoint.id;
+                            staged.mapSpot = validPoint.id;
+                            staged.mapFurniture = cleanText(options.mapFurniture || validPoint.furnitureId || '');
+                            staged.mapPositionLabel = cleanText(options.mapPositionLabel || validPoint.name || '');
                         } else if (roomDefinition?.zones.some(zone => zone.id === options.mapSpot)) {
-                            cat.mapSpot = options.mapSpot;
+                            staged.mapSpot = options.mapSpot;
                         }
                     }
-                    cat.lastStatusUpdateTime = Date.now();
-                    if (changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {}, options.eventAt || new Date());
-                    return changed;
+                    // One assignment boundary keeps visible prose, posture, placement,
+                    // voice, form provenance, and freshness coherent.
+                    Object.assign(cat, staged);
+                    if (transition.changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {}, options.eventAt || new Date());
+                    return transition.changed;
                 };
                 const appendAwayTransitionTravelogue = (cat, isOut, logicalEventTime = new Date(), extra = {}) => {
                     if (!cat) return null;
@@ -17965,7 +18488,7 @@ ${pendingText}
 - The resident may use HUMAN form offscreen when appropriate, even if the USER has not witnessed it. Never describe a transformation, unlock visible HUMAN form, expose a hidden identity/name, or imply that the USER witnessed it. This boundary also applies to publicTrace and the completed archive narrative.
 - plannedActivities is required. Use exactly 1 activity for duration under 90 minutes, 2 for 90–179 minutes, 3 for 180–359 minutes, or 4 for 360 minutes or longer. Each item is {"afterMinutes":number,"plannedResidentActivity":"private fact that will only become true at that time","publicTrace":"limited public trace"}. Make the beats distinct moments in chronological order, not paraphrases of one task. plannedResidentActivity remains private resident truth; publicTrace remains limited USER-visible evidence.
 - plannedArchiveNarrative is required for every new departure: approximately 100–200 Chinese characters, first-person, personal, reflective, character-specific prose about this outing. It may be intimate, but must not expose unrevealed HUMAN-form or hidden-identity facts, and must not turn into a system report or bullet summary.
-- plannedReturnStatus may be omitted without making the required activity plan or archive narrative incomplete. mailPlan is governed only by [AUTHORITATIVE AWAY MAIL]. When required, it is one physical, character-appropriate letter, note, postcard, or small written trace grounded in this Away life—not a departure notice, routine status update, or automatic “I am back” message.`;
+- plannedReturnStatus may be omitted without making the required activity plan or archive narrative incomplete. If supplied, plannedReturnPosture is required as standing|sitting|lying|crouching and must match that Status prose; furniture/location never determines posture. mailPlan is governed only by [AUTHORITATIVE AWAY MAIL]. When required, it is one physical, character-appropriate letter, note, postcard, or small written trace grounded in this Away life—not a departure notice, routine status update, or automatic “I am back” message.`;
                 const getResidentPublicName = (catOrId) => {
                     const cat = catOrId && typeof catOrId === 'object'
                         ? catOrId
@@ -21726,7 +22249,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     AWAY_ACTIVITY_PLANNING_RULES,
                     formatAwayMailAuthority([String(cat.id)], { [String(cat.id)]: operation.mailDecision }),
                     'Return one JSON object only:',
-                    `{"residentId":"${String(cat.id)}","mode":"departure","plannedDurationMinutes":210,"destination":"source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":100,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":170,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"}],"plannedArchiveNarrative":"100-200 Chinese characters","plannedReturnStatus":"optional concise return status","mailPlan":[]}`
+                    `{"residentId":"${String(cat.id)}","mode":"departure","plannedDurationMinutes":210,"destination":"source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":100,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":170,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"}],"plannedArchiveNarrative":"100-200 Chinese characters","plannedReturnStatus":"optional concise return status","plannedReturnPosture":"standing|sitting|lying|crouching when return status is supplied","mailPlan":[]}`
                 ].join('\n');
                 const settleOrdinaryAwayOperationFailure = (cat, operation, error, now = new Date()) => {
                     if (!cat || cat.ordinaryAwayOperation?.id !== operation.id) return;
@@ -21928,7 +22451,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         'Plan a source-world-compatible external trip that genuinely pursues that purpose. Do not use unknown facts, other residents, holder maps, USER knowledge, or unrelated modern venues unsupported by this actor canon.',
                         'The stored episode is thread-private: destination, activities, archive narrative, and public trace will never be shown to USER. Still make every field internally coherent. Do not create mail here: mailPlan must be [] exactly. A separate purpose-blind mail step owns the optional physical letter.',
                         'Return JSON only:',
-                        `{"residentId":"${scope.actorId}","mode":"departure","plannedDurationMinutes":210,"destination":"private source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"},{"afterMinutes":100,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"},{"afterMinutes":170,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"}],"plannedArchiveNarrative":"100-200 Chinese characters, private purpose-aligned recollection","plannedReturnStatus":"optional concise return status","mailPlan":[]}`
+                        `{"residentId":"${scope.actorId}","mode":"departure","plannedDurationMinutes":210,"destination":"private source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"},{"afterMinutes":100,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"},{"afterMinutes":170,"plannedResidentActivity":"private purpose-aligned activity","publicTrace":"safe non-secret trace"}],"plannedArchiveNarrative":"100-200 Chinese characters, private purpose-aligned recollection","plannedReturnStatus":"optional concise return status","plannedReturnPosture":"standing|sitting|lying|crouching when return status is supplied","mailPlan":[]}`
                     ].join('\n');
                 };
                 const getThreadExcursionPlanDiagnostic = (raw, actorId, mailDecision) => {
@@ -22304,7 +22827,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                             mailDecisions,
                             eligibleLegacyIds,
                             awayPlansExample: '[{"residentId":"exact eligible legacy machine id","mode":"legacy-continuation","plannedDurationMinutes":210}]',
-                            instructions: `[LEGACY AWAY CONTINUATION]\nOnly these frozen, locally identified unmanaged legacy Away residents may receive a plan: ${legacyEligibility}. For each such resident only, return a finite {"residentId":"exact eligible legacy machine id","mode":"legacy-continuation","plannedDurationMinutes":210} plan. Do not return legacy-continuation for any other resident. Do not include destination, plannedActivities, publicTrace, plannedArchiveNarrative, plannedReturnStatus, mailPlan, or other departure fields. Do not plan an already scheduled-away resident; its lifecycle is local.`
+                            instructions: `[LEGACY AWAY CONTINUATION]\nOnly these frozen, locally identified unmanaged legacy Away residents may receive a plan: ${legacyEligibility}. For each such resident only, return a finite {"residentId":"exact eligible legacy machine id","mode":"legacy-continuation","plannedDurationMinutes":210} plan. Do not return legacy-continuation for any other resident. Do not include destination, plannedActivities, publicTrace, plannedArchiveNarrative, plannedReturnStatus, plannedReturnPosture, mailPlan, or other departure fields. Do not plan an already scheduled-away resident; its lifecycle is local.`
                         };
                     }
                     return {
@@ -22313,7 +22836,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         mailDecisions,
                         eligibleLegacyIds,
                         awayPlansExample: '[{"residentId":"exact DEPARTING_NOW supplied machine id","mode":"departure","plannedDurationMinutes":210,"destination":"private planning context","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"future private activity beat one","publicTrace":"limited public trace one"},{"afterMinutes":100,"plannedResidentActivity":"future private activity beat two","publicTrace":"limited public trace two"},{"afterMinutes":170,"plannedResidentActivity":"future private activity beat three","publicTrace":"limited public trace three"}],"plannedArchiveNarrative":"100-200 Chinese-character first-person private recollection"}]',
-                        instructions: `This HOME/DEPARTING_NOW pair illustrates the local contract only. isOut is required compatibility metadata, not a presence decision. A resident directed HOME remains home and has no departure plan. Every resident directed DEPARTING_NOW must include exactly one matching mode:"departure" plan with the required fields shown above; local code commits departure only after that plan is valid and an Away episode is created. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details.\n${formatAwayMailAuthority(departingIds, mailDecisions)}\nLegacy-continuation is allowed only for these frozen, locally identified unmanaged legacy Away resident IDs: ${legacyEligibility}. A legacy-continuation plan is {"residentId":"exact eligible legacy id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, or plannedArchiveNarrative. Do not return legacy-continuation for any other resident. Do not plan an already scheduled-away resident; its lifecycle is local.`
+                        instructions: `This HOME/DEPARTING_NOW pair illustrates the local contract only. isOut is required compatibility metadata, not a presence decision. A resident directed HOME remains home and has no departure plan. Every resident directed DEPARTING_NOW must include exactly one matching mode:"departure" plan with the required fields shown above; local code commits departure only after that plan is valid and an Away episode is created. The 210-minute example therefore contains three activity beats; example minutes are illustrative only.\n${AWAY_ACTIVITY_PLANNING_RULES}\n[OPTIONAL AWAY ENRICHMENT] plannedReturnStatus may be omitted; when supplied it is one concise, character-appropriate third-person status for the immediate return home without private destination/activity details, and plannedReturnPosture is required as standing|sitting|lying|crouching and must match it. Furniture never determines posture.\n${formatAwayMailAuthority(departingIds, mailDecisions)}\nLegacy-continuation is allowed only for these frozen, locally identified unmanaged legacy Away resident IDs: ${legacyEligibility}. A legacy-continuation plan is {"residentId":"exact eligible legacy id","mode":"legacy-continuation","plannedDurationMinutes":210}; it must contain no destination, activity, trace, mail, plannedReturnStatus, plannedReturnPosture, or plannedArchiveNarrative. Do not return legacy-continuation for any other resident. Do not plan an already scheduled-away resident; its lifecycle is local.`
                     };
                 };
                 const enforceAwayMailDecision = (diagnostic, mailDecision = null) => {
@@ -22357,13 +22880,15 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         },
                         onDeliverMail: (episode, mail, logicalAt, reconciledAt) =>
                             deliverPlannedAwayMail(episode, mail, logicalAt, reconciledAt),
-                        onSettleReturn: ({ cat, episode, logicalReturnAt, reconciledAt, returnStatus }) => {
+                        onSettleReturn: ({ cat, episode, logicalReturnAt, reconciledAt, returnStatus, returnPosture }) => {
                             const safeReturnStatus = isLifeThreadAwayEpisode(episode)
-                                ? '刚回到馆内，正在安静整理一路的疲惫。'
+                                ? '刚回到馆内，正趴着安静整理一路的疲惫。'
                                 : returnStatus;
+                            const safeReturnPosture = isLifeThreadAwayEpisode(episode) ? 'lying' : returnPosture;
                             const room = getMapRoomForCat(cat);
                             const spot = getMapSpotForCat(cat, room);
                             setCatStatus(cat, safeReturnStatus, {
+                                posture: safeReturnPosture,
                                 source: 'away-episode-return',
                                 forceLog: true,
                                 mapRoom: room,
@@ -22749,6 +23274,7 @@ ${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user
                         breed: cat.breed,
                         eyeColor: cat.eyeColor,
                         status: cat.status,
+                        statusActivity: statusPosture.normalizeStatusActivity(cat.statusActivity),
                         innerVoice: cat.innerVoice,
                         isOut: cat.isOut,
                         isHuman: cat.isHuman,
@@ -22822,6 +23348,9 @@ ${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user
                         cat.todayInteractions = [...(savedCat.todayInteractions || [])];
                         cat.diary = [...(savedCat.monitor || [])];
                         cat.status = savedCat.status;
+                        const restoredStatusActivity = statusPosture.normalizeStatusActivity(savedCat.statusActivity);
+                        if (restoredStatusActivity) cat.statusActivity = restoredStatusActivity;
+                        else delete cat.statusActivity;
                         cat.innerVoice = savedCat.innerVoice;
                         cat.isOut = isPermanentOutBuiltin(cat) || Boolean(savedCat.isOut);
                         cat.isHuman = Boolean(savedCat.isHuman);
@@ -23414,11 +23943,13 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     if (String(active.id ?? '') !== String(activeCatId)) {
                         return 'Homepage Chat activeCat ID 与当前角色不匹配。';
                     }
-                    for (const field of ['reply', 'status', 'innerVoice', 'userStatus']) {
+                    for (const field of ['reply', 'status', 'innerVoice', 'userStatus', 'posture']) {
                         if (typeof active[field] !== 'string' || !active[field].trim()) {
                             return `Homepage Chat activeCat 缺少有效 ${field}。`;
                         }
                     }
+                    const postureValidation = statusPosture.validateStatusPosture(active.status, active.posture);
+                    if (!postureValidation.valid) return `Homepage Chat posture 无效：${postureValidation.error}`;
                     if (hasMechanicalAppearanceRepetition(active.reply, currentMessage, recentUserMessages)) {
                         return MECHANICAL_APPEARANCE_REPLY_ERROR;
                     }
@@ -23604,8 +24135,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
 - Fixed appearance is reference-only: mention it only when the USER explicitly asks, directly interacts with it, or it is causally necessary.`;
                         const outputContract = `[OUTPUT CONTRACT]
 Return exactly one JSON object, no markdown, code fences, or commentary. All text values are Simplified Chinese.
-{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","innerVoice":"","userStatus":"","memoryCandidate":null}}
-- status: third-person current action, about 10 Chinese characters. innerVoice: first-person using 我, wrapped in 【】, never a feline vocalization. userStatus: a short USER activity summary within 15 Chinese characters.
+{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","posture":"standing|sitting|lying|crouching","innerVoice":"","userStatus":"","memoryCandidate":null}}
+- status: third-person current action, about 10 Chinese characters. posture is the exact current physical posture expressed by status. Location/furniture and posture are independent: a resident may stand on a cushion, sit on a cabinet, lie on the floor, or crouch beside furniture when the status says so. innerVoice: first-person using 我, wrapped in 【】, never a feline vocalization. userStatus: a short USER activity summary within 15 Chinese characters.
 - reply: normally 80–140 Chinese characters; continue this exact turn through concrete, in-character action and nearby space.
 - memoryCandidate is optional and normally null. It may describe only a durable fact from this USER/${getResidentPublicName(sendingCat)} exchange or supplied direct USER-shared context; never infer bystander experience or Knowledge. Use {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.`;
                         const prompt = `${interactionContract}
@@ -23660,7 +24191,7 @@ ${outputContract}`;
                         const status = cleanText(activeResponse.status);
                         const voice = cleanText(activeResponse.innerVoice);
                         const userStatus = cleanText(activeResponse.userStatus);
-                        setCatStatus(sendingCat, status, { innerVoice: voice, source: 'detail-chat', forceLog: true });
+                        setCatStatus(sendingCat, status, { posture: activeResponse.posture, innerVoice: voice, source: 'detail-chat', forceLog: true });
                         applySuccessfulInteractionUserStatus(userStatus);
                         const replyTime = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
@@ -23812,10 +24343,10 @@ ${buildLeanAmbientContext(cat, {
                     - Only the listed participants may appear. They are all in ${currentHall.value.name}; never reference a cat from another hall.
                     - Preserve each cat's original-work personality, values, voice, relationships, and boundaries exactly. Cat form never erases their identity.
                     - Never insert a default Gotham, DC, superhero, or crime-fighting premise unless this hall and supplied canon explicitly require it.
-                    - Status is third-person, concrete and continuous with that cat's previous status. Inner voice is first-person and uses 我.
+                    - Status is third-person, concrete and continuous with that cat's previous status. Each resident update must include posture as standing, sitting, lying, or crouching, matching the status prose. Furniture/location never determines posture. Inner voice is first-person and uses 我.
                     - sharedMoment.content is public/observable prose only. Never include innerVoice, private knowledge, diary, episodic memory, Life Thread facts, hidden Away purpose, secret relationship information, or private emotion that is not visibly expressed.
                     - Output Simplified Chinese only. Return JSON only:
-                    {"sharedMoment":{"participantIds":["..."],"speakerIds":[],"userActionEvidenceIds":[],"content":"..."},"residentUpdates":[{"id":"...","status":"第三人称行动，最多28字","innerVoice":"第一人称想法，最多45字"}]}
+                    {"sharedMoment":{"participantIds":["..."],"speakerIds":[],"userActionEvidenceIds":[],"content":"..."},"residentUpdates":[{"id":"...","status":"第三人称行动，最多28字","posture":"standing|sitting|lying|crouching","innerVoice":"第一人称想法，最多45字"}]}
                     residentUpdates must contain exactly one object for every listed Focus participant ID: [${participants.map(cat => String(cat.id)).join(', ')}].`;
                     try {
                         const focusSystemPrompt = CORE_ROLEPLAY_PROMPT + "\nFocus output must be one valid JSON object only; no markdown or extra commentary.";
@@ -23829,6 +24360,17 @@ ${buildLeanAmbientContext(cat, {
                         const res = await callAI(prompt, focusSystemPrompt, 2200, ThinkingLevel.LOW, { label: `FOCUS LOG · ${participants.length} CAT${participants.length > 1 ? 'S' : ''}` });
                         const parsedResponse = parseAIJSON(res);
                         const updates = Array.isArray(parsedResponse) ? parsedResponse : parsedResponse?.residentUpdates;
+                        const expectedFocusIds = new Set(participants.map(cat => String(cat.id)));
+                        const returnedFocusIds = new Set();
+                        if (!Array.isArray(updates) || updates.length !== expectedFocusIds.size) throw new Error('Focus residentUpdates coverage invalid');
+                        updates.forEach(update => {
+                            const id = String(update?.id || '');
+                            const postureValidation = statusPosture.validateStatusPosture(update?.status, update?.posture);
+                            if (!expectedFocusIds.has(id) || returnedFocusIds.has(id) || typeof update?.status !== 'string' || typeof update?.innerVoice !== 'string' || !postureValidation.valid) {
+                                throw new Error(`Focus Status posture invalid: ${id || 'missing-id'} ${postureValidation.error || ''}`.trim());
+                            }
+                            returnedFocusIds.add(id);
+                        });
                         const sharedMoment = Array.isArray(parsedResponse) ? null : validateFocusSharedMoment(parsedResponse?.sharedMoment, {
                             authorizedParticipants: authorizedMomentParticipants,
                             allParticipants: cats.value,
@@ -23844,7 +24386,7 @@ ${buildLeanAmbientContext(cat, {
                             const update = updateById.get(String(cat.id));
                             const action = cleanText(update?.status || update?.action || '仍留在专注现场，以自己的方式陪伴馆长。');
                             const voice = cleanText(update?.innerVoice || update?.voice || '先把这一段时间守住。');
-                            setCatStatus(cat, action, { innerVoice: voice, source: 'focus', forceLog: true });
+                            setCatStatus(cat, action, { posture: update.posture, innerVoice: voice, source: 'focus', forceLog: true });
                             nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
                         });
                         if (sharedMoment) currentFocusLog.value.unshift(`${timeStr}｜${sharedMoment.content}`);
@@ -23860,10 +24402,10 @@ ${buildLeanAmbientContext(cat, {
                         const nextVoiceEntries = [];
                         const logParts = [];
                         participants.forEach(cat => {
-                            const fallback = '仍留在专注现场，以自己的方式陪伴馆长。';
+                            const fallback = '仍站在专注现场，以自己的方式陪伴馆长。';
                             logParts.push(`${cat.name}：${fallback}`);
                             const voice = getResidentLiveInnerVoice(cat, '先守住这一小段时间。');
-                            setCatStatus(cat, fallback, { innerVoice: voice, source: 'focus-fallback', forceLog: true });
+                            setCatStatus(cat, fallback, { posture: 'standing', innerVoice: voice, source: 'focus-fallback', forceLog: true });
                             nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
                         });
                         if (logParts.length) currentFocusLog.value.unshift(`${timeStr}｜${logParts.join('；')}`);
@@ -24080,11 +24622,20 @@ ${buildLeanAmbientContext(cat, {
                     if (!targetCat) return;
                     if (settings.apiKey) {
                         const formStr = isFocusing.value ? (focusSessionForms[String(targetCat.id)] || getResidentForm(targetCat)) : getResidentForm(targetCat);
-                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${getResidentPublicName(targetCat)}. ${describeResidentForm(formStr)} Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Output: [ACTION] Action\n${buildAuthoritativeUserIdentityContext()}\n${buildResidentPublicNameContract([targetCat])}\n${buildCatMemoryContext(targetCat, { compact: true })}`;
+                        const prompt = `The user gently interrupts / playfully teases you while trying to focus. You: ${getResidentPublicName(targetCat)}. ${describeResidentForm(formStr)} Write a short third-person reaction (under 30 Chinese words): the user is safe and kind, so favor curiosity, mild impatience, playful interest, or returning to your own rhythm. Do not default to fear, hostility, contempt, or an affinity penalty. Keep exact canon personality. Return JSON only: {"action":"third-person physical reaction","posture":"standing|sitting|lying|crouching"}. posture must match action; furniture/location never determines posture.\n${buildAuthoritativeUserIdentityContext()}\n${buildResidentPublicNameContract([targetCat])}\n${buildCatMemoryContext(targetCat, { compact: true })}`;
                         try {
-                            const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, { label: `LIGHT INTERACTION · ${targetCat.name}`, priority: 'foreground' });
-                            const action = extractSection(res, 'ACTION') || cleanText(res);
-                            setCatStatus(targetCat, action, { source: 'harass', forceLog: true });
+                            const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, {
+                                label: `LIGHT INTERACTION · ${targetCat.name}`, priority: 'foreground',
+                                validateResponse: content => {
+                                    const payload = parseAIJSON(content);
+                                    if (!payload || typeof payload.action !== 'string') return 'Light interaction action missing.';
+                                    const validation = statusPosture.validateStatusPosture(payload.action, payload.posture);
+                                    return validation.valid ? true : `Light interaction posture invalid: ${validation.error}`;
+                                }
+                            });
+                            const payload = parseAIJSON(res);
+                            const action = cleanText(payload.action);
+                            setCatStatus(targetCat, action, { posture: payload.posture, source: 'harass', forceLog: true });
                             appendInteractionEvent(targetCat, 'special', `馆长进行了互动：${action}`, { source: 'harass' });
                             if (isFocusing.value) { recordFocusVisibleUserAction(targetCat); const timeStr = getCurrentTimeStr(); currentFocusLog.value.unshift(`${timeStr} [${targetCat.name}] ${action}`); focusMessage.value = "骚扰成功！"; playLogSound(); setTimeout(() => focusMessage.value = '', 2000); } else { alert(`${targetCat.name}: ${action}`); refreshAllStatus(true, `User just harassed ${targetCat.name}. Reaction: ${action}`, [targetCat.id], action); }
                         } catch (e) { }
@@ -24126,6 +24677,8 @@ ${buildLeanAmbientContext(cat, {
                         ['status', 'innerVoice'].forEach(field => {
                             if (typeof update[field] !== 'string') entryErrors.push(`entry ${index} has invalid ${field}`);
                         });
+                        const postureValidation = statusPosture.validateStatusPosture(update.status, update.posture);
+                        if (!postureValidation.valid) entryErrors.push(`entry ${index} has invalid posture: ${postureValidation.error}`);
                         // isHuman/formDecision is compatibility-only form echo data.
                         // It is classified per resident after structural validation so a
                         // wrong anatomy echo never burns a whole provider retry.
@@ -24411,12 +24964,12 @@ ${buildStatusSyncFormAuthority(formDirectives)}
 - CAT form: feline sounds/actions/body language only; no human-language speech. HUMAN form: human-shaped kemonomimi anatomy with normal human speech when natural.
 - Preserve source-world continuity and current physical scope. Do not invent Knowledge, Life Thread facts, private motives, hidden relationships, inventory, or unauthorized state changes.
 - Form echo is compatibility metadata only: copy supplied target; never choose a transformation. A wrong echo may be soft-quarantined without rejecting the response.
-- Status is visible in-world activity only. Form constrains anatomy and expression but is never itself a Status topic: do not mention adapting, maintaining, changing, synchronizing, or failing a form. Never mention candidates, selection, queues, scheduling, retries, validation, Status Sync, or other control-plane mechanics. A HOME resident without explicit authoritative preparation simply continues an ordinary diegetic activity.
+- Status is visible in-world activity only. Every update must include posture as exactly standing, sitting, lying, or crouching, and it must match the physical posture explicitly described by status. Posture and location are independent: furniture never forces posture; a resident may stand on a cushion, sit on a cabinet, lie on the floor, or crouch beside furniture when the status says so. Form constrains anatomy and expression but is never itself a Status topic: do not mention adapting, maintaining, changing, synchronizing, or failing a form. Never mention candidates, selection, queues, scheduling, retries, validation, Status Sync, or other control-plane mechanics. A HOME resident without explicit authoritative preparation simply continues an ordinary diegetic activity.
 ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away, Visit, Fridge, scene, or USER-arrival inference.' : '- Hall mode: Away/Visit/Curator residents stay in their program-owned physical scope; do not treat shared context as omniscient private knowledge.'}`;
                 const buildStatusSyncOutputContract = ({ curatorRoomStatusSync, requestedIds, awayPromptContract, hasFridgeNoteSidecar = false, hasLifeThreadSidecar = false, sceneMode }) => {
                     const updateRule = curatorRoomStatusSync
-                        ? 'Each update needs id,status,innerVoice,isOut:false,isHuman compatibility echo, and the exact supplied curatorRoomAnchor; never include Hall map fields.'
-                        : 'Each update needs id,status,innerVoice,isOut compatibility echo,isHuman compatibility echo. HOME requires valid Hall map fields; CURATOR_ROOM requires valid curatorRoomAnchor and no Hall map fields; DEPARTING_NOW has no authority to depart without a valid matching Away plan.';
+                        ? 'Each update needs id,status,posture,innerVoice,isOut:false,isHuman compatibility echo, and the exact supplied curatorRoomAnchor; never include Hall map fields.'
+                        : 'Each update needs id,status,posture,innerVoice,isOut compatibility echo,isHuman compatibility echo. posture must be standing|sitting|lying|crouching and match status prose. HOME requires valid Hall map fields; CURATOR_ROOM requires valid curatorRoomAnchor and no Hall map fields; DEPARTING_NOW has no authority to depart without a valid matching Away plan.';
                     const sceneRule = sceneMode
                         ? `If scene is returned, use the already-specified ${sceneMode} scene shape; otherwise scene:null.`
                         : 'scene must be null.';
@@ -24894,6 +25447,9 @@ ${statusOutputRules}`;
                             const originalDiegeticStatusById = new Map(catsToUpdate
                                 .filter(cat => requestedIdSet.has(String(cat.id)))
                                 .map(cat => [String(cat.id), isControlPlaneStatusText(cat.status) ? '' : cleanText(cat.status || '')]));
+                            const originalStatusPostureById = new Map(catsToUpdate
+                                .filter(cat => requestedIdSet.has(String(cat.id)))
+                                .map(cat => [String(cat.id), statusPosture.resolveMapPose(cat)]));
                             const plansByResident = indexAwayPlans(awayPlans);
                             const getLocalPresenceDirective = (catId) => {
                                 const directive = presenceDirectives[String(catId)];
@@ -24968,7 +25524,7 @@ ${statusOutputRules}`;
                                         staleVoiceIds.push(updateId);
                                         return;
                                     }
-                                    if (update.status && !isControlPlaneStatusText(update.status)) setCatStatus(cat, update.status, { innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
+                                    if (update.status && !isControlPlaneStatusText(update.status)) setCatStatus(cat, update.status, { posture: update.posture, innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
                                     else {
                                         if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
                                         if (update.status && isControlPlaneStatusText(update.status)) {
@@ -25038,7 +25594,7 @@ ${statusOutputRules}`;
                                     c.isOut = false;
                                     c.hasHackedThisPatrol = false;
                                     const prior = originalDiegeticStatusById.get(catId) || getNeutralDiegeticStatus(c);
-                                    setCatStatus(c, prior, { source: 'status-sync', forceLog: true });
+                                    setCatStatus(c, prior, { posture: originalStatusPostureById.get(catId) || 'standing', source: 'status-sync', forceLog: true });
                                     if (proposedDiagnostic?.valid && !awayDecisionDiagnostics.discardedIds.has(catId)) {
                                         awayDecisionDiagnostics.discardedIds.add(catId);
                                         awayDecisionDiagnostics.discarded++;
@@ -25071,7 +25627,7 @@ ${statusOutputRules}`;
                                 cat.isOut = false;
                                 cat.hasHackedThisPatrol = false;
                                 const prior = originalDiegeticStatusById.get(catId) || getNeutralDiegeticStatus(cat);
-                                setCatStatus(cat, prior, { source: 'status-sync', forceLog: true });
+                                setCatStatus(cat, prior, { posture: originalStatusPostureById.get(catId) || 'standing', source: 'status-sync', forceLog: true });
                             });
 
                             catsToUpdate.forEach(cat => {
@@ -25090,7 +25646,7 @@ ${statusOutputRules}`;
                                 // an unmanaged permanent absence. This is a real return from an
                                 // unknown legacy period, not a fabricated historical departure.
                                 cat.isOut = false;
-                                setCatStatus(cat, '结束外出，回到馆舍。', { source: 'status-sync', forceLog: true });
+                                setCatStatus(cat, '结束外出，正站在馆内重新安顿。', { posture: 'standing', source: 'status-sync', forceLog: true });
                                 appendMonitorEvent(cat, '结束外出，回到馆舍。', 'status-sync');
                                 appendAwayTransitionTravelogue(cat, false, now);
                                 awayDecisionDiagnostics.legacyReturned++;
@@ -25701,6 +26257,10 @@ ${statusOutputRules}`;
                             if (data.cats) cats.value = data.cats.map(normalizeCatHall);
                             if (data.halls) halls.value = data.halls;
                             mergeBuiltInCats();
+                            cats.value.forEach(cat => {
+                                normalizeResidentFormState(cat);
+                                statusPosture.normalizeResidentStatusActivity(cat);
+                            });
                             normalizeResidentRelationshipRoster();
                             normalizeAttentionBidOpportunities({ recoverGenerating: true });
                             normalizeExploreCases();
@@ -25794,6 +26354,7 @@ ${statusOutputRules}`;
                         5. Generate a classic quote from the character to use as innerVoice.
                         6. Language: Simplified Chinese.
                         7. Do not equate reserved with hostile, quiet with shy, proud with abusive, sarcastic with contemptuous, traumatized with permanently angry, friendly with childish, female characters with tsundere, or villains/antagonists with random cartoon cruelty. Fixed appearance is reference information, not mandatory narration in every response.
+                        8. Return posture as exactly standing, sitting, lying, or crouching. It must match the physical posture expressed by status; furniture/location never determines posture.
                         
                         Output JSON:
                         {
@@ -25802,6 +26363,7 @@ ${statusOutputRules}`;
                             "color": "#HEX",
                             "personality": "...",
                             "status": "初来乍到，正在审视周围环境",
+                            "posture": "standing|sitting|lying|crouching; must match status",
                             "innerVoice": "...",
                             "prompt": "...",
                             "origin": "${newCat.origin}"
@@ -25809,7 +26371,14 @@ ${statusOutputRules}`;
                     `;
 
                     try {
-                        const res = await callAI(prompt, "Character Generator (Simplified Chinese Only)", 1000);
+                        const res = await callAI(prompt, "Character Generator (Simplified Chinese Only)", 1000, ThinkingLevel.LOW, {
+                            validateResponse: content => {
+                                const payload = parseAIJSON(content);
+                                if (!payload || typeof payload !== 'object') return 'Character Generator response is not valid JSON.';
+                                const validation = statusPosture.validateStatusPosture(payload.status, payload.posture);
+                                return validation.valid ? true : `Character Generator posture invalid: ${validation.error}`;
+                            }
+                        });
                         const data = parseAIJSON(res);
                         if (data) {
                             const imgUrl = `https://placehold.co/200x200/${data.color.replace('#', '')}/white?text=${newCat.codename}`;
@@ -25822,6 +26391,7 @@ ${statusOutputRules}`;
                                 eyeColor: data.eyeColor,
                                 personality: data.personality,
                                 status: data.status,
+                                statusActivity: { posture: statusPosture.normalizePosture(data.posture) },
                                 innerVoice: data.innerVoice,
                                 isOut: false,
                                 affinity: DEFAULT_RESIDENT_AFFINITY,
@@ -25859,7 +26429,7 @@ ${statusOutputRules}`;
                     const existingNames = roomCats.value.map(c => c.name).join(', ');
                     const systemPrompt = `You are ${newCat.name} (${newCat.codename || newCat.name}). Personality traits: ${newCat.personality || 'unknown'}. Breed: ${newCat.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality at all times. Do NOT act tsundere or like a generic anime cat. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Your tone, humor, emotional expression, moral boundaries and important relationships must match your established character. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}.`;
                     const id = Date.now();
-                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住', isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false });
+                    cats.value.push({ id: id, hallId: activeHallId.value, name: newCat.name, breed: newCat.breed, image: imgUrl, image_human: '', personality: newCat.personality, status: '新入住，正站在馆内熟悉环境', statusActivity: { posture: 'standing' }, isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [], innerVoice: '...', lastFocusTime: 0, prompt: systemPrompt, isMarvel: false });
                     currentTab.value = 'lounge';
                 };
 
@@ -25868,7 +26438,7 @@ ${statusOutputRules}`;
                         const existingNames = roomCats.value.map(c => c.name).join(', ');
                         const systemPrompt = `You are ${gachaResult.value.name}. Personality: ${gachaResult.value.personality || 'unknown'}. Breed: ${gachaResult.value.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality. Do NOT default to tsundere or generic cute-cat behavior. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Express your character\'s unique voice, emotional range, worldview, moral boundaries and important relationships authentically. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}. ${gachaResult.value.prompt}`;
                         const id = Date.now();
-                            cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到', isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], residentRelationships: {}, innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
+                            cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到，正站在馆内观察周围', statusActivity: { posture: 'standing' }, isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], residentRelationships: {}, innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
                         currentTab.value = 'lounge';
                     }
                     gachaResult.value = null;
@@ -26088,9 +26658,10 @@ ${statusOutputRules}`;
   "liked": boolean,
   "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
   "status": "A non-empty Simplified Chinese third-person current activity suitable for the cat status.",
+  "posture": "standing|sitting|lying|crouching; must match the physical posture in status.",
   "innerVoice": "A non-empty Simplified Chinese first-person inner thought suitable for the cat inner voice."
 }
-All four fields are mandatory. reaction, status, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another.
+All five fields are mandatory. reaction, status, posture, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another. Furniture/location never determines posture.
 [FORM RULES]
 - CAT FORM: reaction is visible third-person behavior only. The character cannot speak human language aloud. Optional direct vocalization may only be feline sounds such as "喵。", "呜。", "呼噜。", or "嘶。". Human-language thoughts belong only in innerVoice and are never spoken aloud. Show personality/canon through action choice, distance, posture, and handling of the item.
 - HUMAN FORM: reaction may include normal in-character dialogue and action. Natural feline ears and tail remain real anatomy and may respond to touch or emotion when relevant. Preserve the character's canon voice.
@@ -26098,7 +26669,7 @@ ${buildResidentPublicNameContract([targetCat])}
 ${buildAuthoritativeUserIdentityContext()}
 ${buildFocusedResidentStateContext(targetCat)}
 ${episodicMemory}`;
-                        const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all four required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
+                        const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all five required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
@@ -26109,9 +26680,9 @@ ${episodicMemory}`;
                         });
                         const data = parseAIJSON(response);
                         const validation = validateItemInteractionResponse(data, itemForm, cleanText);
-                        const { reaction, status, innerVoice } = validation.payload;
+                        const { reaction, status, posture, innerVoice } = validation.payload;
                         if (!validation.valid && validation.error !== 'CAT FORM 的 reaction 含有带引号的人类对白。') {
-                            throw new Error('物品互动回包缺少有效的 liked、reaction、status 或 innerVoice 字段');
+                            throw new Error('物品互动回包缺少有效的 liked、reaction、status、posture 或 innerVoice 字段');
                         }
                         if (!validation.valid) {
                             throw new Error('CAT FORM 的 reaction 含有带引号的人类对白');
@@ -26125,7 +26696,7 @@ ${episodicMemory}`;
                             : -(Math.floor(Math.random() * 3) + 2);
                         const itemDisposition = data.liked ? '喜欢' : '抗拒';
 
-                        setCatStatus(targetCat, status, { innerVoice, source: 'item', forceLog: true });
+                        setCatStatus(targetCat, status, { posture, innerVoice, source: 'item', forceLog: true });
                         targetCat.affinity = Math.max(0, targetCat.affinity + affinityDelta);
                         targetCat.chatHistory.push({
                             role: 'assistant',
@@ -26283,7 +26854,7 @@ ${episodicMemory}`;
 
                 return {
                     currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
-                    CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
+                    CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomCatVisual, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
@@ -26291,6 +26862,7 @@ ${episodicMemory}`;
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveDestination, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showCatVisualEditor, showCatVisualCloseConfirm, catVisualDraft, catVisualTab, catVisualPreviewCanvas, portfolioCatVisualCanvas, catVisualPreviewLoading, catVisualPreviewError, portfolioCatVisualError, catVisualPreviewMeta, catVisualSaving, catVisualEditorResident, catVisualTabs, catVisualOptions, catVisualCoats, catVisualMarks, catVisualEyes, catVisualMuzzles, catVisualLegs, catVisualLabel, catVisualIsCustomColor, catVisualPreviewColor, catVisualPickerValue, setCatVisualColor, usesPortfolioCatVisual, openCatVisualEditor, openManagedCatVisualEditor, requestCatVisualEditorClose, discardCatVisualChanges, continueCatVisualEditing, saveCatVisualEditor,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
                     handleCatClick, returnToHallRoom, navigateToTab, leavePhone, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,

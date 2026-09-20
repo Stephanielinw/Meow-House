@@ -34,8 +34,9 @@
     const validateItemInteractionResponse = (data, itemForm, cleanText) => {
         const reaction = cleanText(typeof data?.reaction === 'string' ? data.reaction : '');
         const status = cleanText(typeof data?.status === 'string' ? data.status : '');
+        const posture = typeof data?.posture === 'string' ? data.posture.trim() : '';
         const innerVoice = cleanText(typeof data?.innerVoice === 'string' ? data.innerVoice : '');
-        const payload = { liked: data?.liked, reaction, status, innerVoice };
+        const payload = { liked: data?.liked, reaction, status, posture, innerVoice };
         const hasChineseText = (value) => /[\u3400-\u9fff]/.test(value);
 
         if (!data || Array.isArray(data) || typeof data !== 'object') {
@@ -46,6 +47,10 @@
         }
         if (!reaction || !status || !innerVoice || !hasChineseText(reaction) || !hasChineseText(status) || !hasChineseText(innerVoice)) {
             return { valid: false, error: 'ITEM INTERACTION 回包缺少完整的中文 reaction、status 或 innerVoice 字段。', payload };
+        }
+        const postureValidation = Meeow.statusPosture?.validateStatusPosture(status, posture);
+        if (!postureValidation?.valid) {
+            return { valid: false, error: `ITEM INTERACTION posture 无效：${postureValidation?.error || 'missing posture authority'}`, payload };
         }
         if (hasCatReactionHumanDialogue(reaction, itemForm)) {
             return { valid: false, error: 'CAT FORM 的 reaction 含有带引号的人类对白。', payload };
