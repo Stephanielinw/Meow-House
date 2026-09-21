@@ -2109,22 +2109,151 @@
             #app .meeow-settlement-live-log { max-height: 92px; }
         }
 
-        /* The phone is a page inside the shell, not a vertically centred
-         * viewport of its own. Start it below the topbar and let its inner app
-         * scroll naturally on short screens. */
+        /* Phone is a normal Meeow House page, not a second physical device. */
         #app .gotham-phone-page {
+            position: relative;
             min-height: 0 !important;
-            height: auto !important;
+            height: 100% !important;
             justify-content: flex-start !important;
-            padding-top: 4px !important;
-            padding-bottom: 4px !important;
+            padding: 0 !important;
+            overflow: hidden;
         }
 
-        #app .gotham-phone-page > div:first-child {
-            height: min(600px, calc(var(--app-height) - 190px));
-            max-height: calc(var(--app-height) - 190px);
+        #app .meeow-phone-launcher {
+            width: 100%;
+            height: 100%;
             min-height: 0;
-            flex: 0 1 auto;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            align-content: start;
+            gap: 22px 16px;
+            padding: 28px clamp(16px, 5vw, 44px) 24px;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        #app .meeow-phone-app {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        #app .meeow-phone-app-icon {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            border: 1px solid rgba(255, 241, 214, 0.34);
+            border-radius: 19px;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            color: #fff;
+            background: linear-gradient(145deg, #dfc489 0%, #c49355 48%, #a96732 100%);
+            box-shadow:
+                0 10px 22px rgba(82, 51, 24, 0.28),
+                inset 0 1px 0 rgba(255, 255, 255, 0.32),
+                inset 0 -1px 0 rgba(84, 49, 20, 0.2);
+            font-size: 23px;
+            line-height: 1;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+        }
+
+        #app .meeow-phone-app-icon::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(155deg, rgba(255, 255, 255, 0.2), transparent 45%);
+            pointer-events: none;
+        }
+
+        #app .meeow-phone-app-icon > i,
+        #app .meeow-phone-app-icon > svg {
+            position: relative;
+            z-index: 1;
+        }
+
+        #app .meeow-truth-dare-glyph {
+            width: 34px;
+            height: 34px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        #app .meeow-truth-dare-glyph-small {
+            width: 21px;
+            height: 21px;
+        }
+
+        #app .meeow-phone-app:hover .meeow-phone-app-icon,
+        #app .meeow-phone-app:focus-visible .meeow-phone-app-icon {
+            transform: translateY(-2px);
+            filter: saturate(1.08) brightness(1.04);
+            box-shadow:
+                0 13px 25px rgba(82, 51, 24, 0.34),
+                inset 0 1px 0 rgba(255, 255, 255, 0.36),
+                inset 0 -1px 0 rgba(84, 49, 20, 0.2);
+        }
+
+        #app .meeow-phone-app:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 5px;
+            border-radius: 14px;
+        }
+
+        #app .meeow-phone-app-label {
+            max-width: 100%;
+            overflow: hidden;
+            color: var(--ui-text-muted);
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.2;
+            text-align: center;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #app .meeow-phone-app-badge {
+            position: absolute;
+            z-index: 2;
+            top: -5px;
+            right: -5px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            border: 2px solid var(--ui-bg);
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background: #b7493f;
+            color: #fff;
+            font-size: 9px;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        @media (max-width: 360px) {
+            #app .meeow-phone-launcher {
+                gap: 18px 10px;
+                padding: 22px 10px 20px;
+            }
+
+            #app .meeow-phone-app-icon {
+                width: 56px;
+                height: 56px;
+                border-radius: 18px;
+                font-size: 21px;
+            }
         }
 
         #app .sully-glass,
@@ -2882,19 +3011,11 @@
         #app .gotham-theme-swatch-sky { background: linear-gradient(135deg, #f5fbff 0 52%, #4d96dc 52% 100%); }
         #app .gotham-theme-swatch-grape { background: linear-gradient(135deg, #fbf9e9 0 52%, #77a847 52% 100%); }
 
-        /* Keep the light themes coherent inside the Batphone too. */
+        /* Keep the Phone page coherent in light themes too. */
         html[data-theme='cappuccino'] #app .gotham-phone-page,
         html[data-theme='strawberry'] #app .gotham-phone-page,
         html[data-theme='sky'] #app .gotham-phone-page {
             color: var(--ui-text);
-        }
-
-        html[data-theme='cappuccino'] #app .gotham-phone-page > div:first-child,
-        html[data-theme='strawberry'] #app .gotham-phone-page > div:first-child,
-        html[data-theme='sky'] #app .gotham-phone-page > div:first-child {
-            background: var(--ui-surface-strong) !important;
-            border-color: var(--ui-border-strong) !important;
-            box-shadow: var(--ui-shadow) !important;
         }
 
         html[data-theme='cappuccino'] #app .gotham-phone-page [class*="bg-zinc-"],
@@ -2915,12 +3036,6 @@
         html[data-theme='strawberry'] #app .gotham-phone-page [class*="border-zinc-"],
         html[data-theme='sky'] #app .gotham-phone-page [class*="border-zinc-"] {
             border-color: var(--ui-border) !important;
-        }
-
-        html[data-theme='cappuccino'] #app .gotham-phone-page > div:first-child,
-        html[data-theme='strawberry'] #app .gotham-phone-page > div:first-child,
-        html[data-theme='sky'] #app .gotham-phone-page > div:first-child {
-            background: var(--ui-surface-strong) !important;
         }
 
         /* Tailwind gradients on actions must follow the selected palette. */
@@ -3080,12 +3195,6 @@
             border-color: var(--ui-border) !important;
             box-shadow: var(--ui-shadow-soft) !important;
             color: var(--ui-text) !important;
-        }
-
-        html[data-theme='grape'] #app .gotham-phone-page > div:first-child {
-            background: var(--ui-surface-strong) !important;
-            border-color: var(--ui-border-strong) !important;
-            box-shadow: var(--ui-shadow) !important;
         }
 
         html[data-theme='grape'] #app .gotham-top-action,
@@ -5816,119 +5925,110 @@
             </div>
 
             <!-- PHONE TAB -->
-            <div v-if="currentTab === 'phone'" class="gotham-phone-page flex flex-col items-center justify-center">
-                <div
-                    class="bg-zinc-900 w-full max-w-sm rounded-[3rem] border-[8px] border-zinc-800 shadow-2xl relative overflow-hidden flex flex-col shrink-0">
-                    <!-- Phone Notch -->
-                    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-zinc-800 rounded-b-2xl z-50"></div>
-
-                    <!-- Phone Content -->
-                    <div class="flex-1 overflow-hidden flex flex-col bg-zinc-950">
-                        <!-- App Header -->
-                        <div
-                            class="h-14 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-6 pt-4 shrink-0">
-                            <div class="text-[10px] font-bold text-gray-400">{{ getCurrentTimeStr() }}</div>
-                            <div class="flex gap-1 text-[10px] text-gray-400">
-                                <i class="fas fa-signal"></i>
-                                <i class="fas fa-wifi"></i>
-                                <i class="fas fa-battery-three-quarters"></i>
-                            </div>
-                        </div>
-
-                        <!-- App Content -->
-                        <div class="flex-1 overflow-y-auto custom-scrollbar relative">
-                            <!-- Home Screen -->
-                            <div v-if="phoneState.currentApp === 'home'" class="px-7 pt-7 pb-3 grid grid-cols-3 gap-x-7 gap-y-5 content-start">
+            <div v-if="currentTab === 'phone'" class="gotham-phone-page gotham-main-page flex flex-col">
+                <!-- Phone launcher and active apps render directly in the Meeow House viewport. -->
+                <div v-if="phoneState.currentApp === 'home'" class="meeow-phone-launcher custom-scrollbar">
                                 <div @click="phoneState.currentApp = 'chat'"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-green-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-comment-dots"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300">喵信</span>
+                                    <span class="meeow-phone-app-label">喵信</span>
                                 </div>
                                 <div @click="openNewsApp"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div class="relative w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-newspaper"></i>
-                                        <span v-if="unreadNewsCount" class="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 border-2 border-zinc-950 text-[9px] leading-3 text-center font-black text-white">{{ unreadNewsCount > 9 ? '9+' : unreadNewsCount }}</span>
+                                        <span v-if="unreadNewsCount" class="meeow-phone-app-badge">{{ unreadNewsCount > 9 ? '9+' : unreadNewsCount }}</span>
                                     </div>
-                                    <span class="text-[10px] text-gray-300">新闻</span>
+                                    <span class="meeow-phone-app-label">新闻</span>
                                 </div>
                                 <div @click="phoneState.currentApp = 'tarot'"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-indigo-800 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-hat-wizard"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300">占星</span>
+                                    <span class="meeow-phone-app-label">占星</span>
                                 </div>
                                 <div @click="phoneState.currentApp = 'wallet'"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-orange-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-wallet"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300">猫币</span>
+                                    <span class="meeow-phone-app-label">猫币</span>
                                 </div>
                                 <div @click="phoneState.currentApp = 'shop'"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-shopping-basket"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300">补给</span>
+                                    <span class="meeow-phone-app-label">补给</span>
                                 </div>
                                 <div @click="phoneState.currentApp = 'gnn'; phoneState.gnnTab = 'trending'"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-rss"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300">馆舍热讯</span>
+                                    <span class="meeow-phone-app-label">馆舍热讯</span>
                                 </div>
                                 <div @click="openGamesApp"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white text-2xl shadow-[0_5px_15px_rgba(147,51,234,0.4)] hover:scale-110 active:scale-95 transition-all">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-gamepad"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300 font-medium">游乐园</span>
+                                    <span class="meeow-phone-app-label">游乐园</span>
                                 </div>
-                                <button type="button" @click="openTruthOrDare" class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg" style="background:#eee4d4;color:#793d42">🎲</div>
-                                    <span class="text-[10px] text-gray-300">真心话大冒险</span>
+                                <button type="button" @click="openTruthOrDare" class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
+                                        <svg class="meeow-truth-dare-glyph" viewBox="0 0 32 32" aria-hidden="true">
+                                            <rect x="3.5" y="5" width="15" height="22" rx="3" transform="rotate(-8 11 16)"></rect>
+                                            <rect x="13" y="4.5" width="15" height="22" rx="3"></rect>
+                                            <path d="M7.8 12.1c.2-1.4 1.2-2.3 2.6-2.3 1.5 0 2.5.9 2.5 2.2 0 1-.5 1.6-1.4 2.2-.7.5-1.1 1-1.1 1.9"></path>
+                                            <circle cx="10.4" cy="19.3" r=".85" fill="currentColor" stroke="none"></circle>
+                                            <path d="M20.5 10.2v7.1"></path>
+                                            <circle cx="20.5" cy="20.3" r=".85" fill="currentColor" stroke="none"></circle>
+                                        </svg>
+                                    </div>
+                                    <span class="meeow-phone-app-label">真心话大冒险</span>
                                 </button>
                                 <div @click="phoneState.currentApp = 'scanner'"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-red-900 rounded-2xl flex items-center justify-center text-white text-2xl shadow-[0_0_10px_rgba(255,0,0,0.5)] hover:scale-105 transition-transform animate-pulse border border-red-500">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-satellite-dish"></i>
                                     </div>
-                                    <span class="text-[10px] text-red-500 font-bold">猫咪频道</span>
+                                    <span class="meeow-phone-app-label">猫咪频道</span>
                                 </div>
                                 <button type="button" @click="openReaderLibrary"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div
-                                        class="w-14 h-14 bg-gradient-to-br from-amber-400 to-rose-400 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-book-open"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300 font-medium">喵读</span>
+                                    <span class="meeow-phone-app-label">喵读</span>
                                 </button>
                                 <button type="button" @click="openFanficLibrary"
-                                    class="flex flex-col items-center gap-2 cursor-pointer">
-                                    <div class="w-14 h-14 bg-gradient-to-br from-fuchsia-500 to-violet-600 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg hover:scale-105 transition-transform">
+                                    class="meeow-phone-app">
+                                    <div class="meeow-phone-app-icon">
                                         <i class="fas fa-feather-pointed"></i>
                                     </div>
-                                    <span class="text-[10px] text-gray-300 font-medium">同人文</span>
+                                    <span class="meeow-phone-app-label">同人文</span>
                                 </button>
-                            </div>
+                </div>
 
-                            <!-- Isolated online party room: no normal Phone chat or world-event writes. -->
-                            <section v-if="phoneState.currentApp === 'truth-or-dare'" class="meeow-party">
+                <!-- Isolated online party room: no normal Phone chat or world-event writes. -->
+                <section v-if="phoneState.currentApp === 'truth-or-dare'" class="meeow-party">
                                 <header class="meeow-party-header">
                                     <button type="button" @click="phoneState.currentApp = 'home'" aria-label="返回手机，保留房间">‹</button>
-                                    <h3>🎲 真心话大冒险</h3>
+                                    <h3>
+                                        <svg class="meeow-truth-dare-glyph meeow-truth-dare-glyph-small" viewBox="0 0 32 32" aria-hidden="true">
+                                            <rect x="3.5" y="5" width="15" height="22" rx="3" transform="rotate(-8 11 16)"></rect>
+                                            <rect x="13" y="4.5" width="15" height="22" rx="3"></rect>
+                                            <path d="M7.8 12.1c.2-1.4 1.2-2.3 2.6-2.3 1.5 0 2.5.9 2.5 2.2 0 1-.5 1.6-1.4 2.2-.7.5-1.1 1-1.1 1.9"></path>
+                                            <circle cx="10.4" cy="19.3" r=".85" fill="currentColor" stroke="none"></circle>
+                                            <path d="M20.5 10.2v7.1"></path>
+                                            <circle cx="20.5" cy="20.3" r=".85" fill="currentColor" stroke="none"></circle>
+                                        </svg>
+                                        真心话大冒险
+                                    </h3>
                                     <span>{{ truthSession ? '第 ' + truthSession.roundNumber + ' 轮' : '线上派对' }}</span>
                                 </header>
                                 <template v-if="!truthSession">
@@ -6343,7 +6443,10 @@
                                         <div class="flex flex-col h-full bg-[#f7f7f7]">
                                             <div
                                                 class="h-12 bg-[#f7f7f7] flex justify-between items-center px-4 sticky top-0 z-10">
-                                                <div class="w-8"></div>
+                                                <button type="button" @click="phoneState.currentApp = 'home'; phoneState.selectedContactId = null; phoneState.selectedFriendRequestId = null"
+                                                    class="w-8 h-8 text-black text-base" aria-label="返回手机应用">
+                                                    <i class="fas fa-chevron-left"></i>
+                                                </button>
                                                 <h3 class="font-bold text-black text-base">微信</h3>
                                                 <button class="w-8 text-black text-xl"><i
                                                         class="fas fa-plus-circle"></i></button>
@@ -6391,7 +6494,10 @@
                                         class="flex flex-col h-full bg-[#f7f7f7]">
                                         <div
                                             class="h-12 bg-[#f7f7f7] flex justify-between items-center px-4 sticky top-0 z-10">
-                                            <div class="w-8"></div>
+                                            <button type="button" @click="phoneState.currentApp = 'home'; phoneState.selectedContactId = null; phoneState.selectedFriendRequestId = null"
+                                                class="w-8 h-8 text-black text-base" aria-label="返回手机应用">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </button>
                                             <h3 class="font-bold text-black text-base">通讯录</h3>
                                             <button class="w-8 text-black text-xl"><i
                                                     class="fas fa-user-plus"></i></button>
@@ -6769,6 +6875,19 @@
                                                     class="text-gray-400 ml-2">×</button>
                                             </div>
 
+                                            <div v-if="getPhoneReplyControlState(phoneState.selectedContactId).state !== 'hidden'"
+                                                class="px-3 pt-2 flex justify-end">
+                                                <button v-if="getPhoneReplyControlState(phoneState.selectedContactId).state === 'ready'"
+                                                    type="button" @click="requestPhoneReplyGeneration(phoneState.selectedContactId)"
+                                                    class="phone-chat-reply-trigger px-3 py-1.5 rounded-xl text-[11px] font-bold">
+                                                    <i class="fas fa-bolt mr-1"></i>获取回复
+                                                </button>
+                                                <button v-else type="button" disabled
+                                                    class="phone-chat-reply-trigger px-3 py-1.5 rounded-xl text-[11px] font-bold">
+                                                    <i class="fas fa-hourglass-half mr-1"></i>等回复
+                                                </button>
+                                            </div>
+
                                             <!-- Tool bar: short labels make every action discoverable on touch screens. -->
                                             <div class="phone-chat-tools flex gap-2 px-3 py-2 overflow-x-auto border-t">
                                                 <button type="button" @click="$refs.phoneImageInput.click()" class="phone-chat-tool-button px-2.5 py-1.5 rounded-xl text-[10px] font-bold shrink-0"
@@ -6870,8 +6989,13 @@
                                     <div v-if="phoneState.chatTab === 'me'"
                                         class="h-full flex flex-col bg-[#f7f7f7] text-black">
                                         <div
-                                            class="h-12 bg-white flex justify-center items-center px-4 sticky top-0 z-10">
+                                            class="h-12 bg-white flex justify-between items-center px-4 sticky top-0 z-10">
+                                            <button type="button" @click="phoneState.currentApp = 'home'; phoneState.selectedContactId = null; phoneState.selectedFriendRequestId = null"
+                                                class="w-8 h-8 text-black text-base" aria-label="返回手机应用">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </button>
                                             <h3 class="font-bold text-black text-base">我</h3>
+                                            <span class="w-8" aria-hidden="true"></span>
                                         </div>
                                         <div class="flex-1 overflow-y-auto">
                                             <div @click="openMomentsSettings"
@@ -6946,8 +7070,13 @@
                                     <div v-if="phoneState.chatTab === 'discover'"
                                         class="h-full flex flex-col bg-[#f7f7f7]">
                                         <div
-                                            class="h-12 bg-[#f7f7f7] flex justify-center items-center px-4 sticky top-0 z-10">
+                                            class="h-12 bg-[#f7f7f7] flex justify-between items-center px-4 sticky top-0 z-10">
+                                            <button type="button" @click="phoneState.currentApp = 'home'; phoneState.selectedContactId = null; phoneState.selectedFriendRequestId = null"
+                                                class="w-8 h-8 text-black text-base" aria-label="返回手机应用">
+                                                <i class="fas fa-chevron-left"></i>
+                                            </button>
                                             <h3 class="font-bold text-black text-base">发现</h3>
+                                            <span class="w-8" aria-hidden="true"></span>
                                         </div>
                                         <div class="flex-1 overflow-y-auto py-4 space-y-4">
                                             <div @click="phoneState.chatTab = 'moments'"
@@ -7247,7 +7376,11 @@
                                 class="flex flex-col h-full bg-indigo-950 text-white absolute inset-0 z-20">
                                 <div
                                     class="p-4 border-b border-indigo-800 flex justify-between items-center bg-indigo-950 sticky top-0 z-10">
-                                    <h1 class="font-bold text-lg tracking-widest text-indigo-300"><i
+                                    <button type="button" @click="phoneState.currentApp = 'home'"
+                                        class="w-8 h-8 shrink-0 text-indigo-300" aria-label="返回手机应用">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <h1 class="flex-1 ml-2 font-bold text-lg tracking-widest text-indigo-300"><i
                                             class="fas fa-moon mr-2"></i> 神秘学占卜</h1>
                                     <div class="text-[10px] font-bold text-indigo-500">MEEOW ORACLE</div>
                                 </div>
@@ -7303,7 +7436,11 @@
                                 class="flex flex-col h-full bg-zinc-900 text-white absolute inset-0 z-20">
                                 <div
                                     class="p-4 bg-orange-600 flex justify-between items-center sticky top-0 z-10 shadow-md">
-                                    <h1 class="font-bold text-lg tracking-tighter text-white"><i
+                                    <button type="button" @click="phoneState.currentApp = 'home'"
+                                        class="w-8 h-8 shrink-0 text-white" aria-label="返回手机应用">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <h1 class="flex-1 ml-2 font-bold text-lg tracking-tighter text-white"><i
                                             class="fas fa-shopping-basket mr-2"></i> 补给站</h1>
                                     <div class="text-[10px] font-bold text-white/60">MEEOW HOUSE SUPPLY</div>
                                 </div>
@@ -7377,7 +7514,11 @@
                                 class="flex flex-col h-full bg-zinc-950 text-white absolute inset-0 z-20">
                                 <div
                                     class="p-4 bg-orange-600 flex justify-between items-center sticky top-0 z-10 shadow-md">
-                                    <h1 class="font-black text-lg italic tracking-tighter text-white"><i
+                                    <button type="button" @click="phoneState.currentApp = 'home'"
+                                        class="w-8 h-8 shrink-0 text-white" aria-label="返回手机应用">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <h1 class="flex-1 ml-2 font-black text-lg italic tracking-tighter text-white"><i
                                             class="fas fa-wallet mr-2"></i> MEEOW WALLET</h1>
                                     <div class="text-[10px] font-bold text-white/60">猫猫馆零花钱包</div>
                                 </div>
@@ -7584,16 +7725,6 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Home Bar -->
-                        <div class="h-8 flex items-center justify-center shrink-0 bg-zinc-900">
-                            <div @click="phoneState.currentApp = 'home'; phoneState.selectedContactId = null"
-                                class="w-24 h-1 bg-zinc-700 rounded-full cursor-pointer hover:bg-zinc-500 transition-colors">
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- SETTINGS TAB -->
@@ -9236,9 +9367,9 @@
                     <i class="fas fa-compass"></i>
                     <span>外出</span>
                 </button>
-                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="currentTab === 'phone' ? leavePhone() : openCuratorRoom()" aria-label="馆长室">
+                <button type="button" class="nav-item sully-btn" :class="{ active: currentTab === 'lounge' }" @click="restoreLastMeeowLocation" aria-label="喵喵馆">
                     <i class="fas fa-door-closed"></i>
-                    <span>馆长室</span>
+                    <span>喵喵馆</span>
                 </button>
                 <button type="button" class="nav-item sully-btn relative" :class="{ active: currentTab === 'phone' }" @click="navigateToTab('phone')" aria-label="手机">
                     <i class="fas fa-mobile-alt"></i>
@@ -10338,10 +10469,13 @@
                     }, 180);
                 };
 
-                const currentTab = ref('mission');
-                const loungeView = ref('selector');
+                const currentTab = ref('lounge');
+                const loungeView = ref('curator');
                 const activeHallId = ref(localStorage.getItem('meeow_active_hall') || 'gotham');
                 const phoneReturnRoute = ref(null);
+                // Session-only UI navigation memory. World/presence authority and
+                // persisted Hall identity remain owned by their existing systems.
+                const lastMeeowLocation = ref({ type: 'curator', hallId: null });
                 const showFridgeNotesModal = ref(false);
                 watch(activeHallId, (hallId) => {
                     localStorage.setItem('meeow_active_hall', hallId);
@@ -13592,7 +13726,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 };
 
                 const capturePhoneReturnRoute = () => {
-                    if (phoneReturnRoute.value || currentTab.value === 'phone') return;
+                    if (currentTab.value === 'phone') return;
                     if (currentTab.value === 'lounge') {
                         phoneReturnRoute.value = loungeView.value === 'room'
                             ? { tab: 'lounge', loungeView: 'room', hallId: String(activeHallId.value || '') }
@@ -13638,6 +13772,42 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     currentTab.value = typeof route?.tab === 'string' && route.tab && route.tab !== 'phone' ? route.tab : 'lounge';
                     if (currentTab.value === 'lounge') loungeView.value = 'selector';
                     addLog(`PHONE RETURN: origin=${route?.tab || 'unknown'}; restored=${currentTab.value}`, 'info');
+                };
+                const restoreLastMeeowLocation = () => {
+                    if (showCatVisualEditor.value) { requestCatVisualEditorClose(restoreLastMeeowLocation); return; }
+                    rememberHallScrollPosition();
+                    if (currentTab.value === 'phone') {
+                        rememberPhoneChatScrollPosition?.();
+                        resetPhoneTransientUI?.();
+                        phoneReturnRoute.value = null;
+                    }
+                    const remembered = lastMeeowLocation.value;
+                    if (remembered?.type === 'hall') {
+                        const hall = halls.value.find(item => String(item?.id || '') === String(remembered.hallId || ''));
+                        if (hall) {
+                            activeHallId.value = hall.id;
+                            currentTab.value = 'lounge';
+                            loungeView.value = 'room';
+                            selectedCat.value = null;
+                            detailReturnOrigin.value = '';
+                            hallSceneActive.value = true;
+                            mapPreviewCat.value = null;
+                            curatorRoomMapPreviewCat.value = null;
+                            setContentScrollTop(hallScrollPositions[hall.id] || 0);
+                            addLog(`MEEOW NAVIGATION RESTORED: hall=${hall.id}`, 'info');
+                            return;
+                        }
+                    }
+                    lastMeeowLocation.value = { type: 'curator', hallId: null };
+                    currentTab.value = 'lounge';
+                    loungeView.value = 'curator';
+                    selectedCat.value = null;
+                    detailReturnOrigin.value = '';
+                    hallSceneActive.value = false;
+                    mapPreviewCat.value = null;
+                    curatorRoomMapPreviewCat.value = null;
+                    setContentScrollTop(0);
+                    addLog('MEEOW NAVIGATION RESTORED: curator', 'info');
                 };
                 const navigateToTab = (tab) => {
                     if (showCatVisualEditor.value) { requestCatVisualEditorClose(() => navigateToTab(tab)); return; }
@@ -13734,6 +13904,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     clearHallSceneFocus();
                     currentTab.value = 'lounge';
                     loungeView.value = 'curator';
+                    lastMeeowLocation.value = { type: 'curator', hallId: null };
                     selectedCat.value = null;
                     detailReturnOrigin.value = '';
                     mapPreviewCat.value = null;
@@ -13945,6 +14116,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         activeHallId.value = hall.id;
                         currentTab.value = 'lounge';
                         loungeView.value = 'room';
+                        lastMeeowLocation.value = { type: 'hall', hallId: hall.id };
                         selectedCat.value = null;
                         hallSceneActive.value = true;
                         hallScrollPositions[hall.id] = 0;
@@ -13964,6 +14136,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     hallSceneActive.value = true;
                     loungeView.value = 'room';
                     currentTab.value = 'lounge';
+                    lastMeeowLocation.value = { type: 'hall', hallId: hall.id };
                     selectedCat.value = null;
                     hallScrollPositions[hall.id] = 0;
                     setContentScrollTop(0);
@@ -16340,6 +16513,9 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     const contacts = (user.phoneData?.friends || [])
                         .map(id => cats.value.find(cat => sameCatId(cat.id, getCanonicalCatId(id))))
                         .filter(cat => cat && !isPermanentOutBuiltin(cat))
+                        // A direct conversational obligation is correctness authority,
+                        // not a diversity preference. Never relax it in the fallback.
+                        .filter(cat => !hasUnresolvedPhoneReply(cat.id))
                         .filter(cat => {
                             const key = String(cat.id);
                             if (seen.has(key)) return false;
@@ -16491,13 +16667,14 @@ RULES:
                         }
                     })();
                 };
-                const PHONE_REPLY_MIN_DELAY_MS = 15 * 1000;
-                const PHONE_REPLY_MAX_DELAY_MS = 12 * 60 * 1000;
+                const PHONE_REPLY_TOTAL_LIFETIME_MS = 12 * 60 * 1000;
+                const PHONE_REPLY_DELIVERY_DELAY_RANGES_MS = Object.freeze({
+                    quick: Object.freeze([15 * 1000, 60 * 1000]),
+                    normal: Object.freeze([60 * 1000, 5 * 60 * 1000]),
+                    slow: Object.freeze([5 * 60 * 1000, 12 * 60 * 1000])
+                });
                 const PHONE_REPLY_RETRY_DELAYS_MS = [60 * 1000, 3 * 60 * 1000, 8 * 60 * 1000];
                 const PHONE_REPLY_BUBBLE_DELAY_MS = 750;
-                // Recovered social work is legitimate, but a long offline period
-                // must not drain every contact into the global AI queue at once.
-                const PHONE_RECOVERY_MIN_INTERVAL_MS = 60 * 1000;
                 // This is deliberately a hard budget for exact, whole Life Thread
                 // facts. Partial facts can change their epistemic meaning, so a fact
                 // that does not fit is omitted rather than truncated.
@@ -16505,8 +16682,10 @@ RULES:
                 const PHONE_REPLY_KNOWLEDGE_MAX_CHARS = 520;
                 const PHONE_REPLY_EPISODIC_MAX_MEMORIES = 2;
                 const PHONE_REPLY_EPISODIC_MAX_CHARS = 700;
-                const PHONE_REPLY_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'delivering', 'completed', 'failed', 'integrity-mismatch']);
-                const phoneReplyGenerationInFlight = new Set();
+                const PHONE_REPLY_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'completed', 'failed', 'integrity-mismatch']);
+                const PHONE_REPLY_UNRESOLVED_STATUSES = new Set(['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'failed', 'integrity-mismatch']);
+                const phoneReplyGenerationInFlight = new Map();
+                let phoneReplyGenerationSequence = 0;
                 let phoneReplyReconciliationTimer = null;
 
                 const isValidPhoneReplyTime = (value) => Number.isFinite(new Date(value || '').getTime());
@@ -16554,6 +16733,24 @@ RULES:
                     });
                     return snapshots;
                 };
+                const normalizePhoneReplyThreadMessages = (records) => (Array.isArray(records) ? records : [])
+                    .map(raw => {
+                        if (!raw || typeof raw !== 'object' || !raw.id || !['user', 'assistant'].includes(raw.role)) return null;
+                        const quotedMsg = raw.quotedMsg && typeof raw.quotedMsg === 'object'
+                            ? {
+                                sender: cleanText(String(raw.quotedMsg.sender || '')).slice(0, 80),
+                                content: cleanText(String(raw.quotedMsg.content || '')).slice(0, 240)
+                            }
+                            : null;
+                        return {
+                            id: String(raw.id),
+                            role: raw.role,
+                            type: cleanText(String(raw.type || 'text')).slice(0, 40) || 'text',
+                            content: cleanText(String(raw.content || '')).slice(0, 360),
+                            at: isValidPhoneReplyTime(raw.at) ? raw.at : '',
+                            ...(quotedMsg?.content ? { quotedMsg } : {})
+                        };
+                    }).filter(Boolean);
                 const makePhoneReplyKnowledgeFactRefs = (snapshots) => normalizePhoneReplyKnowledgeSnapshots(snapshots)
                     .map((snapshot, index) => ({ ref: `K${index + 1}`, factId: snapshot.factId }));
                 const normalizePhoneReplyDisclosureFactIdsByBubble = (records, snapshots, messageCount = null) => {
@@ -16584,21 +16781,27 @@ RULES:
                         if ((status === 'scheduled' || status === 'retryable') && !claimedAt && !sourceMessageIds.length) return null;
                         if (recoverInFlight && status === 'in-flight') {
                             status = 'retryable';
-                            // This is recovery, not a reroll: preserve every frozen
-                            // source and use a persisted immediate retry timestamp.
+                            // Recovery preserves the frozen turn but never launches AI
+                            // merely because time passed. A future compatible Direct
+                            // request or explicit USER action must claim it again.
                             raw.retryAt = isValidPhoneReplyTime(raw.retryAt) ? raw.retryAt : nowIso;
                             raw.recoveryPending = true;
                         }
-                        const dueAt = isValidPhoneReplyTime(raw.dueAt) ? raw.dueAt : nowIso;
+                        const generationDueAt = isValidPhoneReplyTime(raw.generationDueAt)
+                            ? raw.generationDueAt
+                            : (isValidPhoneReplyTime(raw.dueAt) ? raw.dueAt : '');
                         const retryAt = isValidPhoneReplyTime(raw.retryAt) ? raw.retryAt : '';
-                        if (recoverInFlight && (status === 'scheduled' || status === 'retryable') &&
-                            new Date(status === 'retryable' && retryAt ? retryAt : dueAt).getTime() <= now.getTime()) raw.recoveryPending = true;
                         const messages = Array.isArray(raw.messages)
                             ? raw.messages.map(value => cleanText(String(value || ''))).filter(Boolean).slice(0, 4)
                             : [];
+                        if (status === 'generated' && !messages.length) status = 'retryable';
                         const requestedCursor = Number(raw.nextDeliveryIndex);
                         const malformedCursor = Number.isFinite(requestedCursor) && (requestedCursor < 0 || requestedCursor > messages.length);
                         const nextDeliveryIndex = malformedCursor ? requestedCursor : Math.max(0, Math.min(messages.length, requestedCursor || 0));
+                        const generatedAt = isValidPhoneReplyTime(raw.generatedAt) ? raw.generatedAt : '';
+                        const deliverAt = isValidPhoneReplyTime(raw.deliverAt)
+                            ? raw.deliverAt
+                            : (status === 'generated' && messages.length ? (generatedAt || nowIso) : '');
                         const nextDeliveryAt = isValidPhoneReplyTime(raw.nextDeliveryAt)
                             ? raw.nextDeliveryAt
                             : (status === 'delivering' && nextDeliveryIndex < messages.length ? nowIso : '');
@@ -16632,14 +16835,30 @@ RULES:
                         return {
                             id: String(raw.id), contactId: getCanonicalCatId(raw.contactId), sourceMessageIds,
                             createdAt: isValidPhoneReplyTime(raw.createdAt) ? raw.createdAt : nowIso,
-                            dueAt, status, attemptCount: Math.max(0, Number(raw.attemptCount) || 0), retryAt,
+                            generationDueAt, status, attemptCount: Math.max(0, Number(raw.attemptCount) || 0), retryAt,
                             claimedAt, responseBatchId: raw.responseBatchId ? String(raw.responseBatchId) : '',
+                            generationToken: status === 'in-flight' ? String(raw.generationToken || '') : '',
+                            generationChannel: ['in-flight', 'generated', 'delivering', 'completed'].includes(status)
+                                ? cleanText(String(raw.generationChannel || '')).slice(0, 80) : '',
+                            generationClaimedAt: ['in-flight', 'generated', 'delivering', 'completed'].includes(status) && isValidPhoneReplyTime(raw.generationClaimedAt)
+                                ? raw.generationClaimedAt : '',
+                            threadContextFrozen: raw.threadContextFrozen === true,
+                            threadContextMessages: raw.threadContextFrozen === true
+                                ? normalizePhoneReplyThreadMessages(raw.threadContextMessages)
+                                : [],
+                            phoneResidentContextText: raw.threadContextFrozen === true && typeof raw.phoneResidentContextText === 'string'
+                                ? raw.phoneResidentContextText : '',
+                            phoneUserContextText: raw.threadContextFrozen === true && typeof raw.phoneUserContextText === 'string'
+                                ? raw.phoneUserContextText : '',
+                            phoneHallName: raw.threadContextFrozen === true ? cleanText(String(raw.phoneHallName || '')).slice(0, 120) : '',
                             knowledgeFactIds: knowledgeScopeFrozen ? knowledgeFactSnapshots.map(item => item.factId) : rawKnowledgeFactIds,
                             knowledgeFactSnapshots, knowledgeScopeFrozen, knowledgeFactRefs,
                             episodicMemorySnapshots, episodicMemoryScopeFrozen, episodicMemoryContextText,
                             userDisclosedFactIds, userDisclosureScopeFrozen,
                             knowledgeDisclosureFactIdsByBubble,
-                            messages, nextDeliveryIndex, nextDeliveryAt,
+                            messages, generatedAt,
+                            timingHint: ['quick', 'normal', 'slow'].includes(raw.timingHint) ? raw.timingHint : (messages.length ? 'normal' : ''),
+                            deliverAt, nextDeliveryIndex, nextDeliveryAt,
                             generatedBubbleIds: Array.from({ length: messages.length }, (_, index) =>
                                 String(Array.isArray(raw.generatedBubbleIds) ? raw.generatedBubbleIds[index] || '' : '') || `phone-reply-bubble:${String(raw.id)}:${index}`),
                             recoveryPending: raw.recoveryPending === true,
@@ -16660,26 +16879,68 @@ RULES:
                         ? { ...message, ...message.originalPhoneReplySource }
                         : message);
                 };
-                const phoneReplyDueTime = (opportunity) => new Date(
-                    opportunity.status === 'retryable' && opportunity.retryAt ? opportunity.retryAt : opportunity.dueAt
-                ).getTime();
+                const clonePhoneReplyValue = value => JSON.parse(JSON.stringify(value));
+                const restorePhoneReplyObject = (target, snapshot) => {
+                    Object.keys(target || {}).forEach(key => delete target[key]);
+                    Object.assign(target, clonePhoneReplyValue(snapshot || {}));
+                    return target;
+                };
+                const compactPhoneReplyThreadContent = message => {
+                    if (message?.type === 'image') return `照片：${cleanText(message.desc || '一张图片').slice(0, 220)}`;
+                    if (message?.type === 'location') return `位置：${cleanText(message.content || '').slice(0, 220)}`;
+                    if (message?.type === 'voice') return `语音消息（${cleanText(String(message.duration || '时长未知')).slice(0, 40)}）`;
+                    if (message?.type === 'red-envelope' || message?.type === 'transfer') {
+                        return `${message.type === 'red-envelope' ? '红包' : '转账'}：${cleanText(String(message.content || '')).slice(0, 80)} G`;
+                    }
+                    return cleanText(String(message?.content || '')).slice(0, 360);
+                };
+                const freezePhoneReplyThreadContext = opportunity => {
+                    if (!opportunity || opportunity.threadContextFrozen === true) return opportunity?.threadContextMessages || [];
+                    const sourceIds = new Set((opportunity.sourceMessageIds || []).map(String));
+                    const relevant = getAllStoredPhoneMessages(opportunity.contactId)
+                        .map((message, index) => ({ message: message?.originalPhoneReplySource ? { ...message, ...message.originalPhoneReplySource } : message, index }))
+                        .filter(entry => entry.message && !entry.message.recalled && entry.message.type !== 'system' &&
+                            ['user', 'assistant'].includes(entry.message.role) && entry.message.id);
+                    const sourceEntries = relevant.filter(entry => sourceIds.has(String(entry.message.id)));
+                    const selectedIndices = new Set(sourceEntries.map(entry => entry.index));
+                    const earliestSourceIndex = sourceEntries.length ? Math.min(...sourceEntries.map(entry => entry.index)) : Infinity;
+                    for (let cursor = relevant.length - 1; cursor >= 0; cursor -= 1) {
+                        const entry = relevant[cursor];
+                        if (entry.index >= earliestSourceIndex || entry.message.role !== 'assistant') continue;
+                        selectedIndices.add(entry.index);
+                        break;
+                    }
+                    for (let cursor = relevant.length - 1; cursor >= 0 && selectedIndices.size < 6; cursor -= 1) {
+                        if (relevant[cursor].index < earliestSourceIndex) selectedIndices.add(relevant[cursor].index);
+                    }
+                    const frozen = relevant.filter(entry => selectedIndices.has(entry.index) || sourceIds.has(String(entry.message.id)))
+                        .sort((left, right) => left.index - right.index)
+                        .map(({ message }) => ({
+                            id: String(message.id), role: message.role, type: cleanText(String(message.type || 'text')).slice(0, 40) || 'text',
+                            content: compactPhoneReplyThreadContent(message),
+                            at: isValidPhoneReplyTime(message.at) ? message.at : '',
+                            ...(message.quotedMsg?.content ? { quotedMsg: {
+                                sender: cleanText(String(message.quotedMsg.sender || '')).slice(0, 80),
+                                content: cleanText(String(message.quotedMsg.content || '')).slice(0, 240)
+                            } } : {})
+                        }));
+                    opportunity.threadContextMessages = frozen;
+                    opportunity.threadContextFrozen = true;
+                    const cat = cats.value.find(item => sameCatId(item.id, opportunity.contactId));
+                    const hall = cat ? halls.value.find(item => String(item.id) === String(cat.hallId)) : null;
+                    opportunity.phoneResidentContextText = cat ? buildFocusedResidentStateContext(cat) : '';
+                    opportunity.phoneUserContextText = buildAuthoritativeUserIdentityContext();
+                    opportunity.phoneHallName = cleanText(hall?.name || 'Meeow House').slice(0, 120);
+                    return frozen;
+                };
+                const hasUnresolvedPhoneReply = contactId => getPhoneReplyOpportunities().some(opportunity =>
+                    sameCatId(opportunity.contactId, getCanonicalCatId(contactId)) && PHONE_REPLY_UNRESOLVED_STATUSES.has(opportunity.status));
                 const schedulePhoneReplyReconciliation = () => {
                     if (phoneReplyReconciliationTimer) clearTimeout(phoneReplyReconciliationTimer);
                     const now = Date.now();
-                    const lastRecoveryDispatchAt = new Date(user.phoneData?.lastPhoneRecoveryDispatchAt || '').getTime() || 0;
                     const candidates = getPhoneReplyOpportunities().map(opportunity => {
+                        if (opportunity.status === 'generated' && opportunity.deliverAt) return new Date(opportunity.deliverAt).getTime();
                         if (opportunity.status === 'delivering' && opportunity.nextDeliveryAt) return new Date(opportunity.nextDeliveryAt).getTime();
-                        if (opportunity.status === 'scheduled' || opportunity.status === 'retryable') {
-                            const dueAt = phoneReplyDueTime(opportunity);
-                            // A due recovered reply stays queued, but its timer waits
-                            // for the same centralized recovery gate used by claim.
-                            // This avoids a zero-delay reconciliation loop while a
-                            // multi-day startup backlog is intentionally throttled.
-                            if (opportunity.recoveryPending && !isExactPhoneConversationOpen(opportunity.contactId)) {
-                                return Math.max(dueAt, lastRecoveryDispatchAt + PHONE_RECOVERY_MIN_INTERVAL_MS);
-                            }
-                            return dueAt;
-                        }
                         return null;
                     }).filter(Number.isFinite);
                     if (!candidates.length) { phoneReplyReconciliationTimer = null; return; }
@@ -16700,18 +16961,20 @@ RULES:
                         schedulePhoneReplyReconciliation();
                         return coalescible;
                     }
-                    const nowMs = now.getTime();
-                    const dueAt = new Date(nowMs + PHONE_REPLY_MIN_DELAY_MS + Math.floor(Math.random() * (PHONE_REPLY_MAX_DELAY_MS - PHONE_REPLY_MIN_DELAY_MS + 1))).toISOString();
                     const opportunity = {
                         id: `phone-reply-${catId}-${message.id}`,
                         contactId: catId,
                         sourceMessageIds: [message.id],
-                        createdAt: now.toISOString(), dueAt, status: 'scheduled', attemptCount: 0,
+                        createdAt: now.toISOString(), generationDueAt: '', status: 'scheduled', attemptCount: 0,
                         retryAt: '', claimedAt: '', responseBatchId: '',
+                        generationToken: '', generationChannel: '', generationClaimedAt: '',
+                        threadContextFrozen: false, threadContextMessages: [],
+                        phoneResidentContextText: '', phoneUserContextText: '', phoneHallName: '',
                         knowledgeFactIds: [], knowledgeFactSnapshots: [], knowledgeScopeFrozen: false, knowledgeFactRefs: [],
                         episodicMemorySnapshots: [], episodicMemoryScopeFrozen: false, episodicMemoryContextText: '',
                         userDisclosedFactIds: [], userDisclosureScopeFrozen: false, knowledgeDisclosureFactIdsByBubble: [],
                         messages: [], generatedBubbleIds: [], recoveryPending: false, integrityState: '',
+                        generatedAt: '', timingHint: '', deliverAt: '',
                         nextDeliveryIndex: 0, nextDeliveryAt: '', completedAt: '', lastError: ''
                     };
                     opportunities.push(opportunity);
@@ -16730,20 +16993,39 @@ RULES:
                     }
                     schedulePhoneReplyReconciliation();
                 };
-                const phoneReplyNeedsManualRetry = (contactId) => getPhoneReplyOpportunities().some(opportunity =>
-                    sameCatId(opportunity.contactId, getCanonicalCatId(contactId)) && opportunity.status === 'failed');
+                const phoneReplyNeedsManualRetry = contactId => getPhoneReplyLaneHeadForContact(contactId)?.status === 'failed';
+                const getPhoneReplyControlState = (contactId, now = new Date()) => {
+                    const opportunity = getPhoneReplyLaneHeadForContact(contactId);
+                    if (!opportunity) return { state: 'hidden', opportunity: null };
+                    if (opportunity.status === 'scheduled' ||
+                        (opportunity.status === 'retryable' && isPhoneReplyRetryEligible(opportunity, now))) {
+                        return { state: 'ready', opportunity };
+                    }
+                    if (['retryable', 'in-flight', 'generated', 'delivering'].includes(opportunity.status)) {
+                        return { state: 'waiting', opportunity };
+                    }
+                    return { state: 'hidden', opportunity };
+                };
+                const requestPhoneReplyGeneration = (contactId) => {
+                    const opportunity = getPhoneReplyLaneHeadForContact(contactId);
+                    if (!opportunity || !['scheduled', 'retryable'].includes(opportunity.status) ||
+                        !isPhoneReplyRetryEligible(opportunity, new Date())) return false;
+                    const claim = claimPhoneReplyGeneration(opportunity, 'phone-dedicated', new Date(), { countAttempt: true });
+                    if (!claim) return false;
+                    void runPhoneReplyOpportunity(claim);
+                    return true;
+                };
                 const retryPhoneReplyOpportunity = (contactId) => {
-                    const opportunity = getPhoneReplyOpportunities().find(item =>
-                        sameCatId(item.contactId, getCanonicalCatId(contactId)) && item.status === 'failed');
-                    if (!opportunity || !isAcceptedPhoneContact(opportunity.contactId)) {
+                    const opportunity = getPhoneReplyLaneHeadForContact(contactId);
+                    if (!opportunity || opportunity.status !== 'failed' || !isAcceptedPhoneContact(opportunity.contactId)) {
                         showToast('这条消息目前不能重新发送。', 'info');
                         return false;
                     }
-                    opportunity.status = 'retryable';
-                    opportunity.retryAt = new Date().toISOString();
+                    opportunity.status = 'scheduled';
+                    opportunity.retryAt = '';
                     opportunity.lastError = '';
-                    void reconcilePhoneReplyOpportunities(new Date());
-                    return true;
+                    if (!persistNow()) return false;
+                    return requestPhoneReplyGeneration(contactId);
                 };
                 const insertEmoji = (emoji) => {
                     phoneChatInput.value = `${phoneChatInput.value || ''}${emoji}`;
@@ -16814,18 +17096,21 @@ RULES:
                     return parsePhoneChatReplyEnvelope(reply).messages;
                 };
                 const parsePhoneChatReplyEnvelope = (reply) => {
-                    const raw = String(reply || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+                    const raw = typeof reply === 'string'
+                        ? String(reply || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+                        : reply;
                     try {
-                        const parsed = JSON.parse(raw);
+                        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
                         const messages = Array.isArray(parsed) ? parsed : parsed?.messages;
                         return {
                             messages: Array.isArray(messages) ? messages.map(item => cleanText(typeof item === 'string' ? item : item?.text || '')).filter(Boolean) : [],
-                            knowledgeDisclosures: Array.isArray(parsed?.knowledgeDisclosures) ? parsed.knowledgeDisclosures : []
+                            knowledgeDisclosures: Array.isArray(parsed?.knowledgeDisclosures) ? parsed.knowledgeDisclosures : [],
+                            timingHint: ['quick', 'normal', 'slow'].includes(parsed?.timingHint) ? parsed.timingHint : 'normal'
                         };
-                    } catch (_) { return { messages: [], knowledgeDisclosures: [] }; }
+                    } catch (_) { return { messages: [], knowledgeDisclosures: [], timingHint: 'normal' }; }
                 };
-                const validatePhoneChatReply = (reply) => {
-                    const messages = parsePhoneChatReply(reply);
+                const validatePhoneChatReplyPayload = payload => {
+                    const messages = parsePhoneChatReplyEnvelope(payload).messages;
                     if (!messages.length || messages.length > 4) return '喵信回复必须是 1–4 条 JSON 消息。';
                     const text = messages.join('');
                     if (text.length > 220 || messages.some(message => message.length > 110)) return '喵信回复过长。';
@@ -16833,6 +17118,7 @@ RULES:
                     if (/(?:^|\n)\s*(?:旁白|动作|场景|环境|镜头)\s*[:：]/.test(text)) return '喵信回复使用了旁白格式。';
                     return true;
                 };
+                const validatePhoneChatReply = reply => validatePhoneChatReplyPayload(reply);
                 const validatePhoneReplyKnowledgeDisclosures = (opportunity, messages, rawClaims) => {
                     const refs = new Map((Array.isArray(opportunity?.knowledgeFactRefs) ? opportunity.knowledgeFactRefs : [])
                         .map(item => [String(item?.ref || ''), String(item?.factId || '')]));
@@ -16919,9 +17205,9 @@ RULES:
                     count + (hasDeliveredPhoneReplyBubble(opportunity, index) ? 1 : 0), 0);
                 const hasActivePhoneReplyLane = (contactId, exceptId = '') => getPhoneReplyOpportunities().some(opportunity =>
                     sameCatId(opportunity.contactId, getCanonicalCatId(contactId)) && String(opportunity.id) !== String(exceptId) &&
-                    ['in-flight', 'delivering'].includes(opportunity.status));
+                    ['in-flight', 'generated', 'delivering'].includes(opportunity.status));
                 const getPhoneReplyLaneOrder = opportunity => new Date(
-                    opportunity?.claimedAt || opportunity?.createdAt || opportunity?.dueAt || 0
+                    opportunity?.claimedAt || opportunity?.createdAt || opportunity?.generationDueAt || 0
                 ).getTime() || 0;
                 // One contact is a chronological reply lane, not merely a
                 // generation mutex. A recovered older turn—including a durable
@@ -16930,16 +17216,174 @@ RULES:
                 const isPhoneReplyLaneHead = (opportunity) => {
                     const unresolved = getPhoneReplyOpportunities()
                         .filter(item => sameCatId(item.contactId, opportunity?.contactId) &&
-                            ['scheduled', 'retryable', 'in-flight', 'delivering', 'integrity-mismatch'].includes(item.status))
+                            PHONE_REPLY_UNRESOLVED_STATUSES.has(item.status))
                         .sort((left, right) => getPhoneReplyLaneOrder(left) - getPhoneReplyLaneOrder(right) ||
                             String(left.id).localeCompare(String(right.id)));
                     return unresolved.length > 0 && String(unresolved[0].id) === String(opportunity?.id);
+                };
+                const getPhoneReplyLaneHeadForContact = contactId => getPhoneReplyOpportunities()
+                    .filter(item => sameCatId(item.contactId, getCanonicalCatId(contactId)) && PHONE_REPLY_UNRESOLVED_STATUSES.has(item.status))
+                    .sort((left, right) => getPhoneReplyLaneOrder(left) - getPhoneReplyLaneOrder(right) || String(left.id).localeCompare(String(right.id)))[0] || null;
+                const isPhoneReplyRetryEligible = (opportunity, now = new Date()) => opportunity?.status !== 'retryable' ||
+                    !opportunity.retryAt || new Date(opportunity.retryAt).getTime() <= now.getTime();
+                const claimPhoneReplyGeneration = (opportunity, channel, now = new Date(), { countAttempt = false } = {}) => {
+                    if (!opportunity || !['scheduled', 'retryable'].includes(opportunity.status) ||
+                        !isPhoneReplyRetryEligible(opportunity, now) || !isPhoneReplyLaneHead(opportunity) ||
+                        phoneReplyGenerationInFlight.has(opportunity.id) || !isAcceptedPhoneContact(opportunity.contactId)) return null;
+                    const opportunitySnapshot = clonePhoneReplyValue(opportunity);
+                    const knowledgeSnapshot = clonePhoneReplyValue(knowledgeLedger.value);
+                    const token = `phone-reply-generation:${opportunity.id}:${now.getTime()}:${(++phoneReplyGenerationSequence).toString(36)}`;
+                    try {
+                        opportunity.claimedAt = opportunity.claimedAt || now.toISOString();
+                        freezePhoneReplyThreadContext(opportunity);
+                        freezePhoneReplyUserDisclosureScope(opportunity);
+                        applyFrozenPhoneUserDisclosureKnowledge(opportunity);
+                        freezePhoneReplyKnowledgeScope(opportunity);
+                        freezePhoneReplyEpisodicMemoryScope(opportunity);
+                        opportunity.status = 'in-flight';
+                        opportunity.generationToken = token;
+                        opportunity.generationChannel = channel;
+                        opportunity.generationClaimedAt = now.toISOString();
+                        opportunity.retryAt = '';
+                        opportunity.recoveryPending = false;
+                        opportunity.lastError = '';
+                        if (countAttempt) opportunity.attemptCount = Math.max(0, Number(opportunity.attemptCount) || 0) + 1;
+                        if (!persistNow()) throw new Error('回复生成声明未能写入本地存档。');
+                        phoneReplyGenerationInFlight.set(opportunity.id, token);
+                        return { opportunityId: opportunity.id, contactId: opportunity.contactId, token, channel };
+                    } catch (error) {
+                        restorePhoneReplyObject(opportunity, opportunitySnapshot);
+                        knowledgeLedger.value = knowledgeSnapshot;
+                        addLog(`PHONE REPLY CLAIM FAILED: opportunity=${opportunity.id}; channel=${channel}; error=${cleanText(error?.message || error)}`, 'warn');
+                        return null;
+                    }
+                };
+                const releasePhoneReplyGeneration = (claim, {
+                    status = 'scheduled', retryAt = '', error = ''
+                } = {}) => {
+                    const opportunity = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim?.opportunityId));
+                    if (!opportunity || opportunity.status !== 'in-flight' ||
+                        String(opportunity.generationToken || '') !== String(claim?.token || '')) return false;
+                    opportunity.status = status;
+                    opportunity.generationToken = '';
+                    opportunity.generationChannel = '';
+                    opportunity.generationClaimedAt = '';
+                    opportunity.retryAt = retryAt;
+                    opportunity.lastError = cleanText(error || '').slice(0, 240);
+                    if (phoneReplyGenerationInFlight.get(opportunity.id) === claim.token) phoneReplyGenerationInFlight.delete(opportunity.id);
+                    const persisted = persistNow();
+                    schedulePhoneReplyReconciliation();
+                    return persisted;
+                };
+                const formatFrozenPhoneReplyThread = (opportunity, contactName) => (opportunity?.threadContextMessages || [])
+                    .map(message => {
+                        const role = message.role === 'assistant' ? contactName : 'USER';
+                        const quote = message.quotedMsg?.content
+                            ? `（回复 ${message.quotedMsg.sender || '上一条'}：${message.quotedMsg.content}）`
+                            : '';
+                        return `${role}${quote}: ${message.content}`;
+                    }).join('\n');
+                const buildPhoneReplyGenerationTask = (opportunity, contactName) => {
+                    const residentId = getCanonicalCatId(opportunity?.contactId);
+                    const conversationKnowledge = opportunity?.knowledgeScopeFrozen
+                        ? buildResidentConversationKnowledgeContext(residentId, {
+                            channel: 'phone-reply', intentionalConversation: true, hasOtherResidentOutput: false,
+                            frozenSnapshots: opportunity.knowledgeFactSnapshots
+                        })
+                        : { prompt: '' };
+                    return `[PHONE CONVERSATION CONTINUITY]\nThis is a direct reply to USER in an existing Phone conversation.\nReply to USER's latest claimed message(s) in the exact recent thread below.\nContinue the current topic unless USER clearly changed it.\nDo not behave as though you are initiating a new proactive conversation.\nDo not introduce an unrelated greeting, check-in, or new topic merely to start another conversation.\n\n[PHONE CHANNEL AUTHORITY]\nUse only this PHONE section and its frozen Phone-authorized context for phoneReply.\nDo not use the current Homepage Direct USER action, Direct recent conversation, Direct-only episodic retrieval, Direct reply, or Direct transient scene/presence facts.\nThis task must not influence activeCat. It is a logically separate channel sharing only transport and the exact same resident.\n\n[PHONE RESIDENT SNAPSHOT]\n${opportunity?.phoneResidentContextText || ''}\n${opportunity?.episodicMemoryContextText || ''}\n${conversationKnowledge.prompt || ''}\n${opportunity?.phoneUserContextText || ''}\n- Phone hall boundary: ${opportunity?.phoneHallName || 'Meeow House'}\n\n[RECENT PHONE THREAD]\n${formatFrozenPhoneReplyThread(opportunity, contactName) || '(no usable prior row)'}\n\n[PHONE REPLY OUTPUT]\nReturn 1–4 natural Simplified Chinese chat bubbles that directly continue this thread. No action brackets, stage directions, narration, speaker labels, roleplay explanation, cat-form secret, or unrelated opening topic. Total 12–180 Chinese characters; each bubble at most 110 characters.\nUse timingHint quick, normal, or slow. Never output a timestamp.\nShape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowledgeDisclosures":[{"factRef":"K1","bubbleIndex":0,"evidence":"含完整事实的该气泡原文片段"}]}. knowledgeDisclosures is optional and must obey the supplied exact-evidence rules.`;
+                };
+                const stablePhoneReplyNumber = value => {
+                    let hash = 2166136261;
+                    for (const char of String(value || '')) {
+                        hash ^= char.codePointAt(0);
+                        hash = Math.imul(hash, 16777619);
+                    }
+                    return hash >>> 0;
+                };
+                const normalizePhoneReplyTimingHint = value => ['quick', 'normal', 'slow'].includes(value) ? value : 'normal';
+                const computePhoneReplyDeliverAt = (opportunity, generationToken, timingHint, generatedAt = new Date()) => {
+                    const normalizedHint = normalizePhoneReplyTimingHint(timingHint);
+                    const [minimum, maximum] = PHONE_REPLY_DELIVERY_DELAY_RANGES_MS[normalizedHint];
+                    const range = maximum - minimum + 1;
+                    const delay = minimum + (stablePhoneReplyNumber(`${opportunity.id}:${generationToken}:${normalizedHint}`) % range);
+                    const createdAtMs = new Date(opportunity.createdAt || generatedAt).getTime();
+                    const cap = (Number.isFinite(createdAtMs) ? createdAtMs : generatedAt.getTime()) + PHONE_REPLY_TOTAL_LIFETIME_MS;
+                    return new Date(Math.max(generatedAt.getTime(), Math.min(generatedAt.getTime() + delay, cap))).toISOString();
+                };
+                const commitPhoneReplyGeneration = (claim, rawPayload, now = new Date()) => {
+                    const opportunity = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim?.opportunityId));
+                    if (!opportunity || opportunity.status !== 'in-flight' ||
+                        String(opportunity.generationToken || '') !== String(claim?.token || '')) {
+                        return { committed: false, stale: true, error: '回复生成声明已过期。' };
+                    }
+                    const validation = validatePhoneChatReplyPayload(rawPayload);
+                    if (validation !== true) return { committed: false, invalid: true, error: validation };
+                    const envelope = parsePhoneChatReplyEnvelope(rawPayload);
+                    const snapshot = clonePhoneReplyValue(opportunity);
+                    const timingHint = normalizePhoneReplyTimingHint(envelope.timingHint);
+                    const generatedAt = now.toISOString();
+                    opportunity.messages = [...envelope.messages];
+                    opportunity.generatedBubbleIds = envelope.messages.map((_message, index) => `phone-reply-bubble:${opportunity.id}:${index}`);
+                    opportunity.knowledgeDisclosureFactIdsByBubble = validatePhoneReplyKnowledgeDisclosures(
+                        opportunity, envelope.messages, envelope.knowledgeDisclosures
+                    );
+                    opportunity.responseBatchId = opportunity.id;
+                    opportunity.generatedAt = generatedAt;
+                    opportunity.timingHint = timingHint;
+                    opportunity.deliverAt = computePhoneReplyDeliverAt(opportunity, claim.token, timingHint, now);
+                    opportunity.nextDeliveryIndex = 0;
+                    opportunity.nextDeliveryAt = '';
+                    opportunity.status = 'generated';
+                    opportunity.generationToken = '';
+                    opportunity.lastError = '';
+                    opportunity.integrityState = '';
+                    opportunity.completedAt = '';
+                    try {
+                        if (!persistNow()) throw new Error('已生成回复未能写入本地存档。');
+                        if (phoneReplyGenerationInFlight.get(opportunity.id) === claim.token) phoneReplyGenerationInFlight.delete(opportunity.id);
+                        addLog(`PHONE REPLY GENERATED: contact=${opportunity.contactId}; opportunity=${opportunity.id}; bubbleCount=${opportunity.messages.length}; timing=${timingHint}`, 'sent');
+                        addLog(`PHONE REPLY DURABLE: opportunity=${opportunity.id}; deliverAt=${opportunity.deliverAt}`, 'sent');
+                        schedulePhoneReplyReconciliation();
+                        return { committed: true, opportunity };
+                    } catch (error) {
+                        restorePhoneReplyObject(opportunity, snapshot);
+                        opportunity.messages = [];
+                        opportunity.generatedBubbleIds = [];
+                        opportunity.knowledgeDisclosureFactIdsByBubble = [];
+                        opportunity.generatedAt = '';
+                        opportunity.timingHint = '';
+                        opportunity.deliverAt = '';
+                        opportunity.nextDeliveryIndex = 0;
+                        opportunity.nextDeliveryAt = '';
+                        opportunity.responseBatchId = '';
+                        opportunity.generationToken = '';
+                        opportunity.generationChannel = '';
+                        opportunity.generationClaimedAt = '';
+                        opportunity.status = claim.channel === 'homepage-direct-piggyback' ? 'scheduled' : 'retryable';
+                        opportunity.retryAt = claim.channel === 'homepage-direct-piggyback'
+                            ? ''
+                            : new Date(now.getTime() + PHONE_REPLY_RETRY_DELAYS_MS[Math.max(0, Math.min(PHONE_REPLY_RETRY_DELAYS_MS.length - 1, opportunity.attemptCount - 1))]).toISOString();
+                        opportunity.lastError = '已生成回复未能持久化；未开始投递。';
+                        let rollbackPersisted = false;
+                        try { rollbackPersisted = persistNow() === true; } catch (_) { rollbackPersisted = false; }
+                        if (!rollbackPersisted) {
+                            opportunity.status = 'integrity-mismatch';
+                            opportunity.integrityState = 'generation-persist-rollback-failed';
+                            opportunity.retryAt = '';
+                        }
+                        if (phoneReplyGenerationInFlight.get(opportunity.id) === claim.token) phoneReplyGenerationInFlight.delete(opportunity.id);
+                        addLog(`PHONE REPLY GENERATION PERSIST FAILED: opportunity=${opportunity.id}; quarantined=${!rollbackPersisted}`, 'warn');
+                        schedulePhoneReplyReconciliation();
+                        return { committed: false, quarantined: !rollbackPersisted, error: cleanText(error?.message || error) };
+                    }
                 };
                 const markPhoneReplyIntegrityMismatch = (opportunity, reason) => {
                     const expectedCount = Array.isArray(opportunity?.messages) ? opportunity.messages.length : 0;
                     const durableCount = getDurablePhoneReplyBubbleCount(opportunity);
                     opportunity.status = 'integrity-mismatch';
                     opportunity.integrityState = cleanText(reason || 'integrity-mismatch').slice(0, 80);
+                    opportunity.deliverAt = '';
                     opportunity.nextDeliveryAt = '';
                     addLog(`PHONE REPLY INTEGRITY MISMATCH: opportunity=${opportunity.id}; expectedCount=${expectedCount}; durableCount=${durableCount}; state=${opportunity.integrityState}`, 'warn');
                     persistNow();
@@ -16978,6 +17422,28 @@ RULES:
                         return markPhoneReplyIntegrityMismatch(opportunity, 'delivering-finalization-mismatch');
                     }
                     return true;
+                };
+                const promoteGeneratedPhoneReplyDeliveries = (now = new Date()) => {
+                    const nowMs = now.getTime();
+                    getPhoneReplyOpportunities()
+                        .filter(opportunity => opportunity.status === 'generated' && opportunity.deliverAt &&
+                            new Date(opportunity.deliverAt).getTime() <= nowMs && isPhoneReplyLaneHead(opportunity))
+                        .sort((left, right) => new Date(left.deliverAt).getTime() - new Date(right.deliverAt).getTime())
+                        .forEach(opportunity => {
+                            if (!Array.isArray(opportunity.messages) || !opportunity.messages.length) {
+                                markPhoneReplyIntegrityMismatch(opportunity, 'generated-without-bubbles');
+                                return;
+                            }
+                            const snapshot = clonePhoneReplyValue(opportunity);
+                            opportunity.status = 'delivering';
+                            opportunity.nextDeliveryAt = now.toISOString();
+                            opportunity.nextDeliveryIndex = Math.max(0, Number(opportunity.nextDeliveryIndex) || 0);
+                            try {
+                                if (!persistNow()) throw new Error('delivery claim persist failed');
+                            } catch (_) {
+                                restorePhoneReplyObject(opportunity, snapshot);
+                            }
+                        });
                 };
                 const flushPhoneReplyDeliveries = (now = new Date()) => {
                     const nowMs = now.getTime();
@@ -17024,115 +17490,70 @@ RULES:
                 };
                 const markPhoneReplyFailure = (opportunity, error, now = new Date()) => {
                     const message = cleanText(error?.message || '请求失败').slice(0, 220) || '请求失败';
+                    const activeToken = opportunity.generationToken;
                     opportunity.lastError = message;
                     opportunity.status = 'failed';
                     opportunity.retryAt = '';
+                    opportunity.generationToken = '';
+                    opportunity.generationChannel = '';
+                    opportunity.generationClaimedAt = '';
                     const retryDelay = PHONE_REPLY_RETRY_DELAYS_MS[opportunity.attemptCount - 1];
                     if (Number.isFinite(retryDelay)) {
                         opportunity.status = 'retryable';
                         opportunity.retryAt = new Date(now.getTime() + retryDelay).toISOString();
                     }
+                    if (phoneReplyGenerationInFlight.get(opportunity.id) === activeToken) phoneReplyGenerationInFlight.delete(opportunity.id);
                     addLog(`PHONE REPLY: opportunity=${opportunity.id}; result=${opportunity.status}; attempt=${opportunity.attemptCount}; error=${message}`, 'warn');
                     // Retry state is itself recovery authority; do not leave it
                     // dependent on a later deep-watch save after a request fails.
                     persistNow();
                 };
-                const runPhoneReplyOpportunity = async (opportunity) => {
-                    const catId = getCanonicalCatId(opportunity.contactId);
+                const runPhoneReplyOpportunity = async claim => {
+                    const opportunity = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim?.opportunityId));
+                    const catId = getCanonicalCatId(claim?.contactId);
                     const cat = cats.value.find(item => sameCatId(item.id, catId));
                     const contact = phoneIdentities.value?.[catId];
-                    const pending = getPhoneReplySourceMessages(opportunity);
-                    if (!cat || !contact || !pending.length || !isAcceptedPhoneContact(catId)) {
-                        opportunity.status = 'failed';
-                        opportunity.retryAt = '';
-                        opportunity.lastError = '联系人或待回复消息已不可用。';
-                        phoneReplyGenerationInFlight.delete(opportunity.id);
-                        schedulePhoneReplyReconciliation();
-                        return;
+                    if (!opportunity || opportunity.status !== 'in-flight' ||
+                        String(opportunity.generationToken || '') !== String(claim?.token || '') ||
+                        !cat || !contact || !isAcceptedPhoneContact(catId)) {
+                        if (opportunity && opportunity.status === 'in-flight' && opportunity.generationToken === claim?.token) {
+                            markPhoneReplyFailure(opportunity, new Error('联系人或待回复消息已不可用。'));
+                        }
+                        return false;
                     }
-                    const hall = halls.value.find(item => item.id === cat.hallId) || currentHall.value;
-                    const pendingText = pending.map(formatPhoneReplySource).join('\n');
-                    // Claim-time snapshots, never live ledger data, are the only
-                    // private Knowledge source for this asynchronous turn.
-                    const conversationKnowledge = opportunity.knowledgeScopeFrozen
-                        ? buildResidentConversationKnowledgeContext(catId, {
-                            channel: 'phone-reply',
-                            intentionalConversation: true,
-                            hasOtherResidentOutput: false,
-                            frozenSnapshots: opportunity.knowledgeFactSnapshots
-                        })
-                        : { prompt: '' };
-                    const episodicMemoryContext = opportunity.episodicMemoryScopeFrozen
-                        ? opportunity.episodicMemoryContextText
-                        : '';
                     const wasOpen = isExactPhoneConversationOpen(catId);
                     if (wasOpen) phoneState.isTyping = true;
-                    const prompt = `
-${buildFocusedResidentStateContext(cat)}
-${episodicMemoryContext || ''}
-${conversationKnowledge.prompt || ''}
-${buildAuthoritativeUserIdentityContext()}
-[CLAIMED PHONE MESSAGES]
-${pendingText}
-
-【喵信私聊】
-你正在以 ${contact.name} 的公开身份，和馆长进行一对一文字聊天。馆长是安全、善意的共同生活者；你需要建立可靠的沟通方式，但不能泄露自己在喵喵馆中的猫形态或馆舍秘密。其他私密事实是否提及，必须遵守下方的私有事实规则与角色判断。
-
-严格输出规则：
-1. 只写可直接发送到聊天软件里的自然文字消息，使用简体中文；返回 1–4 条有序消息气泡。即时聊天可有短句、追问、停顿或后续补充；一条消息也可以正确。
-2. 禁止动作括号、【动作】、舞台指示、环境描写、第三人称旁白、角色名加冒号、小说式心理或肢体描写。
-3. 不要解释设定，不要提及“猫”“馆舍秘密”“AI”或正在扮演角色；不以默认哥谭/夜巡/英雄任务作为理由。
-4. 保持 ${contact.name} 的原作人格、时代感、知识边界、关系语气和 ${hall.name} 的作品边界；即时通讯节奏不等于现代俚语，不得为了像聊天而改变角色声音。
-5. 必须参考角色此刻在馆内的真实状态与当天时间线，用一个正常人会说的、自然克制的方式让回复与状态相连（例如刚睡醒可说“刚醒”，正在吃东西可说“刚吃完”，外出可说“现在不太方便”）。不要旁白解释，也不要直接说自己是一只猫。
-6. 不得改写该角色固定品种或眼睛颜色；它们仅用于连续性，不能在聊天里突兀自述。
-7. 总长 12–180 个汉字。严格只输出 JSON：{"messages":["第一条消息","第二条消息"],"knowledgeDisclosures":[{"factRef":"K1","bubbleIndex":0,"evidence":"含完整事实的该气泡原文片段"}]}。knowledgeDisclosures 是可选的；只有当你在指定 0 起始编号的消息气泡中逐字完整写出了某个 K 编号事实时才可列出它。不要概括、改写或猜测；否则返回 []。不要 Markdown、解释或任何 JSON 以外的文字。`;
+                    const prompt = buildPhoneReplyGenerationTask(opportunity, contact.name);
                     try {
-                        const reply = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 450, ThinkingLevel.LOW, {
+                        const reply = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, {
                             label: `PHONE CHAT · ${contact.name}`,
                             priority: wasOpen ? 'foreground' : 'background',
                             uiMode: wasOpen ? 'foreground' : 'background',
-                            origin: wasOpen ? 'user-action' : 'startup-recovery',
+                            origin: 'user-action',
                             originSurface: 'phone',
                             validateResponse: validatePhoneChatReply
                         });
-                        const envelope = parsePhoneChatReplyEnvelope(reply);
-                        const messages = envelope.messages;
-                        if (!messages.length) throw new Error('喵信回复格式无效。');
-                        const priorGenerated = {
-                            messages: [...(opportunity.messages || [])], generatedBubbleIds: [...(opportunity.generatedBubbleIds || [])],
-                            status: opportunity.status, responseBatchId: opportunity.responseBatchId,
-                            nextDeliveryIndex: opportunity.nextDeliveryIndex, nextDeliveryAt: opportunity.nextDeliveryAt,
-                            lastError: opportunity.lastError, integrityState: opportunity.integrityState || ''
-                        };
-                        opportunity.messages = messages;
-                        opportunity.generatedBubbleIds = messages.map((_message, index) => `phone-reply-bubble:${opportunity.id}:${index}`);
-                        opportunity.knowledgeDisclosureFactIdsByBubble = validatePhoneReplyKnowledgeDisclosures(
-                            opportunity, messages, envelope.knowledgeDisclosures
-                        );
-                        opportunity.responseBatchId = opportunity.id;
-                        opportunity.nextDeliveryIndex = 0;
-                        opportunity.nextDeliveryAt = new Date().toISOString();
-                        opportunity.status = 'delivering';
-                        opportunity.lastError = '';
-                        opportunity.integrityState = '';
-                        // A provider success is not a completed reply until this
-                        // generated bundle is durably recoverable across reload.
-                        if (!persistNow()) {
-                            Object.assign(opportunity, priorGenerated);
-                            opportunity.status = 'retryable';
-                            opportunity.retryAt = new Date(Date.now() + PHONE_REPLY_RETRY_DELAYS_MS[0]).toISOString();
-                            opportunity.lastError = '已生成回复未能写入本地存档。';
-                            persistNow();
-                            throw new Error('回复生成结果未能持久化；尚未开始投递。');
+                        const current = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim.opportunityId));
+                        if (!current || current.status !== 'in-flight' || current.generationToken !== claim.token) {
+                            addLog(`PHONE REPLY STALE RESPONSE: opportunity=${claim.opportunityId}; channel=${claim.channel}`, 'warn');
+                            return false;
                         }
-                        addLog(`PHONE REPLY GENERATED: contact=${catId}; opportunity=${opportunity.id}; bubbleCount=${messages.length}`, 'sent');
-                        addLog(`PHONE REPLY DURABLE: opportunity=${opportunity.id}; bubbleCount=${messages.length}`, 'sent');
-                        flushPhoneReplyDeliveries(new Date());
+                        const committed = commitPhoneReplyGeneration(claim, reply, new Date());
+                        if (!committed.committed && !committed.stale && current.status === 'in-flight' && current.generationToken === claim.token) {
+                            throw new Error(committed.error || '喵信回复格式无效。');
+                        }
+                        return committed.committed;
                     } catch (error) {
-                        markPhoneReplyFailure(opportunity, error, new Date());
-                        if (!(error instanceof AIRequestCancelledError) && wasOpen) showToast('这次没有收到回复，会稍后再试。', 'error');
+                        const current = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim.opportunityId));
+                        if (current?.status === 'in-flight' && current.generationToken === claim.token) {
+                            markPhoneReplyFailure(current, error, new Date());
+                        }
+                        if (!(error instanceof AIRequestCancelledError) && wasOpen) showToast('这次没有收到回复，可稍后重新获取。', 'error');
+                        return false;
                     } finally {
-                        phoneReplyGenerationInFlight.delete(opportunity.id);
+                        if (phoneReplyGenerationInFlight.get(claim.opportunityId) === claim.token) {
+                            phoneReplyGenerationInFlight.delete(claim.opportunityId);
+                        }
                         if (isExactPhoneConversationOpen(catId)) {
                             phoneState.isTyping = false;
                             scrollPhoneChatToBottom();
@@ -17142,53 +17563,38 @@ ${pendingText}
                 };
                 const reconcilePhoneReplyOpportunities = async (now = new Date()) => {
                     normalizePhoneReplyOpportunities({ now });
+                    promoteGeneratedPhoneReplyDeliveries(now);
                     flushPhoneReplyDeliveries(now);
-                    const nowMs = now.getTime();
-                    const lastRecoveryDispatchAt = new Date(user.phoneData?.lastPhoneRecoveryDispatchAt || '').getTime() || 0;
-                    const due = getPhoneReplyOpportunities()
-                        .filter(item => (item.status === 'scheduled' || item.status === 'retryable') && phoneReplyDueTime(item) <= nowMs)
-                        .filter(item => !phoneReplyGenerationInFlight.has(item.id) &&
-                            !hasActivePhoneReplyLane(item.contactId, item.id) && isPhoneReplyLaneHead(item))
-                        .sort((left, right) => {
-                            const leftOpen = isExactPhoneConversationOpen(left.contactId) ? 0 : 1;
-                            const rightOpen = isExactPhoneConversationOpen(right.contactId) ? 0 : 1;
-                            return leftOpen - rightOpen || phoneReplyDueTime(left) - phoneReplyDueTime(right) || String(left.id).localeCompare(String(right.id));
-                        })
-                        .find(item => !item.recoveryPending || isExactPhoneConversationOpen(item.contactId) ||
-                            nowMs - lastRecoveryDispatchAt >= PHONE_RECOVERY_MIN_INTERVAL_MS);
-                    if (!due) { schedulePhoneReplyReconciliation(); return false; }
-                    // Claim before assembling the request. From this point source IDs
-                    // are immutable, so later USER messages form a subsequent turn.
-                    due.status = 'in-flight';
-                    due.claimedAt = due.claimedAt || now.toISOString();
-                    due.retryAt = '';
-                    due.attemptCount = Math.max(0, Number(due.attemptCount) || 0) + 1;
-                    if (due.recoveryPending) user.phoneData.lastPhoneRecoveryDispatchAt = now.toISOString();
-                    due.recoveryPending = false;
-                    // Freeze and durably save the USER's exact disclosure scope
-                    // before it can alter the resident's prompt knowledge. A reload
-                    // resumes these IDs and this claimedAt; it never rereads prose.
-                    freezePhoneReplyUserDisclosureScope(due);
-                    if (!persistNow()) {
-                        due.status = 'retryable';
-                        due.retryAt = new Date(now.getTime() + PHONE_REPLY_RETRY_DELAYS_MS[0]).toISOString();
-                        due.lastError = '回复知识声明未能写入本地存档。';
-                        schedulePhoneReplyReconciliation();
-                        return false;
-                    }
-                    applyFrozenPhoneUserDisclosureKnowledge(due);
-                    freezePhoneReplyKnowledgeScope(due);
-                    freezePhoneReplyEpisodicMemoryScope(due);
-                    if (!persistNow()) {
-                        due.status = 'retryable';
-                        due.retryAt = new Date(now.getTime() + PHONE_REPLY_RETRY_DELAYS_MS[0]).toISOString();
-                        due.lastError = '回复上下文未能写入本地存档。';
-                        schedulePhoneReplyReconciliation();
-                        return false;
-                    }
-                    phoneReplyGenerationInFlight.add(due.id);
-                    void runPhoneReplyOpportunity(due);
+                    schedulePhoneReplyReconciliation();
                     return true;
+                };
+                const claimPhoneReplyForHomepageDirect = residentId => {
+                    const canonicalResidentId = getCanonicalCatId(residentId);
+                    const opportunity = getPhoneReplyLaneHeadForContact(canonicalResidentId);
+                    if (!opportunity || !sameCatId(opportunity.contactId, canonicalResidentId) ||
+                        !['scheduled', 'retryable'].includes(opportunity.status) ||
+                        !isPhoneReplyRetryEligible(opportunity, new Date())) return null;
+                    return claimPhoneReplyGeneration(opportunity, 'homepage-direct-piggyback', new Date(), { countAttempt: false });
+                };
+                const getClaimedPhoneReplyOpportunity = claim => {
+                    const opportunity = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim?.opportunityId));
+                    return opportunity?.status === 'in-flight' &&
+                        String(opportunity.generationToken || '') === String(claim?.token || '') &&
+                        sameCatId(opportunity.contactId, claim?.contactId)
+                        ? opportunity
+                        : null;
+                };
+                const settleHomepageDirectPhoneSidecar = (claim, rawSidecar) => {
+                    const opportunity = getClaimedPhoneReplyOpportunity(claim);
+                    if (!opportunity) return { committed: false, stale: true };
+                    const isSingleSidecar = rawSidecar && typeof rawSidecar === 'object' && !Array.isArray(rawSidecar);
+                    const validation = isSingleSidecar ? validatePhoneChatReplyPayload(rawSidecar) : 'Phone sidecar missing or malformed.';
+                    if (validation !== true) {
+                        releasePhoneReplyGeneration(claim, { status: 'scheduled' });
+                        addLog(`PHONE REPLY PIGGYBACK SOFT MISS: opportunity=${claim.opportunityId}; reason=invalid-or-missing-sidecar`, 'info');
+                        return { committed: false, invalid: true };
+                    }
+                    return commitPhoneReplyGeneration(claim, rawSidecar, new Date());
                 };
                 const sendPhoneMessage = (typeArg = 'text', contentArg = null, descArg = null) => {
                     const type = typeof typeArg === 'string' ? typeArg : 'text';
@@ -24622,6 +25028,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     const frozenActiveForm = getResidentForm(sendingCat);
                     let userChatAt = cleanText(rerollSource?.at || '');
                     let userInteractionRecord = null;
+                    let phoneReplyPiggybackClaim = null;
+                    let phoneReplyPiggybackSettled = false;
 
                     if (!isReRoll) {
                         const time = getCurrentTimeStr();
@@ -24652,6 +25060,10 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         appendInteractionEvent(sendingCat, 'chat-reply', sendingCat.autoReply, { source: 'auto-reply' });
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
                         return;
+                    }
+
+                    if (!isReRoll && !isItemUse) {
+                        phoneReplyPiggybackClaim = claimPhoneReplyForHomepageDirect(sendingCat.id);
                     }
 
                     thinkingStates[sendingCat.id] = true;
@@ -24689,19 +25101,28 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         });
                         const activeLocationContext = buildHomepageDirectPresenceContext(sendingCat);
                         const directUserContext = `[USER CURRENT CONTEXT]\n${buildAuthoritativeUserIdentityContext()}\n- Job/role: ${cleanText(user.job || 'Unknown') || 'Unknown'}.\n- Current status: ${cleanText(user.currentStatus || 'Unknown') || 'Unknown'}.\n- Current time: ${frozenNow.toLocaleString()}.`;
+                        const claimedPhoneOpportunity = getClaimedPhoneReplyOpportunity(phoneReplyPiggybackClaim);
+                        const phoneReplyTask = claimedPhoneOpportunity
+                            ? buildPhoneReplyGenerationTask(claimedPhoneOpportunity, getResidentPublicName(sendingCat))
+                            : '';
 
                         const interactionContract = `[DIRECT INTERACTION CONTRACT]
 - This request generates only ${getResidentPublicName(sendingCat)}'s direct reply and own presentation. Do not generate, infer, or mutate another resident's state, thoughts, relationship, form, Away life, memory, or Knowledge.
+- activeCat must use only the Direct sections. It must not use any PHONE thread, PHONE task, or Phone-private facts when a separately labeled optional Phone sidecar is present.
 - The active resident's form is read-only for this response. Preserve ${frozenActiveForm}; USER dialogue cannot authorize a form transition.
 - Preserve original-work personality and voice. Do not act like another character, a generic tsundere cat, or default to Gotham/DC/superhero premises.
 - CAT form has only feline vocalization/body language; no human-language speech. HUMAN form may speak naturally with ordinary feline ears and tail.
 - Fixed appearance is reference-only: mention it only when the USER explicitly asks, directly interacts with it, or it is causally necessary.`;
+                        const outputShape = phoneReplyTask
+                            ? `{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","posture":"standing|sitting|lying|crouching","innerVoice":"","userStatus":"","memoryCandidate":null},"phoneReply":{"messages":[""],"timingHint":"quick|normal|slow","knowledgeDisclosures":[]}}`
+                            : `{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","posture":"standing|sitting|lying|crouching","innerVoice":"","userStatus":"","memoryCandidate":null}}`;
                         const outputContract = `[OUTPUT CONTRACT]
 Return exactly one JSON object, no markdown, code fences, or commentary. All text values are Simplified Chinese.
-{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","posture":"standing|sitting|lying|crouching","innerVoice":"","userStatus":"","memoryCandidate":null}}
+${outputShape}
 - status: third-person current action, about 10 Chinese characters. posture is the exact current physical posture expressed by status. Location/furniture and posture are independent: a resident may stand on a cushion, sit on a cabinet, lie on the floor, or crouch beside furniture when the status says so. innerVoice: first-person using 我, wrapped in 【】, never a feline vocalization. userStatus: a short USER activity summary within 15 Chinese characters.
 - reply: normally 80–140 Chinese characters; continue this exact turn through concrete, in-character action and nearby space.
-- memoryCandidate is optional and normally null. It may describe only a durable fact from this USER/${getResidentPublicName(sendingCat)} exchange or supplied direct USER-shared context; never infer bystander experience or Knowledge. Use {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.`;
+- memoryCandidate is optional and normally null. It may describe only a durable fact from this USER/${getResidentPublicName(sendingCat)} exchange or supplied direct USER-shared context; never infer bystander experience or Knowledge. Use {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.
+${phoneReplyTask ? '- phoneReply is the sole optional Phone sidecar. Do not output arrays or alternate Phone fields. Its identity is bound locally; never choose an opportunity ID.' : ''}`;
                         const prompt = `${interactionContract}
 
 [SELECTED RESIDENT CANON]
@@ -24721,6 +25142,8 @@ ${activeLocationContext}
 
 [CURRENT USER ACTION]
 ${msg}${isItemUse ? '\n(USER used an item on the selected resident.)' : ''}
+
+${phoneReplyTask}
 
 ${outputContract}`;
 
@@ -24803,6 +25226,16 @@ ${outputContract}`;
                             }
                             void maybeRunPhonePresenceAfterHomepage();
                         }
+                        if (phoneReplyPiggybackClaim) {
+                            try {
+                                settleHomepageDirectPhoneSidecar(phoneReplyPiggybackClaim, payload.phoneReply);
+                            } catch (phoneError) {
+                                try { releasePhoneReplyGeneration(phoneReplyPiggybackClaim, { status: 'scheduled' }); } catch (_) { /* local sidecar only */ }
+                                addLog(`PHONE REPLY PIGGYBACK ERROR: opportunity=${phoneReplyPiggybackClaim.opportunityId}; error=${cleanText(phoneError?.message || phoneError)}`, 'warn');
+                            } finally {
+                                phoneReplyPiggybackSettled = true;
+                            }
+                        }
                     } catch (e) {
                         const isIncompleteHomepageReply = String(e?.message || '').startsWith('Homepage Chat ')
                             || String(e?.message || '') === MECHANICAL_APPEARANCE_REPLY_ERROR;
@@ -24811,7 +25244,12 @@ ${outputContract}`;
                         }
                         addLog(`CHAT ERROR: ${e.message}`, "error");
                     }
-                    finally { thinkingStates[sendingCat.id] = false; }
+                    finally {
+                        if (phoneReplyPiggybackClaim && !phoneReplyPiggybackSettled) {
+                            try { releasePhoneReplyGeneration(phoneReplyPiggybackClaim, { status: 'scheduled' }); } catch (_) { /* primary failure keeps Phone local */ }
+                        }
+                        thinkingStates[sendingCat.id] = false;
+                    }
                 };
 
                 const submitShopItem = async () => {
@@ -27535,7 +27973,7 @@ ${episodicMemory}`;
                 };
 
                 return {
-                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, selectedCat, user, settings, newCat, cleanText, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
+                    currentTab, contentArea, alfredMessage, cats, halls, roomCats, currentHall, loungeView, activeHallId, lastMeeowLocation, selectedCat, user, settings, newCat, cleanText, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
                     CURATOR_ROOM_ANCHORS, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomCatVisual, curatorRoomMapPreviewCat, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     hallSceneRecords, hallSceneFeedRecords, hallSceneFeedRef, getHallSceneParticipantNames, getHallSceneReactionName,
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
@@ -27547,7 +27985,7 @@ ${episodicMemory}`;
                     showCatVisualEditor, showCatVisualCloseConfirm, catVisualDraft, catVisualTab, catVisualPreviewCanvas, portfolioCatVisualCanvas, catVisualPreviewLoading, catVisualPreviewError, portfolioCatVisualError, catVisualPreviewMeta, catVisualSaving, catVisualEditorResident, catVisualTabs, catVisualOptions, catVisualCoats, catVisualMarks, catVisualEyes, catVisualMuzzles, catVisualLegs, catVisualLabel, catVisualIsCustomColor, catVisualPreviewColor, catVisualPickerValue, setCatVisualColor, usesPortfolioCatVisual, openCatVisualEditor, openManagedCatVisualEditor, requestCatVisualEditorClose, discardCatVisualChanges, continueCatVisualEditing, saveCatVisualEditor,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
-                    handleCatClick, returnToHallRoom, navigateToTab, leavePhone, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
+                    handleCatClick, returnToHallRoom, navigateToTab, leavePhone, restoreLastMeeowLocation, openCurrentHall, openHallDirectory, refreshAllStatus, sendMessage, updateUserStatus, submitSharedScene, enterHall, showHallCreator, hallCreator, createHall, getHallLogoDataUri,
                     showCatVisitModal, visitCat, visitTargetHallId, visitMessage, visitIsProcessing, openCatVisit, sendCatVisiting, returnVisitingCat,
                     handleImageUpload, adoptCat, wishAdoptCat, isWishLoading,
                     friendsList, phoneConversationList, sendFriendRequest, acceptFriendRequest,
@@ -27592,7 +28030,7 @@ ${episodicMemory}`;
                     readerBooks, activeReaderBook, activeReaderChapter, readerAvailableCats, readerScrollRef, readerTocRef, hasPreviousReaderChapter, hasNextReaderChapter, readerCanAddCurrentChapterNote,
                     openReaderLibrary, closeReader, handleReaderFileUpload, openReaderBook, prepareReaderStart, openReaderTableOfContents, selectReaderChapter, startReaderSession, confirmReaderCompanionChapters, continueReaderIndependently, retreatReaderChapter, advanceReaderChapter, requestReaderNotesForCurrentChapter, saveReaderScrollPosition,
                     getReaderBookProgress, getReaderProgressLabel, getReaderChapterAnnotationCount, getReaderParagraphAnnotations, openReaderAnnotation, getCatById, formatReaderNoteTime,
-                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, getUnreadPhonePresenceCount, phonePresenceUnreadCount, sendPhoneMessage, retryPhoneReplyOpportunity, phoneReplyNeedsManualRetry, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
+                    openPhoneChat, closePhoneChat, getPhoneChatHistory, getPhoneLastMessage, getPhoneLastTime, getUnreadPhonePresenceCount, phonePresenceUnreadCount, sendPhoneMessage, requestPhoneReplyGeneration, getPhoneReplyControlState, retryPhoneReplyOpportunity, phoneReplyNeedsManualRetry, shouldShowPhoneDateDivider, formatPhoneMessageDate, formatPhoneMessageTime, openPhoneChatArchive, getPhoneArchiveDays, getPhoneArchiveMessages,
                     openPhoneImageComposer, openPhoneLocationComposer, openPhoneMoneyComposer, togglePhoneEmojiPicker, phoneShowEmojiPicker, insertEmoji,
                     showMsgMenu, startLongPress, cancelLongPress, replyToMsg, reactToMsg, copyMsg, recallMsg,
                     openMomentsSettings, saveMomentsSettings, likeMoment, addComment, postMoment,

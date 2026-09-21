@@ -24,14 +24,19 @@ const deliver = (opportunity, store, persist) => {
   return persist();
 };
 
-const generated = { id: 'op-a', contactId: 'hypnos', status: 'delivering', messages: ['一', '二'], nextDeliveryIndex: 0 };
+const generated = {
+  id: 'op-a', contactId: 'hypnos', status: 'generated', messages: ['一', '二'], nextDeliveryIndex: 0,
+  generatedAt: '2026-09-20T10:00:00.000Z', deliverAt: '2026-09-20T10:01:00.000Z'
+};
 let saved = null;
 const persist = () => { saved = structuredClone(generated); return true; };
 assert.ok(persist(), 'generated payload must be durable before first delivery');
 assert.deepEqual(saved.messages, ['一', '二']);
 const afterGenerationReload = structuredClone(saved);
-assert.equal(afterGenerationReload.status, 'delivering');
+assert.equal(afterGenerationReload.status, 'generated');
 assert.equal(afterGenerationReload.nextDeliveryIndex, 0);
+assert.equal(deliveredCount(afterGenerationReload, new Set()), 0, 'generated prose remains invisible before local delivery starts');
+generated.status = 'delivering';
 
 const nonDurableGeneration = { id: 'op-no-save', contactId: 'hades', status: 'in-flight', messages: [] };
 const stagedPayload = ['不会显示'];
@@ -85,11 +90,11 @@ const lane = [
   { id: 'b', contactId: 'hypnos', status: 'scheduled' },
   { id: 'c', contactId: 'athena', status: 'scheduled' }
 ];
-const laneBusy = (contactId, except = '') => lane.some(item => item.contactId === contactId && item.id !== except && ['in-flight', 'delivering'].includes(item.status));
+const laneBusy = (contactId, except = '') => lane.some(item => item.contactId === contactId && item.id !== except && ['in-flight', 'generated', 'delivering'].includes(item.status));
 assert.equal(laneBusy('hypnos', 'b'), true);
 assert.equal(laneBusy('athena', 'c'), false);
 const laneHead = (items, candidate) => items
-  .filter(item => item.contactId === candidate.contactId && ['scheduled', 'retryable', 'in-flight', 'delivering', 'integrity-mismatch'].includes(item.status))
+  .filter(item => item.contactId === candidate.contactId && ['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'failed', 'integrity-mismatch'].includes(item.status))
   .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id))[0]?.id === candidate.id;
 const recoveredLane = [
   { id: 'older', contactId: 'hypnos', status: 'delivering', order: 1 },
@@ -97,11 +102,6 @@ const recoveredLane = [
 ];
 assert.equal(laneHead(recoveredLane, recoveredLane[0]), true, 'the older delivery owns its contact lane');
 assert.equal(laneHead(recoveredLane, recoveredLane[1]), false, 'a later turn cannot generate or deliver early');
-
-const lastRecoveryAt = 1_000;
-const now = 30_000;
-assert.ok(now - lastRecoveryAt < 60_000, 'stale startup dispatch remains gated for one minute');
-assert.equal(Math.max(0, lastRecoveryAt + 60_000 - now), 31_000, 'recovery timer waits for the gate instead of spinning at zero delay');
 
 // Required user-directed scenes are part of the hard provider envelope;
 // optional ambient scenes remain soft sidecars.
@@ -489,10 +489,24 @@ for (const frozenField of ['frozenNow', 'protectedSceneParticipantIds', 'explici
   assert.ok(refreshWrapperSource.includes(frozenField), `queued composer preserves ${frozenField}`);
 }
 
-assert.match(source, /PHONE_RECOVERY_MIN_INTERVAL_MS = 60 \* 1000/);
-assert.match(source, /lastRecoveryDispatchAt \+ PHONE_RECOVERY_MIN_INTERVAL_MS/);
+const phoneReconcileStart = source.indexOf('const reconcilePhoneReplyOpportunities = async');
+const phoneReconcileEnd = source.indexOf('const claimPhoneReplyForHomepageDirect', phoneReconcileStart);
+const phoneReconcileSource = source.slice(phoneReconcileStart, phoneReconcileEnd);
+assert.match(phoneReconcileSource, /promoteGeneratedPhoneReplyDeliveries\(now\)/);
+assert.match(phoneReconcileSource, /flushPhoneReplyDeliveries\(now\)/);
+assert.doesNotMatch(phoneReconcileSource, /callAI\(|runPhoneReplyOpportunity\(|claimPhoneReplyGeneration\(/,
+  'time reconciliation must never start reply generation');
 assert.match(source, /hasActivePhoneReplyLane/);
 assert.match(source, /isPhoneReplyLaneHead/);
+assert.match(source, /claimPhoneReplyGeneration/);
+assert.match(source, /generationToken/);
+assert.match(source, /status = 'generated'/);
+assert.match(source, /deliverAt = computePhoneReplyDeliverAt/);
+assert.match(source, /homepage-direct-piggyback/);
+assert.match(source, /PHONE REPLY PIGGYBACK SOFT MISS/);
+assert.match(source, /getPhoneReplyControlState/);
+assert.match(source, /获取回复/);
+assert.match(source, /等回复/);
 assert.match(source, /PHONE REPLY DURABLE:/);
 assert.match(source, /PHONE REPLY INTEGRITY MISMATCH:/);
 assert.match(source, /generatedBubbleIds/);

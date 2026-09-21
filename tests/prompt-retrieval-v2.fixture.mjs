@@ -117,7 +117,7 @@ assert.ok(afterItem.length <= 1200);
 
 // Run the actual persisted Phone normalizer slice without network/Vue. Claimed
 // legacy records become empty frozen scopes; a saved block remains byte-stable.
-const phoneStart = appSource.indexOf('const PHONE_REPLY_MIN_DELAY_MS');
+const phoneStart = appSource.indexOf('const PHONE_REPLY_TOTAL_LIFETIME_MS');
 const phoneEnd = appSource.indexOf('const getPhoneReplySourceMessages', phoneStart);
 assert.ok(phoneStart >= 0 && phoneEnd > phoneStart);
 const phoneSandbox = {
@@ -142,22 +142,36 @@ phoneSandbox.user.phoneData.replyOpportunities = [{
 const normalizedPhone = phoneSandbox.__normalizePhone({ now: new Date('2026-08-31T00:02:00.000Z') });
 assert.equal(normalizedPhone[0].episodicMemoryScopeFrozen, true);
 assert.equal(normalizedPhone[0].episodicMemoryContextText, '');
+assert.equal(normalizedPhone[0].generationDueAt, '2026-08-31T00:00:00.000Z');
+assert.equal(normalizedPhone[0].deliverAt, '', 'legacy dueAt is never reinterpreted as delivery authority');
 assert.equal(normalizedPhone[1].episodicMemoryContextText, '[RELEVANT SHARED / EPISODIC MEMORY]\n- stable text');
 assert.equal(normalizedPhone[1].episodicMemorySnapshots[0].summary, 'stable text');
+phoneSandbox.user.phoneData.replyOpportunities = [{
+    id: 'legacy-in-flight', contactId: 'bruce', sourceMessageIds: ['m1'], status: 'in-flight',
+    createdAt: '2026-08-31T00:00:00.000Z', dueAt: '2026-08-31T00:01:00.000Z', claimedAt: '2026-08-31T00:01:00.000Z',
+    generationToken: 'stale-token', generationChannel: 'phone-dedicated'
+}];
+const recoveredPhone = phoneSandbox.__normalizePhone({ recoverInFlight: true, now: new Date('2026-08-31T00:02:00.000Z') })[0];
+assert.equal(recoveredPhone.status, 'retryable');
+assert.equal(recoveredPhone.generationToken, '');
+assert.equal(recoveredPhone.generationChannel, '');
+assert.equal(recoveredPhone.deliverAt, '');
 
 // Static integration assertions cover claim persistence and the two permitted consumers.
 assert.match(appSource, /episodicMemoryScopeFrozen/);
 assert.match(appSource, /episodicMemoryContextText/);
-assert.match(appSource, /freezePhoneReplyEpisodicMemoryScope\(due\)/);
+assert.match(appSource, /freezePhoneReplyEpisodicMemoryScope\(opportunity\)/);
 assert.match(appSource, /episodicMemoryScopeFrozen\s*=\s*raw\.episodicMemoryScopeFrozen === true \|\| Boolean\(claimedAt\)/);
 assert.match(appSource, /userSharedOnly:\s*true/);
 assert.match(appSource, /estimatePromptBudget\(statusRequestPrompt, CORE_ROLEPLAY_PROMPT/);
 const itemSlice = appSource.slice(appSource.indexOf('const useItem = async'), appSource.indexOf('const readItem ='));
 assert.match(itemSlice, /buildUserSharedEpisodicMemoryContext/);
 assert.doesNotMatch(itemSlice, /buildCatMemoryContext\(targetCat\)/);
-const phoneSlice = appSource.slice(appSource.indexOf('const runPhoneReplyOpportunity'), appSource.indexOf('const reconcilePhoneReplyOpportunities'));
-assert.match(phoneSlice, /episodicMemoryContextText/);
-assert.doesNotMatch(phoneSlice, /buildCatMemoryContext\(cat\)/);
+const phoneTaskSlice = appSource.slice(appSource.indexOf('const buildPhoneReplyGenerationTask'), appSource.indexOf('const stablePhoneReplyNumber'));
+assert.match(phoneTaskSlice, /episodicMemoryContextText/);
+assert.match(phoneTaskSlice, /frozenSnapshots:\s*opportunity\.knowledgeFactSnapshots/);
+assert.match(phoneTaskSlice, /\[PHONE CONVERSATION CONTINUITY\]/);
+assert.doesNotMatch(phoneTaskSlice, /buildCatMemoryContext\(cat\)/);
 
 console.log(JSON.stringify({
     fixture: 'prompt-retrieval-v2', status: 'PASS',
