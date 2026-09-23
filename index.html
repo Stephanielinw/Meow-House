@@ -3728,6 +3728,50 @@
             font-size: 10px;
             line-height: 1.35;
         }
+        #app .meeow-relationship-metrics {
+            display: grid;
+            gap: 7px;
+            padding-top: 10px;
+            border-top: 1px solid var(--ui-border);
+        }
+        #app .meeow-relationship-metric-row {
+            display: grid;
+            grid-template-columns: minmax(3.5rem, auto) 1fr;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        #app .meeow-relationship-metric-label {
+            color: var(--ui-text-muted);
+            font-size: 10px;
+            line-height: 1.2;
+        }
+        #app .meeow-relationship-pips {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-width: 0;
+        }
+        #app .meeow-relationship-pip {
+            width: 8px;
+            height: 8px;
+            flex: 0 0 8px;
+            border: 1px solid var(--ui-border);
+            border-radius: 999px;
+            background: transparent;
+        }
+        #app .meeow-relationship-pips.is-positive .meeow-relationship-pip.is-filled {
+            border-color: var(--accent);
+            background: var(--accent);
+        }
+        #app .meeow-relationship-pips.is-negative .meeow-relationship-pip.is-filled {
+            border-color: #b87058;
+            background: #b87058;
+        }
+        #app .meeow-relationship-pips.is-neutral .meeow-relationship-pip.is-filled {
+            border-color: var(--ui-text-muted);
+            background: var(--ui-text-muted);
+        }
 
         /* ===== SHARED MODAL SURFACE =====
            Fixed dialogs sit outside .gotham-content, so they cannot rely on
@@ -4731,6 +4775,33 @@
         #app .reader-chapter-row { border-bottom: 1px solid var(--ui-border); color: var(--ui-text); }
         #app .reader-chapter-row:last-child { border-bottom: 0; }
         #app .reader-chapter-row.reader-chapter-current { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+        #app .reader-companion-chapter-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            min-height: 0;
+            padding: 12px;
+        }
+        #app .reader-companion-chapter-option > input.reader-companion-chapter-checkbox[type="checkbox"] {
+            flex: 0 0 20px;
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            min-height: 20px;
+            margin: 1px 0 0;
+            padding: 0;
+            appearance: auto;
+            -webkit-appearance: checkbox;
+            border: initial !important;
+            border-radius: 4px !important;
+            background: initial !important;
+            box-shadow: none;
+            accent-color: var(--accent);
+        }
+        #app .reader-companion-chapter-copy {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
         #app .reader-text { font-family: var(--app-font-family); color: var(--ui-text); font-size: 16px; line-height: 1.95; }
         #app .reader-paragraph { position: relative; padding: 0 38px 0 0; margin: 0 0 1.15em; white-space: pre-wrap; }
         #app .reader-paw {
@@ -5818,8 +5889,8 @@
                     </div>
 
                     <!-- Inner Voice Monologue -->
-                    <div class="mt-3 bg-black/40 border-l-2 border-yellow-500 rounded-r-xl p-2.5 text-[11px] text-gray-300 italic font-serif leading-relaxed" v-if="selectedCat.innerVoice">
-                        "{{ cleanText(selectedCat.innerVoice) }}"
+                    <div class="mt-3 bg-black/40 border-l-2 border-yellow-500 rounded-r-xl p-2.5 text-[11px] text-gray-300 italic font-serif leading-relaxed" v-if="getResidentLiveInnerVoice(selectedCat)">
+                        "{{ getResidentLiveInnerVoice(selectedCat) }}"
                     </div>
                 </div>
 
@@ -6135,7 +6206,7 @@
                                         <div class="flex justify-between items-center gap-3 mb-2"><div class="font-black text-base"><i class="fas fa-paw mr-1" style="color:var(--accent)"></i>{{ phoneState.reader.unreadPromptChapterId ? '小猫还没有读到这里哦' : '选择陪读章节' }}</div><button type="button" @click="continueReaderIndependently" class="text-lg" style="color:var(--ui-text-muted)">×</button></div>
                                         <p class="text-xs leading-relaxed mb-3" style="color:var(--ui-text-muted)">{{ getCatById(phoneState.reader.pendingCompanionCatId)?.name || '这只小猫' }} 只会阅读你勾选的章节。你始终可以先独自继续读。</p>
                                         <div class="max-h-[45dvh] overflow-y-auto custom-scrollbar rounded-2xl border" style="border-color:var(--ui-border)">
-                                            <label v-for="(chapter, chapterIndex) in activeReaderBook?.chapters || []" :key="chapter.id" class="flex items-center gap-3 p-3 border-b last:border-0 cursor-pointer" style="border-color:var(--ui-border)"><input v-model="phoneState.reader.selectedCompanionChapterIds" :value="chapter.id" type="checkbox" class="accent-current"><span class="min-w-0"><span class="block text-xs font-bold">{{ chapterIndex + 1 }}. {{ chapter.title }}</span><span class="block text-[9px] mt-1" style="color:var(--ui-text-muted)">{{ getReaderChapterAnnotationCount(chapter.id) }} 条猫爪笔记</span></span></label>
+                                            <label v-for="(chapter, chapterIndex) in activeReaderBook?.chapters || []" :key="chapter.id" class="reader-companion-chapter-option border-b last:border-0 cursor-pointer" style="border-color:var(--ui-border)"><input v-model="phoneState.reader.selectedCompanionChapterIds" :value="chapter.id" type="checkbox" class="reader-companion-chapter-checkbox"><span class="reader-companion-chapter-copy"><span class="block text-xs font-bold">{{ chapterIndex + 1 }}. {{ chapter.title }}</span><span class="block text-[9px] mt-1" style="color:var(--ui-text-muted)">{{ getReaderChapterAnnotationCount(chapter.id) }} 条猫爪笔记</span></span></label>
                                         </div>
                                         <div class="grid grid-cols-2 gap-2 mt-4"><button type="button" @click="continueReaderIndependently" class="reader-panel rounded-xl py-2.5 text-xs font-black">先自己读</button><button type="button" @click="confirmReaderCompanionChapters" :disabled="!phoneState.reader.selectedCompanionChapterIds.length" class="rounded-xl py-2.5 text-xs font-black disabled:opacity-40" style="background:var(--accent); color:var(--accent-contrast)">让 {{ getCatById(phoneState.reader.pendingCompanionCatId)?.name || '小猫' }} 阅读</button></div>
                                     </div>
@@ -8054,9 +8125,9 @@
                     <h2 class="text-base font-extrabold text-white flex items-center gap-2">
                         <i class="fas fa-briefcase text-yellow-500"></i> 背包物品
                     </h2>
-                    <button @click="showBag = false" class="sully-btn text-gray-400 hover:text-white p-1"><i class="fas fa-times text-base"></i></button>
+                    <button type="button" aria-label="关闭背包" @click="showBag = false" class="sully-btn text-gray-400 hover:text-white p-1"><i class="fas fa-times text-base" aria-hidden="true"></i></button>
                 </div>
-                <div class="flex space-x-2 mb-3 bg-black/40 p-1 rounded-2xl border border-white/10">
+                <div v-if="!selectedBagGroup" class="flex space-x-2 mb-3 bg-black/40 p-1 rounded-2xl border border-white/10">
                     <button @click="currentBagTab='consumable'"
                         class="sully-btn flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
                         :class="currentBagTab==='consumable'?'bg-yellow-500 text-black shadow-md':'text-gray-400 hover:text-white'">消耗品</button>
@@ -8064,19 +8135,49 @@
                         class="sully-btn flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
                         :class="currentBagTab==='collectible'?'bg-yellow-500 text-black shadow-md':'text-gray-400 hover:text-white'">收藏品</button>
                 </div>
-                <div class="flex-1 overflow-y-auto custom-scrollbar pr-1">
-                    <div v-if="currentBagItems.length === 0" class="text-center text-gray-500 py-10 text-xs italic">分类下无任何道具</div>
-                    <div class="grid grid-cols-3 gap-2.5">
-                        <div v-for="item in currentBagItems" :key="item.uniqueId" @click="useItem(item)"
-                            :class="{'opacity-50 pointer-events-none': itemInteractionInFlight}"
-                            class="sully-card min-h-32 p-2 rounded-2xl flex flex-col items-center justify-center border border-white/10 cursor-pointer hover:border-yellow-500/50 relative group">
-                            <div class="text-2xl mb-1 text-yellow-400 group-hover:scale-110 transition-transform">
-                                <i v-if="item.icon && item.icon.startsWith('fa-')" :class="item.icon"></i>
-                                <span v-else>{{ item.icon }}</span>
+                <div v-if="!selectedBagGroup" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1 space-y-2">
+                    <div v-if="currentBagGroups.length === 0" class="text-center text-gray-500 py-10 text-xs italic">分类下无任何道具</div>
+                    <button v-for="group in currentBagGroups" :key="group.stackKey" type="button"
+                        @click="openBagItemDetail(group)"
+                        class="sully-card w-full min-h-16 px-3 py-2 rounded-2xl flex items-center gap-3 border border-white/10 text-left hover:border-yellow-500/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400 transition-colors">
+                        <span class="w-10 h-10 shrink-0 rounded-xl bg-black/30 flex items-center justify-center text-xl text-yellow-400" aria-hidden="true">
+                            <i v-if="group.representativeItem.icon && group.representativeItem.icon.startsWith('fa-')" :class="group.representativeItem.icon"></i>
+                            <span v-else-if="group.representativeItem.icon">{{ group.representativeItem.icon }}</span>
+                            <i v-else class="fas fa-box"></i>
+                        </span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block text-xs font-bold text-white break-words">{{ group.representativeItem.name || '未命名物品' }}</span>
+                            <span class="block text-[10px] text-gray-400 break-words mt-0.5">{{ getItemDisplaySummary(group.representativeItem) }}</span>
+                        </span>
+                        <span v-if="group.quantity > 1" class="shrink-0 text-xs font-bold text-yellow-300 font-mono">×{{ group.quantity }}</span>
+                        <i v-else class="fas fa-chevron-right text-[10px] text-gray-500 shrink-0" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <div v-else class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1" role="region" aria-label="物品详情">
+                    <button type="button" @click="closeBagItemDetail" class="sully-btn text-xs text-gray-300 hover:text-white mb-3 py-1"><i class="fas fa-arrow-left mr-1" aria-hidden="true"></i> 返回背包</button>
+                    <div class="sully-card rounded-2xl border border-white/10 p-4 space-y-4">
+                        <div class="text-center">
+                            <div class="mx-auto w-20 h-20 rounded-2xl bg-black/30 flex items-center justify-center text-5xl text-yellow-400" aria-hidden="true">
+                                <i v-if="selectedBagItem.icon && selectedBagItem.icon.startsWith('fa-')" :class="selectedBagItem.icon"></i>
+                                <span v-else-if="selectedBagItem.icon">{{ selectedBagItem.icon }}</span>
+                                <i v-else class="fas fa-box"></i>
                             </div>
-                            <div class="text-[10px] text-center text-gray-200 leading-tight font-bold whitespace-normal break-words w-full px-1">{{ item.name }}</div>
-                            <div class="text-[8px] text-gray-500 mt-1 scale-95 font-mono">{{ item.type === 'consumable' ? '点击使用' : '详情' }}</div>
-                            <div v-if="item.type === 'letter'" class="absolute top-1.5 right-1.5 text-pink-400 text-[9px]"><i class="fas fa-heart"></i></div>
+                            <h3 class="mt-3 text-base font-extrabold text-white break-words">{{ selectedBagItem.name || '未命名物品' }}</h3>
+                            <p class="text-xs text-gray-400 mt-1">{{ getItemDisplayCategory(selectedBagItem) }}</p>
+                        </div>
+                        <div v-if="getItemDisplayAttributes(selectedBagItem).length" class="text-xs text-gray-300">
+                            <div class="font-bold text-gray-400 mb-2">属性</div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <span v-for="label in getItemDisplayAttributes(selectedBagItem)" :key="label" class="px-2 py-1 rounded-lg bg-black/30 border border-white/10">{{ label }}</span>
+                            </div>
+                        </div>
+                        <p v-if="selectedBagItem.fullContent || selectedBagItem.desc" class="text-xs leading-relaxed text-gray-200 whitespace-pre-wrap break-words">{{ selectedBagItem.fullContent || selectedBagItem.desc }}</p>
+                        <p class="text-xs font-bold text-gray-300">数量：{{ selectedBagGroup.quantity }}</p>
+                        <div class="flex gap-2 pt-1">
+                            <button v-if="selectedBagItem.type === 'consumable'" type="button" @click="useSelectedBagItem" :disabled="itemInteractionInFlight"
+                                class="sully-btn flex-1 py-2.5 rounded-xl bg-yellow-500 text-black text-xs font-bold disabled:opacity-50">使用</button>
+                            <button type="button" @click="discardSelectedBagItem" :disabled="itemInteractionInFlight"
+                                class="sully-btn flex-1 py-2.5 rounded-xl border border-red-400/40 text-red-200 text-xs font-bold disabled:opacity-50">丢弃</button>
                         </div>
                     </div>
                 </div>
@@ -8499,7 +8600,7 @@
                                 <button type="button" class="sully-btn text-xs flex items-center gap-2" style="color: var(--accent);" @click="backToCatArchiveRelationships">
                                     <i class="fas fa-arrow-left"></i> 返回关系列表
                                 </button>
-                                <h3 class="text-base font-bold break-words">{{ getResidentPublicName(catArchiveCat) }} → {{ getResidentPublicName(catArchiveRelationshipTarget) }}</h3>
+                                <h3 class="text-base font-bold break-words">{{ getResidentPublicName(catArchiveCat) }} ↔ {{ getResidentPublicName(catArchiveRelationshipTarget) }}</h3>
                                 <div class="space-y-3">
                                     <section v-for="direction in getCatArchiveRelationshipDirections(catArchiveCat, catArchiveRelationshipTarget)" :key="`${direction.from.id}->${direction.to.id}`" class="meeow-relationship-direction p-3">
                                         <h4 class="text-xs font-bold break-words">{{ getResidentPublicName(direction.from) }} → {{ getResidentPublicName(direction.to) }}</h4>
@@ -8510,6 +8611,14 @@
                                         <div v-if="direction.emergentLink || (!direction.baseline && !direction.isLocalStranger)" class="mt-2">
                                             <div class="text-[10px]" style="color: var(--ui-text-muted);">当前关系</div>
                                             <p class="meeow-relationship-state mt-1 text-xs leading-relaxed">{{ direction.emergentLink ? formatRelationshipCurrentState(direction.link) : '尚未形成明确的关系记录' }}</p>
+                                        </div>
+                                        <div v-if="direction.link" class="meeow-relationship-metrics mt-3" :aria-label="`${getResidentPublicName(direction.from)} 对 ${getResidentPublicName(direction.to)} 的关系刻度`">
+                                            <div v-for="metric in getRelationshipMetricRows(direction.link)" :key="metric.key" class="meeow-relationship-metric-row">
+                                                <span class="meeow-relationship-metric-label">{{ metric.label }}</span>
+                                                <span class="meeow-relationship-pips" :class="`is-${metric.tone}`" role="img" :aria-label="metric.ariaLabel">
+                                                    <span v-for="(filled, pipIndex) in getRelationshipMetricPips(metric)" :key="`${metric.key}-${pipIndex}`" class="meeow-relationship-pip" :class="{ 'is-filled': filled }"></span>
+                                                </span>
+                                            </div>
                                         </div>
                                         <div v-if="getRelationshipTagLabels(direction.link).length" class="flex flex-wrap gap-1.5 mt-2">
                                             <span v-for="tag in getRelationshipTagLabels(direction.link)" :key="tag" class="meeow-relationship-chip">{{ tag }}</span>
@@ -9389,7 +9498,10 @@
     <script src="./js/meeow-core.js"></script>
     <script src="./js/meeow-status-posture.js"></script>
     <script src="./js/meeow-data.js"></script>
+    <script src="./js/meeow-semantics.js"></script>
+    <script src="./js/meeow-resident-semantics.js"></script>
     <script src="./js/meeow-presence.js"></script>
+    <script src="./js/meeow-item-visuals.js"></script>
     <script src="./js/meeow-away.js"></script>
     <script src="./js/meeow-map.js"></script>
     <script src="./js/meeow-storage.js"></script>
@@ -9550,6 +9662,7 @@
                     CANONICAL_GROUP_RELATIONSHIPS,
                     CANONICAL_RESIDENT_RELATIONSHIPS,
                     normalizeResidentRelationships,
+                    normalizeResidentRelationshipPairMetadata,
                     rosterHasValue,
                     rosterRecordKey,
                     mergeRosterRecords,
@@ -9600,6 +9713,13 @@
                         events: mergeMigrationArrays(primary.events, legacy.events).slice(-40)
                     };
                 };
+                const getCanonicalResidentPairIds = (leftValue, rightValue) => {
+                    const leftId = String(leftValue || '').trim();
+                    const rightId = String(rightValue || '').trim();
+                    if (!leftId || !rightId || leftId === rightId) return [];
+                    return leftId < rightId ? [leftId, rightId] : [rightId, leftId];
+                };
+                const getCanonicalResidentPairKey = (leftValue, rightValue) => getCanonicalResidentPairIds(leftValue, rightValue).join('::');
                 const remapResidentIdKeys = (value, idMap = legacyGothamResidentIdMap, mergeValues = mergeMigrationValues) => {
                     if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
                     const output = {};
@@ -9777,6 +9897,9 @@
                         if (cat.residentRelationships && typeof cat.residentRelationships === 'object' && !Array.isArray(cat.residentRelationships)) {
                             cat.residentRelationships = remapResidentIdKeys(cat.residentRelationships, idMap, mergeMigrationRelationshipLinks);
                         }
+                        if (cat.residentRelationshipPairMetadata && typeof cat.residentRelationshipPairMetadata === 'object' && !Array.isArray(cat.residentRelationshipPairMetadata)) {
+                            cat.residentRelationshipPairMetadata = remapResidentIdKeys(cat.residentRelationshipPairMetadata, idMap);
+                        }
                         if (Array.isArray(cat.episodicMemories)) migrateResidentRecords(cat.episodicMemories, idMap);
                     });
                     const userPayload = payload.user;
@@ -9863,8 +9986,42 @@
                     { id: 3, name: '伸缩逗猫杆', price: 150, icon: 'fa-solid fa-wand-magic-sparkles', desc: '不管哪一馆，猫爪都会忍不住伸出来', effect: 3, type: 'consumable', category: 'toy' },
                     { id: 4, name: '浓缩猫薄荷包', price: 60, icon: 'fa-solid fa-bomb', desc: '请在馆长看得见的地方使用', effect: 2, type: 'consumable', category: 'toy' },
                     { id: 5, name: '谜语纸团球', price: 40, icon: 'fa-solid fa-circle-question', desc: '滚来滚去，很难不去拍一爪', effect: 1, type: 'consumable', category: 'toy' },
-                    { id: 7, name: '馆舍新鲜猫草', price: 70, icon: 'fa-solid fa-leaf', desc: '温室当天采摘，香气很足', effect: 3, type: 'consumable', category: 'food' }
+                    { id: 7, name: '馆舍新鲜猫草', price: 70, icon: 'fa-solid fa-leaf', desc: '温室当天采摘，香气很足', effect: 3, type: 'consumable', category: 'food' },
+                    { id: 'builtin-food:chilled-fish-jelly', name: '冰镇鱼肉凝冻', price: 55, icon: 'fa-solid fa-bowl-food', desc: '冰凉的鱼肉凝成柔软小块，鲜味明显、气味清淡，作小点心。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:cold', 'taste:umami', 'smell:mild', 'texture:soft', 'family:fish', 'form:snack'] },
+                    { id: 'builtin-food:grilled-fish-plate', name: '炙烤鱼肉小碟', price: 85, icon: 'fa-solid fa-bowl-food', desc: '热腾腾的烤鱼肉，微咸鲜香，肉质耐嚼且多汁。', effect: 3, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:hot', 'taste:salty', 'taste:umami', 'smell:fragrant', 'texture:chewy', 'texture:juicy', 'family:fish', 'form:meal'] },
+                    { id: 'builtin-food:spiced-meat-jerky', name: '辛香肉干', price: 60, icon: 'fa-solid fa-bowl-food', desc: '常温肉干，微咸微辛，辛香气息明显，干爽耐嚼。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:room', 'taste:salty', 'taste:spicy', 'smell:pungent', 'texture:chewy', 'texture:dry', 'family:meat', 'form:snack'] },
+                    { id: 'builtin-food:steamed-egg-custard', name: '清蒸蛋羹', price: 50, icon: 'fa-solid fa-bowl-food', desc: '温热的蒸蛋羹，味道和气味清淡，柔软绵密。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:warm', 'taste:bland', 'smell:mild', 'texture:soft', 'texture:creamy', 'family:egg', 'form:meal'] },
+                    { id: 'builtin-food:lactose-free-warm-milk', name: '无乳糖温奶', price: 45, icon: 'fa-solid fa-bottle-water', desc: '温热的无乳糖奶饮，味道和气味清淡，口感绵密。', effect: 1, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:warm', 'taste:bland', 'smell:mild', 'texture:creamy', 'family:dairy', 'form:beverage'] },
+                    { id: 'builtin-food:chilled-fermented-cheese', name: '冷藏发酵乳酪杯', price: 75, icon: 'fa-solid fa-bowl-food', desc: '冰凉的无乳糖发酵乳酪，微酸，发酵乳香明显，口感绵密。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:cold', 'taste:sour', 'smell:fermented', 'texture:creamy', 'family:dairy', 'form:dessert'] },
+                    { id: 'builtin-food:sweet-sour-fruit-cup', name: '酸甜去籽果丁', price: 65, icon: 'fa-solid fa-bowl-food', desc: '微凉的去籽果肉甜点，酸甜、果香清晰，果丁多汁。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:cool', 'taste:sweet', 'taste:sour', 'smell:fragrant', 'texture:juicy', 'family:fruit', 'form:dessert'] },
+                    { id: 'builtin-food:fruit-pulp-drink', name: '常温果肉饮', price: 50, icon: 'fa-solid fa-bottle-water', desc: '常温去籽果肉饮，带天然甜味、气味清淡，保留多汁果肉。', effect: 1, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:room', 'taste:sweet', 'smell:mild', 'texture:juicy', 'family:fruit', 'form:beverage'] },
+                    { id: 'builtin-food:salted-grain-crisps', name: '微咸谷物脆片', price: 40, icon: 'fa-solid fa-bowl-food', desc: '常温微咸的谷物脆片，气味清淡，酥脆干爽。', effect: 1, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:room', 'taste:salty', 'smell:mild', 'texture:crisp', 'texture:dry', 'family:grain', 'form:snack'] },
+                    { id: 'builtin-food:warm-grain-porridge', name: '温软谷物糊', price: 50, icon: 'fa-solid fa-bowl-food', desc: '温热的谷物糊，味道与气味清淡，质地柔软。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:warm', 'taste:bland', 'smell:mild', 'texture:soft', 'family:grain', 'form:meal'] },
+                    { id: 'builtin-food:bitter-vegetable-puree', name: '微苦菜泥', price: 55, icon: 'fa-solid fa-leaf', desc: '温热的微苦叶菜泥，气味清淡、口感柔软。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:warm', 'taste:bitter', 'smell:mild', 'texture:soft', 'family:vegetable', 'form:meal'] },
+                    { id: 'builtin-food:spiced-crisp-vegetables', name: '辛香脆蔬角', price: 60, icon: 'fa-solid fa-leaf', desc: '热腾腾的蔬菜小角，辛味与浓烈辛香明显，外层酥脆。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:hot', 'taste:spicy', 'smell:pungent', 'texture:crisp', 'family:vegetable', 'form:snack'] },
+                    { id: 'builtin-food:rich-meat-broth', name: '浓香肉汤', price: 85, icon: 'fa-solid fa-bowl-food', desc: '热腾腾的浓稠肉汤，鲜味和烤肉香明显，口感绵密。', effect: 3, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:hot', 'taste:umami', 'smell:fragrant', 'texture:creamy', 'family:meat', 'form:meal'] },
+                    { id: 'builtin-food:cool-fish-vegetable-plate', name: '凉拌鱼蔬丝', price: 70, icon: 'fa-solid fa-bowl-food', desc: '微凉的鱼蔬丝拼盘，微酸鲜香，鱼肉耐嚼、蔬丝多汁。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:cool', 'taste:sour', 'taste:umami', 'smell:fragrant', 'texture:chewy', 'texture:juicy', 'family:fish', 'family:vegetable', 'form:meal'] },
+                    { id: 'builtin-food:steamed-egg-meat-roll', name: '蛋肉蒸卷', price: 80, icon: 'fa-solid fa-bowl-food', desc: '温热的蛋肉蒸卷，鲜味明显、气味清淡，口感柔软。', effect: 3, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:warm', 'taste:umami', 'smell:mild', 'texture:soft', 'family:meat', 'family:egg', 'form:meal'] },
+                    { id: 'builtin-food:dairy-grain-pudding', name: '奶香谷物布丁', price: 70, icon: 'fa-solid fa-bowl-food', desc: '微凉的奶香谷物布丁，甜味和奶香明显，质地绵密。', effect: 2, type: 'consumable', category: 'food', semanticType: 'food', tags: ['temp:cool', 'taste:sweet', 'smell:fragrant', 'texture:creamy', 'family:dairy', 'family:grain', 'form:dessert'] }
                 ];
+
+                const reconcileBuiltInSemanticFoods = (catalog, builtIns, onCollision = console.warn) => {
+                    const existing = new Map(catalog.map(item => [item?.id, item]));
+                    const additions = [];
+                    const canonicalFields = ['name', 'price', 'icon', 'desc', 'effect', 'type', 'category', 'semanticType'];
+                    builtIns.filter(item => typeof item?.id === 'string' && item.id.startsWith('builtin-food:') && item.semanticType === 'food').forEach(item => {
+                        if (existing.has(item.id)) {
+                            const saved = existing.get(item.id);
+                            const sameDefinition = saved && canonicalFields.every(field => saved[field] === item[field]) &&
+                                Array.isArray(saved.tags) && saved.tags.length === item.tags.length && saved.tags.every((tag, index) => tag === item.tags[index]);
+                            if (!sameDefinition) onCollision(`Reserved built-in Food ID collision: ${item.id}`);
+                            return;
+                        }
+                        additions.push(item);
+                        existing.set(item.id, item);
+                    });
+                    return { items: additions.length ? [...catalog, ...additions] : catalog, addedCount: additions.length };
+                };
 
                 let initialSettings = {
                     apiKey: '',
@@ -10125,6 +10282,37 @@
                         cat.residentRelationships = normalizeResidentRelationships(cat.residentRelationships, String(cat.id), knownResidentIds);
                     });
                 };
+                const normalizeResidentRelationshipPairMetadataRoster = () => {
+                    const knownResidentIds = new Set(cats.value.map(cat => String(cat.id)));
+                    const before = JSON.stringify(cats.value.map(cat => [String(cat.id), cat.residentRelationshipPairMetadata || {}]));
+                    const byPair = new Map();
+                    cats.value.forEach(cat => {
+                        const ownerId = String(cat.id);
+                        const entries = normalizeResidentRelationshipPairMetadata(cat.residentRelationshipPairMetadata, ownerId, knownResidentIds);
+                        Object.entries(entries).forEach(([targetId, entry]) => {
+                            const pairIds = getCanonicalResidentPairIds(ownerId, targetId);
+                            if (pairIds.length !== 2) return;
+                            const pairKey = getCanonicalResidentPairKey(ownerId, targetId);
+                            const previous = byPair.get(pairKey);
+                            byPair.set(pairKey, {
+                                ownerId: pairIds[0],
+                                targetId: pairIds[1],
+                                exposureCount: Math.max(Number(previous?.exposureCount || 0), Number(entry.exposureCount || 0)),
+                                lastProgressionDay: [String(previous?.lastProgressionDay || ''), String(entry.lastProgressionDay || '')].sort().pop() || ''
+                            });
+                        });
+                    });
+                    cats.value.forEach(cat => { cat.residentRelationshipPairMetadata = {}; });
+                    byPair.forEach(entry => {
+                        const owner = cats.value.find(cat => String(cat.id) === entry.ownerId);
+                        if (!owner) return;
+                        owner.residentRelationshipPairMetadata[entry.targetId] = {
+                            exposureCount: Math.max(0, Math.trunc(Number(entry.exposureCount) || 0)),
+                            lastProgressionDay: /^\d{4}-\d{2}-\d{2}$/.test(entry.lastProgressionDay) ? entry.lastProgressionDay : ''
+                        };
+                    });
+                    return before !== JSON.stringify(cats.value.map(cat => [String(cat.id), cat.residentRelationshipPairMetadata || {}]));
+                };
 
                 if (savedData) {
                     try {
@@ -10217,6 +10405,7 @@
                 normalizePhoneGamesData(user.phoneData);
                 user.phoneData.truthOrDare = window.Meeow.truthOrDare.normalize(user.phoneData.truthOrDare);
                 normalizeResidentRelationshipRoster();
+                if (normalizeResidentRelationshipPairMetadataRoster()) rosterMigrationPendingSave = true;
                 if (sanitizeCuratorRoomPresence()) rosterMigrationPendingSave = true;
 
                 // Neutralize only bundled legacy labels; user-created profile text and items remain untouched.
@@ -10231,6 +10420,11 @@
                     '阿卡姆特供猫草': ['馆舍新鲜猫草', '温室当天采摘，香气很足']
                 };
                 shopItems.value = shopItems.value.map(item => legacyShopCopy[item.name] ? ({ ...item, name: legacyShopCopy[item.name][0], desc: legacyShopCopy[item.name][1] }) : item);
+                const reconciledFoodCatalog = reconcileBuiltInSemanticFoods(shopItems.value, initialShopItems);
+                if (reconciledFoodCatalog.addedCount) {
+                    shopItems.value = reconciledFoodCatalog.items;
+                    rosterMigrationPendingSave = true;
+                }
 
                 // One-time copy migration: older saves shipped a Gotham-only phone
                 // feed. Keep user-created content intact, but replace the bundled
@@ -10898,6 +11092,7 @@
                 const gnnLoading = ref(false);
 
                 const currentBagTab = ref('consumable');
+                const selectedBagSelection = ref(null);
 
                 const showSpecialEventModal = ref(false);
                 const currentSpecialEventContent = ref('');
@@ -11027,6 +11222,7 @@
                 const focusTotalTime = ref(0);
                 const focusTimer = ref(null);
                 const currentFocusLog = ref([]);
+                const focusSessionGeneration = ref(0);
                 // Focus Shared Moments are deliberately session-local. They shape
                 // only the visible Live Log; they are not durable world state.
                 const focusMomentSequence = ref(0);
@@ -13563,17 +13759,20 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
 
                     任务：以 ${senderName} 本人的原作性格、措辞和价值观写一封给馆长的简短来信。角色在馆外处理符合自己原作身份的事情，但绝不能承认自己是喵喵馆中的猫，也不能暴露变猫事实；不要伪造其他馆舍、DC 默认前提或不存在的访客。
                     信件必须自然关联当前外出状态或近期记录，50 字以内，简体中文。附件有 60% 概率；无附件时 item 为 null。
-                    仅输出 JSON：{"content":"","item":{"name":"","icon":"","desc":""} 或 null}`;
+                    ${window.Meeow.itemVisuals.formatVisualHintContract()}
+                    仅输出 JSON：{"content":"","item":{"name":"","icon":"","desc":"","visualHint":{"object":"...","material":"...","form":"...","context":"..."}} 或 null}`;
                     try {
                         const res = await callAI(`${prompt}\n${buildCatMemoryContext(senderCat)}`, `You write a single canon-faithful letter from ${senderName}. Their original character, current hall, and secret cat identity rules are binding.`, 1000, ThinkingLevel.LOW, { label: `OUTGOING MAIL · ${senderName}` });
                         const data = parseAIJSON(res);
                         if (!data?.content) return false;
+                        const visualHint = data.item === null || data.item === undefined ? null : window.Meeow.itemVisuals.validateAuthoredItemVisualHint(data.item);
+                        if (data.item && (!cleanText(data.item.name) || !cleanText(data.item.icon) || !cleanText(data.item.desc) || !visualHint)) return false;
 
                         return recordDeliveredMail({
                             senderCat,
                             hall: senderHall,
                             content: data.content,
-                            attachment: data.item ? { name: cleanText(data.item.name), icon: cleanText(data.item.icon), desc: cleanText(data.item.desc) } : null,
+                            attachment: data.item ? { name: cleanText(data.item.name), icon: cleanText(data.item.icon), desc: cleanText(data.item.desc), visualHint } : null,
                             sentAt: logicalNow,
                             deliveredAt: logicalNow
                         });
@@ -14646,7 +14845,8 @@ JSON 格式：
                             summary: compactExploreText(raw.settlement.summary, 260),
                             loot: raw.settlement.loot && typeof raw.settlement.loot === 'object' ? {
                                 id: String(raw.settlement.loot.id || `explore-loot:${caseId}`), name: compactExploreText(raw.settlement.loot.name, 80),
-                                icon: compactExploreText(raw.settlement.loot.icon, 12), desc: compactExploreText(raw.settlement.loot.desc, 160)
+                                icon: compactExploreText(raw.settlement.loot.icon, 12), desc: compactExploreText(raw.settlement.loot.desc, 160),
+                                ...(window.Meeow.itemVisuals.validateVisualHint(raw.settlement.loot.visualHint) ? { visualHint: window.Meeow.itemVisuals.validateVisualHint(raw.settlement.loot.visualHint) } : {})
                             } : null,
                             lore: raw.settlement.lore && typeof raw.settlement.lore === 'object' ? {
                                 id: String(raw.settlement.lore.id || `explore-lore:${caseId}`), category: compactExploreText(raw.settlement.lore.category, 40),
@@ -15096,9 +15296,10 @@ ${buildExploreNarrationContext({ caseRecord, phase, userAction, dice, authority,
                     return persistExploreCase(caseRecord);
                 };
                 const normalizeExploreSettlementFlavor = (caseRecord, data, companion) => {
-                    const loot = data?.loot && typeof data.loot === 'object' && compactExploreText(data.loot.name, 80) ? {
+                    const loot = data?.loot && typeof data.loot === 'object' && compactExploreText(data.loot.name, 80) && window.Meeow.itemVisuals.validateVisualHint(data.loot.visualHint) ? {
                         id: getExploreSettlementReceiptId(caseRecord, 'loot'), name: compactExploreText(data.loot.name, 80),
-                        icon: compactExploreText(data.loot.icon, 12), desc: compactExploreText(data.loot.desc, 160)
+                        icon: compactExploreText(data.loot.icon, 12), desc: compactExploreText(data.loot.desc, 160),
+                        visualHint: window.Meeow.itemVisuals.validateVisualHint(data.loot.visualHint)
                     } : null;
                     const lore = data?.lore && typeof data.lore === 'object' && compactExploreText(data.lore.title, 90) && compactExploreText(data.lore.content, 420) ? {
                         id: getExploreSettlementReceiptId(caseRecord, 'lore'), category: compactExploreText(data.lore.category, 40),
@@ -15134,10 +15335,13 @@ ${buildExploreNarrationContext({ caseRecord, phase, userAction, dice, authority,
                             if (operation.settlement) return operation;
                             const temporal = getExploreTemporalSnapshot(caseRecord, new Date());
                             const visibleDigest = getExploreCaseVisibleDigest(caseRecord);
-                            const prompt = `[EXPLORE SOLVED SETTLEMENT]\n根据以下用户已经看见的调查内容，生成安全的简短结算 JSON。不得提及任何未提供的信息。\n${formatExploreTemporalContext(temporal)}\n${visibleDigest}\n只返回 {"summary":"","loot":null|{"name":"","icon":"","desc":""},"lore":null|{"category":"","title":"","content":"","icon":""}}。不返回数字奖励。`;
+                            const prompt = `[EXPLORE SOLVED SETTLEMENT]\n根据以下用户已经看见的调查内容，生成安全的简短结算 JSON。不得提及任何未提供的信息。\n${formatExploreTemporalContext(temporal)}\n${visibleDigest}\n${window.Meeow.itemVisuals.formatVisualHintContract()}\n只返回 {"summary":"","loot":null|{"name":"","icon":"","desc":"","visualHint":{"object":"...","material":"...","form":"...","context":"..."}},"lore":null|{"category":"","title":"","content":"","icon":""}}。不返回数字奖励。`;
                             let data = null;
-                            try { data = parseAIJSON(await requestStructuredEngine(prompt, { systemPrompt: 'You write only public, user-observed Explore settlement flavor in Simplified Chinese.', maxTokens: 700, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · SETTLEMENT', priority: 'foreground' })); }
-                            catch (error) { addLog(`EXPLORE SETTLEMENT FLAVOR FAILED: ${getReadableAPIError(error)}`, 'warn'); }
+                            try {
+                                data = parseAIJSON(await requestStructuredEngine(prompt, { systemPrompt: 'You write only public, user-observed Explore settlement flavor in Simplified Chinese.', maxTokens: 700, thinkingLevel: ThinkingLevel.LOW, label: 'EXPLORE RETURN · SETTLEMENT', priority: 'foreground' }));
+                                if (data?.loot !== null && data?.loot !== undefined && (!data.loot || typeof data.loot !== 'object' || Array.isArray(data.loot) || !compactExploreText(data.loot.name, 80) || !compactExploreText(data.loot.icon, 12) || !compactExploreText(data.loot.desc, 160) || !window.Meeow.itemVisuals.validateAuthoredItemVisualHint(data.loot))) throw new Error('Explore loot visualHint invalid');
+                            }
+                            catch (error) { data = null; addLog(`EXPLORE SETTLEMENT FLAVOR FAILED: ${getReadableAPIError(error)}`, 'warn'); }
                             const priorSettlement = operation.settlement;
                             operation.settlement = normalizeExploreSettlementFlavor(caseRecord, data, companion);
                             if (persistExploreCase(caseRecord)) return operation;
@@ -18895,6 +19099,25 @@ RULES:
                     if (transition.changed || options.forceLog) appendMonitorEvent(cat, `${clean}${cat.isOut ? ' (外出)' : ''}`, options.source || 'status', options.extra || {}, options.eventAt || new Date());
                     return transition.changed;
                 };
+                const applyStatusSyncPresentation = (cat, update) => {
+                    if (isControlPlaneStatusText(update.status)) {
+                        // A control row may update local physical/form state later,
+                        // but it contributes no current presentation or freshness.
+                        addLog(`STATUS META QUARANTINED: resident=${String(cat.id)}; status=${truncateMemoryText(update.status, 90)}`, 'warn');
+                        return false;
+                    }
+                    return setCatStatus(cat, update.status, {
+                        posture: update.posture,
+                        innerVoice: update.innerVoice,
+                        mapRoom: update.mapRoom,
+                        mapSpot: update.mapSpot,
+                        mapFurniture: update.mapFurniture,
+                        mapPoint: update.mapPoint,
+                        mapPositionLabel: update.mapPositionLabel,
+                        source: 'status-sync',
+                        forceLog: true
+                    });
+                };
                 const appendAwayTransitionTravelogue = (cat, isOut, logicalEventTime = new Date(), extra = {}) => {
                     if (!cat) return null;
                     if (!Array.isArray(cat.travelogues)) cat.travelogues = [];
@@ -19394,6 +19617,9 @@ RULES:
                 const findInventoryItemIndex = window.Meeow.inventory.findInventoryItemIndex;
                 const hasCatReactionHumanDialogue = window.Meeow.inventory.hasCatReactionHumanDialogue;
                 const validateItemInteractionResponse = window.Meeow.inventory.validateItemInteractionResponse;
+                const resolveFoodReactionAuthority = window.Meeow.inventory.resolveFoodReactionAuthority;
+                const mapFoodReactionClass = window.Meeow.inventory.mapFoodReactionClass;
+                const getBuiltinResidentSemanticProfile = window.Meeow.residentSemantics.getBuiltinResidentSemanticProfile;
                 const getReaderBookProgress = (book) => {
                     if (!book?.chapters?.length) return 0;
                     const index = Math.max(0, Math.min(Number(book.progress?.chapterIndex || 0), book.chapters.length - 1));
@@ -20509,7 +20735,8 @@ RULES:
                     const isLocalStranger = areResidentsArchiveLocalPeers(owner, target) &&
                         !ownerLink && !reverseLink && !ownerBaseline && !reverseBaseline;
                     return [
-                        { from: owner, to: target, link: getEffectiveRelationshipProjection(owner, target), emergentLink: ownerLink, baseline: ownerBaseline, isLocalStranger }
+                        { from: owner, to: target, link: getEffectiveRelationshipProjection(owner, target), emergentLink: ownerLink, baseline: ownerBaseline, isLocalStranger },
+                        { from: target, to: owner, link: getEffectiveRelationshipProjection(target, owner), emergentLink: reverseLink, baseline: reverseBaseline, isLocalStranger }
                     ];
                 };
                 const getRelationshipTagLabels = link => (Array.isArray(link?.tags) ? link.tags : [])
@@ -20526,6 +20753,20 @@ RULES:
                     const tension = tensionValue === 0 ? '没有明显紧张' : tensionValue === 1 ? '略有紧张' : tensionValue <= 3 ? '存在明显紧张' : '关系十分紧绷';
                     return [familiarity, warmth, trust, tension].join(' · ');
                 };
+                const getRelationshipMetricRows = link => {
+                    if (!link) return [];
+                    const familiarity = getRelationshipNumber(link.familiarity, 0, 5);
+                    const warmth = getRelationshipNumber(link.warmth, -5, 5);
+                    const trust = getRelationshipNumber(link.trust, -5, 5);
+                    const tension = getRelationshipNumber(link.tension, 0, 5);
+                    return [
+                        { key: 'familiarity', label: '熟悉度', magnitude: familiarity, tone: 'positive', ariaLabel: `熟悉度 ${familiarity} / 5` },
+                        { key: 'warmth', label: '亲近', magnitude: Math.abs(warmth), tone: warmth > 0 ? 'positive' : warmth < 0 ? 'negative' : 'neutral', ariaLabel: warmth > 0 ? `亲近程度 ${warmth} / 5` : warmth < 0 ? `疏离程度 ${Math.abs(warmth)} / 5` : '亲近程度中性' },
+                        { key: 'trust', label: '信任', magnitude: Math.abs(trust), tone: trust > 0 ? 'positive' : trust < 0 ? 'negative' : 'neutral', ariaLabel: trust > 0 ? `信任程度 ${trust} / 5` : trust < 0 ? `戒心程度 ${Math.abs(trust)} / 5` : '信任程度中性' },
+                        { key: 'tension', label: '紧张', magnitude: tension, tone: tension > 0 ? 'negative' : 'neutral', ariaLabel: `紧张程度 ${tension} / 5` }
+                    ];
+                };
+                const getRelationshipMetricPips = metric => Array.from({ length: 5 }, (_, index) => index < clampResidentRelationshipValue(metric?.magnitude, 0, 5));
                 const formatRelationshipArchiveDate = at => {
                     const date = parseLogicalDate(at);
                     return date ? `${date.getMonth() + 1}月${date.getDate()}日` : '时间未知';
@@ -20557,14 +20798,17 @@ RULES:
                 };
                 const getRelationshipHistoryGroups = (owner, target) => {
                     if (!owner || !target) return [];
-                    const directions = [{ from: owner, to: target, link: getArchiveRelationshipLink(owner, target) }];
+                    const directions = [
+                        { from: owner, to: target, link: getArchiveRelationshipLink(owner, target) },
+                        { from: target, to: owner, link: getArchiveRelationshipLink(target, owner) }
+                    ];
                     const groups = new Map();
                     directions.forEach((direction, directionIndex) => {
                         (Array.isArray(direction.link?.events) ? direction.link.events : []).forEach((event, eventIndex) => {
                             if (!event || typeof event !== 'object' || Array.isArray(event)) return;
                             const sourceKey = typeof event.sourceKey === 'string' && /^shared-scene:.+/.test(event.sourceKey.trim()) ? event.sourceKey.trim() : '';
                             const sceneId = typeof event.sceneId === 'string' && event.sceneId.trim() && !/^(undefined|null)$/.test(event.sceneId.trim()) ? event.sceneId.trim() : '';
-                            const key = sourceKey || sceneId || `legacy:${directionIndex}:${eventIndex}:${String(event.at || '').trim()}:${String(event.evidenceExcerpt || '').trim().slice(0, 40)}`;
+                            const key = sceneId ? `scene:${sceneId}` : sourceKey || `legacy:${directionIndex}:${eventIndex}:${String(event.at || '').trim()}:${String(event.evidenceExcerpt || '').trim().slice(0, 40)}`;
                             if (!groups.has(key)) groups.set(key, { key, latestAt: '', latestTime: 0, events: [] });
                             const group = groups.get(key);
                             const eventTime = getRelationshipEventTime(event);
@@ -20626,6 +20870,19 @@ RULES:
                     const dateKeys = getCatArchiveDateKeys(catArchiveCat.value, catArchiveTab.value);
                     if (dateKeys.includes(dateKey)) catArchiveDateKey.value = dateKey;
                 };
+                const normalizeHallSceneConsequenceReceipt = (raw, keyField) => ({
+                    complete: raw?.complete === true,
+                    [keyField]: [...new Set((Array.isArray(raw?.[keyField]) ? raw[keyField] : [])
+                        .map(value => String(value || '').trim()).filter(Boolean))].sort()
+                });
+                const normalizeHallSceneRelationshipConsequenceReceipts = (raw) => {
+                    const source = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+                    return {
+                        aiRelationshipDeltas: normalizeHallSceneConsequenceReceipt(source.aiRelationshipDeltas, 'directionKeys'),
+                        sharedSceneExposure: normalizeHallSceneConsequenceReceipt(source.sharedSceneExposure, 'pairKeys'),
+                        programFamiliarity: normalizeHallSceneConsequenceReceipt(source.programFamiliarity, 'pairKeys')
+                    };
+                };
                 const normalizeHallSceneRecords = (records) => (Array.isArray(records) ? records : [])
                     .filter(record => record && typeof record === 'object')
                     .map(record => {
@@ -20656,6 +20913,7 @@ RULES:
                             content: cleanText(record.content || ''),
                             reactions,
                             participantForms: Object.fromEntries(participantIds.map(id => [String(id), normalizeFormValue(record.participantForms?.[String(id)]) || 'CAT'])),
+                            relationshipConsequenceReceipts: normalizeHallSceneRelationshipConsequenceReceipts(record.relationshipConsequenceReceipts),
                             ...(type === 'attention-bid' && String(record.attentionBidId || '').trim()
                                 ? { attentionBidId: String(record.attentionBidId).trim() }
                                 : {})
@@ -20732,70 +20990,188 @@ RULES:
                         ? `\n[RESIDENT RELATIONSHIP CONTEXT]\n${lines.join('\n').slice(0, 900)}\nUse only this compact canon and save-specific continuity; do not infer or expose private history.`
                         : '';
                 };
-                const applyResidentRelationshipDeltas = (record, deltas) => {
-                    if (!record || !Array.isArray(deltas)) return;
-                    const participantIds = [...new Set((record.participantIds || []).map(id => String(id || '').trim()).filter(Boolean))];
-                    const participantSet = new Set(participantIds);
-                    const knownResidentIds = new Set(cats.value.map(cat => String(cat.id)));
-                    const sourceKey = `shared-scene:${String(record.id)}`;
+                const SHARED_SCENE_EXPOSURE_THRESHOLD = 3;
+                const cloneRelationshipState = value => JSON.parse(JSON.stringify(value ?? {}));
+                const getStagedRelationshipFamiliarityHeadroom = (fromCat, toCat, stagedRelationships) => {
+                    const current = stagedRelationships.get(String(fromCat.id))?.[String(toCat.id)];
+                    const baseline = getRelationshipBaseline(fromCat, toCat);
+                    return Math.max(0, 5 - clampResidentRelationshipValue((baseline?.familiarity || 0) + (current?.familiarity || 0), 0, 5));
+                };
+                const stageDirectionalRelationshipChange = ({ record, delta, stagedRelationships, sourceSuffix = '', includeEvidence = true }) => {
+                    const fromCat = cats.value.find(cat => String(cat.id) === String(delta.fromId));
+                    const toCat = cats.value.find(cat => String(cat.id) === String(delta.toId));
+                    if (!fromCat || !toCat || String(fromCat.id) === String(toCat.id)) return null;
+                    const fromId = String(fromCat.id);
+                    const toId = String(toCat.id);
+                    const relationships = stagedRelationships.get(fromId);
+                    if (!relationships) return null;
+                    const sourceKey = `shared-scene:${String(record.id)}${sourceSuffix}`;
+                    const existing = relationships[toId];
+                    if (existing?.appliedSceneKeys?.includes(sourceKey)) return null;
+                    const current = existing || { familiarity: 0, warmth: 0, trust: 0, tension: 0, tags: [], appliedSceneKeys: [], events: [] };
+                    const familiarityDelta = Math.min(
+                        clampResidentRelationshipValue(delta.familiarityDelta, 0, 1),
+                        getStagedRelationshipFamiliarityHeadroom(fromCat, toCat, stagedRelationships)
+                    );
+                    const nextValues = {
+                        familiarity: clampResidentRelationshipValue(current.familiarity + familiarityDelta, 0, 5),
+                        warmth: clampResidentRelationshipValue(current.warmth + clampResidentRelationshipValue(delta.warmthDelta, -1, 1), -5, 5),
+                        trust: clampResidentRelationshipValue(current.trust + clampResidentRelationshipValue(delta.trustDelta, -1, 1), -5, 5),
+                        tension: clampResidentRelationshipValue(current.tension + clampResidentRelationshipValue(delta.tensionDelta, -1, 1), 0, 5)
+                    };
+                    const changes = {
+                        familiarity: nextValues.familiarity - current.familiarity,
+                        warmth: nextValues.warmth - current.warmth,
+                        trust: nextValues.trust - current.trust,
+                        tension: nextValues.tension - current.tension
+                    };
+                    const addTags = Array.isArray(delta.addTags) ? delta.addTags : [];
+                    const removeTags = Array.isArray(delta.removeTags) ? delta.removeTags : [];
+                    const addSet = new Set(addTags);
+                    const removeSet = new Set(removeTags);
+                    const actualAddTags = addTags.filter(tag => !removeSet.has(tag));
+                    const actualRemoveTags = removeTags.filter(tag => !addSet.has(tag));
+                    const previousTags = Array.isArray(current.tags) ? current.tags : [];
+                    const afterRemove = previousTags.filter(tag => !actualRemoveTags.includes(tag));
+                    const removedTags = previousTags.filter(tag => !afterRemove.includes(tag));
+                    const nextTags = [...afterRemove];
+                    actualAddTags.forEach(tag => {
+                        if (!nextTags.includes(tag) && nextTags.length < RESIDENT_RELATIONSHIP_MAX_TAGS) nextTags.push(tag);
+                    });
+                    const addedTags = nextTags.filter(tag => !previousTags.includes(tag));
+                    if (!Object.values(changes).some(value => value !== 0) && !addedTags.length && !removedTags.length) return null;
+                    const event = {
+                        sourceKey,
+                        sceneId: String(record.id),
+                        at: record.at,
+                        changes,
+                        addedTags,
+                        removedTags,
+                        evidenceExcerpt: includeEvidence ? cleanText(record.content || '').slice(0, 160) : ''
+                    };
+                    relationships[toId] = {
+                        ...current,
+                        ...nextValues,
+                        tags: nextTags.slice(0, RESIDENT_RELATIONSHIP_MAX_TAGS),
+                        appliedSceneKeys: [...(current.appliedSceneKeys || []).filter(key => key !== sourceKey), sourceKey].slice(-RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS),
+                        events: [...(current.events || []), event].slice(-RESIDENT_RELATIONSHIP_MAX_EVENTS)
+                    };
+                    return { fromId, toId, sourceKey, changes };
+                };
+                const applyResidentRelationshipDeltas = (record, deltas, stagedRelationships) => {
+                    const participantIds = [...new Set((record?.participantIds || []).map(id => String(id || '').trim()).filter(Boolean))];
                     const appliedDirections = new Set();
+                    const results = [];
                     normalizeResidentRelationshipDeltas(deltas, participantIds).forEach(delta => {
                         const directionKey = `${delta.fromId}->${delta.toId}`;
-                        if (appliedDirections.has(directionKey) || !participantSet.has(delta.fromId) || !participantSet.has(delta.toId)) return;
-                        const fromCat = cats.value.find(cat => String(cat.id) === delta.fromId);
-                        const toCat = cats.value.find(cat => String(cat.id) === delta.toId);
-                        if (!fromCat || !toCat || delta.fromId === delta.toId || !knownResidentIds.has(delta.fromId) || !knownResidentIds.has(delta.toId)) return;
-                        const relationships = normalizeResidentRelationships(fromCat.residentRelationships, delta.fromId, knownResidentIds);
-                        const existing = relationships[delta.toId];
-                        if (existing?.appliedSceneKeys?.includes(sourceKey)) return;
-                        const current = existing || { familiarity: 0, warmth: 0, trust: 0, tension: 0, tags: [], appliedSceneKeys: [], events: [] };
-                        const nextValues = {
-                            familiarity: clampResidentRelationshipValue(current.familiarity + delta.familiarityDelta, 0, 5),
-                            warmth: clampResidentRelationshipValue(current.warmth + delta.warmthDelta, -5, 5),
-                            trust: clampResidentRelationshipValue(current.trust + delta.trustDelta, -5, 5),
-                            tension: clampResidentRelationshipValue(current.tension + delta.tensionDelta, 0, 5)
-                        };
-                        const changes = {
-                            familiarity: nextValues.familiarity - current.familiarity,
-                            warmth: nextValues.warmth - current.warmth,
-                            trust: nextValues.trust - current.trust,
-                            tension: nextValues.tension - current.tension
-                        };
-                        const addSet = new Set(delta.addTags);
-                        const removeSet = new Set(delta.removeTags);
-                        const actualAddTags = delta.addTags.filter(tag => !removeSet.has(tag));
-                        const actualRemoveTags = delta.removeTags.filter(tag => !addSet.has(tag));
-                        const previousTags = Array.isArray(current.tags) ? current.tags : [];
-                        const afterRemove = previousTags.filter(tag => !actualRemoveTags.includes(tag));
-                        const removedTags = previousTags.filter(tag => !afterRemove.includes(tag));
-                        const nextTags = [...afterRemove];
-                        actualAddTags.forEach(tag => {
-                            if (!nextTags.includes(tag) && nextTags.length < RESIDENT_RELATIONSHIP_MAX_TAGS) nextTags.push(tag);
-                        });
-                        const addedTags = nextTags.filter(tag => !previousTags.includes(tag));
-                        if (!Object.values(changes).some(value => value !== 0) && !addedTags.length && !removedTags.length) return;
-                        const event = {
-                            sourceKey,
-                            sceneId: String(record.id),
-                            at: record.at,
-                            changes,
-                            addedTags,
-                            removedTags,
-                            evidenceExcerpt: cleanText(record.content || '').slice(0, 160)
-                        };
-                        fromCat.residentRelationships = {
-                            ...relationships,
-                            [delta.toId]: {
-                                ...current,
-                                ...nextValues,
-                                tags: nextTags.slice(0, RESIDENT_RELATIONSHIP_MAX_TAGS),
-                                appliedSceneKeys: [...(current.appliedSceneKeys || []).filter(key => key !== sourceKey), sourceKey].slice(-RESIDENT_RELATIONSHIP_MAX_SCENE_KEYS),
-                                events: [...(current.events || []), event].slice(-RESIDENT_RELATIONSHIP_MAX_EVENTS)
-                            }
-                        };
+                        if (appliedDirections.has(directionKey)) return;
                         appliedDirections.add(directionKey);
-                        addLog(`RELATIONSHIP UPDATED: from=${delta.fromId}; to=${delta.toId}; source=${sourceKey}; familiarity=${changes.familiarity}; warmth=${changes.warmth}; trust=${changes.trust}; tension=${changes.tension}`, 'info');
+                        const result = stageDirectionalRelationshipChange({ record, delta, stagedRelationships });
+                        if (result) results.push(result);
                     });
+                    return { directionKeys: [...appliedDirections].sort(), results };
+                };
+                const applyHallSceneRelationshipConsequences = (record, deltas) => {
+                    const authoritativeRecord = hallSceneRecords.value.find(candidate => candidate === record);
+                    if (!authoritativeRecord || !isAuthoritativeHallSceneRecord(authoritativeRecord)) return false;
+                    const receipts = normalizeHallSceneRelationshipConsequenceReceipts(authoritativeRecord.relationshipConsequenceReceipts);
+                    const completion = [
+                        receipts.aiRelationshipDeltas.complete,
+                        receipts.sharedSceneExposure.complete,
+                        receipts.programFamiliarity.complete
+                    ];
+                    if (completion.every(Boolean)) return false;
+                    if (completion.some(Boolean)) {
+                        addLog(`RELATIONSHIP CONSEQUENCE INTEGRITY MISMATCH: scene=${authoritativeRecord.id}; partial receipt namespaces`, 'error');
+                        return false;
+                    }
+                    const participantIds = [...new Set((authoritativeRecord.participantIds || [])
+                        .map(id => String(id || '').trim()).filter(id => cats.value.some(cat => String(cat.id) === id)))];
+                    if (!participantIds.length) return false;
+                    const participantCats = participantIds.map(id => cats.value.find(cat => String(cat.id) === id)).filter(Boolean);
+                    const knownResidentIds = new Set(cats.value.map(cat => String(cat.id)));
+                    const snapshots = new Map(participantCats.map(cat => [String(cat.id), {
+                        relationships: cloneRelationshipState(cat.residentRelationships),
+                        pairMetadata: cloneRelationshipState(cat.residentRelationshipPairMetadata)
+                    }]));
+                    const receiptSnapshot = cloneRelationshipState(authoritativeRecord.relationshipConsequenceReceipts);
+                    const stagedRelationships = new Map(participantCats.map(cat => [String(cat.id),
+                        cloneRelationshipState(normalizeResidentRelationships(cat.residentRelationships, String(cat.id), knownResidentIds))
+                    ]));
+                    const stagedPairMetadata = new Map(participantCats.map(cat => [String(cat.id),
+                        cloneRelationshipState(normalizeResidentRelationshipPairMetadata(cat.residentRelationshipPairMetadata, String(cat.id), knownResidentIds))
+                    ]));
+                    const pairKeys = [];
+                    const progressionPairKeys = [];
+                    const relationshipLogs = [];
+                    try {
+                        const aiResult = applyResidentRelationshipDeltas(authoritativeRecord, deltas, stagedRelationships);
+                        relationshipLogs.push(...aiResult.results);
+                        for (let leftIndex = 0; leftIndex < participantIds.length; leftIndex += 1) {
+                            for (let rightIndex = leftIndex + 1; rightIndex < participantIds.length; rightIndex += 1) {
+                                const pairIds = getCanonicalResidentPairIds(participantIds[leftIndex], participantIds[rightIndex]);
+                                if (pairIds.length !== 2) continue;
+                                const [ownerId, targetId] = pairIds;
+                                const pairKey = getCanonicalResidentPairKey(ownerId, targetId);
+                                pairKeys.push(pairKey);
+                                const ownerMetadata = stagedPairMetadata.get(ownerId);
+                                if (!ownerMetadata) throw new Error(`missing canonical pair owner ${ownerId}`);
+                                const currentMetadata = ownerMetadata[targetId] || { exposureCount: 0, lastProgressionDay: '' };
+                                const nextMetadata = {
+                                    exposureCount: Math.max(0, Math.trunc(Number(currentMetadata.exposureCount) || 0)) + 1,
+                                    lastProgressionDay: String(currentMetadata.lastProgressionDay || '')
+                                };
+                                const leftCat = cats.value.find(cat => String(cat.id) === ownerId);
+                                const rightCat = cats.value.find(cat => String(cat.id) === targetId);
+                                const leftHeadroom = getStagedRelationshipFamiliarityHeadroom(leftCat, rightCat, stagedRelationships);
+                                const rightHeadroom = getStagedRelationshipFamiliarityHeadroom(rightCat, leftCat, stagedRelationships);
+                                if (nextMetadata.exposureCount >= SHARED_SCENE_EXPOSURE_THRESHOLD && leftHeadroom === 0 && rightHeadroom === 0) {
+                                    nextMetadata.exposureCount %= SHARED_SCENE_EXPOSURE_THRESHOLD;
+                                    progressionPairKeys.push(pairKey);
+                                } else if (nextMetadata.exposureCount >= SHARED_SCENE_EXPOSURE_THRESHOLD && nextMetadata.lastProgressionDay !== authoritativeRecord.dateKey) {
+                                    nextMetadata.exposureCount -= SHARED_SCENE_EXPOSURE_THRESHOLD;
+                                    nextMetadata.lastProgressionDay = authoritativeRecord.dateKey;
+                                    progressionPairKeys.push(pairKey);
+                                    [
+                                        { fromId: ownerId, toId: targetId },
+                                        { fromId: targetId, toId: ownerId }
+                                    ].forEach(direction => {
+                                        const result = stageDirectionalRelationshipChange({
+                                            record: authoritativeRecord,
+                                            delta: { ...direction, familiarityDelta: 1, warmthDelta: 0, trustDelta: 0, tensionDelta: 0, addTags: [], removeTags: [] },
+                                            stagedRelationships,
+                                            sourceSuffix: ':program-familiarity',
+                                            includeEvidence: false
+                                        });
+                                        if (result) relationshipLogs.push(result);
+                                    });
+                                }
+                                ownerMetadata[targetId] = nextMetadata;
+                            }
+                        }
+                        const nextReceipts = {
+                            aiRelationshipDeltas: { complete: true, directionKeys: aiResult.directionKeys },
+                            sharedSceneExposure: { complete: true, pairKeys: [...new Set(pairKeys)].sort() },
+                            programFamiliarity: { complete: true, pairKeys: [...new Set(progressionPairKeys)].sort() }
+                        };
+                        participantCats.forEach(cat => {
+                            const catId = String(cat.id);
+                            cat.residentRelationships = stagedRelationships.get(catId);
+                            cat.residentRelationshipPairMetadata = stagedPairMetadata.get(catId);
+                        });
+                        authoritativeRecord.relationshipConsequenceReceipts = nextReceipts;
+                    } catch (error) {
+                        participantCats.forEach(cat => {
+                            const snapshot = snapshots.get(String(cat.id));
+                            cat.residentRelationships = snapshot.relationships;
+                            cat.residentRelationshipPairMetadata = snapshot.pairMetadata;
+                        });
+                        authoritativeRecord.relationshipConsequenceReceipts = receiptSnapshot;
+                        addLog(`RELATIONSHIP CONSEQUENCE ROLLBACK: scene=${authoritativeRecord.id}; reason=${error.message}`, 'error');
+                        return false;
+                    }
+                    relationshipLogs.forEach(result => addLog(`RELATIONSHIP UPDATED: from=${result.fromId}; to=${result.toId}; source=${result.sourceKey}; familiarity=${result.changes.familiarity}; warmth=${result.changes.warmth}; trust=${result.changes.trust}; tension=${result.changes.tension}`, 'info'));
+                    return true;
                 };
                 const pruneHallSceneRecords = (dateKey = getOperationalDayKey()) => {
                     hallSceneRecords.value = normalizeHallSceneRecords(hallSceneRecords.value)
@@ -23094,29 +23470,30 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     }
                     const hallId = String(raw.hallId || '').trim();
                     const claimId = String(raw.claimId || '').trim();
-                    const decision = raw.mailDecision;
-                    const roll = Number(decision?.roll);
-                    if (!hallId || !claimId || !Number.isInteger(roll) || roll < 1 || roll > 100 || typeof decision?.shouldWrite !== 'boolean') {
+                    const mailDecision = awayLifecycle.normalizeMailDecision(raw.mailDecision);
+                    if (!hallId || !claimId || !mailDecision) {
                         cat.deferredOrdinaryAwayDeparture = null;
                         return null;
                     }
                     const normalized = {
                         claimId,
                         hallId,
-                        mailDecision: { roll, shouldWrite: decision.shouldWrite === true },
+                        mailDecision,
                         createdAt: parseLogicalDate(raw.createdAt)?.toISOString() || new Date(0).toISOString()
                     };
                     cat.deferredOrdinaryAwayDeparture = normalized;
                     return normalized;
                 };
                 const deferOrdinaryAwayDeparture = (cat, hallId, mailDecision, now = new Date()) => {
-                    if (!cat || !mailDecision || !Number.isInteger(Number(mailDecision.roll))) return null;
+                    if (!cat) return null;
                     const existing = normalizeDeferredOrdinaryAwayDeparture(cat);
                     if (existing) return existing;
+                    const frozenMailDecision = awayLifecycle.normalizeMailDecision(mailDecision);
+                    if (!frozenMailDecision) return null;
                     const deferred = {
                         claimId: `ordinary-away-deferred:${String(cat.id)}:${now.getTime()}:${Math.random().toString(36).slice(2, 8)}`,
                         hallId: String(hallId || getCatHallId(cat)),
-                        mailDecision: { roll: Number(mailDecision.roll), shouldWrite: mailDecision.shouldWrite === true },
+                        mailDecision: frozenMailDecision,
                         createdAt: now.toISOString()
                     };
                     cat.deferredOrdinaryAwayDeparture = deferred;
@@ -23159,6 +23536,14 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     // backlog remains stably ordered and no letter is rewritten
                     // merely because today's four slots are already full.
                     awayEpisodes.value.push(episode);
+                    if (episode.mailDecision?.souvenirDecision) {
+                        const intended = episode.mailDecision.souvenirDecision.shouldInclude;
+                        const attachment = episode.mailPlan[0]?.attachment;
+                        const attachmentValidated = intended
+                            ? Boolean(attachment?.name && attachment?.icon && attachment?.desc)
+                            : attachment === null;
+                        addLog(`AWAY SOUVENIR RECEIPT: episode=${episode.id}; letterIntended=true; souvenirIntended=${intended}; attachmentValidated=${attachmentValidated}`, attachmentValidated ? 'info' : 'warn');
+                    }
                     return episode;
                 };
                 const getOrdinaryAwayAllocator = () => {
@@ -23177,10 +23562,9 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     const id = String(raw.id || '').trim();
                     const hallId = String(raw.hallId || '').trim();
                     const opportunityAt = parseLogicalDate(raw.opportunityAt)?.toISOString() || '';
-                    const decision = raw.mailDecision;
-                    const roll = Number(decision?.roll);
+                    const mailDecision = awayLifecycle.normalizeMailDecision(raw.mailDecision);
                     const promptText = String(raw.promptText || '').trim();
-                    if (!id || !hallId || !opportunityAt || !promptText || !Number.isInteger(roll) || roll < 1 || roll > 100 || typeof decision?.shouldWrite !== 'boolean') {
+                    if (!id || !hallId || !opportunityAt || !promptText || !mailDecision) {
                         cat.ordinaryAwayOperation = null;
                         return null;
                     }
@@ -23190,11 +23574,11 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         token: String(raw.token || id),
                         status: status === 'generating' ? 'retryable' : status,
                         attemptCount: Math.max(0, Number(raw.attemptCount) || 0),
-                        retryAt: parseLogicalDate(raw.retryAt)?.toISOString() || now.toISOString(),
-                        claimedAt: parseLogicalDate(raw.claimedAt)?.toISOString() || now.toISOString(),
+                        retryAt: parseLogicalDate(raw.retryAt)?.toISOString() || opportunityAt,
+                        claimedAt: parseLogicalDate(raw.claimedAt)?.toISOString() || opportunityAt,
                         lastError: cleanText(raw.lastError || ''),
                         episodeId: String(raw.episodeId || '').trim(),
-                        mailDecision: { roll, shouldWrite: decision.shouldWrite === true }
+                        mailDecision
                     };
                     cat.ordinaryAwayOperation = normalized;
                     return normalized;
@@ -23207,6 +23591,13 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     !(isFocusing.value && focusCats.value.some(item => String(item.id) === String(cat.id))) &&
                     !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
                     !(isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id));
+                const buildOrdinaryAwayMailPlanExample = decision => {
+                    if (!decision?.shouldWrite) return '[]';
+                    const attachment = decision.souvenirDecision?.shouldInclude
+                        ? '{"name":"short keepsake name","icon":"🎁","desc":"short travel keepsake description","visualHint":{"object":"trinket","material":"unknown","form":"keepsake","context":"travel"}}'
+                        : 'null';
+                    return `[{"sendAfterMinutes":90,"content":"short physical note","attachment":${attachment}}]`;
+                };
                 const buildOrdinaryAwayPlanPrompt = (cat, hall, operation) => [
                     '[ORDINARY AUTONOMOUS AWAY PLAN]',
                     'This is a single-resident, program-authorized background planning task. It is not a Hall Status Sync and has no other resident or USER private context.',
@@ -23215,8 +23606,9 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     `[CURRENT AUTHORITY] form=${getResidentForm(cat)}; physical presence=HOME_HALL; observable status=${getResidentLiveStatus(cat, '正在馆内安静活动。')}.`,
                     AWAY_ACTIVITY_PLANNING_RULES,
                     formatAwayMailAuthority([String(cat.id)], { [String(cat.id)]: operation.mailDecision }),
+                    window.Meeow.itemVisuals.formatVisualHintContract(),
                     'Return one JSON object only:',
-                    `{"residentId":"${String(cat.id)}","mode":"departure","plannedDurationMinutes":210,"destination":"source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":100,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":170,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"}],"plannedArchiveNarrative":"100-200 Chinese characters","plannedReturnStatus":"optional concise return status","plannedReturnPosture":"standing|sitting|lying|crouching when return status is supplied","mailPlan":[]}`
+                    `{"residentId":"${String(cat.id)}","mode":"departure","plannedDurationMinutes":210,"destination":"source-world-compatible destination","plannedActivities":[{"afterMinutes":35,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":100,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"},{"afterMinutes":170,"plannedResidentActivity":"private activity","publicTrace":"limited public trace"}],"plannedArchiveNarrative":"100-200 Chinese characters","plannedReturnStatus":"optional concise return status","plannedReturnPosture":"standing|sitting|lying|crouching when return status is supplied","mailPlan":${buildOrdinaryAwayMailPlanExample(operation.mailDecision)}}`
                 ].join('\n');
                 const settleOrdinaryAwayOperationFailure = (cat, operation, error, now = new Date()) => {
                     if (!cat || cat.ordinaryAwayOperation?.id !== operation.id) return;
@@ -23273,6 +23665,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         appendMonitorEvent(latestCat, '离开馆舍，开始处理自己的行程。', 'ordinary-away-autonomy', { episodeId: episode.id }, new Date());
                         appendAwayTransitionTravelogue(latestCat, true, new Date(), { episodeId: episode.id });
                         latestCat.ordinaryAwayOperation = null;
+                        latestCat.deferredOrdinaryAwayDeparture = null;
                         addLog(`AWAY AUTONOMY: resident=${String(latestCat.id)}; hall=${latest.hallId}; result=departed; episode=${episode.id}`, 'sent');
                     } catch (error) {
                         const latestCat = cats.value.find(item => String(item?.id || '') === String(catId));
@@ -23323,11 +23716,11 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         candidates.sort((a, b) => a.opportunityAt - b.opportunityAt || String(a.cat.id).localeCompare(String(b.cat.id)));
                         const selected = candidates[0];
                         if (!selected) return false;
-                        const roll = rollPercent();
+                        const mailDecision = awayLifecycle.createMailDecision(rollPercent);
                         const operation = {
                             id: `ordinary-away:${String(selected.cat.id)}:${selected.opportunityAt.getTime()}`,
                             hallId: String(selected.hall.id), opportunityAt: selected.opportunityAt.toISOString(),
-                            mailDecision: { roll, shouldWrite: roll <= 50 }, token: `ordinary-away:${String(selected.cat.id)}:${selected.opportunityAt.getTime()}`,
+                            mailDecision, token: `ordinary-away:${String(selected.cat.id)}:${selected.opportunityAt.getTime()}`,
                             status: 'claimed', attemptCount: 0, retryAt: now.toISOString(), claimedAt: now.toISOString(), lastError: '', episodeId: '', promptText: ''
                         };
                         operation.promptText = buildOrdinaryAwayPlanPrompt(selected.cat, selected.hall, operation);
@@ -23337,10 +23730,28 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     }
                     const operation = candidate.operation;
                     if (!isOrdinaryAwayEligible(candidate.cat, operation.hallId, now)) return false;
+                    if (operation.mailDecision.shouldWrite && !operation.mailDecision.souvenirDecision) {
+                        const hall = halls.value.find(item => String(item.id) === operation.hallId);
+                        if (!hall) return false;
+                        operation.mailDecision = awayLifecycle.completeMailDecisionAtExecution(operation.mailDecision, rollPercent);
+                        operation.promptText = buildOrdinaryAwayPlanPrompt(candidate.cat, hall, operation);
+                    }
+                    const priorAttemptCount = operation.attemptCount;
+                    const priorDispatchAt = allocator.lastAIDispatchAt;
                     operation.status = 'generating';
                     operation.attemptCount = Math.max(0, Number(operation.attemptCount) || 0) + 1;
                     operation.retryAt = '';
                     allocator.lastAIDispatchAt = now.toISOString();
+                    // The frozen decision and in-flight operation must survive a
+                    // reload before any AI work is issued.
+                    if (!persistNow()) {
+                        operation.status = 'retryable';
+                        operation.attemptCount = priorAttemptCount;
+                        operation.retryAt = now.toISOString();
+                        allocator.lastAIDispatchAt = priorDispatchAt;
+                        addLog(`AWAY AUTONOMY: resident=${String(candidate.cat.id)}; result=persist-failed; AI generation not started`, 'error');
+                        return false;
+                    }
                     ordinaryAwayPlanningInFlight.add(operation.id);
                     void runOrdinaryAwayOperation(candidate.cat.id, operation.id);
                     return true;
@@ -23740,22 +24151,44 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                 const buildAwayMailDecisions = (presenceDirectives = {}, carriedDecisions = {}) => Object.entries(presenceDirectives)
                     .filter(([, directive]) => directive === 'DEPARTING_NOW')
                     .reduce((decisions, [id]) => {
-                        const carried = carriedDecisions?.[String(id)];
-                        const carriedRoll = Number(carried?.roll);
-                        if (Number.isInteger(carriedRoll) && carriedRoll >= 1 && carriedRoll <= 100 && typeof carried?.shouldWrite === 'boolean') {
-                            decisions[String(id)] = Object.freeze({ roll: carriedRoll, shouldWrite: carried.shouldWrite === true });
-                            return decisions;
-                        }
-                        const roll = rollPercent();
-                        decisions[String(id)] = Object.freeze({ roll, shouldWrite: roll <= 50 });
+                        const carried = awayLifecycle.normalizeMailDecision(carriedDecisions?.[String(id)]);
+                        if (carried) decisions[String(id)] = Object.freeze(carried);
                         return decisions;
                     }, {});
+                const prepareStatusSyncAwayMailDecisions = ({ presenceDirectives, requestedCats, hallId, carriedDecisions, now }) => {
+                    const decisions = buildAwayMailDecisions(presenceDirectives, carriedDecisions);
+                    let needsPersistence = false;
+                    for (const [id, directive] of Object.entries(presenceDirectives)) {
+                        if (directive !== 'DEPARTING_NOW') continue;
+                        const cat = requestedCats.find(item => String(item.id) === String(id));
+                        if (!cat) return null;
+                        const deferred = normalizeDeferredOrdinaryAwayDeparture(cat);
+                        const matchingDeferred = deferred?.hallId === String(hallId) ? deferred : null;
+                        if (matchingDeferred) needsPersistence = true;
+                        const prior = matchingDeferred?.mailDecision || decisions[String(id)];
+                        const decision = prior
+                            ? awayLifecycle.completeMailDecisionAtExecution(prior, rollPercent)
+                            : awayLifecycle.createMailDecision(rollPercent);
+                        if (!decision) return null;
+                        if (prior?.shouldWrite && !prior.souvenirDecision) {
+                            cat.deferredOrdinaryAwayDeparture = {
+                                claimId: matchingDeferred?.claimId || `status-sync-away-mail:${String(id)}:${now.getTime()}`,
+                                hallId: String(hallId), mailDecision: decision,
+                                createdAt: matchingDeferred?.createdAt || now.toISOString()
+                            };
+                            needsPersistence = true;
+                        }
+                        decisions[String(id)] = Object.freeze(decision);
+                    }
+                    if (needsPersistence && !persistNow()) return null;
+                    return Object.freeze(decisions);
+                };
                 const formatAwayMailAuthority = (departingIds, mailDecisions = {}) => {
                     const entries = (departingIds || []).map(id => {
                         const decision = mailDecisions[String(id)];
-                        return `${String(id)} → shouldWrite=${decision?.shouldWrite === true ? 'true' : 'false'}`;
+                        return `${String(id)} → shouldWrite=${decision?.shouldWrite === true ? 'true' : 'false'}${decision?.shouldWrite === true ? `; shouldIncludeSouvenir=${decision.souvenirDecision?.shouldInclude === true ? 'true' : 'false'}` : ''}`;
                     });
-                    return `[AUTHORITATIVE AWAY MAIL]\n${entries.join('\n') || 'None'}\nFor each DEPARTING_NOW resident, this local decision is final. shouldWrite=true requires exactly one mailPlan entry: {"sendAfterMinutes":positive integer after the first activity and before return,"content":"short physical letter/note/postcard text grounded in this outing","attachment":null or a valid small attachment}. shouldWrite=false requires mailPlan: []. Do not choose, omit, add, or reinterpret mail yourself. Mail is not a departure/return notice.`;
+                    return `[AUTHORITATIVE AWAY MAIL]\n${entries.join('\n') || 'None'}\nFor each DEPARTING_NOW resident, both local decisions are final. shouldWrite=false requires mailPlan: [] and no souvenir. shouldWrite=true requires exactly one mailPlan entry: {"sendAfterMinutes":positive integer after the first activity and before return,"content":"short physical letter/note/postcard text grounded in this outing","attachment":...}. When shouldIncludeSouvenir=true, attachment MUST be exactly one small travel souvenir object with non-empty string name, icon, desc, and visualHint; it MUST NOT be null or omitted. When shouldIncludeSouvenir=false, attachment MUST be null; do not add a gift, item, attachment, or souvenir. Do not choose or reinterpret either decision yourself. ${window.Meeow.itemVisuals.formatVisualHintContract()} Mail is not a departure/return notice.`;
                 };
                 const buildAwayPromptContract = ({ residents, presenceDirectives, now = new Date(), carriedAwayPlans, mailDecisions = {} } = {}) => {
                     const scopedResidents = Array.isArray(residents)
@@ -23815,6 +24248,19 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         Array.isArray(diagnostic.plan?.mailPlan) && diagnostic.plan.mailPlan.length === 1;
                     if (mailDecision.shouldWrite === true && !hasOneAcceptedMailPlan) {
                         return { ...diagnostic, valid: false, plan: null, reason: 'authoritative mail decision requires one valid mailPlan' };
+                    }
+                    if (mailDecision.shouldWrite === true) {
+                        const souvenirDecision = mailDecision.souvenirDecision;
+                        if (!souvenirDecision || typeof souvenirDecision.shouldInclude !== 'boolean') {
+                            return { ...diagnostic, valid: false, plan: null, reason: 'authoritative souvenir decision is missing' };
+                        }
+                        const attachment = rawMailPlan[0]?.attachment;
+                        if (souvenirDecision.shouldInclude && !diagnostic.plan.mailPlan[0].attachment) {
+                            return { ...diagnostic, valid: false, plan: null, reason: 'authoritative souvenir decision requires one valid attachment' };
+                        }
+                        if (!souvenirDecision.shouldInclude && attachment !== null) {
+                            return { ...diagnostic, valid: false, plan: null, reason: 'authoritative souvenir decision requires attachment: null' };
+                        }
                     }
                     if (mailDecision.shouldWrite === false && !hasExactEmptyMailPlan) {
                         return { ...diagnostic, valid: false, plan: null, reason: 'authoritative mail decision requires mailPlan: []' };
@@ -24913,7 +25359,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         return 'Homepage Chat activeCat ID 与当前角色不匹配。';
                     }
                     for (const field of ['reply', 'status', 'innerVoice', 'userStatus', 'posture']) {
-                        if (typeof active[field] !== 'string' || !active[field].trim()) {
+                        if (typeof active[field] !== 'string' || !active[field].trim() ||
+                            ((field === 'status' || field === 'innerVoice') && !cleanText(active[field]))) {
                             return `Homepage Chat activeCat 缺少有效 ${field}。`;
                         }
                     }
@@ -25303,12 +25750,25 @@ ${outputContract}`;
                 };
 
                 const focusTickBehavior = async () => {
+                    const sessionGeneration = focusSessionGeneration.value;
+                    if (!isFocusing.value) return false;
                     const participants = focusCats.value.filter(cat => cat &&
                         String(cat.hallId || '') === String(activeHallId.value || '') &&
                         isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
                         !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
                         !getActiveAwayEpisode(cat));
-                    if (!participants.length) return false;
+                    if (!participants.length) {
+                        addLog('FOCUS TICK SKIPPED: reason=resident-unavailable', 'info');
+                        return false;
+                    }
+                    const isCurrentFocusTick = () => isFocusing.value &&
+                        focusSessionGeneration.value === sessionGeneration &&
+                        participants.every(cat => focusCats.value.some(active => String(active?.id) === String(cat.id)) &&
+                            String(cat.hallId || '') === String(activeHallId.value || '') &&
+                            isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
+                            !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
+                            !getActiveAwayEpisode(cat));
+                    const focusTickError = reason => Object.assign(new Error(`Focus tick ${reason}`), { focusReason: reason });
 
                     const sharedSessionEvidence = buildSharedFocusSessionEvidence(currentFocusLog.value, 3, 420);
                     const peerLines = buildPublicSharedPeerRelationshipLines(participants);
@@ -25362,16 +25822,23 @@ ${buildLeanAmbientContext(cat, {
                             taskPayload: focusAction.value
                         });
                         const res = await callAI(prompt, focusSystemPrompt, 2200, ThinkingLevel.LOW, { label: `FOCUS LOG · ${participants.length} CAT${participants.length > 1 ? 'S' : ''}` });
-                        const parsedResponse = parseAIJSON(res);
+                        if (!isCurrentFocusTick()) throw focusTickError('stale-session');
+                        let parsedResponse;
+                        try { parsedResponse = parseAIJSON(res, { logErrors: false }); }
+                        catch (_) { throw focusTickError('parse-error'); }
+                        if (!parsedResponse) throw focusTickError('parse-error');
                         const updates = Array.isArray(parsedResponse) ? parsedResponse : parsedResponse?.residentUpdates;
                         const expectedFocusIds = new Set(participants.map(cat => String(cat.id)));
                         const returnedFocusIds = new Set();
-                        if (!Array.isArray(updates) || updates.length !== expectedFocusIds.size) throw new Error('Focus residentUpdates coverage invalid');
+                        if (!Array.isArray(updates) || updates.length !== expectedFocusIds.size) throw focusTickError('validation-error');
                         updates.forEach(update => {
                             const id = String(update?.id || '');
                             const postureValidation = statusPosture.validateStatusPosture(update?.status, update?.posture);
-                            if (!expectedFocusIds.has(id) || returnedFocusIds.has(id) || typeof update?.status !== 'string' || typeof update?.innerVoice !== 'string' || !postureValidation.valid) {
-                                throw new Error(`Focus Status posture invalid: ${id || 'missing-id'} ${postureValidation.error || ''}`.trim());
+                            if (!expectedFocusIds.has(id) || returnedFocusIds.has(id) ||
+                                typeof update?.status !== 'string' || !cleanText(update.status) ||
+                                typeof update?.innerVoice !== 'string' || !cleanText(update.innerVoice) ||
+                                !postureValidation.valid) {
+                                throw focusTickError('validation-error');
                             }
                             returnedFocusIds.add(id);
                         });
@@ -25386,10 +25853,11 @@ ${buildLeanAmbientContext(cat, {
                         const selectedVoiceCatId = currentFocusVoiceEntry.value?.catId;
                         const nextVoiceEntries = [];
 
+                        if (!isCurrentFocusTick()) throw focusTickError('stale-session');
                         participants.forEach(cat => {
                             const update = updateById.get(String(cat.id));
-                            const action = cleanText(update?.status || update?.action || '仍留在专注现场，以自己的方式陪伴馆长。');
-                            const voice = cleanText(update?.innerVoice || update?.voice || '先把这一段时间守住。');
+                            const action = cleanText(update.status);
+                            const voice = cleanText(update.innerVoice);
                             setCatStatus(cat, action, { posture: update.posture, innerVoice: voice, source: 'focus', forceLog: true });
                             nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
                         });
@@ -25401,27 +25869,17 @@ ${buildLeanAmbientContext(cat, {
                         playLogSound();
                         return Array.isArray(updates) && updates.length > 0;
                     } catch (e) {
-                        const timeStr = getCurrentTimeStr();
-                        const selectedVoiceCatId = currentFocusVoiceEntry.value?.catId;
-                        const nextVoiceEntries = [];
-                        const logParts = [];
-                        participants.forEach(cat => {
-                            const fallback = '仍站在专注现场，以自己的方式陪伴馆长。';
-                            logParts.push(`${cat.name}：${fallback}`);
-                            const voice = getResidentLiveInnerVoice(cat, '先守住这一小段时间。');
-                            setCatStatus(cat, fallback, { posture: 'standing', innerVoice: voice, source: 'focus-fallback', forceLog: true });
-                            nextVoiceEntries.push({ catId: cat.id, name: cat.name, voice, avatar: getCatAvatarSource(cat, focusSessionForms[String(cat.id)] || getResidentForm(cat)) });
-                        });
-                        if (logParts.length) currentFocusLog.value.unshift(`${timeStr}｜${logParts.join('；')}`);
-                        focusVoiceEntries.value = nextVoiceEntries;
-                        const retainedIndex = nextVoiceEntries.findIndex(entry => String(entry.catId) === String(selectedVoiceCatId));
-                        focusVoiceIndex.value = retainedIndex >= 0 ? retainedIndex : 0;
+                        // Failure is not a resident event. Keep the last coherent
+                        // presentation, Focus quote, and Live Log unchanged.
+                        const reason = e?.focusReason || (e ? 'provider-error' : 'unknown');
+                        addLog(`FOCUS TICK SKIPPED: reason=${reason}; session=${sessionGeneration}`, reason === 'stale-session' ? 'info' : 'warn');
                         return false;
                     }
                 };
 
                 const startFocus = () => {
                     if (!canStartFocus.value) return;
+                    focusSessionGeneration.value += 1;
                     focusCats.value = roomCats.value.filter(c => focusSetupData.selectedCatIds.includes(c.id));
                     focusCats.value.forEach(cat => terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority'));
                     Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
@@ -25445,6 +25903,7 @@ ${buildLeanAmbientContext(cat, {
                     focusVisibleUserActionEvidence.value = [];
                     focusVoiceEntries.value = [];
                     focusVoiceIndex.value = 0;
+                    isProcessingFocusTick.value = false;
                     focusWakeLockMessage.value = '';
                     showFocusSetupModal.value = false;
                     void requestFocusWakeLock();
@@ -25454,8 +25913,11 @@ ${buildLeanAmbientContext(cat, {
                     
                     if (settings.apiKey) {
                         isProcessingFocusTick.value = true;
-                        focusTickBehavior().then(() => {
-                            isProcessingFocusTick.value = false;
+                        const tickGeneration = focusSessionGeneration.value;
+                        void focusTickBehavior().catch(() => {
+                            addLog('FOCUS TICK SKIPPED: reason=unknown', 'warn');
+                        }).finally(() => {
+                            if (focusSessionGeneration.value === tickGeneration) isProcessingFocusTick.value = false;
                         });
                     }
                     
@@ -25466,9 +25928,11 @@ ${buildLeanAmbientContext(cat, {
                         focusTime.value--;
                         if (Date.now() > nextRandomEventTime.value && settings.apiKey && !isProcessingFocusTick.value) {
                             isProcessingFocusTick.value = true;
+                            const tickGeneration = focusSessionGeneration.value;
                             nextRandomEventTime.value = Date.now() + (Math.random() * 420000 + 180000);
-                            await focusTickBehavior();
-                            isProcessingFocusTick.value = false;
+                            try { await focusTickBehavior(); }
+                            catch (_) { addLog('FOCUS TICK SKIPPED: reason=unknown', 'warn'); }
+                            finally { if (focusSessionGeneration.value === tickGeneration) isProcessingFocusTick.value = false; }
                         }
                         if (focusTime.value <= 0) { await finishFocus(focusSetupData.minutes, true); }
                     }, 1000);
@@ -25518,6 +25982,7 @@ ${buildLeanAmbientContext(cat, {
                 const finishFocus = async (minutes, success) => {
                     if (isFinishingFocus.value) return;
                     isFinishingFocus.value = true;
+                    focusSessionGeneration.value += 1;
                     Object.assign(focusSettlementLoading, {
                         message: '正在冻结本次 Live Log 与参与者记录…',
                         phase: '步骤 1/3 · 读取本次专注记录',
@@ -25623,7 +26088,9 @@ ${buildLeanAmbientContext(cat, {
                 };
 
                 const harassCat = async () => {
-                    const targetCat = isFocusing.value ? focusCats.value[Math.floor(Math.random() * focusCats.value.length)] : selectedCat.value;
+                    const focusLightInteraction = isFocusing.value;
+                    const lightInteractionGeneration = focusSessionGeneration.value;
+                    const targetCat = focusLightInteraction ? focusCats.value[Math.floor(Math.random() * focusCats.value.length)] : selectedCat.value;
                     if (!targetCat) return;
                     if (settings.apiKey) {
                         const formStr = isFocusing.value ? (focusSessionForms[String(targetCat.id)] || getResidentForm(targetCat)) : getResidentForm(targetCat);
@@ -25640,9 +26107,15 @@ ${buildLeanAmbientContext(cat, {
                             });
                             const payload = parseAIJSON(res);
                             const action = cleanText(payload.action);
-                            setCatStatus(targetCat, action, { posture: payload.posture, source: 'harass', forceLog: true });
+                            if (focusLightInteraction && (!isFocusing.value || focusSessionGeneration.value !== lightInteractionGeneration ||
+                                !focusCats.value.some(cat => String(cat?.id) === String(targetCat.id)))) return;
+                            if (!focusLightInteraction && isFocusing.value &&
+                                focusCats.value.some(cat => String(cat?.id) === String(targetCat.id))) return;
+                            // During Focus this short reaction is only a session-local
+                            // event: it has no paired innerVoice to own resident state.
+                            if (!focusLightInteraction) setCatStatus(targetCat, action, { posture: payload.posture, source: 'harass', forceLog: true });
                             appendInteractionEvent(targetCat, 'special', `馆长进行了互动：${action}`, { source: 'harass' });
-                            if (isFocusing.value) { recordFocusVisibleUserAction(targetCat); const timeStr = getCurrentTimeStr(); currentFocusLog.value.unshift(`${timeStr} [${targetCat.name}] ${action}`); focusMessage.value = "骚扰成功！"; playLogSound(); setTimeout(() => focusMessage.value = '', 2000); } else { alert(`${targetCat.name}: ${action}`); refreshAllStatus(true, `User just harassed ${targetCat.name}. Reaction: ${action}`, [targetCat.id], action); }
+                            if (focusLightInteraction) { recordFocusVisibleUserAction(targetCat); const timeStr = getCurrentTimeStr(); currentFocusLog.value.unshift(`${timeStr} [${targetCat.name}] ${action}`); focusMessage.value = "骚扰成功！"; playLogSound(); setTimeout(() => focusMessage.value = '', 2000); } else { alert(`${targetCat.name}: ${action}`); refreshAllStatus(true, `User just harassed ${targetCat.name}. Reaction: ${action}`, [targetCat.id], action); }
                         } catch (e) { }
                     } else if (isFocusing.value) {
                         recordFocusVisibleUserAction(targetCat);
@@ -25679,8 +26152,13 @@ ${buildLeanAmbientContext(cat, {
                             else unexpectedIds.push(responseId);
                         }
 
+                        // Control-plane prose is quarantined as a whole below. It is
+                        // never a signal to apply just one half of a presentation.
+                        const noPresentation = typeof update.status === 'string' && isControlPlaneStatusText(update.status);
                         ['status', 'innerVoice'].forEach(field => {
-                            if (typeof update[field] !== 'string') entryErrors.push(`entry ${index} has invalid ${field}`);
+                            if (typeof update[field] !== 'string' || (!noPresentation && !cleanText(update[field]))) {
+                                entryErrors.push(`entry ${index} has invalid ${field}`);
+                            }
                         });
                         const postureValidation = statusPosture.validateStatusPosture(update.status, update.posture);
                         if (!postureValidation.valid) entryErrors.push(`entry ${index} has invalid posture: ${postureValidation.error}`);
@@ -25725,7 +26203,7 @@ ${buildLeanAmbientContext(cat, {
                     }
                     return true;
                 };
-                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}, formDirectives = {}, sceneOptions = null, curatorAnchors = {}) => {
+                const validateStatusSyncEnvelope = (content, requestedIds, presenceDirectives = {}, formDirectives = {}, sceneOptions = null, curatorAnchors = {}, awayMailDecisions = {}) => {
                     const payload = parseAIJSON(content);
                     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
                         return 'Status Sync response is not a valid JSON object.';
@@ -25736,6 +26214,16 @@ ${buildLeanAmbientContext(cat, {
                         ? validateLocalPresenceDirectives(payload.updates, presenceDirectives, curatorAnchors)
                         : updateValidation;
                     if (directiveValidation !== true) return directiveValidation;
+                    let awayPlansByResident = null;
+                    for (const [id, directive] of Object.entries(presenceDirectives)) {
+                        if (directive !== 'DEPARTING_NOW' || !awayMailDecisions[id]) continue;
+                        if (!awayPlansByResident) awayPlansByResident = indexAwayPlans(payload.awayPlans);
+                        const diagnostic = enforceAwayMailDecision(
+                            classifyAwayPlanDiagnostic(awayPlansByResident, id, 'departure'),
+                            awayMailDecisions[id]
+                        );
+                        if (!diagnostic.valid) return `Status Sync Away plan invalid: id=${id}; ${diagnostic.reason}`;
+                    }
                     if (sceneOptions?.sceneMode === 'user-directed' && sceneOptions.sceneRequired === true) {
                         const requiredSceneValidation = validateOptionalHallScene({
                             scene: payload.scene,
@@ -26035,7 +26523,7 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         hasFridgeNoteSidecar ? '"fridgeNoteReactions":[]' : '',
                         hasLifeThreadSidecar ? '"lifeThreadCandidates":[]' : ''
                     ].filter(Boolean);
-                    return `[OUTPUT CONTRACT]\nReturn one JSON object with "updates", "awayPlans", and "scene"${sidecars.length ? ` plus ${sidecars.join(' and ')}` : ''}. Sidecar entry shapes are defined once in their own supplied contracts.\n- Return exactly one update for every allowed machine ID: [${requestedIds.join(', ')}]. Never substitute a display/human/codename.\n- ${updateRule}\n- ${sceneRule}\n- awayPlans must be ${awayPromptContract.mode === AWAY_PROMPT_MODES.NO_AWAY_WORK ? 'exactly []' : 'exactly the entries required by [AWAY / MAIL CONTRACT]'}.`;
+                    return `[OUTPUT CONTRACT]\nReturn one JSON object with "updates", "awayPlans", and "scene"${sidecars.length ? ` plus ${sidecars.join(' and ')}` : ''}. Sidecar entry shapes are defined once in their own supplied contracts.\n- Return exactly one update for every allowed machine ID: [${requestedIds.join(', ')}]. Never substitute a display/human/codename.\n- ${updateRule}\n- Each ordinary status and innerVoice must contain non-whitespace presentation text; never return an empty string for either field.\n- ${sceneRule}\n- awayPlans must be ${awayPromptContract.mode === AWAY_PROMPT_MODES.NO_AWAY_WORK ? 'exactly []' : 'exactly the entries required by [AWAY / MAIL CONTRACT]'}.`;
                 };
                 const buildStatusSyncPromptPacket = (parts = {}) => {
                     const ordered = [
@@ -26244,11 +26732,17 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         const carriedAwayMailDecisions = deferredOrdinaryDeparture
                             ? { [String(deferredOrdinaryDeparture.cat.id)]: deferredOrdinaryDeparture.deferred.mailDecision }
                             : {};
-                        const awayMailDecisions = Object.freeze(
-                            requestOptions.awayMailDecisions && typeof requestOptions.awayMailDecisions === 'object'
-                                ? { ...requestOptions.awayMailDecisions }
-                                : buildAwayMailDecisions(presenceDirectives, carriedAwayMailDecisions)
-                        );
+                        const awayMailDecisions = prepareStatusSyncAwayMailDecisions({
+                            presenceDirectives, requestedCats, hallId: requestHallId, now,
+                            carriedDecisions: requestOptions.awayMailDecisions && typeof requestOptions.awayMailDecisions === 'object'
+                                ? requestOptions.awayMailDecisions
+                                : carriedAwayMailDecisions
+                        });
+                        if (!awayMailDecisions) {
+                            if (statusCompletion) statusCompletion.lastError = 'Away mail decision could not be persisted before generation.';
+                            addLog(`STATUS SYNC AWAY MAIL: hall=${requestHallId}; decision persistence failed; AI generation not started`, 'error');
+                            return false;
+                        }
                         const fridgeNoteCandidates = curatorRoomStatusSync || exploreReturnPresentation
                             ? []
                             : buildFridgeNoteReactionCandidates({
@@ -26461,7 +26955,7 @@ ${statusOutputRules}`;
                                     sceneContext,
                                     requestHallId,
                                     sceneRequired: Boolean(requestOptions.sceneRequired)
-                                } : null, curatorAnchorsById)
+                                } : null, curatorAnchorsById, awayMailDecisions)
                             });
                             const parsedResponse = parseAIJSON(res);
                             updates = parsedResponse?.updates;
@@ -26607,18 +27101,7 @@ ${statusOutputRules}`;
                                         staleVoiceIds.push(updateId);
                                         return;
                                     }
-                                    if (update.status && !isControlPlaneStatusText(update.status)) setCatStatus(cat, update.status, { posture: update.posture, innerVoice: update.innerVoice, mapRoom: update.mapRoom, mapSpot: update.mapSpot, mapFurniture: update.mapFurniture, mapPoint: update.mapPoint, mapPositionLabel: update.mapPositionLabel, source: 'status-sync', forceLog: true });
-                                    else {
-                                        if (update.innerVoice) cat.innerVoice = cleanText(update.innerVoice);
-                                        if (update.status && isControlPlaneStatusText(update.status)) {
-                                            addLog(`STATUS META QUARANTINED: resident=${updateId}; status=${truncateMemoryText(update.status, 90)}`, 'warn');
-                                        }
-                                        // A structurally valid, form-compatible slice still
-                                        // counts as a presentation sync even when its status
-                                        // text is intentionally empty. Unsafe slices returned
-                                        // above keep their truthful stale timestamp instead.
-                                        cat.lastStatusUpdateTime = Date.now();
-                                    }
+                                    applyStatusSyncPresentation(cat, update);
                                     const localDirective = getLocalPresenceDirective(updateId);
                                     if (localDirective === 'HOME' || localDirective === 'DEPARTING_NOW' || localDirective === 'CURATOR_ROOM') {
                                         if (!isPermanentOutBuiltin(cat)) cat.isOut = false;
@@ -26842,7 +27325,7 @@ ${statusOutputRules}`;
                                     if (record) {
                                         appliedSceneRecord = record;
                                         storeSharedSceneEpisodicMemories(record, sceneToApply.scene.memoryMeta);
-                                        applyResidentRelationshipDeltas(record, sceneToApply.scene.relationshipDeltas);
+                                        applyHallSceneRelationshipConsequences(record, sceneToApply.scene.relationshipDeltas);
                                         if (sceneMode === 'user-directed') setHallSceneFocus(record);
                                         if (sceneMode === 'user-directed') applySuccessfulInteractionUserStatus(sceneToApply.scene.userStatus);
                                         if (followSceneFeed) scrollHallSceneFeedToBottom(record.hallId);
@@ -27556,7 +28039,7 @@ ${statusOutputRules}`;
                         const existingNames = roomCats.value.map(c => c.name).join(', ');
                         const systemPrompt = `You are ${gachaResult.value.name}. Personality: ${gachaResult.value.personality || 'unknown'}. Breed: ${gachaResult.value.breed || 'unknown'}. You are trapped in a cat\'s body inside the ${currentHall.value.name} of Meeow House. The USER is already a known safe and accepted caretaker; affinity controls intimacy and emotional disclosure, never basic trust. Stay true to your canon personality. Do NOT default to tsundere or generic cute-cat behavior. Do not reduce reserved to hostile, quiet to shy, proud to abusive, sarcastic to contemptuous, traumatized to permanently angry, friendly to childish, female to tsundere, or an antagonist to random cartoon cruelty. Express your character\'s unique voice, emotional range, worldview, moral boundaries and important relationships authentically. Fixed appearance is reference information, not a checklist to repeat in every response. Known Associates in this hall only: ${existingNames}. ${gachaResult.value.prompt}`;
                         const id = Date.now();
-                            cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到，正站在馆内观察周围', statusActivity: { posture: 'standing' }, isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], residentRelationships: {}, innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
+                            cats.value.push({ id: id, hallId: activeHallId.value, name: gachaResult.value.name, humanName: gachaResult.value.name, codename: gachaResult.value.codename || gachaResult.value.name, breed: gachaResult.value.breed, eyeColor: gachaResult.value.eyeColor, color: normalizeHexColor(gachaResult.value.color), personality: gachaResult.value.personality, status: '初来乍到，正站在馆内观察周围', statusActivity: { posture: 'standing' }, isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false, hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null, nextFormReconsiderAt: null, image: gachaResult.value.image || makeStableCatAvatar(gachaResult.value.name, gachaResult.value.color), image_human: '', prompt: systemPrompt, chatHistory: [], diary: [], logs: [], travelogues: [], todayInteractions: [], residentRelationships: {}, residentRelationshipPairMetadata: {}, innerVoice: gachaResult.value.quote || '...', lastFocusTime: 0, lastInteractionDate: null, lastLogDate: null, isMarvel: false, origin: gachaResult.value.origin || currentHall.value.name, sourceWork: gachaResult.value.sourceWork, sourceRole: gachaResult.value.sourceRole });
                         currentTab.value = 'lounge';
                     }
                     gachaResult.value = null;
@@ -27737,6 +28220,47 @@ ${statusOutputRules}`;
 
                 const filteredShopItems = computed(() => shopItems.value.filter(i => i.category === currentShopCategory.value));
                 const currentBagItems = computed(() => { if (currentBagTab.value === 'consumable') { return user.inventory.filter(i => i.type === 'consumable'); } else { return user.inventory.filter(i => i.type === 'collectible' || i.type === 'letter'); } });
+                const deriveInventoryDisplayGroups = window.Meeow.inventory.deriveInventoryDisplayGroups;
+                const getInventoryInstanceSelector = window.Meeow.inventory.getInventoryInstanceSelector;
+                const resolveInventoryInstance = window.Meeow.inventory.resolveInventoryInstance;
+                const getItemDisplayCategory = window.Meeow.inventory.getItemDisplayCategory;
+                const getItemDisplayAttributes = window.Meeow.inventory.getItemDisplayAttributes;
+                const getItemDisplaySummary = window.Meeow.inventory.getItemDisplaySummary;
+                const currentBagGroups = computed(() => deriveInventoryDisplayGroups(currentBagItems.value, shopItems.value));
+                const selectedBagGroup = computed(() => {
+                    const selection = selectedBagSelection.value;
+                    if (!selection) return null;
+                    if (selection.stackable) return currentBagGroups.value.find(group => group.stackable && group.stackKey === selection.stackKey) || null;
+                    const item = resolveInventoryInstance(user.inventory, selection.selector);
+                    if (!item || item !== selection.instance) return null;
+                    return currentBagGroups.value.find(group => group.instances.includes(item)) || null;
+                });
+                const selectedBagItem = computed(() => selectedBagGroup.value?.representativeItem || null);
+                const closeBagItemDetail = () => { selectedBagSelection.value = null; };
+                const openBagItemDetail = group => {
+                    if (!group?.representativeItem) return;
+                    const item = group.representativeItem;
+                    selectedBagSelection.value = group.stackable
+                        ? { stackable: true, stackKey: group.stackKey }
+                        : { stackable: false, selector: getInventoryInstanceSelector(item, user.inventory), instance: item };
+                };
+                watch(currentBagTab, closeBagItemDetail);
+                watch(showBag, visible => { if (!visible) closeBagItemDetail(); });
+                const useSelectedBagItem = async () => {
+                    const group = selectedBagGroup.value;
+                    if (!group || itemInteractionInFlight.value || group.representativeItem.type !== 'consumable') return;
+                    await useItem(group.instances[0]);
+                };
+                const discardSelectedBagItem = () => {
+                    const group = selectedBagGroup.value;
+                    if (!group || itemInteractionInFlight.value) return;
+                    const item = group.instances[0];
+                    const index = user.inventory.findIndex(entry => entry === item);
+                    if (index < 0 || !confirm(`确定要丢弃 1 个「${item.name || '未命名物品'}」吗？`)) return;
+                    user.inventory.splice(index, 1);
+                    if (group.quantity === 1) closeBagItemDetail();
+                    showToast('已丢弃 1 个物品', 'success');
+                };
 
                 const useItem = async (item) => {
                     if (item.type === 'collectible' || item.type === 'letter') {
@@ -27760,6 +28284,13 @@ ${statusOutputRules}`;
                     const itemForm = getResidentForm(targetCat);
                     const targetItem = item;
                     const itemKey = getInventoryItemKey(targetItem);
+                    const reactionDecision = resolveFoodReactionAuthority(targetItem, getBuiltinResidentSemanticProfile(targetCatId));
+                    if (!reactionDecision.valid) {
+                        showToast('物品语义分类无效，互动未开始。', 'error');
+                        return;
+                    }
+                    const semanticFoodReaction = reactionDecision.authority === 'program-semantic';
+                    const foodReactionCompatibility = semanticFoodReaction ? mapFoodReactionClass(reactionDecision.reactionClass) : null;
                     const episodicMemory = buildUserSharedEpisodicMemoryContext(targetCat, {
                         userInput: `馆长把${targetItem.name}交给你。${targetItem.desc || ''}`,
                         itemName: targetItem.name,
@@ -27771,15 +28302,17 @@ ${statusOutputRules}`;
                     itemInteractionInFlight.value = true;
                     thinkingStates[targetCatId] = true;
                     try {
+                        const foodReactionContract = semanticFoodReaction
+                            ? `[AUTHORITATIVE FOOD REACTION]\nPROGRAM has already determined this resident's reactionClass: ${reactionDecision.reactionClass.toUpperCase()}. Express that reaction in character. Do not reinterpret, reverse, or independently score whether the resident likes this food. Do not return liked; only write the four presentation fields below.\n`
+                            : '';
                         const prompt = `User gives [${targetItem.name}] to ${getResidentPublicName(targetCat)}. Use the supplied character identity and current physical state. Return JSON only:
-{
-  "liked": boolean,
-  "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
+${foodReactionContract}{
+${semanticFoodReaction ? '' : '  "liked": boolean,\n'}  "reaction": "A non-empty Simplified Chinese visible in-character reaction suitable for the chat card.",
   "status": "A non-empty Simplified Chinese third-person current activity suitable for the cat status.",
   "posture": "standing|sitting|lying|crouching; must match the physical posture in status.",
   "innerVoice": "A non-empty Simplified Chinese first-person inner thought suitable for the cat inner voice."
 }
-All five fields are mandatory. reaction, status, posture, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another. Furniture/location never determines posture.
+All ${semanticFoodReaction ? 'four' : 'five'} listed fields are mandatory. reaction, status, posture, and innerVoice describe the same item interaction from different perspectives; do not reuse one field for another. Furniture/location never determines posture.
 [FORM RULES]
 - CAT FORM: reaction is visible third-person behavior only. The character cannot speak human language aloud. Optional direct vocalization may only be feline sounds such as "喵。", "呜。", "呼噜。", or "嘶。". Human-language thoughts belong only in innerVoice and are never spoken aloud. Show personality/canon through action choice, distance, posture, and handling of the item.
 - HUMAN FORM: reaction may include normal in-character dialogue and action. Natural feline ears and tail remain real anatomy and may respond to touch or emotion when relevant. Preserve the character's canon voice.
@@ -27787,20 +28320,20 @@ ${buildResidentPublicNameContract([targetCat])}
 ${buildAuthoritativeUserIdentityContext()}
 ${buildFocusedResidentStateContext(targetCat)}
 ${episodicMemory}`;
-                        const response = await callAI(prompt, 'Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all five required fields. Honor the supplied Current Form rules.', 600, ThinkingLevel.LOW, {
+                        const response = await callAI(prompt, `Return exactly one valid JSON object and nothing else. No markdown. No commentary. Include all ${semanticFoodReaction ? 'four' : 'five'} required fields. Honor the supplied Current Form rules.`, 600, ThinkingLevel.LOW, {
                             label: `ITEM INTERACTION · ${targetCat.name}`,
                             priority: 'foreground',
                             maxAttempts: 2,
                             validateResponse: (content) => {
-                                const validation = validateItemInteractionResponse(parseAIJSON(content), itemForm, cleanText);
+                                const validation = validateItemInteractionResponse(parseAIJSON(content), itemForm, cleanText, { reactionAuthority: reactionDecision.authority });
                                 return validation.valid ? true : validation.error;
                             }
                         });
                         const data = parseAIJSON(response);
-                        const validation = validateItemInteractionResponse(data, itemForm, cleanText);
+                        const validation = validateItemInteractionResponse(data, itemForm, cleanText, { reactionAuthority: reactionDecision.authority });
                         const { reaction, status, posture, innerVoice } = validation.payload;
                         if (!validation.valid && validation.error !== 'CAT FORM 的 reaction 含有带引号的人类对白。') {
-                            throw new Error('物品互动回包缺少有效的 liked、reaction、status、posture 或 innerVoice 字段');
+                            throw new Error(`物品互动回包缺少有效的 ${semanticFoodReaction ? '' : 'liked、'}reaction、status、posture 或 innerVoice 字段`);
                         }
                         if (!validation.valid) {
                             throw new Error('CAT FORM 的 reaction 含有带引号的人类对白');
@@ -27809,19 +28342,22 @@ ${episodicMemory}`;
                         const inventoryIndex = findInventoryItemIndex(user.inventory, targetItem, itemKey);
                         if (inventoryIndex < 0) throw new Error('该物品已不在背包中，未写入互动结果');
 
-                        const affinityDelta = data.liked
-                            ? (Math.floor(Math.random() * 3) + 1)
-                            : -(Math.floor(Math.random() * 3) + 2);
-                        const itemDisposition = data.liked ? '喜欢' : '抗拒';
+                        const liked = semanticFoodReaction ? foodReactionCompatibility.liked : data.liked;
+                        const affinityDirection = semanticFoodReaction ? foodReactionCompatibility.affinityDirection : (liked ? 'positive' : 'negative');
+                        const affinityDelta = affinityDirection === 'none' ? 0 : affinityDirection === 'positive'
+                            ? (Math.floor(Math.random() * 3) + 1) : -(Math.floor(Math.random() * 3) + 2);
+                        const itemDisposition = semanticFoodReaction ? foodReactionCompatibility.itemDisposition : (liked ? '喜欢' : '抗拒');
 
                         setCatStatus(targetCat, status, { posture, innerVoice, source: 'item', forceLog: true });
-                        targetCat.affinity = Math.max(0, targetCat.affinity + affinityDelta);
+                        if (affinityDelta !== 0) targetCat.affinity = Math.max(0, targetCat.affinity + affinityDelta);
                         targetCat.chatHistory.push({
                             role: 'assistant',
                             type: 'item-interaction',
                             itemName: targetItem.name,
                             itemIcon: targetItem.icon,
                             itemDisposition,
+                            reactionAuthority: reactionDecision.authority,
+                            reactionClass: reactionDecision.reactionClass,
                             affinityDelta,
                             content: reaction,
                             time: getCurrentTimeStr(),
@@ -27831,7 +28367,9 @@ ${episodicMemory}`;
                             source: 'item-interaction',
                             itemId: targetItem.id,
                             itemName: targetItem.name,
-                            liked: data.liked,
+                            liked,
+                            reactionAuthority: reactionDecision.authority,
+                            reactionClass: reactionDecision.reactionClass,
                             affinityDelta
                         });
                         user.inventory.splice(inventoryIndex, 1);
@@ -27981,7 +28519,7 @@ ${episodicMemory}`;
                     fridgeNoteComposer, showArchivedFridgeNotes, visibleFridgeNotes, createFridgeNote, archiveFridgeNote, formatFridgeNoteTime, showFridgeNotesModal, openFridgeNotes, closeFridgeNotes,
                     hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, showMapPointLabels, activeMapPointLabels, toggleMapPointLabels, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
-                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveDestination, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
+                    showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveDestination, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, getRelationshipMetricRows, getRelationshipMetricPips, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,
                     showCatVisualEditor, showCatVisualCloseConfirm, catVisualDraft, catVisualTab, catVisualPreviewCanvas, portfolioCatVisualCanvas, catVisualPreviewLoading, catVisualPreviewError, portfolioCatVisualError, catVisualPreviewMeta, catVisualSaving, catVisualEditorResident, catVisualTabs, catVisualOptions, catVisualCoats, catVisualMarks, catVisualEyes, catVisualMuzzles, catVisualLegs, catVisualLabel, catVisualIsCustomColor, catVisualPreviewColor, catVisualPickerValue, setCatVisualColor, usesPortfolioCatVisual, openCatVisualEditor, openManagedCatVisualEditor, requestCatVisualEditorClose, discardCatVisualChanges, continueCatVisualEditing, saveCatVisualEditor,
                     showSpecialEventModal, currentSpecialEventContent, showEasterEggBtn, triggerEasterEgg, closeSpecialEvent,
                     availableModels, isFetchingModels, fetchModels,
@@ -28020,7 +28558,9 @@ ${episodicMemory}`;
                     getExploreCase, getExploreClue, getExploreDiscoveredClues, getExploreClueDisplayTitle, getExploreTranscriptCase, openExploreNotebook, openExploreTranscript, selectExploreLocation, selectExploreCompanion, generateExploreGoals, selectGoal, submitCustomGoal, startExploration, advanceExploration, closeExplore, pauseExploreCase, abandonExploreCase, resumeExploreCase, applyExploreSuggestedAction, leaveSolvedExploreCase, exploreChatRef,
                     totalStats, totalSkills, isCharValid, adjustStat, adjustSkill, finishCharCreation,
                     getDiceResultClass, getSkillValue, submitDiceRoll,
-                    showCalendarManager, deleteCalendarSource, currentBagTab, currentBagItems,
+                    showCalendarManager, deleteCalendarSource, currentBagTab, currentBagItems, currentBagGroups,
+                    selectedBagGroup, selectedBagItem, openBagItemDetail, closeBagItemDetail, useSelectedBagItem, discardSelectedBagItem,
+                    getItemDisplayCategory, getItemDisplayAttributes, getItemDisplaySummary,
                     systemLogs, logWindow, notification,
                     showAdminLogin, showAdminPanel, adminPassword, isAdmin, adminHallFilter, adminCats, saveAdminAffinity, openAdmin, checkAdminPassword,
                     phoneState, phoneIdentities, phoneChatInput, phoneChatRef, phoneArchiveRef, rememberPhoneChatScrollPosition, handlePhoneChatScroll, handlePhoneArchiveScroll, selectPhoneArchiveDate,

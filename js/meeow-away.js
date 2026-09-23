@@ -1,6 +1,7 @@
 (function (global) {
     const Meeow = global.Meeow = global.Meeow || {};
     const away = Meeow.away = Meeow.away || {};
+    const itemVisuals = Meeow.itemVisuals || (typeof require === 'function' ? require('./meeow-item-visuals.js') : null);
 
     let dependencies = null;
 
@@ -12,6 +13,44 @@
     const RECENT_RETURN_CONTINUITY_MS = 30 * 60 * 1000;
     const AWAY_EPISODE_MIN_DURATION_MINUTES = 30;
     const AWAY_EPISODE_MAX_DURATION_MINUTES = 720;
+    const AWAY_LETTER_CHANCE_PERCENT = 50;
+    const AWAY_SOUVENIR_CHANCE_PERCENT = 60;
+
+    const isPercentRoll = value => Number.isInteger(value) && value >= 1 && value <= 100;
+    const createMailDecision = rollPercent => {
+        const roll = rollPercent();
+        if (!isPercentRoll(roll)) throw new Error('Away letter roll must be an integer from 1 to 100');
+        if (roll > AWAY_LETTER_CHANCE_PERCENT) return { roll, shouldWrite: false };
+        const souvenirRoll = rollPercent();
+        if (!isPercentRoll(souvenirRoll)) throw new Error('Away souvenir roll must be an integer from 1 to 100');
+        return {
+            roll, shouldWrite: true,
+            souvenirDecision: { roll: souvenirRoll, shouldInclude: souvenirRoll <= AWAY_SOUVENIR_CHANCE_PERCENT }
+        };
+    };
+    // A missing souvenirDecision belongs to pre-V1 state. Normalization keeps
+    // it incomplete; only a pending operation at execution may finish the roll.
+    const normalizeMailDecision = raw => {
+        if (!raw || typeof raw !== 'object' || !isPercentRoll(Number(raw.roll)) || typeof raw.shouldWrite !== 'boolean') return null;
+        const decision = { roll: Number(raw.roll), shouldWrite: raw.shouldWrite };
+        if (raw.shouldWrite && raw.souvenirDecision !== undefined) {
+            const souvenir = raw.souvenirDecision;
+            if (!souvenir || !isPercentRoll(Number(souvenir.roll)) || typeof souvenir.shouldInclude !== 'boolean' ||
+                souvenir.shouldInclude !== (Number(souvenir.roll) <= AWAY_SOUVENIR_CHANCE_PERCENT)) return null;
+            decision.souvenirDecision = { roll: Number(souvenir.roll), shouldInclude: souvenir.shouldInclude };
+        }
+        return decision;
+    };
+    const completeMailDecisionAtExecution = (raw, rollPercent) => {
+        const decision = normalizeMailDecision(raw);
+        if (!decision || !decision.shouldWrite || decision.souvenirDecision) return decision;
+        const roll = rollPercent();
+        if (!isPercentRoll(roll)) throw new Error('Away souvenir roll must be an integer from 1 to 100');
+        return {
+            ...decision,
+            souvenirDecision: { roll, shouldInclude: roll <= AWAY_SOUVENIR_CHANCE_PERCENT }
+        };
+    };
 
     away.configure = (nextDependencies) => {
         dependencies = nextDependencies;
@@ -135,10 +174,7 @@
                 plannedArchiveNarrative: typeof episode.plannedArchiveNarrative === 'string' ? cleanText(episode.plannedArchiveNarrative) : '',
                 activityPlans,
                 mailPlan,
-                mailDecision: episode.mailDecision && typeof episode.mailDecision === 'object' &&
-                    Number.isInteger(Number(episode.mailDecision.roll)) && Number(episode.mailDecision.roll) >= 1 && Number(episode.mailDecision.roll) <= 100
-                    ? { roll: Number(episode.mailDecision.roll), shouldWrite: episode.mailDecision.shouldWrite === true }
-                    : null,
+                mailDecision: normalizeMailDecision(episode.mailDecision),
                 provenance,
                 ordinaryAwayOperationId: typeof episode.ordinaryAwayOperationId === 'string'
                     ? episode.ordinaryAwayOperationId.trim()
@@ -304,11 +340,15 @@
         if (attachment !== null && (typeof attachment !== 'object' || Array.isArray(attachment) || !cleanText(attachment.name || '') || !cleanText(attachment.icon || '') || !cleanText(attachment.desc || ''))) {
             return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'attachment requires name, icon, and desc' };
         }
+        const visualHint = attachment && itemVisuals?.validateAuthoredItemVisualHint(attachment);
+        if (attachment && !visualHint) {
+            return { mailPlan: [], mailResult: 'discarded-invalid', mailReason: 'new attachment requires a valid visualHint' };
+        }
         return {
             mailPlan: [{
                 sendAfterMinutes,
                 content,
-                attachment: attachment ? { name: cleanText(attachment.name), icon: cleanText(attachment.icon), desc: cleanText(attachment.desc) } : null
+                attachment: attachment ? { name: cleanText(attachment.name), icon: cleanText(attachment.icon), desc: cleanText(attachment.desc), visualHint } : null
             }],
             mailResult: 'accepted',
             mailReason: ''
@@ -419,9 +459,7 @@
                 state: 'planned',
                 deliveredAt: null
             })),
-            mailDecision: mailDecision && Number.isInteger(Number(mailDecision.roll))
-                ? { roll: Number(mailDecision.roll), shouldWrite: mailDecision.shouldWrite === true }
-                : null,
+            mailDecision: normalizeMailDecision(mailDecision),
             provenance: normalizedProvenance,
             ordinaryAwayOperationId,
             status: 'active',
@@ -517,6 +555,10 @@
     };
 
     Object.assign(away, {
+        AWAY_SOUVENIR_CHANCE_PERCENT,
+        createMailDecision,
+        normalizeMailDecision,
+        completeMailDecisionAtExecution,
         normalizeEpisodes,
         getActiveEpisode,
         getRecentReturn,

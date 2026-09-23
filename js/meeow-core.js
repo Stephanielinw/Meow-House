@@ -2,7 +2,7 @@
     const Meeow = global.Meeow = global.Meeow || {};
     const core = Meeow.core = Meeow.core || {};
 
-    core.parseAIJSON = (text) => {
+    core.parseAIJSON = (text, options = {}) => {
         try {
             if (!text) return null;
             let cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -66,7 +66,7 @@
                 throw finalError;
             }
         } catch (e) {
-            console.error("JSON Parse Error:", e, text);
+            if (options.logErrors !== false) console.error("JSON Parse Error:", e, text);
             return null;
         }
     };

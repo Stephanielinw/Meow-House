@@ -94,7 +94,7 @@ assert.equal(JSON.stringify(runtimeCat), rejectedBefore, 'failed transition must
 // Execute the real Status Sync hard validator.
 const validatorStart = indexSource.indexOf('                const validateStatusSyncUpdates =');
 const validatorEnd = indexSource.indexOf('                const validateLocalPresenceDirectives =', validatorStart);
-const validatorSandbox = { statusPosture: posture };
+const validatorSandbox = { statusPosture: posture, cleanText: value => String(value || '').trim(), isControlPlaneStatusText: value => /状态同步/.test(String(value || '')) };
 vm.runInNewContext(`${indexSource.slice(validatorStart, validatorEnd)}\nglobalThis.validateStatusSyncUpdates = validateStatusSyncUpdates;`, validatorSandbox, { filename: 'index.html:status-validator' });
 const validUpdate = { id: 'r1', status: '看着窗外', posture: 'sitting', innerVoice: '...', isOut: false };
 assert.equal(validatorSandbox.validateStatusSyncUpdates([validUpdate], ['r1']), true);
@@ -131,7 +131,8 @@ const findCalls = (source, token) => {
     return calls;
 };
 const statusCalls = findCalls(indexSource, 'setCatStatus(');
-assert.equal(statusCalls.length, 14);
+assert.equal(statusCalls.length, 13, 'Focus failure and Focus-local light interaction do not write resident status');
+assert.doesNotMatch(indexSource, /source: 'focus-fallback'/);
 for (const call of statusCalls) assert.match(call, /\bposture\b\s*(?::|[,}])/, `missing posture in ${call.slice(0, 120)}`);
 assert.deepEqual(indexSource.match(/cat\.status\s*=/g), ['cat.status ='], 'only daily snapshot restoration may directly restore status');
 for (const producerMarker of [
