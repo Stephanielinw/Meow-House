@@ -1,0 +1,56 @@
+DYNAMIC ITEM COVERAGE AFTER FIRST-PARTY BASE LIBRARY
+Evidence verified against the current 47 fixed Explore locations and 101 comma-separated loot phrases. The prior conservative normalization remains current: 31 normalized object concepts. Away/mail shell and trinket fixtures reinforce concepts already in this set.
+
+Resolver candidates before this pass: 57 (all active first-party entries had been eligible by default).
+Resolver candidates after this pass: 41 (24 basefood + 17 baseitem).
+Canonical House Food excluded from generic resolver after this pass: 16/16.
+Observed concepts gaining generic first-party coverage: 16/31.
+
+concept | observations | status | current deterministic result | representative evidence | note
+bag | 1 | COVERED GENERICALLY | baseitem:wallet (score 19) | 生存物资 | Wallet is a useful bag/container proxy for the observed supply-bag concept.
+bone | 1 | LEGACY FALLBACK | — (score —) | 外星残留物 | No eligible generic sprite reaches the object-match threshold.
+book | 1 | LEGACY FALLBACK | — (score —) | 会自己翻页的配方册 | No eligible generic sprite reaches the object-match threshold.
+bottle | 3 | LEGACY FALLBACK | — (score —) | 药剂、漂流瓶、药瓶 | No eligible generic sprite reaches the object-match threshold.
+branch | 2 | COVERED WELL | baseitem:branch (score 19) | 橄榄枝、月桂枝 | Exact closed object tag and a suitable generic first-party archetype.
+cloth | 1 | LEGACY FALLBACK | — (score —) | 战场旗帜 | No eligible generic sprite reaches the object-match threshold.
+coin | 5 | COVERED WELL | baseitem:coin (score 19) | 金币、铜币、硬币 | Exact closed object tag and a suitable generic first-party archetype.
+crystal | 5 | COVERED WELL | baseitem:crystal (score 19) | 能量核心、量子/盐晶 | Exact closed object tag and a suitable generic first-party archetype.
+cup | 1 | LEGACY FALLBACK | — (score —) | 宴会金杯 | No eligible generic sprite reaches the object-match threshold.
+dessert | 1 | COVERED WELL | basefood:dessert-cake (score 19) | 奢华零食 | Exact closed object tag and a suitable generic first-party archetype.
+drink | 1 | COVERED WELL | basefood:generic-drink (score 19) | 月桂花蜜 | Exact closed object tag and a suitable generic first-party archetype.
+feather | 2 | COVERED WELL | baseitem:feather (score 19) | 孔雀羽、银色羽毛 | Exact closed object tag and a suitable generic first-party archetype.
+flower | 1 | COVERED WELL | baseitem:flower (score 19) | 迷幻花粉 | Exact closed object tag and a suitable generic first-party archetype.
+fruit | 1 | COVERED WELL | basefood:fruit-ingredient (score 19) | 神宴果实 | Exact closed object tag and a suitable generic first-party archetype.
+gem | 1 | LEGACY FALLBACK | — (score —) | 深海珍珠 | No eligible generic sprite reaches the object-match threshold.
+grain | 1 | COVERED WELL | basefood:grain-ingredient (score 19) | 金麦穗 | Exact closed object tag and a suitable generic first-party archetype.
+herb | 3 | COVERED WELL | baseitem:herb (score 19) | 猫薄荷、草药 | Exact closed object tag and a suitable generic first-party archetype.
+key | 2 | LEGACY FALLBACK | — (score —) | 权限卡、夜色钥匙 | No eligible generic sprite reaches the object-match threshold.
+leaf | 3 | COVERED WELL | baseitem:leaf (score 19) | 桂冠、日桂叶、葡萄藤冠 | Exact closed object tag and a suitable generic first-party archetype.
+letter | 2 | LEGACY FALLBACK | — (score —) | 报恩信、封蜡信 | No eligible generic sprite reaches the object-match threshold.
+paper | 8 | LEGACY FALLBACK | — (score —) | 卷宗、地图、清单、蜡片 | No eligible generic sprite reaches the object-match threshold.
+ring | 1 | COVERED WELL | baseitem:ring (score 19) | 青铜胸针 | Exact closed object tag and a suitable generic first-party archetype.
+rope | 2 | LEGACY FALLBACK | — (score —) | 旧绳结、琴弦 | No eligible generic sprite reaches the object-match threshold.
+scroll | 1 | LEGACY FALLBACK | — (score —) | 羊皮卷 | No eligible generic sprite reaches the object-match threshold.
+seed | 1 | LEGACY FALLBACK | — (score —) | 灰花种子 | No eligible generic sprite reaches the object-match threshold.
+shell | 1 | COVERED WELL | baseitem:shell (score 19) | 永不褪色的贝壳 | Exact closed object tag and a suitable generic first-party archetype.
+stick | 1 | LEGACY FALLBACK | — (score —) | 巨人牧杖 | No eligible generic sprite reaches the object-match threshold.
+stone | 5 | COVERED WELL | baseitem:stone (score 19) | 碎屑、玻璃、河石、忘川石 | Exact closed object tag and a suitable generic first-party archetype.
+tool | 16 | LEGACY FALLBACK | — (score —) | 武器、装备、仪器、零件 | No eligible generic sprite reaches the object-match threshold.
+toy | 3 | LEGACY FALLBACK | — (score —) | 恶作剧玩具、快船模型 | No eligible generic sprite reaches the object-match threshold.
+trinket | 24 | COVERED GENERICALLY / TAXONOMY-LIMITED | baseitem:bank-card (score 15) | 信物、护符、徽章、遗物 | Broad trinket hint resolves to a specific bank-card silhouette; deterministic but not a neutral travel-trinket archetype.
+
+TOTALS
+Covered well: 14
+Covered generically: 2 (includes 1 taxonomy-limited broad match)
+Legacy fallback: 15
+No valid match with an existing but misleading candidate: 0
+
+REMAINING MAJOR GAPS
+1. tool/equipment archetype — 16 observations; highest uncovered frequency.
+2. paper/document family — paper 8, letter 2, book 1, scroll 1.
+3. bottles/containers — bottle 3 and cup 1.
+4. toys, keys, and rope — toy 3, key 2, rope 2.
+5. Lower-frequency natural/craft gaps — bone, gem, seed, stick, cloth.
+6. Neutral broad travel trinket — current broad trinket mapping is taxonomy-limited and visually specific.
+
+The explicit canonical House Food mappings remain available; this report evaluates generic resolver coverage only.

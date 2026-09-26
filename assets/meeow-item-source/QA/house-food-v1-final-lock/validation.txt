@@ -1,0 +1,192 @@
+HOUSE FOOD SPRITES V1 — FINAL LOCK VALIDATION
+
+STATUS
+- HOUSE FOOD SPRITE PACK V1 = LOCKED / PRODUCTION
+- BUILT-IN FOOD VISUAL MAPPING V1 = LOCKED / PRODUCTION
+- normal production path = builtin-sprite via Meeow.itemVisuals shared renderer
+- auto resolver used for built-in mappings = NO
+- normal legacy-icon selections = 0/16
+
+ART AUTHORITY / SOURCE / RUNTIME
+01. housefood:salmon-steak
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/salmon-steak.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/salmon-steak.png
+    runtime: assets/item-sprites/library/house-style-food-v1/salmon-steak.png
+    SHA-256: f3cf9bb36045b0bfa573d55217dee97d1071f6becf08bec47f73e00f1124f94f
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 14, 3, 4)
+02. housefood:pumpkin-chicken-stew
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/pumpkin-chicken-stew.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/pumpkin-chicken-stew.png
+    runtime: assets/item-sprites/library/house-style-food-v1/pumpkin-chicken-stew.png
+    SHA-256: 4d21e656cb61eef2e1d1a1e11e9cb3227ff91ab1559a5e02aad87c5b527e37f6
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 11, 2, 4)
+03. housefood:tuna-egg-custard
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/tuna-egg-custard.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/tuna-egg-custard.png
+    runtime: assets/item-sprites/library/house-style-food-v1/tuna-egg-custard.png
+    SHA-256: bc71c07f38d2c8041220fdfa0b7a07a1aa98b57a9d732f84254e4f0b78adda0e
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (4, 14, 7, 3)
+04. housefood:chicken-oat-risotto
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/chicken-oat-risotto.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/chicken-oat-risotto.png
+    runtime: assets/item-sprites/library/house-style-food-v1/chicken-oat-risotto.png
+    SHA-256: f5a070b96ecfaa2113b81d93dad5e95f786df76c3678d9e4061652bb653a3915
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 12, 5, 4)
+05. housefood:roasted-vegetable-platter
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/roasted-vegetable-platter.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/roasted-vegetable-platter.png
+    runtime: assets/item-sprites/library/house-style-food-v1/roasted-vegetable-platter.png
+    SHA-256: 9f07daee48ec26b089604ac8acb7dbd19893553cf9b2e4f45c05e237f0fd6a80
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 7, 2, 10)
+06. housefood:sour-fish-vegetable-salad
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/sour-fish-vegetable-salad.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/sour-fish-vegetable-salad.png
+    runtime: assets/item-sprites/library/house-style-food-v1/sour-fish-vegetable-salad.png
+    SHA-256: 4b7711167e51f5dedd0a0142defb069b41ea160c26e37af98d394313144ff975
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (3, 8, 2, 9)
+07. housefood:seaweed-fish-crisps
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/seaweed-fish-crisps.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/seaweed-fish-crisps.png
+    runtime: assets/item-sprites/library/house-style-food-v1/seaweed-fish-crisps.png
+    SHA-256: 807f012a1fae8c878febc578b4572cb166dc67ade0695ad15487dc8a7ff37915
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 5, 2, 8)
+08. housefood:charred-chicken-strips
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/charred-chicken-strips.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/charred-chicken-strips.png
+    runtime: assets/item-sprites/library/house-style-food-v1/charred-chicken-strips.png
+    SHA-256: cec093f9b564dc3e443e796b85926e6a22b911517d6f27b57e6d425466d0003e
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 9, 2, 9)
+09. housefood:cheese-grain-crackers
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/cheese-grain-crackers.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/cheese-grain-crackers.png
+    runtime: assets/item-sprites/library/house-style-food-v1/cheese-grain-crackers.png
+    SHA-256: 0f2660ec7965d1966bf15f1859678c565d91d472e0db4d0b27d9e635731612be
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 2, 2, 14)
+10. housefood:spicy-veggie-chips
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/spicy-veggie-chips.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/spicy-veggie-chips.png
+    runtime: assets/item-sprites/library/house-style-food-v1/spicy-veggie-chips.png
+    SHA-256: 2c47e44eee974a04b564c42d0f9c30fde5bc94105084ed67d9b303d19450fe39
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (3, 2, 3, 14)
+11. housefood:strawberry-panna-cotta
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/strawberry-panna-cotta.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/strawberry-panna-cotta.png
+    runtime: assets/item-sprites/library/house-style-food-v1/strawberry-panna-cotta.png
+    SHA-256: f83947429c8d450dee3a281759f4be21dbb8fe35feb6fd7950472ab97da2ad06
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 2, 3, 10)
+12. housefood:pumpkin-pudding
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/pumpkin-pudding.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/pumpkin-pudding.png
+    runtime: assets/item-sprites/library/house-style-food-v1/pumpkin-pudding.png
+    SHA-256: 8bac1ef838cbea666110536e629cba0fdca0178003e759601041cd50b31b0986
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (2, 2, 2, 15)
+13. housefood:berry-yogurt-cup
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/berry-yogurt-cup.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/berry-yogurt-cup.png
+    runtime: assets/item-sprites/library/house-style-food-v1/berry-yogurt-cup.png
+    SHA-256: dce511e0eaa5c52761d9d1a142207feaf6981c58fdfe2fd1683af29bc6a62ad8
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (6, 4, 7, 2)
+14. housefood:warm-milk
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/warm-milk.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/warm-milk.png
+    runtime: assets/item-sprites/library/house-style-food-v1/warm-milk.png
+    SHA-256: 3bbe57d35e98891402315f16667c519d909bcffe4da68a028447af3e44d4a1b4
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (4, 2, 4, 2)
+15. housefood:fruit-pulp-drink
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/fruit-pulp-drink.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/fruit-pulp-drink.png
+    runtime: assets/item-sprites/library/house-style-food-v1/fruit-pulp-drink.png
+    SHA-256: 72cd466fc30387afa0a36a2a65931d29b6e3a2a45f9cd9b517f2714873d67fd7
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (11, 2, 12, 2)
+16. housefood:apple-oat-milk
+    approved QA: assets/meeow-item-source/QA/house-food-framing-repair/candidates/apple-oat-milk.png
+    canonical source: assets/meeow-item-source/house-style-food-v1/apple-oat-milk.png
+    runtime: assets/item-sprites/library/house-style-food-v1/apple-oat-milk.png
+    SHA-256: c6301f47fa2d0fb268df13659e2296f75205b6be58680a7c60e2c1a38bba5502
+    QA = source = runtime: PASS
+    dimensions: 64x64; transparent background: PASS; edge clipping: NO; margins L/T/R/B: (7, 4, 8, 3)
+
+REGISTRY / MAPPING
+- registry entries = 16/16
+- duplicate housefood sprite IDs = 0
+- missing sprite files = 0
+- first-party / house-art provenance = 16/16
+- native dimensions metadata = 64x64 for 16/16
+- explicit built-in mappings = 16/16
+- production mode = builtin-sprite for 16/16
+- builtin-food:grilled-fish-plate -> housefood:salmon-steak
+- builtin-food:rich-meat-broth -> housefood:pumpkin-chicken-stew
+- builtin-food:steamed-egg-custard -> housefood:tuna-egg-custard
+- builtin-food:steamed-egg-meat-roll -> housefood:chicken-oat-risotto
+- builtin-food:bitter-vegetable-puree -> housefood:roasted-vegetable-platter
+- builtin-food:cool-fish-vegetable-plate -> housefood:sour-fish-vegetable-salad
+- builtin-food:chilled-fish-jelly -> housefood:seaweed-fish-crisps
+- builtin-food:spiced-meat-jerky -> housefood:charred-chicken-strips
+- builtin-food:salted-grain-crisps -> housefood:cheese-grain-crackers
+- builtin-food:spiced-crisp-vegetables -> housefood:spicy-veggie-chips
+- builtin-food:sweet-sour-fruit-cup -> housefood:strawberry-panna-cotta
+- builtin-food:dairy-grain-pudding -> housefood:pumpkin-pudding
+- builtin-food:chilled-fermented-cheese -> housefood:berry-yogurt-cup
+- builtin-food:lactose-free-warm-milk -> housefood:warm-milk
+- builtin-food:fruit-pulp-drink -> housefood:fruit-pulp-drink
+- builtin-food:warm-grain-porridge -> housefood:apple-oat-milk
+
+RENDER / UI
+- built-in-food-production-final.png: 16 cards, 16 decoded runtime PNGs, 0 image-load failures
+- ui-smoke-review.png: Shop rows 3, Backpack rows 3, Backpack detail 1, shared size previews 3
+- Shop render failures = 0
+- Backpack render failures = 0
+- renderer failures = 0
+- legacy icon selected during successful built-in render = 0/16
+
+SAVE / GAMEPLAY SAFETY
+- stable builtin-food IDs unchanged = PASS
+- exact stable-ID catalog reconciliation refreshes only canonical visual plus established canonical Food fields = PASS
+- exact stable-ID owned-copy reconciliation preserves uniqueId, acquisition fields, price, ownership/provenance, visualHint and unrelated metadata = PASS
+- ambiguous Phone/name-based migration = NONE
+- unrelated frozen item.visual changes = 0
+- Food semantic tags changed by this promotion = NO
+- price/effects changed by this promotion = NO
+- resident preferences changed = NO
+- relationship consequence logic changed = NO
+- inventory stacking behavior = PASS
+
+FIXTURES
+- node --check js/meeow-item-visuals.js = PASS
+- item-sprite-library.fixture.mjs = PASS
+- item-visual-schema-v1.fixture.mjs = PASS
+- item-sprite-renderer-ui.fixture.mjs = PASS
+- builtin-food-catalog-redesign-v1.fixture.mjs (catalog + save migration + stacking) = PASS
+- backpack-redesign-v1.fixture.mjs = PASS
+- food-semantic-catalog.fixture.mjs = PASS
+- food-semantic-integration.fixture.mjs = PASS
+- resident-food-preference-pilot.fixture.mjs = PASS
+- ai-item-visual-hints.fixture.mjs = PASS
+- away-souvenir-authority.fixture.mjs = PASS
+- git diff --check = PASS
+- static callAI( count in index.html + js = 40
+
+COUNTS
+- dimensions failures = 0
+- clipping failures = 0
+- registry failures = 0
+- renderer failures = 0
+- save/migration failures = 0
+- source/runtime/art-authority hash failures = 0
+- unrelated frozen visual changes = 0
+- blockers = NONE

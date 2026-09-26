@@ -1,0 +1,15 @@
+TOY / COLLECTIBLE SEMANTICS V1 — PROGRAM AUTHORITY
+
+Storage: { semanticType: "toy" | "collectible", tags: ["role:...", "interaction:...", "stimulus:..."] }.
+This extends the existing Food semanticType/tags item shape. Food remains unchanged.
+Classified objects require exactly one role and one primary interaction, plus zero to two stimuli. Tags are stored in canonical namespace/value order. Invalid proposals produce no classification; there is no partial unknown-tag persistence.
+
+role: play, comfort, keepsake, display
+interaction: chase, bat, carry, cuddle, sniff, observe
+stimulus: rolling, swinging, fluttering, glowing, scented
+
+PROGRAM validator: Meeow.semantics.normalizeSemanticTags / normalizeObjectSemanticProposal.
+Read helpers: getItemObjectSemantics(item), getPrimaryItemInteraction(item), isSemanticallyUsableItem(item).
+The last helper means a classified object has an approved interaction, not that any event should occur.
+
+Semantics do not own category/type, giftability, visual identity, sourceCatalogId, uniqueId, current ownership, originOwner, giftHistory, bond, affinity, or event probability.

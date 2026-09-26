@@ -1,0 +1,23 @@
+FUTURE SEMANTIC AUTHORITY CONTRACT — DESIGN ONLY
+This file is documentation, not a runtime registry or accepted implementation.
+
+CURRENT AUTHORITY
+- js/meeow-semantics.js contains a closed Food semantic registry only. Shop toy authoring currently persists category/type, approved price/effect and visual, without Toy semantic tags.
+- js/meeow-item-visuals.js owns the distinct closed visualHint appearance vocabulary, sprite registry and resolver. It cannot authorize play behavior, collectible role, ownership, or gifting.
+- js/meeow-resident-items.js owns current gift eligibility, exact-instance transfer, resident container, and provenance. No semantic proposal may override these authorities.
+
+PROPOSED FUTURE INPUT / VALIDATION
+1. A future USER-authored toy appraisal may propose only closed semanticType=toy tags from the proposed role/interaction/stimulus vocabulary. It should reuse the then-existing appraisal request if safe; this audit adds no prompt or AI call.
+2. PROGRAM validates exact namespace and value strings, cardinality, category-specific allowed subsets, duplicate tags, and role/action coherence. Reject unknown/malformed tags and arbitrary extra response fields. Missing/ambiguous semantic classification does not invalidate an otherwise accepted product.
+3. PROGRAM, not AI, owns semantic registry versions, normalization, catalog persistence, purchase copy/freeze, reload/export/import behavior, and deterministic definitions for fixed/dynamic items where their concrete identity is known.
+4. Dynamic Mail/Away/Explore items should use PROGRAM-owned definitions when available. If a generated concrete item later needs classification, AI can only propose a closed tag set at an explicitly designed acceptance boundary; do not infer behavior from visualHint, sprite ID, name alone, or source prose. No new generated-item call is proposed here.
+5. Keep Food tags, visualHint, Toy/Collectible tags, provenance, physical uniqueId, sourceCatalogId, and bond state independent. Existing items must not be silently reclassified at reload.
+
+AI MUST NOT DECIDE
+- ownership or originOwner; currentOwner container; transfer/giftability; giftHistory; exact physical instance; bond/familiarity/cherished score; resident preference; item-use occurrence; status event timing; CAT↔CAT special event or donor/recipient; resolver sprite ID/path; catalog/physical identity.
+
+PROGRAM MUST DECIDE
+- whether the canonical category/type is eligible for resident gifting (literal letter excluded); whether the item has a valid semantic classification; whether a real owned item can be selected for a future usage status; whether a rare transfer gate is satisfied; exact transactional ownership moves and append-only history.
+
+NO CHANGE THIS PASS
+- No semantic registry, validator, prompt, AI call, item data, resident ownership/provenance, visualHint taxonomy, resolver, sprite file or Shop/Phone/Away/Explore runtime file was modified. Static production literal callAI( in index.html remains 40 at validation.

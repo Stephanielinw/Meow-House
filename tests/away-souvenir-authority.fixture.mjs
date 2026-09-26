@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { webcrypto } from 'node:crypto';
 
 const cleanText = value => String(value ?? '').replace(/\s+/g, ' ').trim();
 const parseLogicalDate = value => {
@@ -8,8 +9,10 @@ const parseLogicalDate = value => {
     return Number.isNaN(date.getTime()) ? null : date;
 };
 const getOperationalDayKey = value => parseLogicalDate(value).toISOString().slice(0, 10);
-const awayContext = vm.createContext({ window: {}, Date, Math, console });
+const awayContext = vm.createContext({ window: { crypto: webcrypto }, Date, Math, console });
 vm.runInContext(readFileSync(new URL('../js/meeow-item-visuals.js', import.meta.url), 'utf8'), awayContext);
+vm.runInContext(readFileSync(new URL('../js/meeow-shop-catalog.js', import.meta.url), 'utf8'), awayContext);
+vm.runInContext(readFileSync(new URL('../js/meeow-resident-items.js', import.meta.url), 'utf8'), awayContext);
 vm.runInContext(readFileSync(new URL('../js/meeow-away.js', import.meta.url), 'utf8'), awayContext);
 const away = awayContext.window.Meeow.away;
 away.configure({
@@ -290,22 +293,25 @@ assert.equal(away.completeMailDecisionAtExecution(frozen, () => { throw new Erro
 
 const departedAt = new Date('2026-08-31T08:00:00.000Z');
 const episode = away.createEpisode(cat, accepted.plan, departedAt, frozen);
-assert.deepEqual(JSON.parse(JSON.stringify(episode.mailPlan[0].attachment)), attachment);
+const frozenAttachment = JSON.parse(JSON.stringify(episode.mailPlan[0].attachment));
+assert.deepEqual({ name: frozenAttachment.name, icon: frozenAttachment.icon, desc: frozenAttachment.desc, visualHint: frozenAttachment.visualHint }, attachment);
+assert.equal(frozenAttachment.visual.mode, 'auto-sprite');
+assert.equal(frozenAttachment.visual.spriteId, 'baseitem:bank-card');
 assert.equal(episode.mailDecision.souvenirDecision.shouldInclude, true);
 const reloadedEpisode = away.normalizeEpisodes(JSON.parse(JSON.stringify([episode])))[0];
-assert.deepEqual(JSON.parse(JSON.stringify(reloadedEpisode.mailPlan[0].attachment)), attachment);
+assert.deepEqual(JSON.parse(JSON.stringify(reloadedEpisode.mailPlan[0].attachment)), frozenAttachment);
 assert.equal(reloadedEpisode.mailDecision.souvenirDecision.shouldInclude, true);
 
 const deliverySlice = extract('                const recordDeliveredMail =', '                const generateMail =');
 const user = { mailbox: [], inventory: [], dailyMailCount: 0, lastMailDate: '', lastMailAt: 0, lastMailSenderId: null };
 const delivery = new Function('ctx', `
-    const { user, cats, halls, parseLogicalDate, getOperationalDayKey, cleanText, getCatHallId,
+    const { user, cats, halls, window, parseLogicalDate, getOperationalDayKey, cleanText, getCatHallId,
         showNotification, addLog, hasPhysicalAwayMailDeliveryCapacity, getNextOperationalDayStart,
         getDeliveredPhysicalAwayMailCountForOperationalDay, isLifeThreadAwayEpisode, getResidentPublicName } = ctx;
     ${deliverySlice}
     return { deliverPlannedAwayMail };
 `)({
-    user, cats: { value: [cat] }, halls: { value: [hall] }, parseLogicalDate, getOperationalDayKey,
+    user, cats: { value: [cat] }, halls: { value: [hall] }, window: awayContext.window, parseLogicalDate, getOperationalDayKey,
     cleanText, getCatHallId: resident => resident.hallId, showNotification: () => {}, addLog: () => {},
     hasPhysicalAwayMailDeliveryCapacity: () => true, getNextOperationalDayStart: value => value,
     getDeliveredPhysicalAwayMailCountForOperationalDay: () => user.mailbox.length,
@@ -320,19 +326,33 @@ const reconciled = away.reconcileEpisodes({
 assert.equal(user.mailbox.length, 1);
 assert.equal(user.mailbox[0].plannedMailId, reloadedEpisode.mailPlan[0].id);
 assert.equal(user.mailbox[0].item.type, 'collectible');
+assert.deepEqual(JSON.parse(JSON.stringify(user.mailbox[0].item.provenance.originOwner)),
+    { kind: 'resident', residentId: String(cat.id) });
 assert.deepEqual({ name: user.mailbox[0].item.name, icon: user.mailbox[0].item.icon, desc: user.mailbox[0].item.desc, visualHint: user.mailbox[0].item.visualHint }, attachment);
+assert.deepEqual(user.mailbox[0].item.visual, frozenAttachment.visual);
+const visualDescriptor = awayContext.window.Meeow.itemVisuals.getItemVisualDescriptor;
+assert.deepEqual(JSON.parse(JSON.stringify(visualDescriptor(user.mailbox[0].item))), {
+    kind: 'sprite', spriteId: 'baseitem:bank-card',
+    file: 'assets/item-sprites/library/house-base-library-v1/bank-card.png',
+    nativeWidth: 64, nativeHeight: 64, sheetRect: null
+});
 assert.equal(delivery.deliverPlannedAwayMail(reconciled.episodes[0], reconciled.episodes[0].mailPlan[0], new Date(reconciled.episodes[0].mailPlan[0].sendAt), deliveredAt), false);
 assert.equal(user.mailbox.length, 1);
 assert.match(source, /v-if="mail\.item"[\s\S]*?v-if="!mail\.claimed"/);
 assert.equal(Boolean(user.mailbox[0].item), true);
 
 const claimSlice = extract('                const claimMailItem =', '                const addTodo =');
-const claim = new Function('user', 'showToast', `${claimSlice}\nreturn claimMailItem;`)(user, () => {});
+const claim = new Function('user', 'showToast', 'window', 'persistNow', `${claimSlice}\nreturn claimMailItem;`)(
+    user, () => {}, awayContext.window, () => true);
 claim(user.mailbox[0]);
 claim(user.mailbox[0]);
 assert.equal(user.inventory.length, 1);
 assert.equal(user.inventory[0].type, 'collectible');
+assert.deepEqual(JSON.parse(JSON.stringify(user.inventory[0].provenance.originOwner)),
+    { kind: 'resident', residentId: String(cat.id) });
 assert.deepEqual(user.inventory[0].visualHint, attachment.visualHint);
+assert.deepEqual(user.inventory[0].visual, frozenAttachment.visual);
+assert.equal(visualDescriptor(user.inventory[0]).spriteId, visualDescriptor(user.mailbox[0].item).spriteId);
 assert.equal(user.mailbox[0].claimed, true);
 const savedUser = JSON.parse(JSON.stringify(user));
 assert.equal(savedUser.mailbox[0].claimed, true);
@@ -351,7 +371,8 @@ assert.equal(delivery.deliverPlannedAwayMail(normalizedOld[0], normalizedOld[0].
 assert.equal(user.mailbox[0].item.name, attachment.name);
 const oldUser = JSON.parse(JSON.stringify({ mailbox: [{ item: { ...legacyAttachment, type: 'collectible' }, claimed: false }], inventory: [] }));
 assert.equal(Boolean(oldUser.mailbox[0].item), true);
-const oldClaim = new Function('user', 'showToast', `${claimSlice}\nreturn claimMailItem;`)(oldUser, () => {});
+const oldClaim = new Function('user', 'showToast', 'window', 'persistNow', `${claimSlice}\nreturn claimMailItem;`)(
+    oldUser, () => {}, awayContext.window, () => true);
 oldClaim(oldUser.mailbox[0]);
 assert.equal(oldUser.inventory.length, 1);
 assert.equal(oldUser.mailbox[0].claimed, true);

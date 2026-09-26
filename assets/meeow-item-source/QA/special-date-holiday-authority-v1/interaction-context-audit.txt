@@ -1,0 +1,38 @@
+SPECIAL DATE V1 — CURRENT USER ↔ RESIDENT AI PATHS
+
+A. Receives the current PROGRAM-owned holiday block (only when active)
+- index.html sendMessageInternal: selected resident's Hall/home direct reply.
+- index.html buildPhoneReplyGenerationTask / runPhoneReplyOpportunity: Phone
+  Direct Reply, both standalone and the separately bounded piggyback sidecar.
+- index.html sendGroupMessage: USER-initiated Hall group conversation.
+- index.html _refreshAllStatus / buildStatusSyncPromptPacket: current Hall and
+  Curator Room status; also the user-directed submitSharedScene path.
+- index.html useItem: USER item interaction with a resident.
+- index.html focusTickBehavior, Focus settlement report, harassCat:
+  USER-present Focus interactions and reports.
+- index.html truthController.request: Phone Truth or Dare session presentation.
+- index.html addComment: resident reply to a USER Phone Moments comment.
+- index.html generateMail and sendFriendRequest: current resident-to-USER
+  correspondence and contact requests.
+- index.html triggerEasterEgg, triggerHumanFormEvent, catchInTheAct:
+  current user-facing resident special moments.
+
+B. No new current-holiday interaction block
+- index.html scanSignal: resident↔resident exchange, not USER conversation.
+- index.html hackCamera / generateFullDiary: retrospective observation/logs.
+- index.html drawTarot: neutral service, not a resident conversation.
+- index.html Shop appraisal, gacha, Explore/scenario generation, house news:
+  unrelated generation authorities.
+- index.html historical daily archive: evaluates the recorded date through the
+  shared holiday evaluator; it never borrows today's live interaction context.
+- js/meeow-memory.js broad character memory: existing date/continuity remains,
+  but it does not scatter holiday blocks into unrelated calls. Selected live
+  prompts above receive an explicit block instead.
+
+C. No AI generation at the holiday presentation boundary
+- Hall holiday banner rendering, navigation, guardian-message updates,
+  local-midnight timer, visibility/focus refresh, and Special Date helpers.
+
+All included prompts use the same Meeow.specialDates state. AI receives
+dateKey and ordered id/name/greeting only, with optional-reference guidance.
+AI text cannot change holiday identity, date, rule activation, or the banner.

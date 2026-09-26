@@ -1,0 +1,9 @@
+FUTURE READ API — DATA SUBSTRATE ONLY
+
+Meeow.semantics.getItemObjectSemantics(item): canonical validated {semanticType, tags} or null.
+Meeow.semantics.getPrimaryItemInteraction(item): approved interaction string or null.
+Meeow.semantics.isSemanticallyUsableItem(item): whether a classified object has a supported interaction.
+Meeow.semantics.getStaticToySemantics(typedNumericCatalogId): fixed PROGRAM mapping or null.
+Meeow.semantics.getStaticCollectibleSemantics(explicitConceptId): approved concrete concept mapping or null.
+
+These helpers can inform a later Resident↔Item Bond and item-use status system. They do not select an item, trigger an event, score affinity, track use/familiarity, infer preference, or move ownership. CAT↔CAT gifting remains unimplemented.

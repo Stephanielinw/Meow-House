@@ -1,0 +1,6 @@
+Configuration: js/meeow-resident-item-usage.js.
+BASE_ITEM_USAGE_CHANCE = 0.12.
+RESIDENT_ITEM_USAGE_COOLDOWN_MS = 24 * 60 * 60 * 1000.
+For each requested HOME resident in an ordinary Status Sync AI generation: require at least one currently owned usable item, no active cooldown, then roll once. Failure leaves the ordinary status prompt unchanged.
+Cooldown authority is derived from max(lastUsedAt) across all valid current and historical bonds for that resident. Invalid bond history blocks usage conservatively. No separate mutable cooldown field is stored.
+Holiday context does not change chance or cooldown.

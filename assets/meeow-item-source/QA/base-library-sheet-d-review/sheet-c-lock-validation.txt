@@ -1,0 +1,91 @@
+HOUSE BASE LIBRARY · SHEET C · LOCK VALIDATION
+
+SHEET C = LOCKED / PRODUCTION
+Approved pixels modified during promotion: NO
+Registry entries: 9/9
+
+- basefood:generic-drink
+  filename: generic-drink.png
+  source SHA-256: 0d904cd2fecf7a469387085024958a21264e830ae36f0d13f19cc37decd30187
+  runtime SHA-256: 0d904cd2fecf7a469387085024958a21264e830ae36f0d13f19cc37decd30187
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (7, 2, 8, 6)
+- basefood:hot-mug
+  filename: hot-mug.png
+  source SHA-256: 50c9a1a7cc136a492bb9f457a4c20b5e33ee5d30aed45774a9ca8baf6b406d43
+  runtime SHA-256: 50c9a1a7cc136a492bb9f457a4c20b5e33ee5d30aed45774a9ca8baf6b406d43
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (6, 2, 6, 6)
+- basefood:fruit-drink
+  filename: fruit-drink.png
+  source SHA-256: 2384ac3672e4f9507189816a1ea5106997cf4fb1c154733831b47ebd9a020b6f
+  runtime SHA-256: 2384ac3672e4f9507189816a1ea5106997cf4fb1c154733831b47ebd9a020b6f
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (8, 2, 8, 6)
+- basefood:egg-ingredient
+  filename: egg-ingredient.png
+  source SHA-256: d6e1ddbb673d83c80f6b3b0bfa528888c8d8443c518fa173ef4837b34707d438
+  runtime SHA-256: d6e1ddbb673d83c80f6b3b0bfa528888c8d8443c518fa173ef4837b34707d438
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 14, 5, 15)
+- basefood:fruit-ingredient
+  filename: fruit-ingredient.png
+  source SHA-256: d1211e729c4a0a5b8a7a9269b417865be6d8eddfc2c85001270dec5a66f0d95a
+  runtime SHA-256: d1211e729c4a0a5b8a7a9269b417865be6d8eddfc2c85001270dec5a66f0d95a
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 15, 4, 16)
+- basefood:raw-fish
+  filename: raw-fish.png
+  source SHA-256: 1c6b182de02800c72a686f9dad1f56f9a08417e104549030f4b8b00302ea426f
+  runtime SHA-256: 1c6b182de02800c72a686f9dad1f56f9a08417e104549030f4b8b00302ea426f
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 18, 4, 19)
+- basefood:raw-meat
+  filename: raw-meat.png
+  source SHA-256: 8643cae724c858eb5d124b66a3602b47461793eb76c2b4259e45da8c9ed28334
+  runtime SHA-256: 8643cae724c858eb5d124b66a3602b47461793eb76c2b4259e45da8c9ed28334
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 16, 4, 17)
+- basefood:vegetable-ingredient
+  filename: vegetable-ingredient.png
+  source SHA-256: caaaf357026b7d45b25a22adfbe9018a8b20fb1b9d4916265c742708183e8e0b
+  runtime SHA-256: caaaf357026b7d45b25a22adfbe9018a8b20fb1b9d4916265c742708183e8e0b
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 17, 4, 17)
+- basefood:grain-ingredient
+  filename: grain-ingredient.png
+  source SHA-256: e6690e41bbad349b38a929f7b9e6ff5b61d78ff542bf833c00ea1890ad9c7067
+  runtime SHA-256: e6690e41bbad349b38a929f7b9e6ff5b61d78ff542bf833c00ea1890ad9c7067
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 15, 4, 16)
+
+Summary: 9/9 source = runtime = approved review authority; production registry active; normal first-party renderer path.
+
+Final checks:
+- sprite registry fixture: PASS
+- shared item renderer fixture: PASS
+- Item Visual Schema fixture: PASS
+- House Food catalog/semantic fixtures: PASS
+- Custom Pixel Editor fixture: PASS
+- Shop authoring fixture: PASS
+- syntax check: PASS
+- git diff --check: PASS
+- static production callAI( count: 40 (unchanged)

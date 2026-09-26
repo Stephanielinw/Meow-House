@@ -1,0 +1,21 @@
+FIVE CAT ITEM REFERENCE-TO-SPRITE PRODUCTION VALIDATION
+Reference: attached user-provided five-item sheet (codex-clipboard-0f34ca3e-f33d-4a6c-84e4-7d185cba6a3c.png).
+Method: isolate each approved object; binary transparency; nearest-neighbor resize to 64×64; no-dither palette cleanup. No redesign.
+Reference-only art, including approved sparkle/motion marks and ground shadows, is preserved where it fits the sprite.
+Registered production IDs: 5/5; source/runtime parity: 5/5 PASS.
+baseitem:star-sand-orb | assets/meeow-item-source/house-base-library-v1/star-sand-orb.png | assets/item-sprites/library/house-base-library-v1/star-sand-orb.png | 64×64 RGBA | alpha=[0, 255] | bbox=(4, 7, 60, 57) | margins L/T/R/B=(4, 7, 4, 7) | clipping=NO | SHA-256=e5a1cb4914fafbda0a90774dba144da83d627416f6fbd72471c8f3fe889c4a1e | parity=PASS
+baseitem:teaser-wand | assets/meeow-item-source/house-base-library-v1/teaser-wand.png | assets/item-sprites/library/house-base-library-v1/teaser-wand.png | 64×64 RGBA | alpha=[0, 255] | bbox=(4, 7, 60, 57) | margins L/T/R/B=(4, 7, 4, 7) | clipping=NO | SHA-256=317fca6e03d9962d951714870ad5c0439da4e00e9e21c15cb1aaf3b2836d120d | parity=PASS
+baseitem:catnip-pouch | assets/meeow-item-source/house-base-library-v1/catnip-pouch.png | assets/item-sprites/library/house-base-library-v1/catnip-pouch.png | 64×64 RGBA | alpha=[0, 255] | bbox=(4, 7, 60, 56) | margins L/T/R/B=(4, 7, 4, 8) | clipping=NO | SHA-256=c9167dbd167d3592b1625bcb100af7f721a6fe45f5d80e116c34adfd26d1ee85 | parity=PASS
+baseitem:riddle-paper-ball | assets/meeow-item-source/house-base-library-v1/riddle-paper-ball.png | assets/item-sprites/library/house-base-library-v1/riddle-paper-ball.png | 64×64 RGBA | alpha=[0, 255] | bbox=(4, 10, 60, 54) | margins L/T/R/B=(4, 10, 4, 10) | clipping=NO | SHA-256=bbb0f7bc11eac33904b6d983ba54cbd23a4bd109ac6c291c20c14d75fdaec640 | parity=PASS
+baseitem:letter | assets/meeow-item-source/house-base-library-v1/letter.png | assets/item-sprites/library/house-base-library-v1/letter.png | 64×64 RGBA | alpha=[0, 255] | bbox=(4, 11, 60, 52) | margins L/T/R/B=(4, 11, 4, 12) | clipping=NO | SHA-256=2d54f97f5fefceb22d724f8393d865148930bd6974daf9123b3b73c6c863cebb | parity=PASS
+Existing 57 first-party sprites: 57/57 source/runtime/manifest hash PASS; no previous pixel content changed.
+Active first-party inventory: 16 housefood + 24 basefood + 22 baseitem = 62.
+Active third-party registry entries: 0. Missing active runtime files: 0. Duplicate IDs: 0.
+Registry metadata/closed taxonomy: PASS (item-sprite-library fixture).
+Renderer and fallback: PASS (item-sprite-renderer-ui, item-visual-schema-v1, item-vector-retirement-v1 fixtures).
+Shop/Backpack compatibility: PASS (shop-visual-authoring-restock-v1, backpack-redesign-v1 fixtures).
+Other focused regressions: Pixel Editor, Food catalog, Away souvenir/mail, AI visual hints PASS.
+Fixed Shop products 2–5 use explicit builtin-sprite; matching saved copies safely promoted. New and exact legacy inventory letter items use baseitem:letter.
+House Food mapping and art unchanged; basefood art unchanged; no taxonomy expansion; no resolver scoring/weight change; no AI call added.
+Production static literal callAI( count: 40. JavaScript/inline module syntax: PASS. git diff --check: PASS.
+QA image note: ui-review.png is a representative layout mock, not a live browser screenshot.

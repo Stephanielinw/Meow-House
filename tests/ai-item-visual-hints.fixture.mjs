@@ -25,8 +25,8 @@ for (const producer of [
 assert.match(awaySource, /validateAuthoredItemVisualHint\(attachment\)/);
 assert.match(source, /validateAuthoredItemVisualHint\(data\.item\)/);
 assert.match(source, /throw new Error\('Explore loot visualHint invalid'\)/);
-assert.match(source, /attachment: data\.item \? \{[^\n]*visualHint \} : null/);
-assert.match(source, /if \(!user\.inventory\.some\([^\n]*user\.inventory\.push\(\{ \.\.\.settlement\.loot/);
+assert.match(source, /attachment: data\.item \? window\.Meeow\.itemVisuals\.assignAutoVisualIdentity\(\{[^\n]*visualHint \}\) : null/);
+assert.match(source, /if \(!user\.inventory\.some\([^\n]*\{[\s\S]*?user\.inventory\.push\(\{ \.\.\.settlement\.loot/);
 const legacyMailSlice = slice('                const generateMail =', '                const handleCatClick =');
 const testLegacyMail = async item => {
     const delivered = [], logs = [];
@@ -34,7 +34,7 @@ const testLegacyMail = async item => {
     const user = { lastMailDate: '', dailyMailCount: 0, lastMailAt: 0, lastMailSenderId: null, nickname: '馆长', job: '' };
     const legacy = new Function('ctx', `const { window, Date, Math, user, cats, halls, currentHall, getOperationalDayKey,
         hasPhysicalAwayMailDeliveryCapacity, hasMailSpacingAt, getActiveAwayEpisode,
-        buildAuthoritativeUserIdentityContext, buildCatMemoryContext, callAI, parseAIJSON,
+        buildAuthoritativeUserIdentityContext, buildCatMemoryContext, getInteractionHolidayContext, callAI, parseAIJSON,
         cleanText, recordDeliveredMail, addLog, getReadableAPIError, ThinkingLevel } = ctx;
         ${legacyMailSlice}
         return generateMail;`)({
@@ -43,6 +43,7 @@ const testLegacyMail = async item => {
         getOperationalDayKey: () => '2026-09-23', hasPhysicalAwayMailDeliveryCapacity: () => true,
         hasMailSpacingAt: () => true, getActiveAwayEpisode: () => null,
         buildAuthoritativeUserIdentityContext: () => '', buildCatMemoryContext: () => '',
+        getInteractionHolidayContext: () => '',
         callAI: async () => JSON.stringify({ content: '旅途中给你的信。', item }), parseAIJSON: JSON.parse,
         cleanText: value => String(value ?? '').trim(),
         recordDeliveredMail: payload => { delivered.push(payload); return true; },
@@ -54,6 +55,8 @@ const testLegacyMail = async item => {
 const mailed = await testLegacyMail({ name: '贝壳', icon: '🐚', desc: '小贝壳', visualHint: { object: 'shell', material: 'organic', form: 'keepsake', context: 'travel' } });
 assert.equal(mailed.accepted, true);
 assert.deepEqual(mailed.delivered[0].attachment.visualHint, { object: 'shell', material: 'organic', form: 'keepsake', context: 'travel' });
+assert.equal(mailed.delivered[0].attachment.visual.mode, 'auto-sprite');
+assert.equal(mailed.delivered[0].attachment.visual.spriteId, 'baseitem:shell');
 assert.equal((await testLegacyMail({ name: '贝壳', icon: '🐚', desc: '小贝壳' })).accepted, false);
 assert.equal((await testLegacyMail({ name: '贝壳', icon: '🐚', desc: '小贝壳', visualHint: { object: 'sprite.png', material: 'organic', form: 'keepsake', context: 'travel' } })).accepted, false);
 assert.equal((await testLegacyMail({ name: '贝壳', icon: '🐚', desc: '小贝壳', visualHint: { object: 'shell', material: 'organic', form: 'keepsake', context: 'travel' }, spriteId: 'yapi:assorted:seashell' })).accepted, false);
@@ -88,19 +91,28 @@ const runExplore = async loot => {
 };
 const valid = await runExplore({ name: '湖边贝壳', icon: '🐚', desc: '光滑的小贝壳', visualHint: hint });
 assert.deepEqual(JSON.parse(JSON.stringify(valid.result.settlement.loot.visualHint)), hint);
+assert.equal(valid.result.settlement.loot.visual.mode, 'auto-sprite');
+assert.equal(valid.result.settlement.loot.visual.spriteId, 'baseitem:shell');
 assert.deepEqual(JSON.parse(JSON.stringify(valid.persisted.at(-1).settlementOperation.settlement.loot.visualHint)), hint);
 const normalized = valid.context.normalize(JSON.parse(JSON.stringify(valid.result)), 'case-1', 'pending');
 assert.deepEqual(JSON.parse(JSON.stringify(normalized.settlement.loot.visualHint)), hint);
+assert.deepEqual(JSON.parse(JSON.stringify(normalized.settlement.loot.visual)), JSON.parse(JSON.stringify(valid.result.settlement.loot.visual)));
 const user = { inventory: [] }, operation = { receipts: {} }, caseRecord = { id: 'case-1' };
-const insertLoot = new Function('ctx', `const { user, operation, caseRecord, settlement } = ctx;
+const insertLoot = new Function('ctx', `const { user, operation, caseRecord, settlement, window } = ctx;
     const receipt = name => Boolean(operation.receipts[name]);
     const writeExploreSettlementReceipt = (_caseRecord, op, name) => { op.receipts[name] = true; return true; };
     ${inventorySlice}
     return user.inventory;`);
-insertLoot({ user, operation, caseRecord, settlement: normalized.settlement });
-insertLoot({ user, operation, caseRecord, settlement: normalized.settlement });
+const originWindow = { Meeow: { residentItems: {
+    newPhysicalId: () => 'item-instance:11111111-1111-4111-8111-111111111111',
+    makeProvenance: (originOwner, origin) => ({ version: 1, originOwner, origin, giftHistory: [] })
+} } };
+insertLoot({ user, operation, caseRecord, settlement: normalized.settlement, window: originWindow });
+insertLoot({ user, operation, caseRecord, settlement: normalized.settlement, window: originWindow });
 assert.equal(user.inventory.length, 1);
 assert.deepEqual(JSON.parse(JSON.stringify(user.inventory[0].visualHint)), hint);
+assert.deepEqual(JSON.parse(JSON.stringify(user.inventory[0].visual)), JSON.parse(JSON.stringify(normalized.settlement.loot.visual)));
+assert.equal(user.inventory[0].provenance.originOwner.kind, 'user');
 const invalid = await runExplore({ name: '湖边贝壳', icon: '🐚', desc: '光滑的小贝壳', visualHint: { ...hint, object: 'freeform shell' } });
 assert.equal(invalid.result.settlement.loot, null);
 assert.ok(invalid.logs.some(line => line.includes('Explore loot visualHint invalid')));

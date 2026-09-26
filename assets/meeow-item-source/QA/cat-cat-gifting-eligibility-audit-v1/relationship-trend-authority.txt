@@ -1,0 +1,22 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — RELATIONSHIP TREND AUTHORITY V1
+Read-only design audit; no relationship state or rules were changed.
+
+Production authority
+- js/meeow-data.js normalizeResidentRelationships and normalizeResidentRelationshipEvents persist each directional link at cat.residentRelationships[targetResidentId]. The link holds familiarity (0..5), warmth (-5..5), trust (-5..5), tension (0..5), tags, appliedSceneKeys (last 64), and events (last 40).
+- A relationship event has sourceKey shared-scene:<sceneId> or shared-scene:<sceneId>:program-familiarity, sceneId, ISO at, actual bounded changes in familiarity/warmth/trust/tension, tag changes, and an evidenceExcerpt. Its timestamp comes from the committed Hall scene. The excerpt is prose and is not eligibility evidence.
+- index.html getCanonicalResidentPairIds/getCanonicalResidentPairKey sort IDs lexicographically and use idA::idB for unordered pair metadata. This does not erase directionality: A→B and B→A have separate relationship links and events.
+- cat.residentRelationshipPairMetadata[targetId] belongs to the canonical lower-ID owner; it records exposureCount and lastProgressionDay. This is shared-scene exposure, not a gift cooldown or a warmth/trust milestone.
+- index.html applyHallSceneRelationshipConsequences accepts only a persisted authoritative ambient or user-directed Hall scene. It validates participant IDs and optional AI-proposed directional deltas, clamps to permitted ranges/headroom, appends the actual applied changes, and writes completion receipts. Applied scene keys make repeated consequences idempotent. Three completed shared-scene exposures may add symmetric program familiarity, at most once per operational day. Familiarity from exposure alone does not establish growing affection.
+- The canonical character baseline and projected display state are not save-specific positive trend evidence. There is no separate stage/milestone history and no relationship-event gift cooldown.
+
+Can recent improvement be derived? YES, conservatively, from retained, timestamped, applied directional events. Retention is capped at 40 events, so an old or pruned event can never qualify merely because it once existed. Do not infer sentiment from scene content, tags alone, AI narration, or unchanged aggregate score.
+
+Recommended RECENT_POSITIVE_RELATIONSHIP_TREND gate (proposal, not implemented)
+1. Read donor.residentRelationships[recipientId].events, only valid events whose sourceKey is exactly shared-scene:<sceneId>. Ignore :program-familiarity events.
+2. Consider events with valid at in [now - 14*24 hours, now], ordered by timestamp (and stable sourceKey tie-break).
+3. The most recent substantive warmth/trust/tension event must contain a positive social change: actual changes.warmth > 0 OR changes.trust > 0 OR changes.tension < 0; it must contain no simultaneous changes.warmth < 0, changes.trust < 0, or changes.tension > 0.
+4. If no such recent substantive event exists, fail closed. A positive familiarity delta alone does not qualify. Optionally require the referenced completed scene and receipt if still retained; current Hall scene records are pruned daily, so the relationship event itself is the durable trend record.
+
+This is donor-directed evidence. Requiring reciprocal B→A improvement is a separate product choice. The underlying optional social delta was proposed in structured AI output but only PROGRAM validation/transaction made it current state; if eligibility must exclude any AI-proposed social judgment, a new PROGRAM-owned social outcome marker will be required. The 14-day window is a recommended V1 balance value, not an existing rule.
+
+Code anchors: js/meeow-data.js relationship normalization; index.html canonical pair helpers near 9970, relationship projection near 21157, Hall consequence staging/receipts near 21475–21655, daily scene pruning near 21658.

@@ -24,6 +24,13 @@
         'family:fruit': '水果', 'family:vegetable': '蔬菜', 'family:grain': '谷物',
         'form:meal': '正餐', 'form:snack': '零食', 'form:dessert': '甜点', 'form:beverage': '饮品'
     });
+    const OBJECT_ATTRIBUTE_LABELS = Object.freeze({
+        'role:play': '玩耍', 'role:comfort': '陪伴', 'role:keepsake': '纪念', 'role:display': '陈列',
+        'interaction:chase': '追逐', 'interaction:bat': '拍打', 'interaction:carry': '携带',
+        'interaction:cuddle': '依偎', 'interaction:sniff': '嗅闻', 'interaction:observe': '观赏',
+        'stimulus:rolling': '滚动', 'stimulus:swinging': '摆动', 'stimulus:fluttering': '飘动',
+        'stimulus:glowing': '发光', 'stimulus:scented': '有香气'
+    });
     const getItemDisplayCategory = item => {
         if (item?.type === 'letter') return '信件';
         if (item?.type === 'collectible') return '收藏品';
@@ -31,11 +38,16 @@
         return item?.type === 'consumable' ? `${category} · 消耗品` : category;
     };
     const getItemDisplayAttributes = item => {
-        if (item?.semanticType !== 'food') return [];
-        const checked = Meeow.semantics?.normalizeSemanticTags(item);
-        return checked?.valid && checked.classificationKnown
-            ? checked.normalized.tags.map(tag => FOOD_ATTRIBUTE_LABELS[tag]).filter(Boolean)
-            : [];
+        if (item?.semanticType === 'toy' || item?.semanticType === 'collectible') {
+            const object = Meeow.semantics?.getItemObjectSemantics(item);
+            return object ? object.tags.map(tag => OBJECT_ATTRIBUTE_LABELS[tag]).filter(Boolean) : [];
+        }
+        const checked = item?.semanticType === 'food' ? Meeow.semantics?.normalizeSemanticTags(item) : null;
+        if (checked?.valid && checked.classificationKnown)
+            return checked.normalized.tags.map(tag => FOOD_ATTRIBUTE_LABELS[tag]).filter(Boolean);
+        if (item?.category !== 'food') return [];
+        const optional = Meeow.semantics?.normalizeOptionalFoodTags(item?.semanticTags);
+        return (optional?.tags || []).map(tag => FOOD_ATTRIBUTE_LABELS[tag]).filter(Boolean);
     };
     const getItemDisplaySummary = item => {
         const category = getItemDisplayCategory(item);
@@ -57,20 +69,29 @@
         const hasSemanticFields = Object.hasOwn(item, 'semanticType') || Object.hasOwn(item, 'tags');
         const checked = hasSemanticFields ? Meeow.semantics?.normalizeSemanticTags(item) : null;
         if (hasSemanticFields && (!checked?.valid || !checked.classificationKnown)) return null;
+        const objectSemantics = item.semanticType === 'toy' || item.semanticType === 'collectible';
         const definition = Object.fromEntries(Object.entries(item)
-            .filter(([key]) => !['id', 'uniqueId', 'price', 'tags'].includes(key)));
-        if (checked) definition.tags = checked.normalized.tags;
+            .filter(([key]) => !['id', 'uniqueId', 'sourceCatalogId', 'price', 'tags', 'semanticTags', 'visual', 'visualHint', 'provenance'].includes(key) &&
+                !(objectSemantics && key === 'semanticType')));
+        if (checked && !objectSemantics) definition.tags = checked.normalized.tags;
         try { return JSON.stringify(canonicalValue(definition)); } catch (_) { return null; }
     };
     const getInventoryStackIdentity = (item, catalog = []) => {
         if (!item || item.type !== 'consumable' || item.id == null ||
             item.sourceId != null || item.fullContent != null) return null;
-        const catalogItem = (Array.isArray(catalog) ? catalog : []).find(entry =>
-            entry?.id === item.id && entry?.type === 'consumable' &&
-            entry?.name === item.name && entry?.category === item.category);
+        const entries = Array.isArray(catalog) ? catalog : [];
+        const hasSourceCatalogId = typeof item.sourceCatalogId === 'string' && item.sourceCatalogId.length > 0;
+        const catalogItem = entries.find(entry =>
+            entry?.type === 'consumable' && entry?.name === item.name && entry?.category === item.category &&
+            (hasSourceCatalogId
+                ? entry?.sourceCatalogId === item.sourceCatalogId
+                : entry?.id === item.id));
         if (!catalogItem) return null;
         const definition = getInventoryDefinitionSignature(item);
-        return definition === null ? null : `catalog:${typeof item.id}:${String(item.id)}:${definition}`;
+        if (definition === null) return null;
+        return hasSourceCatalogId
+            ? `catalog-source:${item.sourceCatalogId}:${definition}`
+            : `catalog:${typeof item.id}:${String(item.id)}:${definition}`;
     };
     const deriveInventoryDisplayGroups = (items, catalog = []) => {
         const groups = [];
@@ -108,6 +129,24 @@
         const matches = items.filter(item => item?.[selector.key] != null &&
             typeof item[selector.key] === typeof selector.value && String(item[selector.key]) === String(selector.value));
         return matches.length === 1 ? matches[0] : null;
+    };
+    const resolveInventoryInstanceByUniqueId = (items, uniqueId) => {
+        if (!Array.isArray(items) || uniqueId == null) return null;
+        const matches = items.filter(item => item?.uniqueId === uniqueId);
+        return matches.length === 1 ? matches[0] : null;
+    };
+    const commitInventoryInstanceVisual = (items, uniqueId, visual, persist) => {
+        const target = resolveInventoryInstanceByUniqueId(items, uniqueId);
+        if (!target) return { ok: false, reason: 'target-missing-or-ambiguous', target: null };
+        const hadVisual = Object.hasOwn(target, 'visual'), previousVisual = target.visual;
+        target.visual = visual;
+        let persisted = false;
+        try { persisted = typeof persist === 'function' && persist() === true; } catch (_) { persisted = false; }
+        if (!persisted) {
+            if (hadVisual) target.visual = previousVisual; else delete target.visual;
+            return { ok: false, reason: 'persistence-failed', target };
+        }
+        return { ok: true, reason: '', target };
     };
 
     const hasCatReactionHumanDialogue = (reaction, itemForm) => {
@@ -196,6 +235,8 @@
         deriveInventoryDisplayGroups,
         getInventoryInstanceSelector,
         resolveInventoryInstance,
+        resolveInventoryInstanceByUniqueId,
+        commitInventoryInstanceVisual,
         hasCatReactionHumanDialogue,
         resolveFoodReactionAuthority,
         mapFoodReactionClass,

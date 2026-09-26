@@ -1,0 +1,1725 @@
+{
+  "version": 1,
+  "pack": "house-base-library-v1",
+  "sourceType": "first-party",
+  "license": "In-house original",
+  "artAuthority": "User-approved Sheets A–E and five-piece cat item reference; five cat items received requested in-place hole/shadow cleanup V2.",
+  "method": "Reference-to-sprite conversion; nearest-neighbor logical-grid recovery; binary alpha; no-dither palette cleanup; no redesign.",
+  "sprites": [
+    {
+      "id": "basefood:fish-meal",
+      "name": "鱼肉餐",
+      "file": "assets/item-sprites/library/house-base-library-v1/fish-meal.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/fish-meal.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fish"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "鱼肉餐",
+        "generic fish meal"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/fish-meal.png",
+      "sha256": "7ba91cf150b21e6618604dd80be83e95ae229c008e7f4af5c9f028a342485bc0",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:meat-meal",
+      "name": "肉类餐",
+      "file": "assets/item-sprites/library/house-base-library-v1/meat-meal.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/meat-meal.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "meat"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "肉类餐",
+        "generic meat meal"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/meat-meal.png",
+      "sha256": "9892f6810544e3e7ea53383939784325aa02abecfba16fb56c50b4bedea42a9d",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:egg-meal",
+      "name": "蛋类餐",
+      "file": "assets/item-sprites/library/house-base-library-v1/egg-meal.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/egg-meal.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "egg"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "蛋类餐",
+        "generic egg meal"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/egg-meal.png",
+      "sha256": "58f17d4efbd281ece1e20868c042c94b0d3b2a94f58b59c59def35d05d189a13",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:grain-bowl",
+      "name": "谷物碗",
+      "file": "assets/item-sprites/library/house-base-library-v1/grain-bowl.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/grain-bowl.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "grain"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "谷物碗",
+        "generic grain bowl"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/grain-bowl.png",
+      "sha256": "53b1ccf7c8385a91b4b9ed646719cefbb3064be2973ab8fc08d3c94c290287b6",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:vegetable-meal",
+      "name": "蔬菜餐",
+      "file": "assets/item-sprites/library/house-base-library-v1/vegetable-meal.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/vegetable-meal.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "vegetable"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "蔬菜餐",
+        "generic vegetable meal"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/vegetable-meal.png",
+      "sha256": "c10afadf8890844be47c2a30b9c89dd66d88bc051963f40d326bc9278b22046f",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:bread-meal",
+      "name": "面包餐",
+      "file": "assets/item-sprites/library/house-base-library-v1/bread-meal.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/bread-meal.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "bread"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "面包餐",
+        "generic bread meal"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/bread-meal.png",
+      "sha256": "753e13d6dc50199d29c84c3a3f8b4592e79cffb2dc546093d4828b0d3ddbcf08",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:dried-fish-snack",
+      "name": "小鱼零嘴",
+      "file": "assets/item-sprites/library/house-base-library-v1/dried-fish-snack.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/dried-fish-snack.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fish"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "小鱼零嘴",
+        "dried fish snack"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/dried-fish-snack.png",
+      "sha256": "cc32bd22b1c6206a0ab16be330a191938c9c4c7cb14f6290b06cac5617834e4d",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:meat-jerky",
+      "name": "肉干零食",
+      "file": "assets/item-sprites/library/house-base-library-v1/meat-jerky.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/meat-jerky.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "meat"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "肉干零食",
+        "meat jerky"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/meat-jerky.png",
+      "sha256": "6f53f6de0cdd6c90606da2fa3fe7517ca9e87c66f68f972b17f6aa99833e53eb",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:vegetable-snack",
+      "name": "蔬菜零嘴",
+      "file": "assets/item-sprites/library/house-base-library-v1/vegetable-snack.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/vegetable-snack.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "vegetable"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "蔬菜零嘴",
+        "vegetable snack"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/vegetable-snack.png",
+      "sha256": "3b808eea255c791797dc64eab5b8d8ee6064684e89b47ac63c4b42e730ccbd25",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:fruit-snack",
+      "name": "水果零食",
+      "file": "assets/item-sprites/library/house-base-library-v1/fruit-snack.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/fruit-snack.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fruit"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "水果零食",
+        "fruit snack"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/fruit-snack.png",
+      "sha256": "8c0f2ab169180bdd7781c9be885290c01d21d754154784b9669e3a85faecdd22",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:bread-loaf",
+      "name": "面包",
+      "file": "assets/item-sprites/library/house-base-library-v1/bread-loaf.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/bread-loaf.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "bread"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "面包",
+        "bread loaf"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/bread-loaf.png",
+      "sha256": "5804beb773125999c6f20a4c75e662cc102a96cc77f8db0dab65db404511b781",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:dessert-cake",
+      "name": "蛋糕甜点",
+      "file": "assets/item-sprites/library/house-base-library-v1/dessert-cake.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/dessert-cake.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "dessert"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "dessert"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "蛋糕甜点",
+        "dessert cake"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/dessert-cake.png",
+      "sha256": "2e7aae743661965262e21e4dc2ebc36ec0a5394e3971e42af3e64edce874634e",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:grain-snack",
+      "name": "谷物零食",
+      "file": "assets/item-sprites/library/house-base-library-v1/grain-snack.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/grain-snack.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "grain"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "谷物零食",
+        "grain snack"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/grain-snack.png",
+      "sha256": "2828757c53e8f83b813d99b6bd69bfcdb7a17edfd6bd4aae75a0e4747ad698a4",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:dessert-snack",
+      "name": "甜点小食",
+      "file": "assets/item-sprites/library/house-base-library-v1/dessert-snack.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/dessert-snack.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "dessert"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "甜点小食",
+        "dessert snack"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/dessert-snack.png",
+      "sha256": "aca6fd41b10683b5f8bc0876d03edc8f8c0be51ce89dd8812d82df2b131976c4",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:fruit-dessert",
+      "name": "水果甜品",
+      "file": "assets/item-sprites/library/house-base-library-v1/fruit-dessert.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/fruit-dessert.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fruit"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "dessert"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "水果甜品",
+        "fruit dessert"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/fruit-dessert.png",
+      "sha256": "01b8e67abe674e1a6ef331bca3d96568b47e37f54ce8d81844c6e9c809294dbb",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:generic-drink",
+      "name": "通用饮品",
+      "file": "assets/item-sprites/library/house-base-library-v1/generic-drink.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/generic-drink.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "drink"
+      ],
+      "materialTags": [
+        "liquid",
+        "food"
+      ],
+      "formTags": [
+        "beverage"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "通用饮品",
+        "generic drink"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/generic-drink.png",
+      "sha256": "0d904cd2fecf7a469387085024958a21264e830ae36f0d13f19cc37decd30187",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:hot-mug",
+      "name": "热饮杯",
+      "file": "assets/item-sprites/library/house-base-library-v1/hot-mug.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/hot-mug.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "mug"
+      ],
+      "materialTags": [
+        "ceramic"
+      ],
+      "formTags": [
+        "beverage"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "热饮杯",
+        "hot mug"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/hot-mug.png",
+      "sha256": "50c9a1a7cc136a492bb9f457a4c20b5e33ee5d30aed45774a9ca8baf6b406d43",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:fruit-drink",
+      "name": "果味饮品",
+      "file": "assets/item-sprites/library/house-base-library-v1/fruit-drink.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/fruit-drink.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fruit"
+      ],
+      "materialTags": [
+        "liquid"
+      ],
+      "formTags": [
+        "beverage"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "果味饮品",
+        "fruit drink"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/fruit-drink.png",
+      "sha256": "2384ac3672e4f9507189816a1ea5106997cf4fb1c154733831b47ebd9a020b6f",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:egg-ingredient",
+      "name": "鸡蛋食材",
+      "file": "assets/item-sprites/library/house-base-library-v1/egg-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/egg-ingredient.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "egg"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "ingredient"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "鸡蛋食材",
+        "egg ingredient"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/egg-ingredient.png",
+      "sha256": "d6e1ddbb673d83c80f6b3b0bfa528888c8d8443c518fa173ef4837b34707d438",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:fruit-ingredient",
+      "name": "水果食材",
+      "file": "assets/item-sprites/library/house-base-library-v1/fruit-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/fruit-ingredient.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fruit"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "ingredient"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "水果食材",
+        "fruit ingredient"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/fruit-ingredient.png",
+      "sha256": "d1211e729c4a0a5b8a7a9269b417865be6d8eddfc2c85001270dec5a66f0d95a",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:raw-fish",
+      "name": "生鱼食材",
+      "file": "assets/item-sprites/library/house-base-library-v1/raw-fish.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/raw-fish.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fish"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "ingredient"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "生鱼食材",
+        "raw fish"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/raw-fish.png",
+      "sha256": "1c6b182de02800c72a686f9dad1f56f9a08417e104549030f4b8b00302ea426f",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:raw-meat",
+      "name": "生肉食材",
+      "file": "assets/item-sprites/library/house-base-library-v1/raw-meat.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/raw-meat.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "meat"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "ingredient"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "生肉食材",
+        "raw meat"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/raw-meat.png",
+      "sha256": "8643cae724c858eb5d124b66a3602b47461793eb76c2b4259e45da8c9ed28334",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:vegetable-ingredient",
+      "name": "蔬菜食材",
+      "file": "assets/item-sprites/library/house-base-library-v1/vegetable-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/vegetable-ingredient.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "vegetable"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "ingredient"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "蔬菜食材",
+        "vegetable ingredient"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/vegetable-ingredient.png",
+      "sha256": "caaaf357026b7d45b25a22adfbe9018a8b20fb1b9d4916265c742708183e8e0b",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "basefood:grain-ingredient",
+      "name": "谷物食材",
+      "file": "assets/item-sprites/library/house-base-library-v1/grain-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/grain-ingredient.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "grain"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "ingredient"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "谷物食材",
+        "grain ingredient"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/grain-ingredient.png",
+      "sha256": "e6690e41bbad349b38a929f7b9e6ff5b61d78ff542bf833c00ea1890ad9c7067",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:branch",
+      "name": "树枝",
+      "file": "assets/item-sprites/library/house-base-library-v1/branch.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/branch.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "branch"
+      ],
+      "materialTags": [
+        "wood"
+      ],
+      "formTags": [
+        "natural-object"
+      ],
+      "contextTags": [
+        "nature"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "树枝",
+        "branch"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/branch.png",
+      "sha256": "0e21a586cb753de912a9149272e5a0c48c36f3af704828c3ac6de23cfbde5c3e",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:herb",
+      "name": "草药",
+      "file": "assets/item-sprites/library/house-base-library-v1/herb.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/herb.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "herb"
+      ],
+      "materialTags": [
+        "organic"
+      ],
+      "formTags": [
+        "natural-object"
+      ],
+      "contextTags": [
+        "nature"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "草药",
+        "herb"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/herb.png",
+      "sha256": "beb0d4cd3c85e7c153c73d5cf00b538385d3c81bc84f8e491301285e87a5efb3",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:stone",
+      "name": "石头",
+      "file": "assets/item-sprites/library/house-base-library-v1/stone.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/stone.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "stone"
+      ],
+      "materialTags": [
+        "stone"
+      ],
+      "formTags": [
+        "natural-object"
+      ],
+      "contextTags": [
+        "nature"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "石头",
+        "stone"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/stone.png",
+      "sha256": "95805083de6a030327aed38c1b6b979a115b8c1e57ff992a71573b8da7c3afad",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:crystal",
+      "name": "水晶",
+      "file": "assets/item-sprites/library/house-base-library-v1/crystal.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/crystal.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "crystal"
+      ],
+      "materialTags": [
+        "mineral"
+      ],
+      "formTags": [
+        "natural-object"
+      ],
+      "contextTags": [
+        "fantasy"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "水晶",
+        "crystal"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/crystal.png",
+      "sha256": "c2b70b0c1d566f55c2bd6d41cb92d637c719afc01b14866e70aa7bc4b6f4e025",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:shell",
+      "name": "贝壳",
+      "file": "assets/item-sprites/library/house-base-library-v1/shell.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/shell.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "shell"
+      ],
+      "materialTags": [
+        "organic"
+      ],
+      "formTags": [
+        "keepsake"
+      ],
+      "contextTags": [
+        "travel"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "贝壳",
+        "shell"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/shell.png",
+      "sha256": "a95e37252101ba0ebba2f1ec51bc25e0cb1b239e2b17f0716f1a29015885e78d",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:feather",
+      "name": "羽毛",
+      "file": "assets/item-sprites/library/house-base-library-v1/feather.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/feather.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "feather"
+      ],
+      "materialTags": [
+        "organic"
+      ],
+      "formTags": [
+        "natural-object"
+      ],
+      "contextTags": [
+        "nature"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "羽毛",
+        "feather"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/feather.png",
+      "sha256": "11532af5dce4f39794050963f92512511fa3bb11e85308b9a0c1acc2a3dda84a",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:leaf",
+      "name": "叶片",
+      "file": "assets/item-sprites/library/house-base-library-v1/leaf.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/leaf.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "leaf"
+      ],
+      "materialTags": [
+        "organic"
+      ],
+      "formTags": [
+        "natural-object"
+      ],
+      "contextTags": [
+        "nature"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "叶片",
+        "leaf"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/leaf.png",
+      "sha256": "5e6c84fa53cc7a9a18d3fc6bc59a3f5e48ea8382944cf7d1fb909718fbea4bf2",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:flower",
+      "name": "花朵",
+      "file": "assets/item-sprites/library/house-base-library-v1/flower.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/flower.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "flower"
+      ],
+      "materialTags": [
+        "organic"
+      ],
+      "formTags": [
+        "natural-object"
+      ],
+      "contextTags": [
+        "nature"
+      ],
+      "category": "item",
+      "semanticType": "souvenir",
+      "aliases": [
+        "花朵",
+        "flower"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/flower.png",
+      "sha256": "9495644f359d4b7a007bba9f39b5ad47b5bdbe59321945978b47e7d474ca9886",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:coin",
+      "name": "硬币",
+      "file": "assets/item-sprites/library/house-base-library-v1/coin.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/coin.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "coin"
+      ],
+      "materialTags": [
+        "metal"
+      ],
+      "formTags": [
+        "keepsake"
+      ],
+      "contextTags": [
+        "collectible"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "硬币",
+        "coin"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/coin.png",
+      "sha256": "f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:necklace",
+      "name": "项链",
+      "file": "assets/item-sprites/library/house-base-library-v1/necklace.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/necklace.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "necklace"
+      ],
+      "materialTags": [
+        "metal"
+      ],
+      "formTags": [
+        "jewelry"
+      ],
+      "contextTags": [
+        "collectible"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "项链",
+        "necklace"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/necklace.png",
+      "sha256": "dc85a81abd8b3cd94c71b9da9e72e6a60d5a2e2799d536cc9efe14be7ad8ad31",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:watch",
+      "name": "手表",
+      "file": "assets/item-sprites/library/house-base-library-v1/watch.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/watch.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "trinket"
+      ],
+      "materialTags": [
+        "mixed"
+      ],
+      "formTags": [
+        "jewelry"
+      ],
+      "contextTags": [
+        "collectible"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "手表",
+        "watch"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/watch.png",
+      "sha256": "7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:hairclip",
+      "name": "发卡",
+      "file": "assets/item-sprites/library/house-base-library-v1/hairclip.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/hairclip.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "trinket"
+      ],
+      "materialTags": [
+        "mixed"
+      ],
+      "formTags": [
+        "jewelry"
+      ],
+      "contextTags": [
+        "gift"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "发卡",
+        "hair clip"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/hairclip.png",
+      "sha256": "9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:wallet",
+      "name": "钱包",
+      "file": "assets/item-sprites/library/house-base-library-v1/wallet.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/wallet.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "bag"
+      ],
+      "materialTags": [
+        "leather"
+      ],
+      "formTags": [
+        "container"
+      ],
+      "contextTags": [
+        "market"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "钱包",
+        "wallet"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/wallet.png",
+      "sha256": "ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:bank-card",
+      "name": "银行卡",
+      "file": "assets/item-sprites/library/house-base-library-v1/bank-card.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/bank-card.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "trinket"
+      ],
+      "materialTags": [
+        "mixed"
+      ],
+      "formTags": [
+        "keepsake"
+      ],
+      "contextTags": [
+        "market"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "银行卡",
+        "bank card"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/bank-card.png",
+      "sha256": "6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:ring",
+      "name": "戒指",
+      "file": "assets/item-sprites/library/house-base-library-v1/ring.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/ring.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "ring"
+      ],
+      "materialTags": [
+        "metal"
+      ],
+      "formTags": [
+        "jewelry"
+      ],
+      "contextTags": [
+        "collectible"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "戒指",
+        "ring"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/ring.png",
+      "sha256": "731aba9d481c72e29ce4617e21151b7dcac990900e68f134b36c2a47bea7bbff",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:crown",
+      "name": "王冠",
+      "file": "assets/item-sprites/library/house-base-library-v1/crown.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/crown.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "trinket"
+      ],
+      "materialTags": [
+        "metal"
+      ],
+      "formTags": [
+        "jewelry"
+      ],
+      "contextTags": [
+        "fantasy"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "王冠",
+        "crown"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/crown.png",
+      "sha256": "0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:glasses",
+      "name": "眼镜",
+      "file": "assets/item-sprites/library/house-base-library-v1/glasses.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/glasses.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "trinket"
+      ],
+      "materialTags": [
+        "mixed"
+      ],
+      "formTags": [
+        "household-object"
+      ],
+      "contextTags": [
+        "household"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "眼镜",
+        "glasses"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/glasses.png",
+      "sha256": "c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:star-sand-orb",
+      "name": "星砂发光球",
+      "file": "assets/item-sprites/library/house-base-library-v1/star-sand-orb.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/star-sand-orb.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "toy",
+        "trinket"
+      ],
+      "materialTags": [
+        "glass"
+      ],
+      "formTags": [
+        "toy",
+        "keepsake"
+      ],
+      "contextTags": [
+        "fantasy",
+        "household"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "星砂发光球",
+        "star sand orb"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/star-sand-orb.png",
+      "sha256": "58ce09ca878ec3f29034f469d87c8f870f9749937d382338934660807b0db46e",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:teaser-wand",
+      "name": "伸缩逗猫杆",
+      "file": "assets/item-sprites/library/house-base-library-v1/teaser-wand.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/teaser-wand.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "toy",
+        "tool"
+      ],
+      "materialTags": [
+        "mixed"
+      ],
+      "formTags": [
+        "toy"
+      ],
+      "contextTags": [
+        "household"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "伸缩逗猫杆",
+        "teaser wand"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/teaser-wand.png",
+      "sha256": "8d62a94e34bf832a38d5f336c1e1c56208507e19311683998a4028683cc31919",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:catnip-pouch",
+      "name": "浓缩猫薄荷包",
+      "file": "assets/item-sprites/library/house-base-library-v1/catnip-pouch.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/catnip-pouch.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "herb",
+        "bag"
+      ],
+      "materialTags": [
+        "cloth",
+        "organic"
+      ],
+      "formTags": [
+        "toy",
+        "container"
+      ],
+      "contextTags": [
+        "household"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "浓缩猫薄荷包",
+        "catnip pouch"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/catnip-pouch.png",
+      "sha256": "720999bdb7ab8b88665c10b92b8ffdc7c76235dc8c6c962d38d616d6159348c2",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:riddle-paper-ball",
+      "name": "谜语纸团球",
+      "file": "assets/item-sprites/library/house-base-library-v1/riddle-paper-ball.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/riddle-paper-ball.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "paper",
+        "toy"
+      ],
+      "materialTags": [
+        "paper"
+      ],
+      "formTags": [
+        "toy"
+      ],
+      "contextTags": [
+        "household"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "谜语纸团球",
+        "riddle paper ball"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/riddle-paper-ball.png",
+      "sha256": "35097d876be1fc80b556ed9272a7f1d0478334783e73dc990bab87180fb288d3",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    },
+    {
+      "id": "baseitem:letter",
+      "name": "来自居民的信",
+      "file": "assets/item-sprites/library/house-base-library-v1/letter.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/letter.png",
+      "sourcePack": "house-base-library-v1",
+      "sourceType": "first-party",
+      "provenance": "house-art",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "letter",
+        "paper"
+      ],
+      "materialTags": [
+        "paper"
+      ],
+      "formTags": [
+        "document"
+      ],
+      "contextTags": [
+        "writing",
+        "gift"
+      ],
+      "category": "item",
+      "semanticType": "trinket",
+      "aliases": [
+        "来自居民的信",
+        "resident letter"
+      ],
+      "approvedCandidateFile": "assets/meeow-item-source/house-base-library-v1/letter.png",
+      "sha256": "90b7c57612f666835fe9e3dd8b44388e7732ddb9ea58787e315ba0e8772f2db2",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": true
+    }
+  ],
+  "status": "LOCKED / PRODUCTION",
+  "promotion": "Approved Sheets A–E and five-piece cat item reference: canonical source = runtime by SHA-256."
+}

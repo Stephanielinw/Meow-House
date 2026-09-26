@@ -1,0 +1,8 @@
+Read: getResidentItemBond(user, residentId, uniqueId) returns a snapshot or null.
+Read current ownership with bond: getResidentOwnedItemBonds(user, residentId) returns item/bond pairs without modifying sources.
+Presentation: getResidentItemBondDisplayState(bond), isResidentItemCherished(bond).
+Mutation: recordResidentItemUse({ user, residents, residentId, uniqueId, requireUsableSemantics?, now?, persist? }).
+Mutation: adjustResidentItemFondness({ user, residents, residentId, uniqueId, delta, reason, persist? }).
+Fondness delta must be an explicit nonzero integer from -2 to 2. Reason must be one of authorized-interaction or explicit-resolver. There is no V1 production caller.
+Both mutation helpers verify the resident exists and currently owns the exact physical instance. They reject duplicate ownership and invalid/missing bonds. If given persist, failed persistence restores the prior bond.
+Familiarity after use: count 1 -> >=1; 2-3 -> >=2; 4-6 -> >=3; 7-11 -> >=4; 12+ -> 5. Use never reduces familiarity or changes fondness.

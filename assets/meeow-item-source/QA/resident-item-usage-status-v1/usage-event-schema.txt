@@ -1,0 +1,7 @@
+Frozen in-memory decision: { event, itemRef }.
+event = {version:1,eventId,residentId,itemUniqueId,sourceCatalogId,itemName,semanticType,role,interaction,stimulus,bondDisplay}.
+eventId format: resident-item-use:<UUIDv4>.
+itemRef is the exact current physical object reference and is never serialized or sent to AI.
+bondDisplay contains only deterministic familiarity/fondness labels and derived cherished boolean. No numeric bond values or provenance are sent.
+No sprite path, URL, visual, physical item clone, or mutable ownership value is stored in the event.
+Accepted current status stores only {eventId,itemUniqueId,interaction} on the resident as currentItemUse. A later ordinary status clears this current-status reference.

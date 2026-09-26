@@ -1,0 +1,75 @@
+HOUSE BASE LIBRARY · SHEET D · PROMOTION VALIDATION
+
+SHEET D = LOCKED / PRODUCTION
+Approved pixels modified during promotion: NO
+Registry entries: 8/8
+
+- baseitem:branch
+  filename: branch.png
+  source/runtime SHA-256: 0e21a586cb753de912a9149272e5a0c48c36f3af704828c3ac6de23cfbde5c3e
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 6, 4, 7)
+- baseitem:herb
+  filename: herb.png
+  source/runtime SHA-256: beb0d4cd3c85e7c153c73d5cf00b538385d3c81bc84f8e491301285e87a5efb3
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (7, 3, 8, 5)
+- baseitem:stone
+  filename: stone.png
+  source/runtime SHA-256: 95805083de6a030327aed38c1b6b979a115b8c1e57ff992a71573b8da7c3afad
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 11, 4, 11)
+- baseitem:crystal
+  filename: crystal.png
+  source/runtime SHA-256: c2b70b0c1d566f55c2bd6d41cb92d637c719afc01b14866e70aa7bc4b6f4e025
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (5, 5, 4, 6)
+- baseitem:shell
+  filename: shell.png
+  source/runtime SHA-256: a95e37252101ba0ebba2f1ec51bc25e0cb1b239e2b17f0716f1a29015885e78d
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 6, 4, 6)
+- baseitem:feather
+  filename: feather.png
+  source/runtime SHA-256: 11532af5dce4f39794050963f92512511fa3bb11e85308b9a0c1acc2a3dda84a
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (10, 4, 10, 5)
+- baseitem:leaf
+  filename: leaf.png
+  source/runtime SHA-256: 5e6c84fa53cc7a9a18d3fc6bc59a3f5e48ea8382944cf7d1fb909718fbea4bf2
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (5, 4, 6, 5)
+- baseitem:flower
+  filename: flower.png
+  source/runtime SHA-256: 9495644f359d4b7a007bba9f39b5ad47b5bdbe59321945978b47e7d474ca9886
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 7, 4, 8)
+
+Final checks:
+- source/runtime/approved-authority hash equality: PASS 8/8
+- production registry entries: PASS 8/8
+- sprite registry fixture: PASS
+- shared item renderer fixture: PASS
+- Item Visual Schema fixture: PASS
+- House Food catalog/semantic fixtures: PASS
+- Custom Pixel Editor fixture: PASS
+- Shop authoring fixture: PASS
+- syntax check: PASS
+- git diff --check: PASS
+- static production callAI( count: 40 (unchanged)

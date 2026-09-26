@@ -1,0 +1,34 @@
+SHOP ITEM PRESENTATION V1 — STRUCTURED FIXTURE INPUT/OUTPUT
+
+Raw AI proposal (fixture):
+  approved=true, price=23, effect=2
+  semanticTags=[temp:warm, taste:sweet, taste:sweet, smell:fragrant,
+                texture:soft, family:grain, form:dessert,
+                unknown:tag, taste:toxic, <script>]
+  ignored extra fields: id, sourceCatalogId, spriteId, visual, path, url
+
+PROGRAM accepted (existing closed Food vocabulary):
+  [temp:warm, taste:sweet, smell:fragrant, texture:soft,
+   family:grain, form:dessert]
+PROGRAM rejected: [duplicate taste:sweet, unknown:tag, taste:toxic, <script>]
+
+Persisted authored Food:
+  semanticType=food
+  tags=[temp:warm, taste:sweet, smell:fragrant, texture:soft,
+        family:grain, form:dessert]
+  sourceCatalogId remains the PROGRAM-created shop-catalog UUID.
+
+Purchased physical instance:
+  semanticType=food; tags exactly equal persisted catalog tags.
+  uniqueId is a separate item-instance UUID.
+
+Partial proposal fixture:
+  raw=[taste:sour, family:fruit, bad:tag]
+  accepted=[taste:sour, family:fruit]; rejected=[bad:tag]
+  Stored as optional semanticTags for display only because the existing
+  canonical Food contract requires all six namespaces. No incomplete
+  semanticType/tags classification is asserted or used for gameplay scoring.
+
+Toy semantic registry: absent. No Toy tags were created.
+Reload/export/import JSON round trip: exact tags preserved; no new AI call.
+Focused fixture: shop-item-presentation-v1 PASS.

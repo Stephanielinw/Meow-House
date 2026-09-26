@@ -1,0 +1,8 @@
+lunar-javascript 1.7.7 by 6tail
+Source: https://cdn.jsdelivr.net/npm/lunar-javascript@1.7.7/lunar.js
+Upstream: https://github.com/6tail/lunar-javascript/tree/v1.7.7
+License: MIT; see LICENSE in this directory.
+SHA-256 lunar.js: 9750324bfe1aa63c146f8c72b1143df924466c11c8a5277d7d9225c541a18aaa
+
+This pinned browser script replaces the project's previous unversioned remote
+lunar-javascript script. Only the runtime script and license are bundled.

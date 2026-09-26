@@ -1,0 +1,76 @@
+HOUSE BASE LIBRARY · SHEET A · PROMOTION VALIDATION
+
+SHEET A = LOCKED / PRODUCTION
+6 generic base food sprites promoted successfully
+
+Approved candidate art redrawn: NO
+Approved PNG bytes changed during promotion: NO
+Registry entries present: 6/6
+Dimensions 64×64: PASS 6/6
+Transparent background: PASS 6/6
+Canvas-edge contact: 0/6
+Source/runtime hash equality: PASS 6/6
+
+- basefood:fish-meal
+  source: assets/meeow-item-source/house-base-library-v1/fish-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/fish-meal.png
+  sha256: 7ba91cf150b21e6618604dd80be83e95ae229c008e7f4af5c9f028a342485bc0
+  source_runtime_equal: PASS
+  margins_LTRB: (4, 16, 4, 15)
+  alpha_values: [0, 255]
+- basefood:meat-meal
+  source: assets/meeow-item-source/house-base-library-v1/meat-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/meat-meal.png
+  sha256: 9892f6810544e3e7ea53383939784325aa02abecfba16fb56c50b4bedea42a9d
+  source_runtime_equal: PASS
+  margins_LTRB: (4, 15, 4, 14)
+  alpha_values: [0, 255]
+- basefood:egg-meal
+  source: assets/meeow-item-source/house-base-library-v1/egg-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/egg-meal.png
+  sha256: 58f17d4efbd281ece1e20868c042c94b0d3b2a94f58b59c59def35d05d189a13
+  source_runtime_equal: PASS
+  margins_LTRB: (4, 15, 4, 13)
+  alpha_values: [0, 255]
+- basefood:grain-bowl
+  source: assets/meeow-item-source/house-base-library-v1/grain-bowl.png
+  runtime: assets/item-sprites/library/house-base-library-v1/grain-bowl.png
+  sha256: 53b1ccf7c8385a91b4b9ed646719cefbb3064be2973ab8fc08d3c94c290287b6
+  source_runtime_equal: PASS
+  margins_LTRB: (7, 5, 7, 8)
+  alpha_values: [0, 255]
+- basefood:vegetable-meal
+  source: assets/meeow-item-source/house-base-library-v1/vegetable-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/vegetable-meal.png
+  sha256: c10afadf8890844be47c2a30b9c89dd66d88bc051963f40d326bc9278b22046f
+  source_runtime_equal: PASS
+  margins_LTRB: (4, 15, 4, 14)
+  alpha_values: [0, 255]
+- basefood:bread-meal
+  source: assets/meeow-item-source/house-base-library-v1/bread-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/bread-meal.png
+  sha256: 753e13d6dc50199d29c84c3a3f8b4592e79cffb2dc546093d4828b0d3ddbcf08
+  source_runtime_equal: PASS
+  margins_LTRB: (4, 15, 4, 13)
+  alpha_values: [0, 255]
+
+Protected systems:
+- House Food 16 source/runtime hash match against locked manifest: PASS
+- House Food mappings changed: NO
+- built-in Food identities changed: NO
+- resolver scoring/sorting logic changed: NO
+- visualHint taxonomy changed: NO
+- gameplay/semantics changed: NO
+- AI calls added: 0
+- static callAI( count: 40
+
+Focused checks:
+- js/meeow-item-visuals.js syntax: PASS
+- item-sprite-library.fixture.mjs: PASS
+- item-sprite-renderer-ui.fixture.mjs: PASS
+- item-visual-schema-v1.fixture.mjs: PASS
+- builtin-food-catalog-redesign-v1.fixture.mjs: PASS
+- food-semantic-catalog.fixture.mjs: PASS
+- item-pixel-editor-v1.fixture.mjs: PASS
+- shop-visual-authoring-restock-v1.fixture.mjs: PASS
+- git diff --check: PASS

@@ -1,0 +1,75 @@
+HOUSE BASE LIBRARY V1 · SHEET E · ASSET STATUS
+
+Final status: LOCKED / PRODUCTION
+
+- ID: baseitem:coin
+  filename: coin.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/coin.png
+  runtime: assets/item-sprites/library/house-base-library-v1/coin.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/coin.png
+  SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:necklace
+  filename: necklace.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/necklace.png
+  runtime: assets/item-sprites/library/house-base-library-v1/necklace.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/necklace.png
+  SHA-256: dc85a81abd8b3cd94c71b9da9e72e6a60d5a2e2799d536cc9efe14be7ad8ad31
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:watch
+  filename: watch.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/watch.png
+  runtime: assets/item-sprites/library/house-base-library-v1/watch.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/watch.png
+  SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:hairclip
+  filename: hairclip.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/hairclip.png
+  runtime: assets/item-sprites/library/house-base-library-v1/hairclip.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/hairclip.png
+  SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:wallet
+  filename: wallet.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/wallet.png
+  runtime: assets/item-sprites/library/house-base-library-v1/wallet.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/wallet.png
+  SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:bank-card
+  filename: bank-card.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/bank-card.png
+  runtime: assets/item-sprites/library/house-base-library-v1/bank-card.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/bank-card.png
+  SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:ring
+  filename: ring.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/ring.png
+  runtime: assets/item-sprites/library/house-base-library-v1/ring.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/ring.png
+  SHA-256: 731aba9d481c72e29ce4617e21151b7dcac990900e68f134b36c2a47bea7bbff
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:crown
+  filename: crown.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/crown.png
+  runtime: assets/item-sprites/library/house-base-library-v1/crown.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/crown.png
+  SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  status: LOCKED / PRODUCTION
+
+- ID: baseitem:glasses
+  filename: glasses.png
+  canonical source: assets/meeow-item-source/house-base-library-v1/glasses.png
+  runtime: assets/item-sprites/library/house-base-library-v1/glasses.png
+  approved authority: assets/meeow-item-source/QA/house-base-library-sheet-e-final-lock/approved-authority/glasses.png
+  SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  status: LOCKED / PRODUCTION

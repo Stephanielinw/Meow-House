@@ -1,0 +1,22 @@
+MID-AUTUMN 2026 FAILURE TRACE — CURRENT CODE, USER OBSERVATION, LIMITS
+
+OBSERVED DATE
+User confirmed Meeow House was opened/reloaded after 03:00 local time on 2026-09-25, not left open across the 03:00 boundary. The Hong Kong Observatory's 2026 Mid-Autumn notice identifies 2026-09-25 as Mid-Autumn (lunar 8-15): https://www.hko.gov.hk/en/Press-Releases/110730/Moon-watching-tips-for-Mid-Autumn-Festival-2026 . This is the festival date, not the next-day public holiday.
+
+END-TO-END PATH
+1. onMounted() ~29195 invokes checkSpecialEvent(); checkDailyInitialization() ~25512 also invokes it.
+2. checkSpecialEvent() ~13807 creates new Date() using browser local timezone and subtracts OPERATIONAL_DAY_START_HOUR=3 with setHours(). On 2026-09-25 at or after 03:00 local, the operational civil date is 2026-09-25.
+3. External Lunar.fromDate(now) ~13814 should return lunar month=8, day=15 for that date if the remote script loaded and conversion succeeded. The project itself does not pin or bundle the library; failure is silently caught and month/day remain zero.
+4. lunarEvents['8-15'] ~13819 sets eventName='中秋节快乐' and eventCtx='Today is 中秋节 (Lunar Calendar).'; then todayEvent/todayEventContext receive them ~13838. A same-day user birthday would overwrite both; no evidence establishes that this occurred.
+5. No holiday-specific banner, theme, Hall decoration, modal trigger, or persistent on-screen holiday badge consumes those refs. The only direct visible path is appending the event name to alfredMessage on mount ~29205 or when a Hall status sync succeeds ~27952. Hall entry ~14717/~14727 immediately replaces alfredMessage with generic text. On cached entry or failed/skipped refresh, the holiday prefix does not return. A current-day AI prompt may receive todayEventContext via getDateContext(), but a prompt is not a guaranteed visual treatment.
+
+DIAGNOSIS
+- The configured calendar date is correct. There is no evidence of a wrong 2026 Gregorian conversion in the code path, assuming Lunar.fromDate is available.
+- Confirmed F/G presentation disconnect: detection has no durable holiday-specific visible hook; Hall navigation can erase the only text. This is sufficient to explain "no visible special behavior" even if the date was detected.
+- Conditional B/J dependency failure: if jsDelivr did not load under file:// or conversion threw, the empty catch silently disables all lunar festivals; code lacks a diagnostic/fallback. Whether this happened in the user's 2026-09-25 session is not recorded and cannot be asserted.
+- H/I across-midnight staleness also exists for a continuously open page, but the user's after-03:00 reload rules it out as the incident's direct cause.
+- Birthday precedence could replace the holiday label if the user birthday was 09-25; private save contents were not inspected, so this remains an unconfirmed conditional path.
+- Historical removal (K) is not supported by available commits: the same limited presentation existed in the earliest available import.
+
+DETECTION RESULT WORDING
+Code-level replay expectation: YES, 8-15 maps to 中秋节快乐 on 2026-09-25 after 03:00 when Lunar is available. Actual browser-session detection: UNVERIFIED; no persisted holiday state, network record or event log exists to prove the dependency succeeded that day. Do not collapse this distinction into a false runtime YES or NO.

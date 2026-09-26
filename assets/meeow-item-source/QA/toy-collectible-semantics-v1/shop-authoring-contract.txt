@@ -1,0 +1,10 @@
+SHOP USER-AUTHORED TOYS — EXISTING APPRAISAL REQUEST
+
+The one existing Shop callAI request may propose optional objectSemantics:
+{ "role": "play|comfort", "interaction": "chase|bat|carry|cuddle|sniff", "stimulus": ["rolling|swinging|fluttering|glowing|scented"] }
+
+PROGRAM derives semanticType="toy" from the captured immutable Shop category. It validates the proposal through the closed semantic registry and compatibility matrix. AI-supplied semanticType, identity, provenance, giftability, sprite, and arbitrary extra fields are ignored. Invalid or missing objectSemantics leaves the product unclassified and does not block an otherwise approved product. The existing appraisal token, snapshot, double-submit guard, and no-second-AI-call behavior remain in place.
+
+Accepted tags persist on the catalog, freeze into purchased physical instances, survive ordinary save/reload and whole-save export/import, and move unchanged on USER→resident gifting. They do not affect sourceCatalogId or visual identity. Toy semantics are excluded from gameplay stacking signatures.
+
+Current Shop authoring categories are food and toy. No collectible authoring category was introduced.

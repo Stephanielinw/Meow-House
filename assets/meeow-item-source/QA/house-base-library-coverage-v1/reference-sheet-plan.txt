@@ -1,0 +1,200 @@
+HOUSE BASE SPRITE LIBRARY — REFERENCE SHEET PLAN V1
+Audit date: 2026-09-24
+
+PURPOSE
+
+Plan five practical human/reference drawing sheets for 40 generic 64×64 first-party
+sprites. This file does not create art or register IDs. Each sprite should be a broad
+resolver archetype, not a named Meeow House product.
+
+SHARED ART BRIEF FOR ALL FUTURE SHEETS
+
+- True native 64×64 pixel art with transparent background.
+- Crisp integer pixel grid; no antialiasing or soft resampling.
+- Cozy, rounded, readable Meeow House item-icon language.
+- 2 px minimum transparent safety margin; 3–5 px preferred where practical.
+- Strong silhouette at the shared small/medium renderer sizes.
+- Avoid product-specific garnish, labels, or compositions that imply housefood:*.
+- One concept per cell, with exact proposed ID and visualHint printed beside it.
+- Reference sheets are art direction; final sprites require user review before registry.
+
+SHEET A — BASE FOOD: MEALS (6)
+
+1. basefood:fish-meal — generic prepared fish plate — P0
+   fish / food / meal / food
+   Broad fish-meal authority; removes pressure to reuse the exact salmon Shop product.
+
+2. basefood:meat-meal — generic prepared meat plate — P0
+   meat / food / meal / food
+   Broad meat meal without pumpkin/stew identity.
+
+3. basefood:egg-meal — generic cooked egg dish — P0
+   egg / food / meal / food
+   Readable egg-based meal without tuna-custard identity.
+
+4. basefood:grain-bowl — generic rice/porridge-style bowl — P0
+   grain / food / meal / food
+   High-reuse grain meal. Keep the contents visually generic.
+
+5. basefood:vegetable-meal — generic vegetable plate — P0
+   vegetable / food / meal / food
+   Broad meal silhouette without copying the canonical roasted platter.
+
+6. basefood:bread-meal — sandwich/filled bread meal — P1
+   bread / food / meal / food
+   Current vocabulary's broad selectable role for sandwich/flatbread-like meals.
+
+SHEET B — BASE FOOD: SNACKS + DESSERTS (9)
+
+1. basefood:dried-fish-snack — dried fish snack — P0
+   fish / food / snack / food
+
+2. basefood:meat-jerky — plain jerky strips — P0
+   meat / food / snack / food
+
+3. basefood:vegetable-snack — vegetable chips/crisps — P0
+   vegetable / food / snack / food
+
+4. basefood:fruit-snack — small fruit cup/snack — P0
+   fruit / food / snack / food
+
+5. basefood:bread-loaf — simple loaf/roll — P0
+   bread / food / snack / food
+
+6. basefood:dessert-cake — generic cake slice/plated dessert — P0
+   dessert / food / dessert / food
+
+7. basefood:grain-snack — plain grain cracker/biscuit — P1
+   grain / food / snack / food
+
+8. basefood:dessert-snack — compact cookie/candy-like sweet — P1
+   dessert / food / snack / food
+
+9. basefood:fruit-dessert — fruit dessert/jelly cup — P1
+   fruit / food / dessert / food
+
+Design note: keep these broad. Do not make the fish snack the exact seaweed crisp,
+the jerky the exact charred chicken, or the dessert one of the three built-in products.
+
+SHEET C — BASE FOOD: DRINKS + SIMPLE INGREDIENTS (9)
+
+1. basefood:generic-drink — neutral cold beverage/glass — P0
+   drink / liquid / beverage / food
+
+2. basefood:hot-mug — warm beverage in a plain mug — P0
+   mug / ceramic / beverage / food
+
+3. basefood:fruit-drink — fruit juice-style beverage — P1
+   fruit / liquid / beverage / food
+
+4. basefood:egg-ingredient — whole egg/basic ingredient — P0
+   egg / food / ingredient / food
+
+5. basefood:fruit-ingredient — whole fruit cluster — P0
+   fruit / food / ingredient / food
+
+6. basefood:raw-fish — simple fish ingredient — P1
+   fish / food / ingredient / food
+
+7. basefood:raw-meat — simple meat ingredient — P1
+   meat / food / ingredient / food
+
+8. basefood:vegetable-ingredient — mixed basic vegetables — P1
+   vegetable / food / ingredient / food
+
+9. basefood:grain-ingredient — grain/rice/wheat ingredient — P1
+   grain / food / ingredient / food
+
+Design note: tea versus coffee and milk versus juice are not independently addressable
+under the current contract unless their object/form roles differ. Draw generic contents;
+do not create unreachable palette-only variants in V1.
+
+SHEET D — NATURE / SOUVENIRS (8)
+
+1. baseitem:branch — small branch — P0
+   branch / wood / natural-object / nature
+
+2. baseitem:herb — herb sprig/bundle — P0
+   herb / organic / natural-object / nature
+
+3. baseitem:stone — smooth stone — P0
+   stone / stone / natural-object / nature
+
+4. baseitem:crystal — crystal cluster — P0
+   crystal / mineral / natural-object / fantasy
+
+5. baseitem:shell — seashell — P0
+   shell / organic / keepsake / travel
+
+6. baseitem:feather — single feather — P0
+   feather / organic / natural-object / nature
+
+7. baseitem:leaf — leaf or small leaf cluster — P1
+   leaf / organic / natural-object / nature
+
+8. baseitem:flower — small blossom — P1
+   flower / organic / natural-object / nature
+
+Design note: these should read as portable keepsakes, not scene props. Crystal may lean
+fantasy, while stone remains natural and ordinary.
+
+SHEET E — TRINKETS / TOYS / MISC (8)
+
+1. baseitem:travel-trinket — neutral charm/token — P0
+   trinket / mixed / keepsake / travel
+
+2. baseitem:utility-tool — compact generic tool/gear — P0
+   tool / mixed / tool / travel
+
+3. baseitem:paper-map — folded map/document — P0
+   paper / paper / document / travel
+
+4. baseitem:letter — sealed letter — P0
+   letter / paper / document / writing
+
+5. baseitem:coin — collectible coin — P0
+   coin / metal / keepsake / collectible
+
+6. baseitem:key — old key/key token — P0
+   key / metal / keepsake / travel
+
+7. baseitem:bottle — neutral bottle/container — P0
+   bottle / glass / container / fantasy
+
+8. baseitem:small-toy — small toy/figurine — P1
+   toy / mixed / toy / collectible
+
+Design note: travel-trinket and utility-tool must be intentionally generic because they
+represent many fixed Explore descriptions. Paper-map should cover document fragments
+without adding readable text. Bottle should be neutral enough for potion or drift-bottle
+use and visually distinct from any future beverage bottle.
+
+SHEET COUNTS
+
+- Sheet A: 6
+- Sheet B: 9
+- Sheet C: 9
+- Sheet D: 8
+- Sheet E: 8
+- Total: 40
+- Food/Drink total: 24
+- Non-food total: 16
+- P0 total: 28
+- P1 total: 12
+
+REVIEW ORDER
+
+1. Draw and review Sheet A + Sheet C P0 to establish broad meal/drink language.
+2. Draw and review Sheet B P0 for snack/dessert coverage.
+3. Draw and review Sheet D + Sheet E P0 against actual Explore/Away examples.
+4. Complete P1 only after confirming the P0 silhouettes remain distinguishable at the
+   shared renderer's small and medium sizes.
+5. Before any production registration, resolve canonical housefood eligibility in the
+   generic resolver without altering the 16 built-in mappings.
+
+OUT OF SCOPE FOR THESE SHEETS
+
+- New visualHint tags.
+- Named canon products.
+- Multiple inaccessible subtypes sharing one exact hint tuple.
+- Registry entries, resolver weights, prompt changes, or production PNG promotion.

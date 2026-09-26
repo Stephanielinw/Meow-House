@@ -1,0 +1,13 @@
+CAT↔CAT RELATIONSHIP — ACTUAL TRIGGER MATRIX
+
+Trigger | sign/dimensions | magnitude/authority | ordinary co-presence?
+Accepted ambient Hall scene with valid relationshipDeltas | positive, negative or mixed; familiarity, warmth, trust, tension, tags | AI proposes structured per-direction delta; PROGRAM validates IDs/ranges, applies actual bounded values. familiarityDelta 0..1; warmth/trust/tension -1..1; tags from closed vocabulary. No enforced semantic polarity. | Not merely prose: requires accepted structured scene and valid delta.
+Accepted USER-directed Hall scene with 2+ selected residents and valid relationshipDeltas | same | same resolver; USER freezes participants and one required scene | Same restrictions; USER interaction can coexist but is not inherently a relationship delta.
+Third accepted shared-scene exposure for pair | familiarity increase only, symmetric when headroom exists; never warmth/trust/tension | PROGRAM-owned +1 familiarity each direction; threshold 3 pair exposures, max one progression per operational day; canonical baseline headroom prevents overfill | YES: every pair in accepted scene counts exposure, including group co-participants without explicit two-way exchange. Merely sharing Hall without a scene does nothing.
+Attention bid / Active Social Presence | none | display-only Hall record and resident status/map effects; prompt forbids relationship changes | No relationship mutation.
+Ordinary status text naming another resident | none | presentation only, no structured scene | No.
+Focus, Truth or Dare, Special Moment, Away, Life Threads | none through their own event records | may contain multiple residents in text/session, but no relationship resolver call | No.
+
+Positive social change is reachable through warmthDelta>0, trustDelta>0 or tensionDelta<0 when current tension>0. Negative social change is reachable through warmthDelta<0, trustDelta<0 or tensionDelta>0. There is no negative-only exclusion in validator or resolver. At bounds, requested change may resolve to zero. Frequency and valence bias are unknown because AI chooses optional scene and deltas, and no accepted-response sample/telemetry is present. The prompt deliberately says do not force conflict, affection or an update for routine presence; this may be appropriate but its quantitative effect is unmeasured.
+
+Two residents in an accepted group scene automatically accumulate exposure, even if only one pair visibly exchanged. Three such scenes can increase familiarity for every pair. This should be reviewed for semantic fidelity before using exposure as a future meaningful-trend gate. The proposed gifting trend gate correctly excludes :program-familiarity events.

@@ -1,0 +1,6 @@
+FIRST-PARTY FIVE CAT ITEM SPRITES
+baseitem:star-sand-orb | star-sand-orb.png | 64×64 RGBA | object=toy,trinket; material=glass; form=toy,keepsake; context=fantasy,household | source/runtime SHA-256 PASS e5a1cb4914fafbda0a90774dba144da83d627416f6fbd72471c8f3fe889c4a1e
+baseitem:teaser-wand | teaser-wand.png | 64×64 RGBA | object=toy,tool; material=mixed; form=toy; context=household | source/runtime SHA-256 PASS 317fca6e03d9962d951714870ad5c0439da4e00e9e21c15cb1aaf3b2836d120d
+baseitem:catnip-pouch | catnip-pouch.png | 64×64 RGBA | object=herb,bag; material=cloth,organic; form=toy,container; context=household | source/runtime SHA-256 PASS c9167dbd167d3592b1625bcb100af7f721a6fe45f5d80e116c34adfd26d1ee85
+baseitem:riddle-paper-ball | riddle-paper-ball.png | 64×64 RGBA | object=paper,toy; material=paper; form=toy; context=household | source/runtime SHA-256 PASS bbb0f7bc11eac33904b6d983ba54cbd23a4bd109ac6c291c20c14d75fdaec640
+baseitem:letter | letter.png | 64×64 RGBA | object=letter,paper; material=paper; form=document; context=writing,gift | source/runtime SHA-256 PASS 2d54f97f5fefceb22d724f8393d865148930bd6974daf9123b3b73c6c863cebb

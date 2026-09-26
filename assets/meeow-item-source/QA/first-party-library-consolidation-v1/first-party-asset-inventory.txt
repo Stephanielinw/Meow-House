@@ -1,0 +1,926 @@
+FIRST-PARTY ITEM ASSET INVENTORY — CONSOLIDATION V1
+Generated from the active runtime registry plus the two locked first-party manifests.
+QA/contact sheets are excluded from production counts. Custom Pixel is a schema/renderer capability and has no registered static sprite PNG.
+
+TOTAL FIRST-PARTY PRODUCTION SPRITES: 57
+CANONICAL BUILT-IN (housefood:*): 16
+GENERIC BASE FOOD (basefood:*): 24
+GENERIC BASE ITEM (baseitem:*): 17
+THIRD-PARTY ACTIVE: 0
+ORPHAN PRODUCTION PNG: 0
+MISSING SOURCE: 0
+MISSING ACTIVE RUNTIME: 0
+SOURCE/RUNTIME/AUTHORITY HASH MISMATCH: 0
+DUPLICATE ACTIVE spriteId: 0
+
+ID: housefood:salmon-steak
+  classification: CANONICAL BUILT-IN
+  filename: salmon-steak.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/salmon-steak.png
+  runtime: assets/item-sprites/library/house-style-food-v1/salmon-steak.png
+  source SHA-256: f3cf9bb36045b0bfa573d55217dee97d1071f6becf08bec47f73e00f1124f94f
+  runtime SHA-256: f3cf9bb36045b0bfa573d55217dee97d1071f6becf08bec47f73e00f1124f94f
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 14, 61, 60)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=fish; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:pumpkin-chicken-stew
+  classification: CANONICAL BUILT-IN
+  filename: pumpkin-chicken-stew.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/pumpkin-chicken-stew.png
+  runtime: assets/item-sprites/library/house-style-food-v1/pumpkin-chicken-stew.png
+  source SHA-256: 4d21e656cb61eef2e1d1a1e11e9cb3227ff91ab1559a5e02aad87c5b527e37f6
+  runtime SHA-256: 4d21e656cb61eef2e1d1a1e11e9cb3227ff91ab1559a5e02aad87c5b527e37f6
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 11, 62, 60)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=meat; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:tuna-egg-custard
+  classification: CANONICAL BUILT-IN
+  filename: tuna-egg-custard.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/tuna-egg-custard.png
+  runtime: assets/item-sprites/library/house-style-food-v1/tuna-egg-custard.png
+  source SHA-256: bc71c07f38d2c8041220fdfa0b7a07a1aa98b57a9d732f84254e4f0b78adda0e
+  runtime SHA-256: bc71c07f38d2c8041220fdfa0b7a07a1aa98b57a9d732f84254e4f0b78adda0e
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 14, 57, 61)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=egg; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:chicken-oat-risotto
+  classification: CANONICAL BUILT-IN
+  filename: chicken-oat-risotto.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/chicken-oat-risotto.png
+  runtime: assets/item-sprites/library/house-style-food-v1/chicken-oat-risotto.png
+  source SHA-256: f5a070b96ecfaa2113b81d93dad5e95f786df76c3678d9e4061652bb653a3915
+  runtime SHA-256: f5a070b96ecfaa2113b81d93dad5e95f786df76c3678d9e4061652bb653a3915
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 12, 59, 60)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=grain; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:roasted-vegetable-platter
+  classification: CANONICAL BUILT-IN
+  filename: roasted-vegetable-platter.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/roasted-vegetable-platter.png
+  runtime: assets/item-sprites/library/house-style-food-v1/roasted-vegetable-platter.png
+  source SHA-256: 9f07daee48ec26b089604ac8acb7dbd19893553cf9b2e4f45c05e237f0fd6a80
+  runtime SHA-256: 9f07daee48ec26b089604ac8acb7dbd19893553cf9b2e4f45c05e237f0fd6a80
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 7, 62, 54)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=vegetable; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:sour-fish-vegetable-salad
+  classification: CANONICAL BUILT-IN
+  filename: sour-fish-vegetable-salad.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/sour-fish-vegetable-salad.png
+  runtime: assets/item-sprites/library/house-style-food-v1/sour-fish-vegetable-salad.png
+  source SHA-256: 4b7711167e51f5dedd0a0142defb069b41ea160c26e37af98d394313144ff975
+  runtime SHA-256: 4b7711167e51f5dedd0a0142defb069b41ea160c26e37af98d394313144ff975
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (3, 8, 62, 55)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=fish; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:seaweed-fish-crisps
+  classification: CANONICAL BUILT-IN
+  filename: seaweed-fish-crisps.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/seaweed-fish-crisps.png
+  runtime: assets/item-sprites/library/house-style-food-v1/seaweed-fish-crisps.png
+  source SHA-256: 807f012a1fae8c878febc578b4572cb166dc67ade0695ad15487dc8a7ff37915
+  runtime SHA-256: 807f012a1fae8c878febc578b4572cb166dc67ade0695ad15487dc8a7ff37915
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 5, 62, 56)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=fish; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:charred-chicken-strips
+  classification: CANONICAL BUILT-IN
+  filename: charred-chicken-strips.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/charred-chicken-strips.png
+  runtime: assets/item-sprites/library/house-style-food-v1/charred-chicken-strips.png
+  source SHA-256: cec093f9b564dc3e443e796b85926e6a22b911517d6f27b57e6d425466d0003e
+  runtime SHA-256: cec093f9b564dc3e443e796b85926e6a22b911517d6f27b57e6d425466d0003e
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 9, 62, 55)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=meat; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:cheese-grain-crackers
+  classification: CANONICAL BUILT-IN
+  filename: cheese-grain-crackers.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/cheese-grain-crackers.png
+  runtime: assets/item-sprites/library/house-style-food-v1/cheese-grain-crackers.png
+  source SHA-256: 0f2660ec7965d1966bf15f1859678c565d91d472e0db4d0b27d9e635731612be
+  runtime SHA-256: 0f2660ec7965d1966bf15f1859678c565d91d472e0db4d0b27d9e635731612be
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 2, 62, 50)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=grain; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:spicy-veggie-chips
+  classification: CANONICAL BUILT-IN
+  filename: spicy-veggie-chips.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/spicy-veggie-chips.png
+  runtime: assets/item-sprites/library/house-style-food-v1/spicy-veggie-chips.png
+  source SHA-256: 2c47e44eee974a04b564c42d0f9c30fde5bc94105084ed67d9b303d19450fe39
+  runtime SHA-256: 2c47e44eee974a04b564c42d0f9c30fde5bc94105084ed67d9b303d19450fe39
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (3, 2, 61, 50)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=vegetable; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:strawberry-panna-cotta
+  classification: CANONICAL BUILT-IN
+  filename: strawberry-panna-cotta.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/strawberry-panna-cotta.png
+  runtime: assets/item-sprites/library/house-style-food-v1/strawberry-panna-cotta.png
+  source SHA-256: f83947429c8d450dee3a281759f4be21dbb8fe35feb6fd7950472ab97da2ad06
+  runtime SHA-256: f83947429c8d450dee3a281759f4be21dbb8fe35feb6fd7950472ab97da2ad06
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 2, 61, 54)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=dessert; material=food; form=dessert; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:pumpkin-pudding
+  classification: CANONICAL BUILT-IN
+  filename: pumpkin-pudding.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/pumpkin-pudding.png
+  runtime: assets/item-sprites/library/house-style-food-v1/pumpkin-pudding.png
+  source SHA-256: 8bac1ef838cbea666110536e629cba0fdca0178003e759601041cd50b31b0986
+  runtime SHA-256: 8bac1ef838cbea666110536e629cba0fdca0178003e759601041cd50b31b0986
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (2, 2, 62, 49)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=dessert; material=food; form=dessert; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:berry-yogurt-cup
+  classification: CANONICAL BUILT-IN
+  filename: berry-yogurt-cup.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/berry-yogurt-cup.png
+  runtime: assets/item-sprites/library/house-style-food-v1/berry-yogurt-cup.png
+  source SHA-256: dce511e0eaa5c52761d9d1a142207feaf6981c58fdfe2fd1683af29bc6a62ad8
+  runtime SHA-256: dce511e0eaa5c52761d9d1a142207feaf6981c58fdfe2fd1683af29bc6a62ad8
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (6, 4, 57, 62)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=dessert; material=food; form=dessert; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:warm-milk
+  classification: CANONICAL BUILT-IN
+  filename: warm-milk.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/warm-milk.png
+  runtime: assets/item-sprites/library/house-style-food-v1/warm-milk.png
+  source SHA-256: 3bbe57d35e98891402315f16667c519d909bcffe4da68a028447af3e44d4a1b4
+  runtime SHA-256: 3bbe57d35e98891402315f16667c519d909bcffe4da68a028447af3e44d4a1b4
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 2, 60, 62)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=drink; material=liquid|food; form=beverage; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:fruit-pulp-drink
+  classification: CANONICAL BUILT-IN
+  filename: fruit-pulp-drink.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/fruit-pulp-drink.png
+  runtime: assets/item-sprites/library/house-style-food-v1/fruit-pulp-drink.png
+  source SHA-256: 72cd466fc30387afa0a36a2a65931d29b6e3a2a45f9cd9b517f2714873d67fd7
+  runtime SHA-256: 72cd466fc30387afa0a36a2a65931d29b6e3a2a45f9cd9b517f2714873d67fd7
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (11, 2, 52, 62)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=drink; material=liquid|food; form=beverage; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: housefood:apple-oat-milk
+  classification: CANONICAL BUILT-IN
+  filename: apple-oat-milk.png
+  namespace: housefood
+  canonical source: assets/meeow-item-source/house-style-food-v1/apple-oat-milk.png
+  runtime: assets/item-sprites/library/house-style-food-v1/apple-oat-milk.png
+  source SHA-256: c6301f47fa2d0fb268df13659e2296f75205b6be58680a7c60e2c1a38bba5502
+  runtime SHA-256: c6301f47fa2d0fb268df13659e2296f75205b6be58680a7c60e2c1a38bba5502
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (7, 4, 56, 61)
+  registry presence: YES
+  resolver eligible: NO
+  tags: object=drink; material=liquid|food; form=beverage; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:fish-meal
+  classification: GENERIC BASE FOOD
+  filename: fish-meal.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/fish-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/fish-meal.png
+  source SHA-256: 7ba91cf150b21e6618604dd80be83e95ae229c008e7f4af5c9f028a342485bc0
+  runtime SHA-256: 7ba91cf150b21e6618604dd80be83e95ae229c008e7f4af5c9f028a342485bc0
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 16, 60, 49)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=fish; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:meat-meal
+  classification: GENERIC BASE FOOD
+  filename: meat-meal.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/meat-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/meat-meal.png
+  source SHA-256: 9892f6810544e3e7ea53383939784325aa02abecfba16fb56c50b4bedea42a9d
+  runtime SHA-256: 9892f6810544e3e7ea53383939784325aa02abecfba16fb56c50b4bedea42a9d
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 15, 60, 50)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=meat; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:egg-meal
+  classification: GENERIC BASE FOOD
+  filename: egg-meal.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/egg-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/egg-meal.png
+  source SHA-256: 58f17d4efbd281ece1e20868c042c94b0d3b2a94f58b59c59def35d05d189a13
+  runtime SHA-256: 58f17d4efbd281ece1e20868c042c94b0d3b2a94f58b59c59def35d05d189a13
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 15, 60, 51)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=egg; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:grain-bowl
+  classification: GENERIC BASE FOOD
+  filename: grain-bowl.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/grain-bowl.png
+  runtime: assets/item-sprites/library/house-base-library-v1/grain-bowl.png
+  source SHA-256: 53b1ccf7c8385a91b4b9ed646719cefbb3064be2973ab8fc08d3c94c290287b6
+  runtime SHA-256: 53b1ccf7c8385a91b4b9ed646719cefbb3064be2973ab8fc08d3c94c290287b6
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (7, 5, 57, 56)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=grain; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:vegetable-meal
+  classification: GENERIC BASE FOOD
+  filename: vegetable-meal.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/vegetable-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/vegetable-meal.png
+  source SHA-256: c10afadf8890844be47c2a30b9c89dd66d88bc051963f40d326bc9278b22046f
+  runtime SHA-256: c10afadf8890844be47c2a30b9c89dd66d88bc051963f40d326bc9278b22046f
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 15, 60, 50)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=vegetable; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:bread-meal
+  classification: GENERIC BASE FOOD
+  filename: bread-meal.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/bread-meal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/bread-meal.png
+  source SHA-256: 753e13d6dc50199d29c84c3a3f8b4592e79cffb2dc546093d4828b0d3ddbcf08
+  runtime SHA-256: 753e13d6dc50199d29c84c3a3f8b4592e79cffb2dc546093d4828b0d3ddbcf08
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 15, 60, 51)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=bread; material=food; form=meal; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:dried-fish-snack
+  classification: GENERIC BASE FOOD
+  filename: dried-fish-snack.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/dried-fish-snack.png
+  runtime: assets/item-sprites/library/house-base-library-v1/dried-fish-snack.png
+  source SHA-256: cc32bd22b1c6206a0ab16be330a191938c9c4c7cb14f6290b06cac5617834e4d
+  runtime SHA-256: cc32bd22b1c6206a0ab16be330a191938c9c4c7cb14f6290b06cac5617834e4d
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 14, 60, 52)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=fish; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:meat-jerky
+  classification: GENERIC BASE FOOD
+  filename: meat-jerky.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/meat-jerky.png
+  runtime: assets/item-sprites/library/house-base-library-v1/meat-jerky.png
+  source SHA-256: 6f53f6de0cdd6c90606da2fa3fe7517ca9e87c66f68f972b17f6aa99833e53eb
+  runtime SHA-256: 6f53f6de0cdd6c90606da2fa3fe7517ca9e87c66f68f972b17f6aa99833e53eb
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 13, 60, 52)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=meat; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:vegetable-snack
+  classification: GENERIC BASE FOOD
+  filename: vegetable-snack.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/vegetable-snack.png
+  runtime: assets/item-sprites/library/house-base-library-v1/vegetable-snack.png
+  source SHA-256: 3b808eea255c791797dc64eab5b8d8ee6064684e89b47ac63c4b42e730ccbd25
+  runtime SHA-256: 3b808eea255c791797dc64eab5b8d8ee6064684e89b47ac63c4b42e730ccbd25
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 12, 60, 54)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=vegetable; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:fruit-snack
+  classification: GENERIC BASE FOOD
+  filename: fruit-snack.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/fruit-snack.png
+  runtime: assets/item-sprites/library/house-base-library-v1/fruit-snack.png
+  source SHA-256: 8c0f2ab169180bdd7781c9be885290c01d21d754154784b9669e3a85faecdd22
+  runtime SHA-256: 8c0f2ab169180bdd7781c9be885290c01d21d754154784b9669e3a85faecdd22
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (6, 10, 58, 55)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=fruit; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:bread-loaf
+  classification: GENERIC BASE FOOD
+  filename: bread-loaf.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/bread-loaf.png
+  runtime: assets/item-sprites/library/house-base-library-v1/bread-loaf.png
+  source SHA-256: 5804beb773125999c6f20a4c75e662cc102a96cc77f8db0dab65db404511b781
+  runtime SHA-256: 5804beb773125999c6f20a4c75e662cc102a96cc77f8db0dab65db404511b781
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 12, 60, 54)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=bread; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:dessert-cake
+  classification: GENERIC BASE FOOD
+  filename: dessert-cake.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/dessert-cake.png
+  runtime: assets/item-sprites/library/house-base-library-v1/dessert-cake.png
+  source SHA-256: 2e7aae743661965262e21e4dc2ebc36ec0a5394e3971e42af3e64edce874634e
+  runtime SHA-256: 2e7aae743661965262e21e4dc2ebc36ec0a5394e3971e42af3e64edce874634e
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (5, 10, 59, 55)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=dessert; material=food; form=dessert; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:grain-snack
+  classification: GENERIC BASE FOOD
+  filename: grain-snack.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/grain-snack.png
+  runtime: assets/item-sprites/library/house-base-library-v1/grain-snack.png
+  source SHA-256: 2828757c53e8f83b813d99b6bd69bfcdb7a17edfd6bd4aae75a0e4747ad698a4
+  runtime SHA-256: 2828757c53e8f83b813d99b6bd69bfcdb7a17edfd6bd4aae75a0e4747ad698a4
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 11, 60, 54)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=grain; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:dessert-snack
+  classification: GENERIC BASE FOOD
+  filename: dessert-snack.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/dessert-snack.png
+  runtime: assets/item-sprites/library/house-base-library-v1/dessert-snack.png
+  source SHA-256: aca6fd41b10683b5f8bc0876d03edc8f8c0be51ce89dd8812d82df2b131976c4
+  runtime SHA-256: aca6fd41b10683b5f8bc0876d03edc8f8c0be51ce89dd8812d82df2b131976c4
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 13, 60, 52)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=dessert; material=food; form=snack; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:fruit-dessert
+  classification: GENERIC BASE FOOD
+  filename: fruit-dessert.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/fruit-dessert.png
+  runtime: assets/item-sprites/library/house-base-library-v1/fruit-dessert.png
+  source SHA-256: 01b8e67abe674e1a6ef331bca3d96568b47e37f54ce8d81844c6e9c809294dbb
+  runtime SHA-256: 01b8e67abe674e1a6ef331bca3d96568b47e37f54ce8d81844c6e9c809294dbb
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (9, 6, 55, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=fruit; material=food; form=dessert; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:generic-drink
+  classification: GENERIC BASE FOOD
+  filename: generic-drink.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/generic-drink.png
+  runtime: assets/item-sprites/library/house-base-library-v1/generic-drink.png
+  source SHA-256: 0d904cd2fecf7a469387085024958a21264e830ae36f0d13f19cc37decd30187
+  runtime SHA-256: 0d904cd2fecf7a469387085024958a21264e830ae36f0d13f19cc37decd30187
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (7, 2, 56, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=drink; material=liquid|food; form=beverage; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:hot-mug
+  classification: GENERIC BASE FOOD
+  filename: hot-mug.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/hot-mug.png
+  runtime: assets/item-sprites/library/house-base-library-v1/hot-mug.png
+  source SHA-256: 50c9a1a7cc136a492bb9f457a4c20b5e33ee5d30aed45774a9ca8baf6b406d43
+  runtime SHA-256: 50c9a1a7cc136a492bb9f457a4c20b5e33ee5d30aed45774a9ca8baf6b406d43
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (6, 2, 58, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=mug; material=ceramic; form=beverage; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:fruit-drink
+  classification: GENERIC BASE FOOD
+  filename: fruit-drink.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/fruit-drink.png
+  runtime: assets/item-sprites/library/house-base-library-v1/fruit-drink.png
+  source SHA-256: 2384ac3672e4f9507189816a1ea5106997cf4fb1c154733831b47ebd9a020b6f
+  runtime SHA-256: 2384ac3672e4f9507189816a1ea5106997cf4fb1c154733831b47ebd9a020b6f
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (8, 2, 56, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=fruit; material=liquid; form=beverage; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:egg-ingredient
+  classification: GENERIC BASE FOOD
+  filename: egg-ingredient.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/egg-ingredient.png
+  runtime: assets/item-sprites/library/house-base-library-v1/egg-ingredient.png
+  source SHA-256: d6e1ddbb673d83c80f6b3b0bfa528888c8d8443c518fa173ef4837b34707d438
+  runtime SHA-256: d6e1ddbb673d83c80f6b3b0bfa528888c8d8443c518fa173ef4837b34707d438
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 14, 59, 49)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=egg; material=food; form=ingredient; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:fruit-ingredient
+  classification: GENERIC BASE FOOD
+  filename: fruit-ingredient.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/fruit-ingredient.png
+  runtime: assets/item-sprites/library/house-base-library-v1/fruit-ingredient.png
+  source SHA-256: d1211e729c4a0a5b8a7a9269b417865be6d8eddfc2c85001270dec5a66f0d95a
+  runtime SHA-256: d1211e729c4a0a5b8a7a9269b417865be6d8eddfc2c85001270dec5a66f0d95a
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 15, 60, 48)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=fruit; material=food; form=ingredient; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:raw-fish
+  classification: GENERIC BASE FOOD
+  filename: raw-fish.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/raw-fish.png
+  runtime: assets/item-sprites/library/house-base-library-v1/raw-fish.png
+  source SHA-256: 1c6b182de02800c72a686f9dad1f56f9a08417e104549030f4b8b00302ea426f
+  runtime SHA-256: 1c6b182de02800c72a686f9dad1f56f9a08417e104549030f4b8b00302ea426f
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 18, 60, 45)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=fish; material=food; form=ingredient; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:raw-meat
+  classification: GENERIC BASE FOOD
+  filename: raw-meat.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/raw-meat.png
+  runtime: assets/item-sprites/library/house-base-library-v1/raw-meat.png
+  source SHA-256: 8643cae724c858eb5d124b66a3602b47461793eb76c2b4259e45da8c9ed28334
+  runtime SHA-256: 8643cae724c858eb5d124b66a3602b47461793eb76c2b4259e45da8c9ed28334
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 16, 60, 47)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=meat; material=food; form=ingredient; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:vegetable-ingredient
+  classification: GENERIC BASE FOOD
+  filename: vegetable-ingredient.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/vegetable-ingredient.png
+  runtime: assets/item-sprites/library/house-base-library-v1/vegetable-ingredient.png
+  source SHA-256: caaaf357026b7d45b25a22adfbe9018a8b20fb1b9d4916265c742708183e8e0b
+  runtime SHA-256: caaaf357026b7d45b25a22adfbe9018a8b20fb1b9d4916265c742708183e8e0b
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 17, 60, 47)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=vegetable; material=food; form=ingredient; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: basefood:grain-ingredient
+  classification: GENERIC BASE FOOD
+  filename: grain-ingredient.png
+  namespace: basefood
+  canonical source: assets/meeow-item-source/house-base-library-v1/grain-ingredient.png
+  runtime: assets/item-sprites/library/house-base-library-v1/grain-ingredient.png
+  source SHA-256: e6690e41bbad349b38a929f7b9e6ff5b61d78ff542bf833c00ea1890ad9c7067
+  runtime SHA-256: e6690e41bbad349b38a929f7b9e6ff5b61d78ff542bf833c00ea1890ad9c7067
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 15, 60, 48)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=grain; material=food; form=ingredient; context=food
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:branch
+  classification: GENERIC BASE ITEM
+  filename: branch.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/branch.png
+  runtime: assets/item-sprites/library/house-base-library-v1/branch.png
+  source SHA-256: 0e21a586cb753de912a9149272e5a0c48c36f3af704828c3ac6de23cfbde5c3e
+  runtime SHA-256: 0e21a586cb753de912a9149272e5a0c48c36f3af704828c3ac6de23cfbde5c3e
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 6, 60, 57)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=branch; material=wood; form=natural-object; context=nature
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:herb
+  classification: GENERIC BASE ITEM
+  filename: herb.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/herb.png
+  runtime: assets/item-sprites/library/house-base-library-v1/herb.png
+  source SHA-256: beb0d4cd3c85e7c153c73d5cf00b538385d3c81bc84f8e491301285e87a5efb3
+  runtime SHA-256: beb0d4cd3c85e7c153c73d5cf00b538385d3c81bc84f8e491301285e87a5efb3
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (7, 3, 56, 59)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=herb; material=organic; form=natural-object; context=nature
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:stone
+  classification: GENERIC BASE ITEM
+  filename: stone.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/stone.png
+  runtime: assets/item-sprites/library/house-base-library-v1/stone.png
+  source SHA-256: 95805083de6a030327aed38c1b6b979a115b8c1e57ff992a71573b8da7c3afad
+  runtime SHA-256: 95805083de6a030327aed38c1b6b979a115b8c1e57ff992a71573b8da7c3afad
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 11, 60, 53)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=stone; material=stone; form=natural-object; context=nature
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:crystal
+  classification: GENERIC BASE ITEM
+  filename: crystal.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/crystal.png
+  runtime: assets/item-sprites/library/house-base-library-v1/crystal.png
+  source SHA-256: c2b70b0c1d566f55c2bd6d41cb92d637c719afc01b14866e70aa7bc4b6f4e025
+  runtime SHA-256: c2b70b0c1d566f55c2bd6d41cb92d637c719afc01b14866e70aa7bc4b6f4e025
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (5, 5, 60, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=crystal; material=mineral; form=natural-object; context=fantasy
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:shell
+  classification: GENERIC BASE ITEM
+  filename: shell.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/shell.png
+  runtime: assets/item-sprites/library/house-base-library-v1/shell.png
+  source SHA-256: a95e37252101ba0ebba2f1ec51bc25e0cb1b239e2b17f0716f1a29015885e78d
+  runtime SHA-256: a95e37252101ba0ebba2f1ec51bc25e0cb1b239e2b17f0716f1a29015885e78d
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 6, 60, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=shell; material=organic; form=keepsake; context=travel
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:feather
+  classification: GENERIC BASE ITEM
+  filename: feather.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/feather.png
+  runtime: assets/item-sprites/library/house-base-library-v1/feather.png
+  source SHA-256: 11532af5dce4f39794050963f92512511fa3bb11e85308b9a0c1acc2a3dda84a
+  runtime SHA-256: 11532af5dce4f39794050963f92512511fa3bb11e85308b9a0c1acc2a3dda84a
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (10, 4, 54, 59)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=feather; material=organic; form=natural-object; context=nature
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:leaf
+  classification: GENERIC BASE ITEM
+  filename: leaf.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/leaf.png
+  runtime: assets/item-sprites/library/house-base-library-v1/leaf.png
+  source SHA-256: 5e6c84fa53cc7a9a18d3fc6bc59a3f5e48ea8382944cf7d1fb909718fbea4bf2
+  runtime SHA-256: 5e6c84fa53cc7a9a18d3fc6bc59a3f5e48ea8382944cf7d1fb909718fbea4bf2
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (5, 4, 58, 59)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=leaf; material=organic; form=natural-object; context=nature
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:flower
+  classification: GENERIC BASE ITEM
+  filename: flower.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/flower.png
+  runtime: assets/item-sprites/library/house-base-library-v1/flower.png
+  source SHA-256: 9495644f359d4b7a007bba9f39b5ad47b5bdbe59321945978b47e7d474ca9886
+  runtime SHA-256: 9495644f359d4b7a007bba9f39b5ad47b5bdbe59321945978b47e7d474ca9886
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 7, 60, 56)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=flower; material=organic; form=natural-object; context=nature
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:coin
+  classification: GENERIC BASE ITEM
+  filename: coin.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/coin.png
+  runtime: assets/item-sprites/library/house-base-library-v1/coin.png
+  source SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  runtime SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (6, 4, 57, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=coin; material=metal; form=keepsake; context=collectible
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:necklace
+  classification: GENERIC BASE ITEM
+  filename: necklace.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/necklace.png
+  runtime: assets/item-sprites/library/house-base-library-v1/necklace.png
+  source SHA-256: dc85a81abd8b3cd94c71b9da9e72e6a60d5a2e2799d536cc9efe14be7ad8ad31
+  runtime SHA-256: dc85a81abd8b3cd94c71b9da9e72e6a60d5a2e2799d536cc9efe14be7ad8ad31
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (5, 3, 59, 59)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=necklace; material=metal; form=jewelry; context=collectible
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:watch
+  classification: GENERIC BASE ITEM
+  filename: watch.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/watch.png
+  runtime: assets/item-sprites/library/house-base-library-v1/watch.png
+  source SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  runtime SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (7, 3, 57, 59)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=trinket; material=mixed; form=jewelry; context=collectible
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:hairclip
+  classification: GENERIC BASE ITEM
+  filename: hairclip.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/hairclip.png
+  runtime: assets/item-sprites/library/house-base-library-v1/hairclip.png
+  source SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  runtime SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 16, 60, 47)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=trinket; material=mixed; form=jewelry; context=gift
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:wallet
+  classification: GENERIC BASE ITEM
+  filename: wallet.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/wallet.png
+  runtime: assets/item-sprites/library/house-base-library-v1/wallet.png
+  source SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  runtime SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 6, 60, 56)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=bag; material=leather; form=container; context=market
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:bank-card
+  classification: GENERIC BASE ITEM
+  filename: bank-card.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/bank-card.png
+  runtime: assets/item-sprites/library/house-base-library-v1/bank-card.png
+  source SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  runtime SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 12, 60, 51)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=trinket; material=mixed; form=keepsake; context=market
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:ring
+  classification: GENERIC BASE ITEM
+  filename: ring.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/ring.png
+  runtime: assets/item-sprites/library/house-base-library-v1/ring.png
+  source SHA-256: 731aba9d481c72e29ce4617e21151b7dcac990900e68f134b36c2a47bea7bbff
+  runtime SHA-256: 731aba9d481c72e29ce4617e21151b7dcac990900e68f134b36c2a47bea7bbff
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (7, 3, 57, 58)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=ring; material=metal; form=jewelry; context=collectible
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:crown
+  classification: GENERIC BASE ITEM
+  filename: crown.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/crown.png
+  runtime: assets/item-sprites/library/house-base-library-v1/crown.png
+  source SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  runtime SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 7, 60, 57)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=trinket; material=metal; form=jewelry; context=fantasy
+  production status: LOCKED / PRODUCTION
+
+ID: baseitem:glasses
+  classification: GENERIC BASE ITEM
+  filename: glasses.png
+  namespace: baseitem
+  canonical source: assets/meeow-item-source/house-base-library-v1/glasses.png
+  runtime: assets/item-sprites/library/house-base-library-v1/glasses.png
+  source SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  runtime SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  dimensions: 64x64
+  alpha/transparency: binary 0/255; transparent background present
+  opaque bbox: (4, 18, 60, 45)
+  registry presence: YES
+  resolver eligible: YES
+  tags: object=trinket; material=mixed; form=household-object; context=household
+  production status: LOCKED / PRODUCTION

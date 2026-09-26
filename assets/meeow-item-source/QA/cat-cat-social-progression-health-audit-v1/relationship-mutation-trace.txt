@@ -1,0 +1,24 @@
+CAT↔CAT RELATIONSHIP — END-TO-END MUTATION TRACE
+
+Stage | result | evidence
+1 Candidate | PASS | eligible Hall ambient Status Sync or USER shared-scene composer; ambient AI picks 2+ physical in-Hall participants, USER composer freezes selected IDs.
+2 Structured scene | PASS | validateOptionalHallScene requires correct mode, reactions, Chinese scene prose, same Hall/map room and final HOME presence; relationshipDeltas are optional and normalized.
+3 Accepted outcome | PASS with caveat | Status Sync envelope and stale-request ownership checks precede appendHallSceneRecord. Ambient malformed scene is soft discarded while statuses can still apply; required USER scene failure fails the request. A failed/abandoned request has no Hall scene consequence.
+4 Resolver | PASS | applyHallSceneRelationshipConsequences(record,deltas) requires the identical record object in hallSceneRecords and authoritative type ambient/user-directed; attention-bid rejected. Partial receipt mismatch fails closed.
+5 Directional delta | PASS | normalizeResidentRelationshipDeltas accepts only participant IDs and bounded integer deltas; stageDirectionalRelationshipChange computes actual post-clamp differences. A→B and B→A are separate; either, both, or neither can change.
+6 Event history | PASS | applied event stores sourceKey shared-scene:<sceneId>, sceneId, at, actual changes, tags/evidence; max 40 events, 64 applied keys. Every participant pair increments canonical exposureCount; third exposure may add symmetric familiarity-only events, capped once per operational day and by baseline headroom.
+7 Persistence | PASS under available storage | Vue deep save watcher schedules a localStorage save (350 ms); save state includes cats and hallSceneRecords. Relationship commit and receipt occur synchronously before watcher serialization. Storage failure is logged; no demonstrated silent overwrite in audited fixture.
+8 Reload | PASS in fixture | saved cats are normalized through js/meeow-data.js; valid directional events and pair metadata survive; fixture exercises JSON round-trip and progression after reload.
+9 UI | PARTIAL | archive Relationship tab shows both directions, qualitative labels, four pip rows and history deltas. Hall scene feed shows prose/participants only; no immediate delta cue. Archive is not opened automatically.
+
+Mutation API: index.html applyHallSceneRelationshipConsequences; internal normalizeResidentRelationshipDeltas, applyResidentRelationshipDeltas, stageDirectionalRelationshipChange. Dimensions: familiarity 0..5, warmth/trust -5..5, tension 0..5, bounded tags. The display combines immutable canonical baseline with save-specific emergent state; no synthetic single 好感度 score exists.
+
+Failure/neutral classifications
+- No scene or one eligible participant: no relationship call.
+- Ambient invalid scene, form-unsafe quarantine, stale response, absent accepted Hall record: no relationship call.
+- Valid scene with missing/empty/invalid directional proposals: scene commits and pair exposure records, but no warmth/trust/tension change. Invalid entries are filtered by normalizer rather than rejecting the scene; no aggregate rejection count is recorded.
+- Valid directional proposal at dimension cap or with no effective tag change: stage returns no event. The receipt can still mark the namespace complete. No feedback explains the zero result to USER.
+- Accepted scene calls apply, but caller ignores its Boolean return. A rare transaction/partial-receipt failure is logged; the scene may remain visible without relationship consequences. This is a diagnosability/integrity gap, not an observed failure rate.
+- Relationship mutation uses a synchronous rollback envelope; the existing relationship fixture verifies normal application, idempotency, detached/rejected record protection, rollback and reload-shaped normalization.
+
+Verification: node tests/resident-relationship-progression.fixture.mjs PASS. Code anchors: index.html 26837–26960, 21418–21658, 27966–28000; js/meeow-data.js relationship normalizers; js/meeow-storage.js.

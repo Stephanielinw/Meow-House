@@ -1,0 +1,34 @@
+PAPER MAPPING — CURRENT ITEMS TO PROPOSED SEMANTICS V1
+No production item, Food tag, visualHint, or registry metadata was changed.
+Proposed tags are behavioral and separate from the current visualHint appearance fields.
+
+Current four fixed Shop toys (category=toy, type=consumable; explicit first-party visual):
+item / id / current sprite | proposed semanticType and tags | evidence / constraint
+星砂发光球 / id 2 / baseitem:star-sand-orb | toy; role:play, interaction:chase, stimulus:rolling, stimulus:glowing | description says cats chase the glowing toy; no resident preference inferred
+伸缩逗猫杆 / id 3 / baseitem:teaser-wand | toy; role:play, interaction:bat, stimulus:swinging | retractable wand and dangling lure invite pawing; fluttering could be optional only if current item description/reference is accepted as evidence
+浓缩猫薄荷包 / id 4 / baseitem:catnip-pouch | toy; role:play, interaction:sniff, stimulus:scented | sealed pouch marketed as a toy; do not assign taste/food tags
+谜语纸团球 / id 5 / baseitem:riddle-paper-ball | toy; role:play, interaction:bat, stimulus:rolling | Shop description explicitly mentions rolling and pawing; no puzzle role inferred from name
+
+Small/ball-type example:
+绒球 (ownership fixture) / Shop toy fixture; custom/fixture visual | toy; role:comfort, interaction:cuddle ONLY if the accepted product description establishes soft holding; otherwise role:play, interaction:carry | fixture says soft toy; do not turn generic softness into an authoritative bond preference. A new ball product that says cats chase it would use role:play, interaction:chase, stimulus:rolling.
+
+Representative Away/Mail souvenir:
+贝壳 / 小贝壳 (Mail fixture; type=collectible; visualHint shell/organic/keepsake/travel; baseitem:shell when resolved) | collectible; role:keepsake, interaction:observe | resident sender is originOwner, not a semantic tag; provenance remains separate.
+Generic 测试纪念品 (Away fixture; trinket/unknown/keepsake/travel) | unclassified pending a concrete object and plausible action | visualHint=trinket is too broad to assign a specific behavioral interaction.
+
+Representative Explore collectible:
+湖边贝壳 (Explore fixture; type=collectible; same shell hint) | collectible; role:keepsake, interaction:observe | Explore originOwner=user, separate from tags.
+松枝 (Backpack fixture; type=collectible; branch visual archetype available) | collectible; role:keepsake, interaction:carry | small portable natural memento; if a generated branch is actually equipment, do not reuse this mapping blindly.
+快船模型 (Scheria fixed location loot phrase; type=collectible only if awarded) | DEFER: play vs display unknown | a model could be a toy or ornament; require actual generated description/category before mapping.
+
+Representative jewelry/trinket collectible:
+深海珍珠 / 冥河硬币 (Explore fixed phrases; shell/coin archetypes available) | collectible; role:keepsake, interaction:observe | descriptive keepsakes; currency and supernatural powers are not implied by the tag.
+破损的青铜胸针 / 遗落黑市首饰 (Explore phrases; jewelry archetype possible) | collectible; role:display, interaction:observe IF concrete item is decorative | this does not add wear/equipment gameplay.
+馆舍纪念徽章 (Explore phrase) | collectible; role:display, interaction:observe IF the awarded item is a display badge | badge identity does not prove a cat wears it.
+
+Explicit exclusions / uncertainties:
+- 来自居民的信: type=letter, baseitem:letter visual. Not automatically giftable and not forced into the proposed collectible behavior contract; a future document/read system would handle it.
+- Herb, potion, snack or ingredient rewards: do not force into toy or passive keepsake merely because the current Explore reward container uses type=collectible.
+- Phone-native delivery has no fixed concrete toy/souvenir definition in the reachable UI; do not assign semantics from numeric Phone menu IDs or overlap with Shop IDs.
+- The jewelry/nature baseitem registry contains art archetypes; an image ID is not itself a classified physical item.
+- visualHint does not set role or interaction automatically. PROGRAM must read canonical category/type and accepted semantic tags, and leave ambiguous concepts unclassified.

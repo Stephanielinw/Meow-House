@@ -41,6 +41,7 @@ const sandbox = vm.createContext({
     buildSharedFocusSessionEvidence: () => '', buildPublicSharedPeerRelationshipLines: () => new Map(),
     buildLeanAmbientContext: () => 'resident context',
     buildResidentPublicNameContract: () => '', buildAuthoritativeUserIdentityContext: () => '',
+    getInteractionHolidayContext: () => '',
     getResidentPublicName: resident => resident.name,
     validateFocusSharedMoment: moment => moment?.content ? moment : null,
     logPromptBudget: () => {}, CORE_ROLEPLAY_PROMPT: '', ThinkingLevel: { LOW: 'low' },

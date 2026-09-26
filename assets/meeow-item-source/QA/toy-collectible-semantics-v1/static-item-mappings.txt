@@ -1,0 +1,17 @@
+EXPLICIT PROGRAM MAPPINGS
+
+Stable fixed Shop catalog numeric IDs (not display-name parsing):
+2 星砂发光球: toy; role:play, interaction:chase, stimulus:rolling, stimulus:glowing.
+3 伸缩逗猫杆: toy; role:play, interaction:bat, stimulus:swinging.
+4 浓缩猫薄荷包: toy; role:play, interaction:sniff, stimulus:scented.
+5 谜语纸团球: toy; role:play, interaction:bat, stimulus:rolling. No puzzle behavior.
+
+Initial Shop definitions receive these fields. A conservative fixed-catalog migration applies them only when numeric ID, canonical name, category, type, icon, and legacy source identity agree and no semantic fields already exist. User and resident physical copies may receive the same idempotent mapping. Existing visual and provenance fields are untouched.
+
+Concrete collectible concept keys available as explicit PROGRAM mappings, not inferred from art/name/visualHint:
+shell: collectible; role:keepsake, interaction:observe.
+portable-branch: collectible; role:keepsake, interaction:carry.
+decorative-badge: collectible; role:display, interaction:observe.
+decorative-jewelry: collectible; role:display, interaction:observe.
+
+Current dynamic reward records do not carry these stable concept keys, so these mappings are not blindly applied to current freeform rewards. Model boat, generic equipment/props, loose catnip, Food-like rewards, and literal letters remain unclassified.

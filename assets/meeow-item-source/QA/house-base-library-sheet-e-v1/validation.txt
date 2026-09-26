@@ -1,0 +1,135 @@
+HOUSE BASE LIBRARY · SHEET E · VALIDATION
+
+SHEET E = REVIEW READY / NOT LOCKED
+Awaiting human approval before registry activation / lock
+Sprites created: 9/9
+Registry entries added for Sheet E: 0
+
+- baseitem:coin
+  filename: coin.png
+  source SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  runtime SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (6, 4, 57, 58)
+  margins_LTRB: (6, 4, 7, 6)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:necklace
+  filename: necklace.png
+  source SHA-256: ddffc2994687b538bbdf7642d70e4567ac68871d7fc9cb9c31c0605a564832cd
+  runtime SHA-256: ddffc2994687b538bbdf7642d70e4567ac68871d7fc9cb9c31c0605a564832cd
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (5, 3, 59, 59)
+  margins_LTRB: (5, 3, 5, 5)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:watch
+  filename: watch.png
+  source SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  runtime SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (7, 3, 57, 59)
+  margins_LTRB: (7, 3, 7, 5)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:hairclip
+  filename: hairclip.png
+  source SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  runtime SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 16, 60, 47)
+  margins_LTRB: (4, 16, 4, 17)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:wallet
+  filename: wallet.png
+  source SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  runtime SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 6, 60, 56)
+  margins_LTRB: (4, 6, 4, 8)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:bank-card
+  filename: bank-card.png
+  source SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  runtime SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 12, 60, 51)
+  margins_LTRB: (4, 12, 4, 13)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:ring
+  filename: ring.png
+  source SHA-256: eb3bad21261adf0cca1cc2cd12d026f379ae5fd7e32346d204c9ca590ac67039
+  runtime SHA-256: eb3bad21261adf0cca1cc2cd12d026f379ae5fd7e32346d204c9ca590ac67039
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (7, 3, 57, 58)
+  margins_LTRB: (7, 3, 7, 6)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:crown
+  filename: crown.png
+  source SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  runtime SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 7, 60, 57)
+  margins_LTRB: (4, 7, 4, 7)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+- baseitem:glasses
+  filename: glasses.png
+  source SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  runtime SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  source_runtime_hash: PASS
+  dimensions: 64×64
+  transparent_background: YES
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 18, 60, 45)
+  margins_LTRB: (4, 18, 4, 19)
+  touches_canvas_edge: NO
+  clipping_failure: NO
+
+Validation summary:
+- 9/9 source/runtime hash equality: PASS
+- 9/9 exact 64×64: PASS
+- transparent background: PASS
+- alpha values limited to 0/255: PASS
+- antialiased alpha pixels: 0
+- clipping/cutoff failures: 0
+- nearest-neighbor conversion only: PASS
+- production registry activation: NO (pending human approval)
+- resolver algorithm changed: NO
+- visualHint taxonomy changed: NO
+- House Food art/mappings changed: NO
+- note: decorative card-background sparkles and shadows omitted; object silhouettes/content preserved
+- sprite registry fixture: PASS
+- shared item renderer fixture: PASS
+- Item Visual Schema fixture: PASS
+- syntax check: PASS
+- git diff --check: PASS
+- static production callAI( count: 40 (unchanged)

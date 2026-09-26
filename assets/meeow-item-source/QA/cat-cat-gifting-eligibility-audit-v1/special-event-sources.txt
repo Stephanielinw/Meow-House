@@ -1,0 +1,26 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — EXISTING EVENT SOURCES V1
+Read-only audit. A completed event must be established by PROGRAM records; prose is never a qualifying event.
+
+System | ID / participants / time | persistence and completion | CAT↔CAT gift gate
+Hall authoritative scene | hall-scene-* id; canonical resident participantIds; at/dateKey; type ambient or user-directed | hallSceneRecords persisted in save, accepted after status response validation; relationshipConsequenceReceipts record completed consequence namespaces; records are pruned to current operational day | Real completed shared scene, but no special-event classification; a bare scene cannot qualify.
+Hall attention bid | attention-bid id and attentionBidId, candidate and anchor IDs; at | persisted as hallSceneRecords type attention-bid; intentionally display-only and excluded from relationship consequence authority | Exclude.
+Directional relationship event | shared-scene:<sceneId> sourceKey; from cat link to target ID; at and actual bounded changes | persisted in residentRelationships events (last 40), appliedSceneKeys (last 64), with Hall consequence receipts | Valid trend evidence; not an independent special event. Program-familiarity after three exposures is not a meaningful milestone.
+Special Moment / Easter egg | selected resident and USER; interaction event source easter-egg; no pair ID | successful AI presentation opens modal and records USER↔resident interaction, may create literal letter in USER inventory | Exclude; USER↔resident only.
+First witnessed human reveal | selected resident and USER; pendingSpecialEvent modal plus per-resident memory/interaction | completed reveal presentation with local fallback | Exclude; USER↔resident only.
+Resident status / monitor diary | per-resident timed records and current status; status request may include a Hall scene | status text and diary are presentation; only a validated appended Hall scene is world evidence | Exclude status prose. Inspect its committed scene separately.
+Truth or Dare | sessionId, roundId, event IDs, timestamped participantIds including USER | user.phoneData.truthOrDare persists completed/active remote Phone game rounds; explicit contract says Phone party text does not change Hall world | Exclude even with two resident participants.
+Focus settlement | focus-* ID, participant resident IDs plus USER-centered task; archivedAt/status/logs | persisted/archived mission report and user affinity consequence | Exclude; shared USER task is not a completed resident↔resident special event.
+Away return/reunion | awayEpisode id, one residentId, departedAt/returnedAt and outcome sources | persisted completed single-resident lifecycle; reunion prose may be presented later | Exclude without a separate structured completed two-resident event.
+Life Threads / Knowledge | sourceEventId, beat IDs, happenedAt and some participant IDs | persisted world facts, but scopes can be private, single-actor, AI-assembled, or not an explicit completed pair event | Exclude as generic gate; a future explicit pair-specific kind could be reviewed separately.
+Relationship stage/milestone | no dedicated stage or milestone event | canonical baseline plus emergent numeric state only | No qualifying source exists.
+
+Option assessment
+A. Completed resident↔resident Special Moment: none exists; current Special Moment is USER↔resident.
+B. Recently reached relationship milestone: no dedicated milestone authority; shared-scene familiarity threshold is repeated exposure and too ordinary.
+C. Completed shared scene involving both: structurally sound but includes routine ambient/user-directed scenes, so too broad without an explicit special kind.
+D. Combination of scene plus positive relationship delta: stricter but still promotes an ordinary scene, and reuses the trend evidence as a second gate.
+E. Recommended: add one small PROGRAM-owned completed special-event marker anchored to a validated authoritative Hall scene, with stable sourceSceneId, canonical participant IDs, kind from a product-approved closed set, and completedAt. Store it durably because Hall scene records are pruned daily. Only this marker may satisfy QUALIFYING_SPECIAL_EVENT. This is a narrow marker/ledger, not a general event engine. A gift can consume one marker once; the gift ledger records its source ID.
+
+The list of eligible special kinds and creation trigger require product approval. AI text cannot create or classify the marker. An explicit user-directed special scene could be a later kind only if PROGRAM recognizes and completes it structurally.
+
+Code anchors: index.html Hall scene normalization/authority 21368–21406, consequence commit 21556–21655, scene append 21770–21790, accepted status scene 27983–28000, special event 14337/16650, Focus 26572–26665; js/meeow-truth-or-dare.js session/events.

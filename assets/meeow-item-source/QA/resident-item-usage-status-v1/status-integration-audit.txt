@@ -1,0 +1,10 @@
+Status authority audit, V1
+
+Entry point: refreshAllStatus in index.html deduplicates/queues Hall requests, then calls _refreshAllStatus. Curator Room directly calls _refreshAllStatus with a frozen single resident and its own occupancy check.
+Automatic path: Hall and Homepage ambient scheduling call refreshAllStatus. User-directed scene and USER status changes also call refreshAllStatus; active residents, away residents, and prevalidated updates retain their existing exclusions.
+Request: _refreshAllStatus freezes requested resident IDs, form and presence directives, Away mail decisions, holiday context, resident rows, and Status Sync prompt. It calls the existing callAI once; provider retries reuse that exact prompt and validation contract.
+Response: validateStatusSyncEnvelope checks the JSON envelope and exact resident coverage. The accepted response is applied through applyStatusSyncPresentation -> setCatStatus. A current request token check blocks replaced Hall requests before item use or status application.
+Persistence: user and cats are saved by the existing deep reactive watcher and whole-save storage. Current resident status is persisted. The accepted item status stores only currentItemUse = {eventId,itemUniqueId,interaction}; ordinary later status updates clear it.
+Existing failure: absent API key and preempted requests return failure. Other provider failures normally return failure; an already frozen item event now gets a local deterministic status fallback if current ownership and request authority still hold. No new AI call occurs.
+Item integration boundary: after final requested HOME residents are known and before prompt construction, freeze one item decision per resident. At accepted resident-row application, revalidate exact current ownership and commit one bond use. On provider failure, the same frozen event may commit once through the fallback path.
+Out of scope: Hall rendering, Phone, chat, mail, Focus, Truth or Dare, Special Moments, and item detail never roll item usage.

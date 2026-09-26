@@ -1,0 +1,6 @@
+Resident item detail shows a compact 和这件物品 section.
+Familiarity labels: 0 刚收到; 1 开始熟悉; 2 已经熟悉; 3 很熟悉; 4-5 陪伴很久.
+Fondness labels: -2 不太喜欢; -1 兴趣不大; 0 还在了解; 1 挺喜欢; 2 很喜欢; 3 特别喜欢.
+Cherished is derived only when familiarity >= 4 and fondness >= 2. Badge: 珍爱之物.
+No progress bars, stars, numeric affection meters, or bond history in USER Backpack.
+The main resident item card remains name, art, and category only.

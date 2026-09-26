@@ -1,0 +1,8 @@
+PRODUCTION ITEM VISUAL REPLACEMENT
+Fixed Shop catalog IDs 2 星砂发光球 → baseitem:star-sand-orb (previous fa-solid fa-gem)
+Fixed Shop catalog IDs 3 伸缩逗猫杆 → baseitem:teaser-wand (previous fa-solid fa-wand-magic-sparkles)
+Fixed Shop catalog IDs 4 浓缩猫薄荷包 → baseitem:catnip-pouch (previous fa-solid fa-bomb)
+Fixed Shop catalog IDs 5 谜语纸团球 → baseitem:riddle-paper-ball (previous fa-solid fa-circle-question)
+The initial Shop catalog assigns explicit builtin-sprite Item Visual Schema data. The existing conservative fixed-Shop promotion path updates matching saved catalog entries and owned copies only when they still have missing/legacy visuals. Shop rows/previews, purchased items, Backpack rows/details use the shared <meeow-item-visual> renderer. The legacy icon string remains only as image-load fallback.
+Conditional Easter Egg inventory item "来自居民的信" → baseitem:letter. Newly created letter items carry explicit builtin-sprite visual. Exact older inventory letters (type letter, expected name/icon/fullContent shape) receive the same visual on load; their item ID and content are preserved. Unrelated Mail/UI envelope chrome is untouched.
+No built-in Food mapping, Shop identity, Phone identity, resolver score, or gameplay rule changed.

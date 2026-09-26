@@ -1,0 +1,24 @@
+HISTORICAL HOLIDAY IMPLEMENTATION — READ-ONLY GIT AUDIT
+
+READ-ONLY COMMAND EVIDENCE
+git log --all -S 'const checkSpecialEvent' -- index.html
+git log --all -S '中秋节' -- index.html
+git show 8e4f77c:index.html (original available import, 2026-08-06)
+git show c7802ef -- index.html (2026-08-08)
+git show eb3ceac -- index.html (2026-08-08)
+No checkout/reset/revert performed.
+
+EARLIEST AVAILABLE BEHAVIOR
+Commit 8e4f77c (2026-08-06, "全新重置：上传桌面最新版本") already loaded https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js and contained the same 10 solar dates, the same 10 lunar entries including 8-15 中秋节, and computed 除夕. It set todayEvent/todayEventContext and prefixed alfredMessage on mount; a successful status sync also prefixed the message. The visible special-event modal was already unrelated affinity/romance/human-form interaction content.
+
+SIGNIFICANT LATER CHANGES
+- c7802ef (2026-08-08) reorganized daily initialization around the 03:00 operational day while retaining checkSpecialEvent() in the initialization path. The holiday table was not removed.
+- eb3ceac (2026-08-08) shifted checkSpecialEvent() to the 03:00 operational-day date and added current-day todayEventContext into getDateContext() / prompt context. It did not add a holiday visual surface.
+- Current working tree still contains Mid-Autumn 8-15 and both mount and initialization detector calls. No available commit shows a larger holiday list, a Mid-Autumn banner, Hall décor, theme override, particles, or a calendar-triggered modal that was later deleted.
+
+CURRENT vs HISTORICAL INTENT SUPPORTED BY CODE
+Current: a date label/context mechanism with incidental guardian-message prefix; no durable visual theme or festival-specific surface.
+Earliest available history: essentially the same label/context mechanism, except the original detector used civil local date rather than the later 03:00 operational date. The repository history does not establish that full holiday decoration ever existed in this codebase. The user's remembered broader design may predate the earliest available commit or live outside this repository; that cannot be verified here.
+
+REGRESSION CONCLUSION
+No removal of Mid-Autumn detection or once-existing holiday-specific visual hook was identified in the available Git history. The persistent presentation gap predates current refactors. The 03:00 change can shift when a holiday begins/ends, but the user confirmed opening/reloading after 03:00 on 2026-09-25, so that shift does not by itself explain the observed daytime absence.

@@ -1,0 +1,7 @@
+Relationship consequence coverage diagnostics V1
+
+After an accepted non-null Hall scene, the existing applyHallSceneRelationshipConsequences resolver remains the sole mutation authority. A diagnostic sink receives only actual AI-delta results after the atomic relationship commit, excluding program familiarity exposure.
+One bounded in-memory record per accepted scene stores sceneId, hallId, at, and category. Maximum 100 records; it is not saved or shown in ordinary UI.
+Developer inspection is available through Meeow.getSocialOutcomeDiagnostics(), which returns a copy.
+Categories: no-delta-proposed; delta-rejected; delta-neutral; delta-saturated; delta-applied-positive; delta-applied-negative; delta-applied-mixed.
+Positive means applied warmth/trust increase or tension decrease. Negative means applied warmth/trust decrease or tension increase. Mixed means both signs occur across actual applied directions. A valid proposed social delta with no actual social movement is saturated. Familiarity-only and neutral changes do not count as substantive player feedback. Rejected/invalid sidecars do not mutate relationship state.

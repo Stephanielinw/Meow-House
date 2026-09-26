@@ -1,0 +1,27 @@
+ITEM VECTOR RETIREMENT AUDIT V1
+
+Scope and count basis
+- Production seed Shop catalog: 22 definitions = 6 legacy fixed products + 16 explicitly mapped House Foods.
+- Before: 6/22 definitions had no visual and displayed their Font Awesome icon through the shared renderer. The 16 House Foods retain Font Awesome icon strings solely as image-load fallback; their normal display is housefood:*.
+- After: 2 fixed products use explicit existing base sprites. Four remain legacy/vector because no faithful sprite exists. Missing/empty visual count: 6 -> 4.
+- Browser-local user-authored catalog, inventory, and past AI-generated items could not be enumerated from the repository. Counts above are the verifiable production seed baseline, not a claim about a particular user's private save.
+- Normal current surfaces: Phone Shop rows, full Shop rows, Backpack rows, Backpack detail, purchase-to-inventory, Mail attachment, Explore settlement loot, and item-interaction chat cards. The first six and Mail/Explore use meeow-item-visual; item-interaction cards were a direct Font Awesome bypass and now use the shared renderer with a frozen visual snapshot. Historical cards without a visual snapshot retain their recorded icon.
+
+Per-item seed audit (sourceCatalogId shown after conservative typed normalization)
+name | id | sourceCatalogId | category/type | before mode | before icon | affected surfaces | root cause | replaceable now | after sprite / unresolved
+馆长特制猫饭 | number 1 | legacy-shop:number:1 | food/consumable | missing | fa-solid fa-bowl-food | Shop, purchase, Backpack row/detail, item-interaction card | old fixed Shop entry lacked explicit visual | YES | basefood:grain-bowl; a generic meal bowl, without implying a new ingredient or changing gameplay
+星砂发光球 | number 2 | legacy-shop:number:2 | toy/consumable | missing | fa-solid fa-gem | Shop, purchase, Backpack row/detail, item-interaction card | no glowing ball or equivalent round toy art | NO | a crystal/gem would change the object's silhouette
+伸缩逗猫杆 | number 3 | legacy-shop:number:3 | toy/consumable | missing | fa-solid fa-wand-magic-sparkles | Shop, purchase, Backpack row/detail, item-interaction card | no teaser wand/string toy art | NO | a leafy branch is not a teaser wand
+浓缩猫薄荷包 | number 4 | legacy-shop:number:4 | toy/consumable | missing | fa-solid fa-bomb | Shop, purchase, Backpack row/detail, item-interaction card | no filled herb sachet art | NO | loose herb art omits the bag/packet identity
+谜语纸团球 | number 5 | legacy-shop:number:5 | toy/consumable | missing | fa-solid fa-circle-question | Shop, purchase, Backpack row/detail, item-interaction card | no crumpled paper toy art | NO | bank-card/paper substitutes have the wrong shape
+馆舍新鲜猫草 | number 7 | legacy-shop:number:7 | food/consumable | missing | fa-solid fa-leaf | Shop, purchase, Backpack row/detail, item-interaction card | old fixed Shop entry lacked explicit visual | YES | baseitem:herb; generic fresh herb bundle
+
+Additional active item-producing paths
+- Resident letter creation can add an inventory item named 来自<resident>的信 with a Font Awesome envelope and no visual. Its concrete ID/name depend on the session; no current first-party letter or envelope sprite exists.
+- Mail and Away souvenirs use assignAutoVisualIdentity when accepted. Explore fixed-route settlement does the same. Existing first-party object matches freeze to auto-sprite; unmatched closed objects remain legacy-icon. These are item-specific at runtime and cannot be counted without a save or generated instance.
+- Retired legacyFinishExploration contains an icon-only loot branch behind an immediate return; it is unreachable and was not changed.
+- Shop authoring Default/Legacy is an explicit user choice. Arbitrary user-authored products have no safe appearance inference from name alone; Custom Pixel remains pixel-first.
+- The previous first-party coverage audit recorded 31 normalized dynamic concepts: 14 well covered, 2 generic, 15 legacy fallback. A broad trinket hint can choose a bank-card silhouette; this is a semantic art gap, not a vector count, and is not silently remapped here.
+
+New first-party IDs used: basefood:grain-bowl, baseitem:herb.
+No House Food or Base Library PNG, registry, resolver, taxonomy, item gameplay field, or Phone identity path was changed.

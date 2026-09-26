@@ -1,0 +1,50 @@
+TOY / COLLECTIBLE SEMANTICS COVERAGE AUDIT V1 — CURRENT CONCEPTS
+Design evidence only. No runtime data or semantic registry was changed.
+
+METHOD / BOUNDARY
+- Read production Shop, Mail, Away, Explore, Phone, item-visual registry, and the relevant fixtures. Retired third-party sprite metadata is excluded.
+- Current repository seed data has four fixed toy products. User-authored products and AI-generated attachments/loot are open-ended; their examples below are evidence, not a claim about a private saved catalog.
+- The fixed Explore location table currently has 47 locations and 101 comma-separated loot phrases. These are candidate prompts, not 101 simultaneously owned items. Explore/Mail accepted outputs freeze visualHint/visual per item. Runtime collectible items use type=collectible; this alone does not prove every object has the same behavior.
+- visualHint is the existing appearance contract {object,material,form,context}; it is not Toy/Collectible gameplay semantics. "dynamic" below means no fixed hint/sprite for the phrase; the resolver may select one only after an actual item is generated.
+- Registry-only baseitem archetypes are visual coverage, not proof that a named gameplay item exists.
+
+SIX EXPLICIT TOY CONCEPTS (four fixed products; two additional fixture/location concepts)
+concept | examples / evidence | canonical category/type | visualHint now | current sprite | source flow | class | natural observable interaction
+glowing play orb | 星砂发光球; index.html initialShopItems id=2 | toy/consumable | fixed product has no hint | baseitem:star-sand-orb, explicit | Shop purchase | toy | roll/chase/bat; glow attracts attention
+teaser wand | 伸缩逗猫杆; initialShopItems id=3 | toy/consumable | none fixed | baseitem:teaser-wand, explicit | Shop purchase | toy | swinging lure, batting
+catnip pouch | 浓缩猫薄荷包; initialShopItems id=4 | toy/consumable | none fixed | baseitem:catnip-pouch, explicit | Shop purchase | toy | sniff or paw at scented packet; not evidence of a Food taste
+crumpled paper ball | 谜语纸团球; initialShopItems id=5 | toy/consumable | none fixed | baseitem:riddle-paper-ball, explicit | Shop purchase | toy | roll/bat/chase; "riddle" name is not proof of a puzzle mechanism
+soft/yarn ball | 绒球, 自制玩具/手工小球, 星光线团; resident ownership, Backpack and Shop authoring fixtures | toy/consumable in fixtures | fixture-dependent | custom/legacy or future resolved first-party, not one guaranteed sprite | user-authored Shop / inventory fixture | toy | carry or paw; cuddle is plausible only when described as soft
+prank toy | 恶作剧玩具; Arkham Explore loot guidance | generated reward type=collectible when awarded | dynamic | dynamic; no guaranteed sprite | Explore | toy-like object, runtime collectible | action unknown until concrete reward is specified
+
+THIRTEEN NORMALIZED COLLECTIBLE / SOUVENIR CONCEPT FAMILIES
+family | real name examples | canonical category/type | current visualHint / sprite evidence | source flow | class | natural interaction
+shell/pearl | 贝壳, 湖边贝壳, 永不褪色的贝壳, 深海珍珠 | type=collectible in Mail/Explore fixtures and award path | fixture shell/organic/keepsake/travel; baseitem:shell available | Mail, Away, Explore | souvenir/collectible | observe, keep, perhaps carry
+plant keepsake | 松枝, 橄榄枝, 月桂枝, 孔雀羽, 银色羽毛, 花/叶 | type=collectible fixture or dynamic | dynamic except branch fixture; branch/feather/leaf/flower sprites available | Backpack fixture, Explore, Away | souvenir | observe, carry
+herb/seed specimen | 瓦坎达草药, 护身药草, 灰花种子, 极品变异猫薄荷 | dynamic type=collectible if awarded | dynamic; baseitem:herb exists | Explore, Mail/Away possible | collectible, use uncertain | observe/sniff only when property is explicit; do not infer play/food
+stone/crystal/mineral | 纪念石, 忘川石, 盐晶, 量子晶体, 火山玻璃碎片 | type=collectible in fixture or dynamic | dynamic; stone/crystal sprites available | ownership fixture, Explore | collectible | keep/observe
+coin/currency | 冥河硬币, 异国铜币, 沾血的金币 | dynamic type=collectible | dynamic; baseitem:coin available | Explore | collectible | keep/observe; not Shop currency authority
+jewelry/adornment | 遗落黑市首饰, 青铜胸针, 金叶桂冠, 戒指/项链 archetypes | dynamic type=collectible | dynamic; ring/necklace/crown/hairclip sprites available | Explore, first-party art | collectible | wear/display not a V1 resident action without explicit equipment support
+badge/seal/medal | 馆舍纪念徽章, 英雄徽记, 旧王家印章, 青铜扣 | dynamic type=collectible | dynamic; no fixed semantic sprite per phrase | Explore | collectible | display/observe
+token/charm | 帮派猫的信物, 魔法护符, 河石护符, 风化的信物 | dynamic type=collectible | dynamic; broad trinket resolver possible | Explore, Away fixture uses trinket/unknown/keepsake/travel | souvenir/collectible | carry/keep/observe
+paper record | 黑帮报恩信, 航海地图, 书籍残页, 羊皮卷, 船队清单 | dynamic type=collectible; literal resident letter uses type=letter | dynamic; baseitem:letter only represents an envelope/letter | Explore, resident letter item | document/collectible | read/observe, but literal type=letter is not giftable by default
+vessel | 漂流瓶, 宴会金杯, 暗影药瓶 | dynamic type=collectible | dynamic; drink sprites are not automatically equivalent | Explore | collectible, possible tool/food ambiguity | observe/keep; consumption unsupported
+model/display piece | 快船模型, 动植物标本, 戏剧面具 | dynamic type=collectible | dynamic | Explore | display collectible | observe/display; model is not automatically a toy
+relic/material fragment | 变种人遗物, 装甲残片, 振金碎屑, 自动机零件 | dynamic type=collectible | dynamic | Explore | collectible | keep/observe; crafting behavior not present
+card/device/tool | 企鹅黑卡, 权限卡, 机密U盘, 探测仪器, 巨人牧杖 | dynamic type=collectible | dynamic; bank-card/watch/glasses sprites cover some appearances | Explore | collectible/tool ambiguity | hold/inspect; equipment use not established
+
+AMBIGUOUS OR OUT OF SCOPE FOR AUTOMATIC TOY CLASSIFICATION
+1. Generic "道具/产品/高奢物品/装备" Explore phrases do not identify an action or role. Do not assign play tags from the noun alone.
+2. 猫薄荷 appears both as a deliberate Shop toy pouch and as raw herb/Explore loot. Packaging and category determine role; name/material alone do not.
+3. 快船模型 may be a displayed souvenir or a playable toy. Current Explore guidance does not settle this.
+4. 奢华零食, 神宴果实, 月桂花蜜 and other food-like Explore loot are not automatically Toy/Collectible semantic subjects, even if the current reward path records type=collectible.
+5. Literal letters are documents/keepsakes, not toys and not automatically giftable. Mail attachment objects may be separately giftable when their canonical item type permits it.
+
+AUTHORING / PHONE / OWNERSHIP EVIDENCE
+- Shop authoring allows category=toy, type=consumable, name/description, price/effect, and frozen visual; current appraisal validates Food tags only. No Toy semantic registry or structured Toy properties exist.
+- Phone Shop consumes the same Shop catalog. The legacy Phone delivery adapter is currently not exposed by Phone UI; its native source is explicitly distinct from Shop and does not establish a fixed new toy concept.
+- Resident ownership fixture contains 绒球 toy and 小贝壳/纪念石 collectibles. These demonstrate transfer/identity, not any Toy semantic tags.
+- Mail and Away attachments require name/description and closed visualHint. The fixture's generic 测试纪念品 with trinket/unknown/keepsake/travel is a placeholder, not a concrete interaction design.
+
+SOURCE POINTERS (current working tree)
+index.html initialShopItems ~10221-10226; fixed Explore locations ~11291-11340; Mail authoring ~14135-14165; Mail attachment record ~14009-14028; Explore collectible award ~15838-15854; Phone delivery ~18380-18420; js/meeow-item-visuals.js baseitem registry ~112-155; js/meeow-semantics.js Food-only registry ~45-55; tests/ai-item-visual-hints.fixture.mjs; tests/away-souvenir-authority.fixture.mjs; tests/backpack-redesign-v1.fixture.mjs; tests/resident-item-ownership-provenance-v1.fixture.mjs.

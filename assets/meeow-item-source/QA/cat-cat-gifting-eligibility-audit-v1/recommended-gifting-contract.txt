@@ -1,0 +1,23 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — RECOMMENDED V1 CONTRACT
+Design only; no gifting implementation or AI call was added.
+
+Qualification (all gates)
+1. A PROGRAM-owned, completed, durably persisted special-event marker exists with stable marker ID, product-approved kind, completedAt, source authoritative Hall scene ID, and canonical participant resident IDs including donor and recipient. The scene must be accepted/committed; raw scene prose does not qualify. A marker can be consumed once.
+2. Meeow.specialDates reports at least one active ID on a PRODUCT-approved gift-eligible date allowlist at commit time. Do not infer dates or use holiday prose.
+3. Donor→recipient latest substantive applied relationship event in the proposed prior 14 days is positive in warmth/trust or reduced tension, without simultaneous negative social delta. Ignore exposure-only familiarity, baseline and prose. If fully PROGRAM-authored relationship sentiment is mandatory, add a small program social-outcome marker instead of treating AI-proposed structured deltas as sufficient.
+4. Proposed conservative cooldowns: donor 90 days; canonical unordered pair 180 days; exact uniqueId 365 days; no global cooldown. Anti-loop rule rejects return to an item’s previous resident giver; optionally reject any prior resident giver. Dates and thresholds need product approval.
+5. Donor currently owns the exact valid physical item; donor/recipient are distinct valid residents; no duplicate ownership; provenance and bonds valid; item passes approved category/origin/custom-pixel/tenure/sentimental policy; donor inventory floor holds. No Shop, USER Backpack, historical bond, AI suggestion, name matching or equivalent-item substitution.
+
+Frozen authority and transaction
+- Freeze one candidate per logical completed special event: eventId resident-gift-event:<UUIDv4>, sourceSpecialEventId, donorId, recipientId, exact typed itemUniqueId, sourceSceneId, holidayId, relationshipSourceKey, decidedAt. Retry/rerender uses the same snapshot. AI never chooses or revises these.
+- Immediately before commit, revalidate every gate and exact ownership. If stale, cancel the gift; never substitute or reroll within the same event. Use one atomic mutation covering donor removal, recipient insert of same object, append-only provenance giftHistory with separate gift-transfer:<UUIDv4> transferId, recipient bond ensure/reuse, marker consumption and persistent gift ledger append. Persist once or roll back.
+- Store a compact gift ledger in the same user save, e.g. user.residentGiftEvents with {eventId,sourceSpecialEventId,sourceSceneId,donorId,recipientId,itemUniqueId,transferId,at}. Enforce unique eventId, sourceSpecialEventId and transferId; record completion only after success. Its retained history supports donor/pair cooldowns even if the physical item later moves or disappears. This is proposed new state, not an existing field.
+- On duplicate handling, first look up the already committed event and return that result. On stale AI result, do not commit. Never re-run a successful transfer on page refresh. If persistence cannot atomically include ledger and inventory, gifting must remain disabled until it can.
+
+AI and presentation
+- PROGRAM alone decides eligibility, event, donor, recipient, exact item and transaction. The existing Hall scene/status presentation call may receive the frozen candidate as structured context, but gift prose must become current only if the transfer commits at the accepted boundary; no new AI call is required conceptually. Existing Hall status narration currently has no gift contract, so future implementation must add it at one accepted boundary. Local deterministic fallback must refer to the frozen transfer if presentation fails. Phone, Focus, Truth or Dare and Special Moment presentation must not independently gift.
+
+Readiness and product decisions
+- NOT implementation-ready today: no authoritative resident↔resident special classification/marker, no durable CAT→CAT gift ledger, no composite CAT→CAT transfer API, and no approved holiday allowlist or item policy for USER-origin/personal/custom items.
+- Product approval needed for qualifying special kinds and trigger; holiday ID allowlist; 14-day trend window and donor-directed versus reciprocal trend; cooldown durations/pair direction/global policy; donor inventory floor; USER-origin and USER-gifted items; strongly liked/cherished/disliked and new items; custom-pixel and historically transferred items; unclassified collectibles; exact-item hop cap. Fail closed until decisions are made.
+- Existing production static callAI( count remains 40.

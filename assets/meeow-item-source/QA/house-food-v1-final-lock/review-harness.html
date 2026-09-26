@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>House Food V1 production review</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #f4eadb; color: #3f3029; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+        main { width: min(100%, 1040px); margin: 0 auto; padding: 30px 28px 44px; }
+        h1 { margin: 0; font-size: 28px; letter-spacing: .03em; }
+        .subtitle { margin: 6px 0 24px; color: #78655a; font-size: 14px; }
+        h2 { margin: 22px 0 10px; padding-bottom: 7px; border-bottom: 2px solid #d7bda4; font-size: 17px; letter-spacing: .12em; }
+        .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .food-card { min-height: 138px; padding: 12px; border: 1px solid #d7c1ad; border-radius: 15px; background: #fffaf2; box-shadow: 0 2px 0 rgba(105,76,57,.08); display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 8px; }
+        .name { font-weight: 750; font-size: 15px; line-height: 1.35; }
+        .id { margin-top: 5px; color: #8a6f5e; font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+        .badge { display: inline-block; margin-top: 7px; padding: 3px 7px; border-radius: 999px; background: #ecdbc7; color: #6e4d3d; font-size: 9px; font-weight: 700; }
+        .meeow-item-visual { display: inline-flex; align-items: center; justify-content: center; flex: none; vertical-align: middle; }
+        .meeow-item-visual--small { width: 32px; height: 32px; }
+        .meeow-item-visual--medium { width: 48px; height: 48px; }
+        .meeow-item-visual--large { width: 80px; height: 80px; }
+        .meeow-item-visual__art { position: relative; display: block; overflow: hidden; flex: none; }
+        .meeow-item-visual__art img { display: block; max-width: none; max-height: none; image-rendering: crisp-edges; image-rendering: pixelated; }
+        .preview-stage { display: grid; grid-template-columns: 1.1fr .8fr 1.1fr; gap: 16px; }
+        .panel { min-height: 290px; padding: 18px; border: 1px solid #d7c1ad; border-radius: 18px; background: #fffaf2; box-shadow: 0 3px 0 rgba(105,76,57,.08); }
+        .panel h2 { margin-top: 0; }
+        .shop-row, .bag-row { display: flex; align-items: center; gap: 12px; padding: 10px; margin-top: 10px; border: 1px solid #ead9c8; border-radius: 12px; background: #fff; }
+        .shop-row .copy, .bag-row .copy { flex: 1; min-width: 0; }
+        .shop-row .copy strong, .bag-row .copy strong { display: block; font-size: 13px; }
+        .shop-row .copy span, .bag-row .copy span { color: #90796b; font-size: 11px; }
+        .price { color: #a45c3c; font-size: 12px; font-weight: 750; }
+        .detail-art { display: flex; justify-content: center; margin: 10px 0 14px; }
+        .detail-name { text-align: center; font-weight: 800; }
+        .detail-copy { margin: 8px 0 0; color: #77655a; font-size: 12px; line-height: 1.6; }
+        .shared-preview { display: flex; justify-content: space-around; align-items: end; padding-top: 24px; }
+        .size-demo { text-align: center; color: #806a5c; font-size: 10px; }
+        .size-demo > span:first-child { display: flex; justify-content: center; align-items: center; min-height: 84px; }
+        .footer { margin-top: 24px; color: #806a5c; font-size: 11px; text-align: center; }
+    </style>
+</head>
+<body>
+<main id="app"></main>
+<script src="../../../../js/meeow-item-visuals.js"></script>
+<script>
+const foods = [
+    ['MEALS','香煎三文鱼排','builtin-food:grilled-fish-plate','housefood:salmon-steak',85],
+    ['MEALS','南瓜鸡肉炖锅','builtin-food:rich-meat-broth','housefood:pumpkin-chicken-stew',85],
+    ['MEALS','金枪鱼蒸蛋','builtin-food:steamed-egg-custard','housefood:tuna-egg-custard',50],
+    ['MEALS','鸡汤燕麦烩饭','builtin-food:steamed-egg-meat-roll','housefood:chicken-oat-risotto',80],
+    ['MEALS','香烤时蔬拼盘','builtin-food:bitter-vegetable-puree','housefood:roasted-vegetable-platter',55],
+    ['MEALS','酸香凉拌鱼蔬丝','builtin-food:cool-fish-vegetable-plate','housefood:sour-fish-vegetable-salad',70],
+    ['SNACKS','海苔小鱼脆','builtin-food:chilled-fish-jelly','housefood:seaweed-fish-crisps',55],
+    ['SNACKS','炭烤鸡肉条','builtin-food:spiced-meat-jerky','housefood:charred-chicken-strips',60],
+    ['SNACKS','芝士谷物脆饼','builtin-food:salted-grain-crisps','housefood:cheese-grain-crackers',40],
+    ['SNACKS','辣味蔬菜脆片','builtin-food:spiced-crisp-vegetables','housefood:spicy-veggie-chips',60],
+    ['DESSERTS','草莓奶冻','builtin-food:sweet-sour-fruit-cup','housefood:strawberry-panna-cotta',65],
+    ['DESSERTS','南瓜布丁','builtin-food:dairy-grain-pudding','housefood:pumpkin-pudding',70],
+    ['DESSERTS','酸奶莓果杯','builtin-food:chilled-fermented-cheese','housefood:berry-yogurt-cup',75],
+    ['BEVERAGES','暖暖牛奶','builtin-food:lactose-free-warm-milk','housefood:warm-milk',45],
+    ['BEVERAGES','冰镇果肉饮','builtin-food:fruit-pulp-drink','housefood:fruit-pulp-drink',50],
+    ['BEVERAGES','苹果燕麦奶','builtin-food:warm-grain-porridge','housefood:apple-oat-milk',50]
+];
+const visual = (row, size='large') => {
+    const item = { icon: 'fa-solid fa-bowl-food', visual: { version: 1, mode: 'builtin-sprite', spriteId: row[3], visualHint: null } };
+    const descriptor = window.Meeow.itemVisuals.getItemVisualDescriptor(item);
+    const layout = window.Meeow.itemVisuals.getItemSpriteLayout(descriptor, size);
+    const outer = document.createElement('span'); outer.className = `meeow-item-visual meeow-item-visual--${size}`;
+    const art = document.createElement('span'); art.className = 'meeow-item-visual__art'; art.style.width = `${layout.width}px`; art.style.height = `${layout.height}px`;
+    const img = document.createElement('img'); img.className = 'meeow-item-visual__image'; img.src = '../../../../' + descriptor.file;
+    Object.assign(img.style, layout.imageStyle); img.alt = ''; art.append(img); outer.append(art); return outer;
+};
+const app = document.getElementById('app');
+const view = new URLSearchParams(location.search).get('view') || 'production';
+if (view === 'production') {
+    app.innerHTML = '<h1>HOUSE FOOD SPRITE PACK V1</h1><p class="subtitle">NORMAL PRODUCTION · explicit builtin-sprite mapping · final lock</p>';
+    for (const group of ['MEALS','SNACKS','DESSERTS','BEVERAGES']) {
+        const h = document.createElement('h2'); h.textContent = group; app.append(h);
+        const grid = document.createElement('div'); grid.className = 'grid'; app.append(grid);
+        for (const row of foods.filter(x => x[0] === group)) {
+            const card = document.createElement('div'); card.className = 'food-card'; card.append(visual(row));
+            const copy = document.createElement('div'); copy.innerHTML = `<div class="name">${row[1]}</div><div class="id">${row[3]}</div><span class="badge">builtin-sprite</span>`;
+            card.append(copy); grid.append(card);
+        }
+    }
+    app.insertAdjacentHTML('beforeend','<div class="footer">16 / 16 · shared production descriptor + sprite layout</div>');
+} else {
+    app.innerHTML = '<h1>HOUSE FOOD V1 · UI SMOKE REVIEW</h1><p class="subtitle">Shop · Backpack row · Backpack detail · shared item renderer sizes</p><div class="preview-stage"><section class="panel" id="shop"><h2>SHOP</h2></section><section class="panel" id="bag"><h2>BACKPACK ROW</h2></section><section class="panel" id="detail"><h2>BACKPACK DETAIL</h2></section></div><section class="panel" style="margin-top:16px"><h2>SHARED ITEM RENDERER</h2><div class="shared-preview" id="sizes"></div></section>';
+    for (const row of [foods[0], foods[8], foods[14]]) {
+        const line = document.createElement('div'); line.className = 'shop-row'; line.append(visual(row,'medium'));
+        line.insertAdjacentHTML('beforeend',`<div class="copy"><strong>${row[1]}</strong><span>${row[2]}</span></div><div class="price">${row[4]} 🐾</div>`); document.getElementById('shop').append(line);
+    }
+    for (const row of [foods[6], foods[12], foods[15]]) {
+        const line = document.createElement('div'); line.className = 'bag-row'; line.append(visual(row,'small'));
+        line.insertAdjacentHTML('beforeend',`<div class="copy"><strong>${row[1]}</strong><span>数量 1</span></div>`); document.getElementById('bag').append(line);
+    }
+    const chosen = foods[1]; document.getElementById('detail').append(visual(chosen,'large'));
+    document.getElementById('detail').lastChild.classList.add('detail-art');
+    document.getElementById('detail').insertAdjacentHTML('beforeend',`<div class="detail-name">${chosen[1]}</div><p class="detail-copy">南瓜炖得软糯香甜，鸡肉吸满温热汤汁。<br>${chosen[3]}</p>`);
+    for (const size of ['small','medium','large']) { const d=document.createElement('div'); d.className='size-demo'; const row=foods[10]; d.append(visual(row,size)); d.insertAdjacentHTML('beforeend',`<div>${size}</div>`); document.getElementById('sizes').append(d); }
+    app.insertAdjacentHTML('beforeend','<div class="footer">All views use Meeow.itemVisuals.getItemVisualDescriptor() and getItemSpriteLayout().</div>');
+}
+document.documentElement.dataset.ready = 'true';
+</script>
+</body>
+</html>

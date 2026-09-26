@@ -31,11 +31,15 @@ assert.match(source, /Status is visible in-world activity only/);
 assert.match(source, /STATUS META QUARANTINED/);
 assert.doesNotMatch(source, /因外出计划未能确认，暂时留在馆舍/);
 
-// Phone exit restores captured UI route rather than entering Curator Room.
+// The top-level Meeow House destination owns session navigation memory; Phone's
+// own return route remains available for non-navbar back behavior.
 assert.match(source, /const phoneReturnRoute = ref\(null\)/);
+assert.match(source, /const lastMeeowLocation = ref\(\{ type: 'curator', hallId: null \}\)/);
 assert.match(source, /const capturePhoneReturnRoute/);
 assert.match(source, /const leavePhone/);
-assert.match(source, /currentTab === 'phone' \? leavePhone\(\) : openCuratorRoom\(\)/);
+assert.match(source, /@click="restoreLastMeeowLocation" aria-label="喵喵馆"/);
+assert.doesNotMatch(source, /currentTab === 'phone' \? leavePhone\(\) : openCuratorRoom\(\)/);
+assert.match(source, /const capturePhoneReturnRoute = \(\) => \{\s*if \(currentTab\.value === 'phone'\) return;/);
 assert.doesNotMatch(source, /leavePhone[\s\S]{0,1200}enterHall\(/);
 
 const context = vm.createContext({ window: {}, Date, Math, console });

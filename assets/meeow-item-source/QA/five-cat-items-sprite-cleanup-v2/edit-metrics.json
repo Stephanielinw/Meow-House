@@ -1,0 +1,137 @@
+[
+  {
+    "name": "star-sand-orb",
+    "oldHash": "e5a1cb4914fafbda0a90774dba144da83d627416f6fbd72471c8f3fe889c4a1e",
+    "filled": 85,
+    "removed": 111,
+    "recolored": 0,
+    "filledBox": [
+      9,
+      11,
+      53,
+      53
+    ],
+    "removedBox": [
+      10,
+      50,
+      53,
+      56
+    ],
+    "recoloredBox": null,
+    "bbox": [
+      4,
+      7,
+      60,
+      56
+    ]
+  },
+  {
+    "name": "teaser-wand",
+    "oldHash": "317fca6e03d9962d951714870ad5c0439da4e00e9e21c15cb1aaf3b2836d120d",
+    "filled": 48,
+    "removed": 91,
+    "recolored": 0,
+    "filledBox": [
+      21,
+      8,
+      55,
+      55
+    ],
+    "removedBox": [
+      5,
+      51,
+      54,
+      56
+    ],
+    "recoloredBox": null,
+    "bbox": [
+      4,
+      7,
+      60,
+      57
+    ]
+  },
+  {
+    "name": "catnip-pouch",
+    "oldHash": "c9167dbd167d3592b1625bcb100af7f721a6fe45f5d80e116c34adfd26d1ee85",
+    "filled": 62,
+    "removed": 116,
+    "recolored": 1,
+    "filledBox": [
+      15,
+      22,
+      58,
+      48
+    ],
+    "removedBox": [
+      8,
+      47,
+      55,
+      55
+    ],
+    "recoloredBox": [
+      10,
+      51,
+      10,
+      51
+    ],
+    "bbox": [
+      4,
+      7,
+      60,
+      56
+    ]
+  },
+  {
+    "name": "riddle-paper-ball",
+    "oldHash": "bbb0f7bc11eac33904b6d983ba54cbd23a4bd109ac6c291c20c14d75fdaec640",
+    "filled": 122,
+    "removed": 183,
+    "recolored": 0,
+    "filledBox": [
+      13,
+      13,
+      50,
+      49
+    ],
+    "removedBox": [
+      10,
+      45,
+      53,
+      53
+    ],
+    "recoloredBox": null,
+    "bbox": [
+      4,
+      10,
+      60,
+      51
+    ]
+  },
+  {
+    "name": "letter",
+    "oldHash": "2d54f97f5fefceb22d724f8393d865148930bd6974daf9123b3b73c6c863cebb",
+    "filled": 77,
+    "removed": 132,
+    "recolored": 0,
+    "filledBox": [
+      6,
+      13,
+      55,
+      48
+    ],
+    "removedBox": [
+      5,
+      43,
+      57,
+      51
+    ],
+    "recoloredBox": null,
+    "bbox": [
+      4,
+      11,
+      60,
+      51
+    ]
+  }
+]

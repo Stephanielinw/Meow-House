@@ -1,0 +1,25 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — ITEM ELIGIBILITY POLICY V1
+Recommendations only; no product choice has been silently implemented.
+
+Always validate current donor ownership through user.residentItems[donorId] and exact typed uniqueId, the global ownership scan, recipient roster, stable provenance, and eligible physical category. sourceCatalogId is a catalog reference, never ownership or instance identity. semanticType/role/interaction/stimulus describe the object; they do not themselves grant transfer authority. Bond state is donor×uniqueId, not an item property. firstOwnedAt is the first-ever resident bond date and does NOT safely prove tenure of the current ownership spell after a return; use the latest matching giftHistory transfer into this donor, or another authoritative acquisition timestamp. lastUsedAt describes use, not willingness to give. visual.mode=custom-pixel is presentation/authorship metadata, not a transferable clone.
+
+Case | recommendation | reason / default
+1 USER-origin item (originOwner.kind=user) | PRODUCT DECISION REQUIRED; default ineligible | original USER ownership may carry personal intent even after USER→donor transfer.
+2 Donor-origin item (originOwner.kind=resident with donor ID) | eligible conditionally | donor's own item, subject to all gift, bond, tenure and anti-loop gates.
+3 Third-resident-origin item | ineligible for automatic V1 | circulation/return risk and donor is not original giver.
+4 USER personally gifted item to donor (giftHistory contains user→donor) | PRODUCT DECISION REQUIRED; default ineligible | may have strong sentimental meaning, regardless of current fondness.
+5 Donor cherished bond (familiarity>=4 and fondness>=2) | ineligible for automatic V1 | existing isResidentItemCherished establishes a protected attachment.
+6 Donor strongly likes item without cherished threshold | PRODUCT DECISION REQUIRED; default ineligible | high fondness should not silently imply generosity.
+7 Donor dislikes item (negative fondness) | ineligible | prevents dumping unwanted objects as a “meaningful” gift.
+8 Newly received item | ineligible until current-ownership tenure established; propose 30 days | derive from latest valid transfer into donor in giftHistory; for donor-origin items without a transfer timestamp, require an authoritative acquisition timestamp or fail closed. Never use historical bond firstOwnedAt after reacquisition.
+9 Custom-pixel item | PRODUCT DECISION REQUIRED; default ineligible | user-authored visual may be personal; preserve exact visual if ever approved.
+10 Historical multi-transfer item | ineligible for automatic V1 by default | complex ownership history and loop risk; product could opt in with explicit caps/history checks.
+11 Literal letter | ineligible | existing isGiftableToResident excludes type=letter; content/recipient intent is personal.
+12 Food | ineligible | existing eligibility excludes category=food; food semantics are separate.
+13 Unclassified collectible | PRODUCT DECISION REQUIRED; default ineligible | ownership/bond can exist, but no validated object meaning for automatic gift suitability. A gift need not use the six item-use interactions, so classify policy deliberately.
+14 Classified toy | eligible conditionally | known object identity, actual ownership, bond, provenance, tenure, special/date/trend gates required.
+15 Classified collectible/souvenir | eligible conditionally | known semantics and suitable category; personal/sentimental classes still need policy review.
+
+Existing helpers: Meeow.residentItems.getResidentOwnedItems, scanOwnership, validPhysicalId, isGiftableToResident, isResidentItemBondEligible, getResidentItemBond, isResidentItemCherished, isValidProvenance; Meeow.semantics.hasValidSemanticClassification/getItemObjectSemantics. No personality preference profile or AI item selection should enter this gate.
+
+Ping-pong detection: inspect giftHistory for the exact uniqueId, ordered by timestamp. A→B→A is visible as adjacent resident from/to events. A future guard can reject a proposed recipient who equals the immediately prior resident donor, or any resident who previously appears as from.kind=resident for this physical item. Historical USER gifts and originOwner must remain immutable.

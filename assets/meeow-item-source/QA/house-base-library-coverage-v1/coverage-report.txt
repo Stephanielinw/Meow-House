@@ -1,0 +1,235 @@
+HOUSE BASE SPRITE LIBRARY — COVERAGE AUDIT V1
+READ-ONLY PLANNING REPORT
+Audit date: 2026-09-24
+
+SCOPE AND METHOD
+
+This report audits the current first-party item sprite registry, the closed visualHint
+contract, and live/generated-item demand. It does not treat retired third-party pack
+metadata as demand evidence. No sprite, registry, resolver, taxonomy, prompt, Shop,
+inventory, or House Food production file was changed.
+
+Primary evidence:
+- js/meeow-item-visuals.js:5-9 — closed visualHint vocabulary.
+- js/meeow-item-visuals.js:69-93 — active first-party registry construction.
+- js/meeow-item-visuals.js:119-133 — current resolver scoring and tie-breaking.
+- js/meeow-item-visuals.js:160-169 — persistence boundary for generated item art.
+- index.html:11102 onward — 47 fixed Explore locations and their loot guidance.
+- index.html:13905 onward — outgoing Mail attachment authoring.
+- index.html:15480 onward — Explore settlement loot authoring.
+- index.html:23776 and 24368 onward — ordinary Away souvenir authoring.
+- tests/ai-item-visual-hints.fixture.mjs and tests/away-souvenir-authority.fixture.mjs
+  — concrete shell and trinket acceptance examples.
+- tests/backpack-redesign-v1.fixture.mjs — concrete pine-branch souvenir display data.
+
+A. CURRENT FIRST-PARTY ART
+
+Registered first-party production sprites: 16.
+Built-in House Food sprites: 16.
+Generic reusable base sprites: 0.
+
+The 16 registered sprites all use the housefood:* namespace, sourcePack
+house-style-food-v1, sourceType first-party, and provenance house-art. They are
+canonical visuals for 16 specific Shop products. They are not a generic base library.
+
+Current object-tag coverage by registered House Food art:
+- fish: 3 specific products
+- meat: 2 specific products
+- egg: 1 specific product
+- grain: 2 specific products
+- vegetable: 2 specific products
+- dessert: 3 specific products
+- drink: 3 specific products
+- fruit, bread, and every non-food object value: 0
+
+Current secondary-dimension coverage:
+- material: food=16, liquid=3
+- form: meal=6, snack=4, dessert=3, beverage=3
+- context: food=16
+
+B. CURRENT CLOSED visualHint CONTRACT
+
+Every new AI-authored item must provide exactly four string fields:
+{ object, material, form, context }
+
+Counts, including unknown:
+- object: 45 values
+- material: 14 values
+- form: 15 values
+- context: 11 values
+
+The complete values and per-value coverage are in visualhint-coverage-matrix.txt.
+No alias, item name, free-text description, filename, path, URL, or sprite ID is part
+of resolver input. AI classifies appearance; PROGRAM selects and freezes the sprite.
+
+C. LIVE GENERATED-ITEM PATHS
+
+1. Ordinary Away souvenir attachment
+   - An accepted Away plan may contain one small travel souvenir.
+   - The prompt's deterministic example uses:
+     trinket / unknown / keepsake / travel.
+   - js/meeow-away.js validates the hint and freezes a visual at episode creation.
+
+2. Outgoing Mail attachment
+   - The mail prompt may return one optional item with the closed visualHint.
+   - The acceptance boundary calls assignAutoVisualIdentity once.
+   - Fixture example: 贝壳 (shell / organic / keepsake / travel).
+
+3. Explore settlement loot
+   - A solved Explore case may return one optional loot item with the closed hint.
+   - The accepted settlement freezes its visual before inventory insertion.
+   - Fixture example: 湖边贝壳 (shell / organic / keepsake / travel).
+   - The 47 fixed Explore locations contain 101 comma-separated loot concept phrases.
+
+4. Shop authoring
+   - Current user-authored Shop products choose legacy-icon or custom-pixel.
+   - The appraisal does not supply visualHint or invoke the auto-sprite resolver.
+   - This is not current generic base-sprite demand.
+
+5. Other inventory creation
+   - Built-in Shop purchases preserve canonical visuals.
+   - Letters created from interaction text use a legacy icon.
+   - No additional live assignAutoVisualIdentity call site was found.
+
+D. OBSERVED DYNAMIC-ITEM DEMAND
+
+The 101 fixed Explore loot phrases were conservatively normalized to the nearest
+existing closed object value, using the dominant visible silhouette. Ambiguous phrases
+such as equipment, relic, badge, and luxury item were kept in broad current values
+(tool or trinket), rather than inventing tags. This yields 31 observed normalized
+object concepts. Frequency is phrase occurrence, not runtime telemetry.
+
+Normalized object | Class | Observations | Example evidence | Generic first-party art
+bag        | HOUSEHOLD / MISC       | 1  | 生存物资                  | NO
+bone       | NATURAL SOUVENIR       | 1  | 外星残留物                | NO
+book       | PAPER / LETTER         | 1  | 会自己翻页的配方册        | NO
+bottle     | HOUSEHOLD / MISC       | 3  | 药剂、漂流瓶、药瓶        | NO
+branch     | NATURAL SOUVENIR       | 2  | 橄榄枝、月桂枝            | NO
+cloth      | HOUSEHOLD / MISC       | 1  | 战场旗帜                  | NO
+coin       | JEWELRY / TRINKET      | 5  | 金币、铜币、硬币          | NO
+crystal    | NATURAL SOUVENIR       | 5  | 能量核心、量子/盐晶       | NO
+cup        | HOUSEHOLD / MISC       | 1  | 宴会金杯                  | NO
+dessert    | FOOD                   | 1  | 奢华零食                  | specific housefood only
+drink      | DRINK                  | 1  | 月桂花蜜                  | specific housefood only
+feather    | NATURAL SOUVENIR       | 2  | 孔雀羽、银色羽毛          | NO
+flower     | NATURAL SOUVENIR       | 1  | 迷幻花粉                  | NO
+fruit      | SIMPLE FOOD            | 1  | 神宴果实                  | NO
+gem        | JEWELRY / TRINKET      | 1  | 深海珍珠                  | NO
+grain      | SIMPLE FOOD            | 1  | 金麦穗                    | specific housefood only
+herb       | NATURAL SOUVENIR       | 3  | 猫薄荷、草药              | NO
+key        | JEWELRY / TRINKET      | 2  | 权限卡、夜色钥匙          | NO
+leaf       | NATURAL SOUVENIR       | 3  | 桂冠、日桂叶、葡萄藤冠    | NO
+letter     | PAPER / LETTER         | 2  | 报恩信、封蜡信            | NO
+paper      | PAPER / LETTER         | 8  | 卷宗、地图、清单、蜡片    | NO
+ring       | JEWELRY / TRINKET      | 1  | 青铜胸针                  | NO
+rope       | HOUSEHOLD / MISC       | 2  | 旧绳结、琴弦              | NO
+scroll     | PAPER / LETTER         | 1  | 羊皮卷                    | NO
+seed       | NATURAL SOUVENIR       | 1  | 灰花种子                  | NO
+shell      | NATURAL SOUVENIR       | 1  | 永不褪色的贝壳            | NO
+stick      | NATURAL SOUVENIR       | 1  | 巨人牧杖                  | NO
+stone      | NATURAL SOUVENIR       | 5  | 碎屑、玻璃、河石、忘川石  | NO
+tool       | HOUSEHOLD / MISC       | 16 | 武器、装备、仪器、零件    | NO
+toy        | TOY                    | 3  | 恶作剧玩具、快船模型      | NO
+trinket    | JEWELRY / TRINKET      | 24 | 信物、护符、徽章、遗物    | NO
+
+The fixture shell examples and generic Away trinket example reinforce concepts already
+present in the 31 classes. The Backpack pine-branch example likewise reinforces branch.
+
+Demand by broad class in the fixed Explore evidence:
+- JEWELRY / TRINKET: dominant (trinket, coin, key, ring, gem).
+- HOUSEHOLD / MISC: high (especially tool/equipment, plus containers and rope).
+- NATURAL SOUVENIR: high (stone/crystal/botanical/shell/feather).
+- PAPER / LETTER: high (maps, documents, letters, book, scroll).
+- TOY: present but lower frequency.
+- FOOD / DRINK: only four explicit fixed-location phrases, but the closed taxonomy and
+  product direction explicitly require broader reusable Food coverage.
+
+E. GENERIC FOOD GAPS
+
+Generic-safe Food coverage is 0. The current art is specific to permanent products.
+The major useful closed-vocabulary gaps are:
+- ingredient forms for fish, meat, egg, fruit, vegetable, and grain;
+- broad meal forms for fish, meat, egg, grain, vegetable, and bread;
+- broad snacks for fish, meat, vegetable, fruit, bread, grain, and dessert;
+- generic dessert composition and fruit dessert;
+- generic drink, hot mug, and fruit beverage.
+
+Current taxonomy limitation:
+- soup, stew, porridge, noodles, salad, dumplings, sandwich, pizza/flatbread, cookie,
+  chocolate, pudding, jelly, yogurt, ice cream, tea, coffee, juice, milk, berries,
+  citrus, and cheese are not object values.
+- Several can be represented only by a broader dominant object/form pair. For example,
+  soup and grilled meat may both become meat/food/meal/food; tea and coffee may both
+  become mug/ceramic/beverage/food.
+- The resolver does not score aliases or free text. Drawing several subtypes with the
+  same tag tuple would not make them individually selectable; tie-breaking would choose
+  one sprite ID deterministically.
+
+Therefore Base Library V1 should draw broad archetypes that correspond to distinct
+closed hint combinations, not multiple unreachable variations. More detailed food
+subtypes belong to a future taxonomy/router design decision, outside this audit.
+
+F. NON-FOOD GAPS
+
+The largest current gaps match actual Explore/Away demand:
+- broad travel trinket/charm;
+- utility tool/equipment;
+- paper map/document and physical letter;
+- coin and key;
+- bottle/container;
+- stone, crystal, shell, branch, leaf, flower, herb, feather;
+- small toy.
+
+Lower-priority closed values can safely retain legacy icons for V1: stick, seed,
+mushroom, gem, bone, book, scroll, photo, cup, jar, box, bag, basket, ring, necklace,
+cloth, ribbon, rope, craft material, and other rare household forms.
+
+G. CURRENT housefood RESOLVER ROLE
+
+housefood:* eligible for generic resolver: YES.
+Specific-built-in-art leakage risk: YES, confirmed.
+
+Reason:
+- registry contains only the 16 housefood entries;
+- resolveItemSpriteCandidate filters by exact object and accepts score >= 12;
+- object match alone is worth 12, so mismatched material/form/context can still pass;
+- no canonical-only or resolver-ineligible flag exists;
+- assignAutoVisualIdentity uses that registry for live Away/Mail/Explore items.
+
+Concrete current examples:
+- fish/food/meal/food resolves to housefood:salmon-steak.
+- grain/food/meal/food resolves to housefood:chicken-oat-risotto.
+- a generic dessert tuple resolves to one specific dessert by ID tie-break.
+- a generic drink tuple resolves to one specific beverage by ID tie-break.
+
+Follow-up architecture action (not implemented here): exclude canonical housefood entries
+from generic auto-resolution, or introduce an explicit resolver eligibility/role field,
+then register approved basefood/baseitem art as the generic candidate pool. Existing
+builtin-sprite mappings must remain unchanged.
+
+H. RECOMMENDED BASE LIBRARY V1
+
+Total proposed sprites: 40.
+- Food/Drink: 24
+- Non-food: 16
+- P0 draw first: 28
+- P1 next: 12
+
+The exact IDs, hint tuples, priority, and sheet allocation are in
+base-library-roadmap.txt and reference-sheet-plan.txt.
+
+Recommended future namespaces:
+- basefood:<semantic-name> for generic edible/drink archetypes.
+- baseitem:<semantic-name> for generic non-food archetypes.
+
+These namespaces keep resolver archetypes separate from housefood:* canonical products.
+
+SAFETY RESULT
+
+Production art changed: NO.
+Registry changed: NO.
+Resolver changed: NO.
+visualHint taxonomy changed: NO.
+AI prompts changed: NO.
+AI calls added: 0.
+Static literal callAI( count: 40.

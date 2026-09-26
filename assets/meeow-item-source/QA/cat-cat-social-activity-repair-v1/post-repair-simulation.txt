@@ -1,0 +1,11 @@
+Seeded fixture: tests/cat-cat-social-activity-repair-v1.fixture.mjs
+Seed: 20260926; six eligible residents; 15 unordered pairs.
+
+100 timer ticks spaced 10 minutes apart yielded 50 eligible social opportunities with a 20-minute per-Hall clock.
+Separate 100 eligible social opportunities, with an EXPLICIT TEST ASSUMPTION of 35% scene acceptance, yielded 40 accepted scenes. This acceptance fraction is a scenario input, not an observed production AI rate; scene:null remains valid.
+Active residents: 6/6; zero-participation residents: 0.
+Active pairs: 15/15; zero-participation pairs: 0.
+Top pair concentration: 4/40 = 10%.
+Synthetic substantive outcomes: 5 positive, 5 negative, 2 mixed.
+Synthetic neutral/no-delta outcomes: 6 neutral, 22 no-delta. Rejected: 0; saturated: 0 in this scenario.
+The bounded session diagnostics should be used after real play to measure actual acceptance and consequence coverage before any delta tuning.

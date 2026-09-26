@@ -1,0 +1,39 @@
+Shop item presentation V1 — validation
+
+Authored Food semantics
+- The existing single Shop appraisal request may propose semanticTags for Food.
+- PROGRAM filters proposals through the existing closed Food registry. Unknown namespaces,
+  unknown values, malformed tags, duplicate tags, and extra AI fields are rejected/ignored.
+- Complete valid Food classifications persist as semanticType: "food" plus canonical tags.
+- Incomplete valid tags remain descriptive semanticTags only; no gameplay classification
+  or missing tag values are invented. Toy tags are neither requested nor persisted.
+- Purchased instances copy the validated catalog semantics. JSON save/export/import
+  round trips preserve the fields exactly.
+
+Shop detail
+- Both full Shop and Phone Shop product bodies open a read-only catalog detail.
+- The detail re-resolves the authoritative catalog definition; opening it creates no
+  inventory instance or uniqueId.
+- Shop and Backpack share meeow-item-detail-presentation and meeow-item-visual.
+- Food property chips, category, description, effect, and current catalog price display.
+- Inventory-only Use, Discard, and Edit Appearance actions are absent.
+- Add to Cart uses the existing Shop Cart V1 authority. Card action clicks stop bubbling.
+
+Theme-aware item visual surface
+- Shared CSS class: meeow-item-surface.
+- Existing tokens: --ui-surface-strong, --accent-dim, --ui-border-strong,
+  --ui-surface-soft, and --ui-text.
+- Applied to item-art wrappers in Backpack, Shop, Shop detail, Cart, Mail,
+  Explore, and item-interaction cards. Transparent pixels reveal this surface.
+- Hard gray item-art wrappers were replaced; unrelated general UI backgrounds remain.
+- No sprite PNG was edited.
+
+Review images
+- authored-food-semantics-review.png, shop-detail-review.png, and
+  theme-surface-review.png are labeled fixture previews built from actual first-party
+  sprites and the implemented presentation rules. They are not live browser captures.
+
+Regression protection
+- Built-in Food definitions and all first-party sprite manifest hashes remain unchanged.
+- No Toy taxonomy, resolver scoring change, additional AI call, or Phone identity change.
+- Static production callAI( count: 40.

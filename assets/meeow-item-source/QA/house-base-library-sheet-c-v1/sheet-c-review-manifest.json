@@ -1,0 +1,270 @@
+{
+  "version": 1,
+  "sheet": "C",
+  "status": "REVIEW / NOT LOCKED",
+  "reference": "/var/folders/c4/jrxpgprn1rs8_3vkrhn61vyr0000gp/T/codex-clipboard-d3f784d4-878f-4be0-9498-2dd9b74a64c3.png",
+  "method": "Reference-object isolation, nearest-neighbor logical-grid conversion, no-dither palette cleanup, binary alpha; no redesign.",
+  "sprites": [
+    {
+      "id": "basefood:generic-drink",
+      "name": "通用饮品",
+      "filename": "generic-drink.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/generic-drink.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/generic-drink.png",
+      "sha256": "0d904cd2fecf7a469387085024958a21264e830ae36f0d13f19cc37decd30187",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        7,
+        2,
+        56,
+        58
+      ],
+      "marginsLTRB": [
+        7,
+        2,
+        8,
+        6
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:hot-mug",
+      "name": "热饮杯",
+      "filename": "hot-mug.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/hot-mug.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/hot-mug.png",
+      "sha256": "50c9a1a7cc136a492bb9f457a4c20b5e33ee5d30aed45774a9ca8baf6b406d43",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        6,
+        2,
+        58,
+        58
+      ],
+      "marginsLTRB": [
+        6,
+        2,
+        6,
+        6
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:fruit-drink",
+      "name": "果味饮品",
+      "filename": "fruit-drink.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/fruit-drink.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/fruit-drink.png",
+      "sha256": "2384ac3672e4f9507189816a1ea5106997cf4fb1c154733831b47ebd9a020b6f",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        8,
+        2,
+        56,
+        58
+      ],
+      "marginsLTRB": [
+        8,
+        2,
+        8,
+        6
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:egg-ingredient",
+      "name": "鸡蛋食材",
+      "filename": "egg-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/egg-ingredient.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/egg-ingredient.png",
+      "sha256": "d6e1ddbb673d83c80f6b3b0bfa528888c8d8443c518fa173ef4837b34707d438",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        14,
+        59,
+        49
+      ],
+      "marginsLTRB": [
+        4,
+        14,
+        5,
+        15
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:fruit-ingredient",
+      "name": "水果食材",
+      "filename": "fruit-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/fruit-ingredient.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/fruit-ingredient.png",
+      "sha256": "d1211e729c4a0a5b8a7a9269b417865be6d8eddfc2c85001270dec5a66f0d95a",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        15,
+        60,
+        48
+      ],
+      "marginsLTRB": [
+        4,
+        15,
+        4,
+        16
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:raw-fish",
+      "name": "生鱼食材",
+      "filename": "raw-fish.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/raw-fish.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/raw-fish.png",
+      "sha256": "1c6b182de02800c72a686f9dad1f56f9a08417e104549030f4b8b00302ea426f",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        18,
+        60,
+        45
+      ],
+      "marginsLTRB": [
+        4,
+        18,
+        4,
+        19
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:raw-meat",
+      "name": "生肉食材",
+      "filename": "raw-meat.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/raw-meat.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/raw-meat.png",
+      "sha256": "8643cae724c858eb5d124b66a3602b47461793eb76c2b4259e45da8c9ed28334",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        16,
+        60,
+        47
+      ],
+      "marginsLTRB": [
+        4,
+        16,
+        4,
+        17
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:vegetable-ingredient",
+      "name": "蔬菜食材",
+      "filename": "vegetable-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/vegetable-ingredient.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/vegetable-ingredient.png",
+      "sha256": "caaaf357026b7d45b25a22adfbe9018a8b20fb1b9d4916265c742708183e8e0b",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        17,
+        60,
+        47
+      ],
+      "marginsLTRB": [
+        4,
+        17,
+        4,
+        17
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "basefood:grain-ingredient",
+      "name": "谷物食材",
+      "filename": "grain-ingredient.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/grain-ingredient.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/grain-ingredient.png",
+      "sha256": "e6690e41bbad349b38a929f7b9e6ff5b61d78ff542bf833c00ea1890ad9c7067",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        15,
+        60,
+        48
+      ],
+      "marginsLTRB": [
+        4,
+        15,
+        4,
+        16
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    }
+  ]
+}

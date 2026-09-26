@@ -6,7 +6,7 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const index = read('../index.html');
 const context = vm.createContext({ window: {} });
 for (const path of ['../js/meeow-status-posture.js', '../js/meeow-semantics.js',
-    '../js/meeow-resident-semantics.js', '../js/meeow-inventory.js']) {
+    '../js/meeow-item-visuals.js', '../js/meeow-resident-semantics.js', '../js/meeow-inventory.js']) {
     vm.runInContext(read(path), context, { filename: path });
 }
 const { semantics, inventory, residentSemantics } = context.window.Meeow;
@@ -28,6 +28,7 @@ const runCase = async ({ item = makeFood(), profile = makeProfile({ 'temp:cold':
     const user = { inventory: [item] };
     const calls = [], events = [], toasts = [], statusUpdates = [];
     const state = {
+        window: context.window,
         selectedCat: { value: cat }, itemInteractionInFlight: { value: false },
         thinkingStates: {}, settings: { apiKey: 'fixture-key' }, user,
         showBag: { value: true }, currentHall: { value: { name: '测试馆' } },
@@ -41,6 +42,7 @@ const runCase = async ({ item = makeFood(), profile = makeProfile({ 'temp:cold':
         buildUserSharedEpisodicMemoryContext: () => ({ text: '' }),
         buildResidentPublicNameContract: () => '',
         buildAuthoritativeUserIdentityContext: () => '',
+        getInteractionHolidayContext: () => '',
         buildFocusedResidentStateContext: () => '',
         cleanText: value => String(value || '').trim(),
         parseAIJSON: JSON.parse,
@@ -175,7 +177,7 @@ for (const id of ['gotham-bruce', 'greek-telemachus', 'greek-odysseus', 'olympus
         'canonical pilot Food preferences are now authored explicitly');
 }
 const builtInCatalogSource = index.slice(index.indexOf('                let initialShopItems = ['), index.indexOf('                const reconcileBuiltInSemanticFoods ='));
-const builtInCatalogContext = vm.createContext({});
+const builtInCatalogContext = vm.createContext({ window: { Meeow: { semantics } } });
 vm.runInContext(`${builtInCatalogSource}\nglobalThis.items = initialShopItems;`, builtInCatalogContext);
 for (const legacyFoodId of [1, 7]) {
     const legacyFood = builtInCatalogContext.items.find(item => item.id === legacyFoodId);

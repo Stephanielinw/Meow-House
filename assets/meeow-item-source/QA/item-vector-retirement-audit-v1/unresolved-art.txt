@@ -1,0 +1,23 @@
+UNRESOLVED FIRST-PARTY ITEM ART — MANUAL DRAWING TODO
+
+Concrete fixed Shop definitions still on vector fallback
+family | name | id | category/type | current icon | why existing sprites fail | proposed art / namespace | closed visualHint suggestion
+toy | 星砂发光球 | number 2 | toy/consumable | fa-solid fa-gem | crystal is faceted, not a round glowing toy | pixel glowing play ball; baseitem:glowing-ball | object=toy material=mixed form=toy context=household
+toy | 伸缩逗猫杆 | number 3 | toy/consumable | fa-solid fa-wand-magic-sparkles | branch has leaves and lacks rod/string teaser silhouette | small telescoping rod with dangling lure; baseitem:cat-teaser-wand | object=toy material=mixed form=toy context=household
+toy | 浓缩猫薄荷包 | number 4 | toy/consumable | fa-solid fa-bomb | herb sprite is an exposed tied bouquet, not a closed pouch | tied cloth packet with visible catnip cue; baseitem:catnip-sachet | object=herb material=cloth form=toy context=household
+toy | 谜语纸团球 | number 5 | toy/consumable | fa-solid fa-circle-question | no crumpled paper ball archetype | round wrinkled paper toy; baseitem:paper-ball | object=paper material=paper form=toy context=household
+
+Active variable-name production template
+paper/document | 来自<resident>的信 | runtime-generated ID | letter | fa-solid fa-envelope | no letter/envelope first-party sprite | folded letter or sealed envelope; baseitem:letter | object=letter material=paper form=document context=writing
+
+Dynamic generated-item art gaps from the verified 31-concept evidence base (these are archetypes, not counted as concrete current catalog definitions)
+tool/equipment | tool | 16 fixed Explore loot phrases | varied equipment cannot be represented by branch/watch | simple neutral hand tool; baseitem:tool | object=tool material=metal form=tool context=travel
+paper/document | paper, letter, book, scroll | 12 phrases total | no suitable page, envelope, book or scroll silhouettes | separate paper, letter, book, scroll sprites; baseitem:* | object=paper/letter/book/scroll material=paper form=document context=writing
+bottle/cup | bottle, cup | 4 phrases | drink glass/hot mug cannot safely depict sealed bottle or ceremonial cup | bottle and neutral cup; baseitem:* | object=bottle/cup material=glass/ceramic form=container context=travel
+key | key | 2 phrases | bank-card/coin cannot depict a key | simple metal key; baseitem:key | object=key material=metal form=keepsake context=travel
+rope | rope | 2 phrases | no coiled cord sprite | short tied rope coil; baseitem:rope | object=rope material=organic form=craft-material context=travel
+toy | toy | 3 phrases | existing jewelry/branch art is not a neutral toy | simple play ball; baseitem:toy-ball | object=toy material=mixed form=toy context=household
+natural/craft | bone, gem, seed, stick, cloth | 1 phrase each | nearby sprites have wrong identity or silhouette | small bone, loose gem, seed pouch/seed, plain stick, folded cloth; baseitem:* | exact current object value with defensible material/form/context
+travel trinket | broad trinket | 24 phrases | current generic match can be a specific bank card | neutral keepsake/charm; baseitem:travel-keepsake | object=trinket material=mixed form=keepsake context=travel
+
+Suggested IDs and tags are planning notes only. No registry or taxonomy entry was added.

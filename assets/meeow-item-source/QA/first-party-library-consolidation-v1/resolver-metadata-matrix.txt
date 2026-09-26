@@ -1,0 +1,69 @@
+RESOLVER METADATA MATRIX — GENERIC FIRST-PARTY BASE LIBRARY
+PROGRAM authority: js/meeow-item-visuals.js active registry. This file is documentation only.
+No vocabulary values were added or renamed.
+
+CLOSED visualHint VOCABULARY
+object (45): fish | meat | egg | fruit | vegetable | grain | bread | dessert | drink | branch | stick | leaf | flower | herb | seed | mushroom | stone | gem | crystal | shell | bone | feather | book | paper | scroll | photo | letter | bottle | cup | mug | jar | box | bag | basket | coin | key | ring | necklace | cloth | ribbon | rope | tool | toy | trinket | unknown
+material (14): organic | wood | stone | mineral | metal | glass | ceramic | paper | cloth | leather | food | liquid | mixed | unknown
+form (15): meal | snack | dessert | beverage | ingredient | natural-object | keepsake | container | document | jewelry | craft-material | tool | toy | household-object | unknown
+context (11): food | household | nature | travel | writing | craft | fantasy | collectible | gift | market | unknown
+
+SUMMARY
+Generic sprites audited: 41
+Complete and closed-vocabulary valid: 41
+Metadata records repaired in this pass: 2
+Invalid metadata remaining: 0
+Taxonomy-limited sprites: 5
+
+spriteId | object | material | form | context | validity | resolver eligible | notes
+basefood:fish-meal | fish | food | meal | food | VALID | YES | —
+basefood:meat-meal | meat | food | meal | food | VALID | YES | —
+basefood:egg-meal | egg | food | meal | food | VALID | YES | —
+basefood:grain-bowl | grain | food | meal | food | VALID | YES | —
+basefood:vegetable-meal | vegetable | food | meal | food | VALID | YES | —
+basefood:bread-meal | bread | food | meal | food | VALID | YES | —
+basefood:dried-fish-snack | fish | food | snack | food | VALID | YES | —
+basefood:meat-jerky | meat | food | snack | food | VALID | YES | —
+basefood:vegetable-snack | vegetable | food | snack | food | VALID | YES | —
+basefood:fruit-snack | fruit | food | snack | food | VALID | YES | —
+basefood:bread-loaf | bread | food | snack | food | VALID | YES | —
+basefood:dessert-cake | dessert | food | dessert | food | VALID | YES | —
+basefood:grain-snack | grain | food | snack | food | VALID | YES | —
+basefood:dessert-snack | dessert | food | snack | food | VALID | YES | —
+basefood:fruit-dessert | fruit | food | dessert | food | VALID | YES | —
+basefood:generic-drink | drink | liquid,food | beverage | food | VALID | YES | —
+basefood:hot-mug | mug | ceramic | beverage | food | VALID | YES | REPAIRED: Changed object/material from drink + liquid,food to mug + ceramic; form/context retained beverage + food.
+basefood:fruit-drink | fruit | liquid | beverage | food | VALID | YES | REPAIRED: Changed object/material from drink + liquid,food to fruit + liquid; form/context retained beverage + food.
+basefood:egg-ingredient | egg | food | ingredient | food | VALID | YES | —
+basefood:fruit-ingredient | fruit | food | ingredient | food | VALID | YES | —
+basefood:raw-fish | fish | food | ingredient | food | VALID | YES | —
+basefood:raw-meat | meat | food | ingredient | food | VALID | YES | —
+basefood:vegetable-ingredient | vegetable | food | ingredient | food | VALID | YES | —
+basefood:grain-ingredient | grain | food | ingredient | food | VALID | YES | —
+baseitem:branch | branch | wood | natural-object | nature | VALID | YES | —
+baseitem:herb | herb | organic | natural-object | nature | VALID | YES | —
+baseitem:stone | stone | stone | natural-object | nature | VALID | YES | —
+baseitem:crystal | crystal | mineral | natural-object | fantasy | VALID | YES | —
+baseitem:shell | shell | organic | keepsake | travel | VALID | YES | —
+baseitem:feather | feather | organic | natural-object | nature | VALID | YES | —
+baseitem:leaf | leaf | organic | natural-object | nature | VALID | YES | —
+baseitem:flower | flower | organic | natural-object | nature | VALID | YES | —
+baseitem:coin | coin | metal | keepsake | collectible | VALID | YES | —
+baseitem:necklace | necklace | metal | jewelry | collectible | VALID | YES | —
+baseitem:watch | trinket | mixed | jewelry | collectible | VALID | YES | TAXONOMY-LIMITED: exact noun absent; broad existing trinket tag is defensible but less precise.
+baseitem:hairclip | trinket | mixed | jewelry | gift | VALID | YES | TAXONOMY-LIMITED: exact noun absent; broad existing trinket tag is defensible but less precise.
+baseitem:wallet | bag | leather | container | market | VALID | YES | —
+baseitem:bank-card | trinket | mixed | keepsake | market | VALID | YES | TAXONOMY-LIMITED: exact noun absent; broad existing trinket tag is defensible but less precise.
+baseitem:ring | ring | metal | jewelry | collectible | VALID | YES | —
+baseitem:crown | trinket | metal | jewelry | fantasy | VALID | YES | TAXONOMY-LIMITED: exact noun absent; broad existing trinket tag is defensible but less precise.
+baseitem:glasses | trinket | mixed | household-object | household | VALID | YES | TAXONOMY-LIMITED: exact noun absent; broad existing trinket tag is defensible but less precise.
+
+TAXONOMY COVERAGE DEBT
+The following approved semantic sprite IDs have no exact object noun in the current closed vocabulary and therefore use the broad existing object tag trinket:
+- baseitem:watch
+- baseitem:hairclip
+- baseitem:bank-card
+- baseitem:crown
+- baseitem:glasses
+
+This pass intentionally did not expand visualHint taxonomy.

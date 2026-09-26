@@ -1,0 +1,33 @@
+FIVE CAT ITEMS SPRITE CLEANUP V2
+In-place production correction; no redraw, no layout/ID/tag/resolver change.
+All new opaque colors already existed in the corresponding V1 sprite palettes.
+
+baseitem:star-sand-orb
+  补齐玻璃球、中央星形高光及底座的漏色；移除底座下方整片浅棕投影。外侧星光属于原设计，保留。
+  补色 85 px，范围 x/y=[9, 11, 53, 53]；移除投影 111 px，范围 x/y=[10, 50, 53, 56]；原色重填 0 px。
+  旧 SHA-256 e5a1cb4914fafbda0a90774dba144da83d627416f6fbd72471c8f3fe889c4a1e
+  新 SHA-256 58ce09ca878ec3f29034f469d87c8f870f9749937d382338934660807b0db46e
+
+baseitem:teaser-wand
+  补齐杆身/羽毛表面的细小透明断点；去掉手柄与羽毛下的两片落地投影。手柄爪印、绳圈和动作线保留。
+  补色 48 px，范围 x/y=[21, 8, 55, 55]；移除投影 91 px，范围 x/y=[5, 51, 54, 56]；原色重填 0 px。
+  旧 SHA-256 317fca6e03d9962d951714870ad5c0439da4e00e9e21c15cb1aaf3b2836d120d
+  新 SHA-256 8d62a94e34bf832a38d5f336c1e1c56208507e19311683998a4028683cc31919
+
+baseitem:catnip-pouch
+  补齐布袋、猫脸与吊牌的漏色；去掉袋底及散落叶片下的投影。绳结孔和叶片之间的真实空隙保留；叶片内 1 像素改用原有绿色补齐。
+  补色 62 px，范围 x/y=[15, 22, 58, 48]；移除投影 116 px，范围 x/y=[8, 47, 55, 55]；原色重填 1 px。
+  旧 SHA-256 c9167dbd167d3592b1625bcb100af7f721a6fe45f5d80e116c34adfd26d1ee85
+  新 SHA-256 720999bdb7ab8b88665c10b92b8ffdc7c76235dc8c6c962d38d616d6159348c2
+
+baseitem:riddle-paper-ball
+  补齐纸团褶皱和爪印周围的漏色；移除纸团下方整片投影。两侧动作线保留。
+  补色 122 px，范围 x/y=[13, 13, 50, 49]；移除投影 183 px，范围 x/y=[10, 45, 53, 53]；原色重填 0 px。
+  旧 SHA-256 bbb0f7bc11eac33904b6d983ba54cbd23a4bd109ac6c291c20c14d75fdaec640
+  新 SHA-256 35097d876be1fc80b556ed9272a7f1d0478334783e73dc990bab87180fb288d3
+
+baseitem:letter
+  补齐信封、折页及封蜡周围的漏色；移除信封下方投影和少量独立浅棕残点。封蜡、绳结及叶片不变。
+  补色 77 px，范围 x/y=[6, 13, 55, 48]；移除投影 132 px，范围 x/y=[5, 43, 57, 51]；原色重填 0 px。
+  旧 SHA-256 2d54f97f5fefceb22d724f8393d865148930bd6974daf9123b3b73c6c863cebb
+  新 SHA-256 90b7c57612f666835fe9e3dd8b44388e7732ddb9ea58787e315ba0e8772f2db2

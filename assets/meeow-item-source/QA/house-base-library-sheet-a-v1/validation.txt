@@ -1,0 +1,86 @@
+HOUSE BASE LIBRARY · SHEET A · VALIDATION V1
+
+Authority: attached 暖色像素风六类美食卡片.png
+Method: reference-object isolation, nearest-neighbor logical-grid recovery, no-dither palette cleanup, binary-alpha normalization.
+
+Generated sprites: 6/6
+Dimensions: 64×64 for 6/6
+Transparent background: PASS 6/6
+Alpha values limited to 0/255: PASS 6/6
+Canvas-edge contact: 0/6
+Antialiased alpha pixels: 0
+Source/runtime hash equality: PASS 6/6
+
+Per-sprite results:
+- basefood:fish-meal / fish-meal.png
+  dimensions: 64×64
+  opaque_bbox: (4, 16, 59, 48)
+  margins L/T/R/B: (4, 16, 4, 15)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  recovered_or_completed_pixels: NO — reference object was complete
+  source_sha256: 7ba91cf150b21e6618604dd80be83e95ae229c008e7f4af5c9f028a342485bc0
+  runtime_sha256: 7ba91cf150b21e6618604dd80be83e95ae229c008e7f4af5c9f028a342485bc0
+  source_runtime_equal: PASS
+- basefood:meat-meal / meat-meal.png
+  dimensions: 64×64
+  opaque_bbox: (4, 15, 59, 49)
+  margins L/T/R/B: (4, 15, 4, 14)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  recovered_or_completed_pixels: NO — reference object was complete
+  source_sha256: 9892f6810544e3e7ea53383939784325aa02abecfba16fb56c50b4bedea42a9d
+  runtime_sha256: 9892f6810544e3e7ea53383939784325aa02abecfba16fb56c50b4bedea42a9d
+  source_runtime_equal: PASS
+- basefood:egg-meal / egg-meal.png
+  dimensions: 64×64
+  opaque_bbox: (4, 15, 59, 50)
+  margins L/T/R/B: (4, 15, 4, 13)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  recovered_or_completed_pixels: NO — reference object was complete
+  source_sha256: 58f17d4efbd281ece1e20868c042c94b0d3b2a94f58b59c59def35d05d189a13
+  runtime_sha256: 58f17d4efbd281ece1e20868c042c94b0d3b2a94f58b59c59def35d05d189a13
+  source_runtime_equal: PASS
+- basefood:grain-bowl / grain-bowl.png
+  dimensions: 64×64
+  opaque_bbox: (7, 5, 56, 55)
+  margins L/T/R/B: (7, 5, 7, 8)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  recovered_or_completed_pixels: YES — two low-contrast steam curls repixeled from the reference
+  source_sha256: 53b1ccf7c8385a91b4b9ed646719cefbb3064be2973ab8fc08d3c94c290287b6
+  runtime_sha256: 53b1ccf7c8385a91b4b9ed646719cefbb3064be2973ab8fc08d3c94c290287b6
+  source_runtime_equal: PASS
+- basefood:vegetable-meal / vegetable-meal.png
+  dimensions: 64×64
+  opaque_bbox: (4, 15, 59, 49)
+  margins L/T/R/B: (4, 15, 4, 14)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  recovered_or_completed_pixels: NO — reference object was complete
+  source_sha256: c10afadf8890844be47c2a30b9c89dd66d88bc051963f40d326bc9278b22046f
+  runtime_sha256: c10afadf8890844be47c2a30b9c89dd66d88bc051963f40d326bc9278b22046f
+  source_runtime_equal: PASS
+- basefood:bread-meal / bread-meal.png
+  dimensions: 64×64
+  opaque_bbox: (4, 15, 59, 50)
+  margins L/T/R/B: (4, 15, 4, 13)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  recovered_or_completed_pixels: NO — reference object was complete
+  source_sha256: 753e13d6dc50199d29c84c3a3f8b4592e79cffb2dc546093d4828b0d3ddbcf08
+  runtime_sha256: 753e13d6dc50199d29c84c3a3f8b4592e79cffb2dc546093d4828b0d3ddbcf08
+  source_runtime_equal: PASS
+
+Scope verification:
+- resolver logic changed: NO
+- visualHint taxonomy changed: NO
+- production mapping changed: NO
+- built-in Food mapping changed: NO
+- House Food 16 PNGs changed: NO
+- gameplay or semantics changed: NO
+- AI calls added: 0
+- static callAI( count: 40
+
+QA status: REVIEW CANDIDATES ONLY. No registry or production mapping was added.

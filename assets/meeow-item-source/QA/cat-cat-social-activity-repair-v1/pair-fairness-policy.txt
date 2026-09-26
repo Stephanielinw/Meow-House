@@ -1,0 +1,7 @@
+Automatic pair fairness V1
+
+Canonical unordered identity: sorted resident IDs joined by ::. Display names never key selection.
+Eligible pool comes from existing isSharedSceneResidentEligible, excluding Away, Curator room, wrong physical Hall, and protected active participants. USER-directed scene selection is unchanged.
+Active Social Presence participants are protected from automatic pair selection until their existing presence ends; the presence itself remains display-only.
+Recent accepted ambient and user-directed shared scenes contribute one exposure per participant pair. Hall scene feed is pruned each operational day, so a bounded Hall-owned recentSocialPairExposures record is needed to preserve a rolling fairness window across that boundary. Each record has sceneId, canonical residentIds, and at. Window: 24 hours; maximum 200 records, deduplicated by scene and pair. This is selection history only, not relationship authority.
+Weight: max(1, 6 - 2 × min(2, exposures within 24h) - 1 if seen within 6h). Selection is weighted random. No pair is guaranteed or made eligible by fairness. One chosen pair is frozen per automatic request. A non-null ambient scene must contain the chosen pair; extra eligible residents may join. scene:null remains valid.

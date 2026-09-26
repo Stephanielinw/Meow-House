@@ -35,8 +35,22 @@
         ruleOrientation: axis('improvisational', 'duty-oriented', 'improvisational', 'duty-oriented'),
         inquiryDrive: axis('practical', 'investigative', 'practical', 'investigative')
     });
-    const namespace = (values, min, max, mutuallyExclusiveWithOthers = []) => ({
-        values, min, max, preferenceScored: true, mutuallyExclusiveWithOthers
+    const namespace = (values, min, max, mutuallyExclusiveWithOthers = [], preferenceScored = true) => ({
+        values, min, max, preferenceScored, mutuallyExclusiveWithOthers
+    });
+    const OBJECT_VALUES = deepFreeze({
+        role: ['play', 'comfort', 'keepsake', 'display'],
+        interaction: ['chase', 'bat', 'carry', 'cuddle', 'sniff', 'observe'],
+        stimulus: ['rolling', 'swinging', 'fluttering', 'glowing', 'scented']
+    });
+    const OBJECT_VALIDITY = deepFreeze({
+        toy: { play: ['chase', 'bat', 'carry', 'sniff'], comfort: ['carry', 'cuddle'] },
+        collectible: { keepsake: ['carry', 'observe'], display: ['observe'] }
+    });
+    const objectNamespaces = () => ({
+        role: namespace(OBJECT_VALUES.role, 1, 1, [], false),
+        interaction: namespace(OBJECT_VALUES.interaction, 1, 1, [], false),
+        stimulus: namespace(OBJECT_VALUES.stimulus, 0, 2, [], false)
     });
     const SEMANTIC_TAG_REGISTRY = deepFreeze({
         food: {
@@ -49,7 +63,9 @@
                 family: namespace(['fish', 'meat', 'dairy', 'egg', 'fruit', 'vegetable', 'grain'], 1, 2),
                 form: namespace(['meal', 'snack', 'dessert', 'beverage'], 1, 1)
             }
-        }
+        },
+        toy: { maxTags: 4, namespaces: objectNamespaces() },
+        collectible: { maxTags: 4, namespaces: objectNamespaces() }
     });
     const validateSemanticRegistry = registry => {
         const errors = [];
@@ -124,6 +140,21 @@
                 errors.push(`${name} contains mutually exclusive values.`);
             }
         }
+        if (semanticType === 'toy' || semanticType === 'collectible') {
+            const role = groups.role[0];
+            const interaction = groups.interaction[0];
+            if (role && interaction && !OBJECT_VALIDITY[semanticType][role]?.includes(interaction))
+                errors.push('Incompatible object role and interaction.');
+            if (semanticType === 'collectible' && groups.stimulus.some(value =>
+                value === 'rolling' || value === 'swinging' || value === 'fluttering'))
+                errors.push('Play-only stimulus on collectible.');
+            if ((Object.hasOwn(input, 'category') && (semanticType === 'toy' ? input.category !== 'toy'
+                : !['collectible', 'souvenir'].includes(input.category))) ||
+                (Object.hasOwn(input, 'type') && semanticType === 'collectible' &&
+                    !['collectible', 'souvenir'].includes(input.type)) ||
+                (Object.hasOwn(input, 'type') && semanticType === 'toy' && input.type === 'letter'))
+                errors.push('Semantic type conflicts with canonical item category/type.');
+        }
         if (errors.length) return tagResult(false, 'invalid', errors);
         const tags = Object.entries(definition.namespaces).flatMap(([name, rule]) =>
             rule.values.filter(value => groups[name].includes(value)).map(value => `${name}:${value}`)
@@ -131,6 +162,76 @@
         return tagResult(true, 'classified', [], { semanticType, tags });
     };
     const validateSemanticTags = normalizeSemanticTags;
+    const normalizeObjectSemanticProposal = (raw, semanticType) => {
+        if (!Object.hasOwn(OBJECT_VALIDITY, semanticType) || !isRecord(raw)) return null;
+        const tags = Array.isArray(raw.tags) ? raw.tags : [
+            `role:${raw.role}`, `interaction:${raw.interaction}`,
+            ...(Array.isArray(raw.stimulus) ? raw.stimulus.map(value => `stimulus:${value}`) :
+                raw.stimulus === undefined ? [] : ['stimulus:invalid'])
+        ];
+        const checked = normalizeSemanticTags({ semanticType, tags });
+        return checked.classificationKnown ? checked.normalized : null;
+    };
+    const getItemObjectSemantics = item => {
+        if (!isRecord(item) || !Object.hasOwn(OBJECT_VALIDITY, item.semanticType)) return null;
+        const checked = normalizeSemanticTags(item);
+        return checked.classificationKnown ? checked.normalized : null;
+    };
+    const getPrimaryItemInteraction = item => getItemObjectSemantics(item)?.tags
+        .find(tag => tag.startsWith('interaction:'))?.slice('interaction:'.length) || null;
+    const isSemanticallyUsableItem = item => getPrimaryItemInteraction(item) !== null;
+    const STATIC_TOY_SEMANTICS = deepFreeze({
+        2: { semanticType: 'toy', tags: ['role:play', 'interaction:chase', 'stimulus:rolling', 'stimulus:glowing'] },
+        3: { semanticType: 'toy', tags: ['role:play', 'interaction:bat', 'stimulus:swinging'] },
+        4: { semanticType: 'toy', tags: ['role:play', 'interaction:sniff', 'stimulus:scented'] },
+        5: { semanticType: 'toy', tags: ['role:play', 'interaction:bat', 'stimulus:rolling'] }
+    });
+    const STATIC_COLLECTIBLE_CONCEPTS = deepFreeze({
+        shell: { semanticType: 'collectible', tags: ['role:keepsake', 'interaction:observe'] },
+        'portable-branch': { semanticType: 'collectible', tags: ['role:keepsake', 'interaction:carry'] },
+        'decorative-badge': { semanticType: 'collectible', tags: ['role:display', 'interaction:observe'] },
+        'decorative-jewelry': { semanticType: 'collectible', tags: ['role:display', 'interaction:observe'] }
+    });
+    const getStaticToySemantics = id => typeof id === 'number' && Object.hasOwn(STATIC_TOY_SEMANTICS, id)
+        ? { semanticType: 'toy', tags: [...STATIC_TOY_SEMANTICS[id].tags] } : null;
+    const getStaticCollectibleSemantics = conceptId => typeof conceptId === 'string' &&
+        Object.hasOwn(STATIC_COLLECTIBLE_CONCEPTS, conceptId)
+        ? { semanticType: 'collectible', tags: [...STATIC_COLLECTIBLE_CONCEPTS[conceptId].tags] } : null;
+    // Optional authored-food presentation tags use the existing closed Food
+    // vocabulary. Partial proposals remain descriptive; they do not become a
+    // canonical gameplay classification or change resident reaction scoring.
+    const normalizeOptionalFoodTags = raw => {
+        if (raw == null) return { tags: [], rejected: [], complete: false };
+        if (!Array.isArray(raw)) return { tags: [], rejected: ['semanticTags must be an array'], complete: false };
+        const rules = SEMANTIC_TAG_REGISTRY.food.namespaces;
+        const groups = Object.fromEntries(Object.keys(rules).map(name => [name, []]));
+        const rejected = [];
+        const seen = new Set();
+        for (const candidate of raw) {
+            if (typeof candidate !== 'string' || candidate.length > 40) { rejected.push(String(candidate).slice(0, 40)); continue; }
+            const separator = candidate.indexOf(':');
+            const name = candidate.slice(0, separator);
+            const value = candidate.slice(separator + 1);
+            const rule = rules[name];
+            if (separator < 1 || !rule || !rule.values.includes(value) || candidate !== `${name}:${value}` || seen.has(candidate)) {
+                rejected.push(candidate); continue;
+            }
+            const selected = groups[name];
+            if (selected.length >= rule.max ||
+                (name === 'taste' && selected.length && (value === 'bland' || selected.includes('bland')))) {
+                rejected.push(candidate); continue;
+            }
+            selected.push(value);
+            seen.add(candidate);
+        }
+        let tags = Object.entries(rules).flatMap(([name, rule]) =>
+            rule.values.filter(value => groups[name].includes(value)).map(value => `${name}:${value}`));
+        if (tags.length > SEMANTIC_TAG_REGISTRY.food.maxTags) {
+            rejected.push(...tags.slice(SEMANTIC_TAG_REGISTRY.food.maxTags));
+            tags = tags.slice(0, SEMANTIC_TAG_REGISTRY.food.maxTags);
+        }
+        return { tags, rejected, complete: normalizeSemanticTags({ semanticType: 'food', tags }).classificationKnown };
+    };
     const hasValidSemanticClassification = input => normalizeSemanticTags(input).classificationKnown;
     const MBTI_CODES = new Set(['INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP',
         'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ', 'ISTP', 'ISFP', 'ESTP', 'ESFP']);
@@ -256,7 +357,10 @@
     Meeow.semantics = Object.freeze({
         SEMANTIC_PROFILE_VERSION, SEMANTIC_TAG_REGISTRY_VERSION,
         PERSONALITY_AXIS_REGISTRY, SEMANTIC_TAG_REGISTRY,
-        validateSemanticRegistry, validateSemanticTags, normalizeSemanticTags, hasValidSemanticClassification,
+        OBJECT_VALUES, OBJECT_VALIDITY, STATIC_TOY_SEMANTICS, STATIC_COLLECTIBLE_CONCEPTS,
+        validateSemanticRegistry, validateSemanticTags, normalizeSemanticTags, normalizeOptionalFoodTags, hasValidSemanticClassification,
+        normalizeObjectSemanticProposal, getItemObjectSemantics, getPrimaryItemInteraction, isSemanticallyUsableItem,
+        getStaticToySemantics, getStaticCollectibleSemantics,
         validateSemanticProfile, normalizeSemanticProfile, scoreResidentPreference, derivePersonalityLabels
     });
 }(window));

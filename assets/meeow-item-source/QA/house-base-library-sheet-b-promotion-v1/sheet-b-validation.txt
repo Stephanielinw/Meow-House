@@ -1,0 +1,93 @@
+HOUSE BASE LIBRARY · SHEET B · PROMOTION VALIDATION
+
+SHEET B = LOCKED / PRODUCTION
+Approved candidate pixels modified: NO
+Registry target entries: 9/9
+
+- basefood:dried-fish-snack
+  candidate/source/runtime SHA-256: cc32bd22b1c6206a0ab16be330a191938c9c4c7cb14f6290b06cac5617834e4d
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 14, 60, 52)
+  margins_LTRB: (4, 14, 4, 12)
+  touches_canvas_edge: NO
+- basefood:meat-jerky
+  candidate/source/runtime SHA-256: 6f53f6de0cdd6c90606da2fa3fe7517ca9e87c66f68f972b17f6aa99833e53eb
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 13, 60, 52)
+  margins_LTRB: (4, 13, 4, 12)
+  touches_canvas_edge: NO
+- basefood:vegetable-snack
+  candidate/source/runtime SHA-256: 3b808eea255c791797dc64eab5b8d8ee6064684e89b47ac63c4b42e730ccbd25
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 12, 60, 54)
+  margins_LTRB: (4, 12, 4, 10)
+  touches_canvas_edge: NO
+- basefood:fruit-snack
+  candidate/source/runtime SHA-256: 8c0f2ab169180bdd7781c9be885290c01d21d754154784b9669e3a85faecdd22
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (6, 10, 58, 55)
+  margins_LTRB: (6, 10, 6, 9)
+  touches_canvas_edge: NO
+- basefood:bread-loaf
+  candidate/source/runtime SHA-256: 5804beb773125999c6f20a4c75e662cc102a96cc77f8db0dab65db404511b781
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 12, 60, 54)
+  margins_LTRB: (4, 12, 4, 10)
+  touches_canvas_edge: NO
+- basefood:dessert-cake
+  candidate/source/runtime SHA-256: 2e7aae743661965262e21e4dc2ebc36ec0a5394e3971e42af3e64edce874634e
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (5, 10, 59, 55)
+  margins_LTRB: (5, 10, 5, 9)
+  touches_canvas_edge: NO
+- basefood:grain-snack
+  candidate/source/runtime SHA-256: 2828757c53e8f83b813d99b6bd69bfcdb7a17edfd6bd4aae75a0e4747ad698a4
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 11, 60, 54)
+  margins_LTRB: (4, 11, 4, 10)
+  touches_canvas_edge: NO
+- basefood:dessert-snack
+  candidate/source/runtime SHA-256: aca6fd41b10683b5f8bc0876d03edc8f8c0be51ce89dd8812d82df2b131976c4
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (4, 13, 60, 52)
+  margins_LTRB: (4, 13, 4, 12)
+  touches_canvas_edge: NO
+- basefood:fruit-dessert
+  candidate/source/runtime SHA-256: 01b8e67abe674e1a6ef331bca3d96568b47e37f54ce8d81844c6e9c809294dbb
+  hash_match: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  opaque_bbox: (9, 6, 55, 58)
+  margins_LTRB: (9, 6, 9, 6)
+  touches_canvas_edge: NO
+
+Scope: House Food mappings unchanged; resolver algorithm unchanged; visualHint taxonomy unchanged.
+
+Final checks:
+- source/runtime/candidate hash equality: PASS 9/9
+- production registry entries: PASS 9/9
+- sprite registry fixture: PASS
+- shared item renderer fixture: PASS
+- Item Visual Schema fixture: PASS
+- House Food catalog/semantic fixtures: PASS
+- Custom Pixel Editor fixture: PASS
+- Shop authoring fixture: PASS
+- syntax check: PASS
+- git diff --check: PASS
+- static production callAI( count: 40 (unchanged)

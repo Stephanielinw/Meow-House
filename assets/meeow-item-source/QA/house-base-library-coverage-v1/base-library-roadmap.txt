@@ -1,0 +1,259 @@
+HOUSE BASE SPRITE LIBRARY — ROADMAP V1
+Audit date: 2026-09-24
+
+TARGET
+
+40 proposed first-party generic sprites:
+- 24 Food/Drink
+- 16 non-food
+- 28 P0 (draw first)
+- 12 P1 (next)
+
+Future namespaces:
+- basefood:<semantic-name>
+- baseitem:<semantic-name>
+
+No ID below is registered. These are planning names only.
+
+SELECTION PRINCIPLES
+
+1. Use only current closed visualHint values.
+2. Prefer broad reusable silhouettes over named recipes or canon products.
+3. Keep housefood:* reserved for exact built-in products.
+4. Give one sprite a clear semantic role under the current resolver.
+5. Do not draw multiple subtypes with identical complete hint tuples unless one is
+   intentionally a fallback; the current resolver cannot select them by item name.
+6. P0 emphasizes frequent actual gaps plus the product-required Food foundation.
+7. P1 fills lower-frequency roles that add meaningful range without overfitting.
+
+P0 — DRAW FIRST (28)
+
+ID | CONCEPT | visualHint | WHY
+basefood:fish-meal
+  generic prepared fish plate
+  fish / food / meal / food
+  Broad replacement for specific salmon leakage; reusable for generated fish meals.
+
+basefood:meat-meal
+  generic prepared meat plate
+  meat / food / meal / food
+  Broad prepared meat authority without implying pumpkin stew.
+
+basefood:egg-meal
+  generic cooked egg dish
+  egg / food / meal / food
+  Reusable egg-based meal without implying tuna custard.
+
+basefood:grain-bowl
+  generic rice/porridge-style grain bowl
+  grain / food / meal / food
+  One reachable broad archetype for grain meals under the current vocabulary.
+
+basefood:vegetable-meal
+  generic prepared vegetable plate
+  vegetable / food / meal / food
+  Broad vegetable meal; avoids binding dynamic items to the built-in platter.
+
+basefood:dried-fish-snack
+  dried fish snack
+  fish / food / snack / food
+  Distinct snack role and useful cat-facing food archetype.
+
+basefood:meat-jerky
+  meat jerky strips
+  meat / food / snack / food
+  Broad shelf-stable meat snack.
+
+basefood:vegetable-snack
+  vegetable chips/crisps
+  vegetable / food / snack / food
+  Common snack silhouette distinct from a meal plate.
+
+basefood:fruit-snack
+  small fruit cup/fruit snack
+  fruit / food / snack / food
+  Adds currently absent fruit coverage.
+
+basefood:bread-loaf
+  bread loaf or simple roll
+  bread / food / snack / food
+  High-reuse baked-good base with no current first-party candidate.
+
+basefood:dessert-cake
+  generic cake slice/dessert plate
+  dessert / food / dessert / food
+  Broad dessert authority without selecting panna cotta, pudding, or yogurt.
+
+basefood:generic-drink
+  neutral cold drink in a simple glass
+  drink / liquid / beverage / food
+  Broad beverage authority without implying a named built-in drink.
+
+basefood:hot-mug
+  warm drink in a mug
+  mug / ceramic / beverage / food
+  Covers tea/coffee/cocoa as one reachable current-vocabulary archetype.
+
+basefood:egg-ingredient
+  whole egg/basic egg ingredient
+  egg / food / ingredient / food
+  Basic ingredient coverage and clear silhouette.
+
+basefood:fruit-ingredient
+  generic whole fruit cluster
+  fruit / food / ingredient / food
+  Supports fixed Explore fruit evidence and general food generation.
+
+baseitem:branch
+  small natural branch
+  branch / wood / natural-object / nature
+  Repeated Explore evidence and pine-branch souvenir fixture.
+
+baseitem:herb
+  herb sprig/bundle
+  herb / organic / natural-object / nature
+  Repeated catnip/herb evidence; useful nature and fantasy base.
+
+baseitem:stone
+  smooth stone/rock
+  stone / stone / natural-object / nature
+  Frequent Explore evidence and strong readable silhouette.
+
+baseitem:crystal
+  small crystal cluster
+  crystal / mineral / natural-object / fantasy
+  Frequent energy/salt/quantum crystal evidence.
+
+baseitem:shell
+  small seashell
+  shell / organic / keepsake / travel
+  Explicit Mail and Explore fixture contract plus fixed-location evidence.
+
+baseitem:feather
+  single decorative feather
+  feather / organic / natural-object / nature
+  Repeated Explore evidence and readable souvenir silhouette.
+
+baseitem:travel-trinket
+  broad charm/token/keepsake
+  trinket / mixed / keepsake / travel
+  Highest-frequency demand and exact ordinary Away prompt exemplar.
+
+baseitem:utility-tool
+  compact generic tool/gear object
+  tool / mixed / tool / travel
+  Tool/equipment is the second-largest fixed Explore gap.
+
+baseitem:paper-map
+  folded map/document sheet
+  paper / paper / document / travel
+  Covers maps, dossiers, lists, diagrams, and fragments at broad V1 level.
+
+baseitem:letter
+  sealed physical letter
+  letter / paper / document / writing
+  Repeated Explore evidence and strong Mail relevance.
+
+baseitem:coin
+  generic collectible coin
+  coin / metal / keepsake / collectible
+  Repeated currency/keepsake evidence; visually distinct.
+
+baseitem:key
+  generic old key/key token
+  key / metal / keepsake / travel
+  Repeated permission/fantasy key evidence.
+
+baseitem:bottle
+  neutral small bottle/container
+  bottle / glass / container / fantasy
+  Covers potions and drift bottles while preventing a future food bottle from being
+  the only object=bottle candidate.
+
+P1 — NEXT (12)
+
+ID | CONCEPT | visualHint | WHY
+basefood:bread-meal
+  sandwich/filled bread meal
+  bread / food / meal / food
+  Adds a meal role distinct from a plain loaf; current vocabulary cannot name sandwich.
+
+basefood:grain-snack
+  generic grain cracker/biscuit
+  grain / food / snack / food
+  Broad grain snack without binding to the built-in cheese cracker.
+
+basefood:dessert-snack
+  small cookie/candy-style sweet
+  dessert / food / snack / food
+  Covers compact sweets separately from plated dessert.
+
+basefood:fruit-dessert
+  fruit dessert/jelly cup
+  fruit / food / dessert / food
+  Reusable fruit-forward dessert role.
+
+basefood:fruit-drink
+  fruit juice-style beverage
+  fruit / liquid / beverage / food
+  Gives fruit beverage a distinct selectable object from generic drink.
+
+basefood:raw-fish
+  simple fish ingredient
+  fish / food / ingredient / food
+  Ingredient role for recipes and market items.
+
+basefood:raw-meat
+  simple meat ingredient
+  meat / food / ingredient / food
+  Ingredient role for recipes and market items.
+
+basefood:vegetable-ingredient
+  mixed basic vegetables
+  vegetable / food / ingredient / food
+  Broad ingredient role distinct from plate and chips.
+
+basefood:grain-ingredient
+  grain/rice/wheat ingredient
+  grain / food / ingredient / food
+  Basic ingredient role; fixed Explore evidence includes wheat.
+
+baseitem:leaf
+  single leaf or small leaf cluster
+  leaf / organic / natural-object / nature
+  Repeated evidence, but branch/herb cover the most urgent botanical cases first.
+
+baseitem:flower
+  small flower/blossom
+  flower / organic / natural-object / nature
+  Distinct gift/nature silhouette; lower direct frequency.
+
+baseitem:small-toy
+  small toy/figurine
+  toy / mixed / toy / collectible
+  Repeated Explore evidence, lower frequency than trinket/tool/paper.
+
+P2 — LATER / LEGACY ICON IS ACCEPTABLE
+
+- Nature/material: stick, seed, mushroom, gem, bone.
+- Paper/display: book, scroll, photo.
+- Containers/household: cup, jar, box, bag, basket.
+- Jewelry/textile/craft: ring, necklace, cloth, ribbon, rope.
+- Specific food subtypes: soup, stew, noodles, salad, dumplings, pizza/flatbread,
+  croissant, cookie, chocolate, pudding, jelly, yogurt, ice cream, milk, tea, coffee,
+  juice, berries, citrus, cheese.
+
+The food subtype list is deferred because those names are not closed object values and
+many collapse to identical hint tuples. Drawing them now would not make them reliably
+selectable through the current resolver.
+
+ARCHITECTURE PREREQUISITE BEFORE REGISTRATION
+
+The art can be drawn and reviewed independently, but production registration should not
+occur until generic resolution stops considering canonical housefood:* entries. A safe
+future change should preserve all existing builtin-sprite mappings while making the
+basefood/baseitem pool the explicit generic candidate pool.
+
+When a shared object has incompatible roles, register enough tagged candidates to avoid
+object-only hijacking. Example: bottle/beverage/food versus bottle/container/fantasy.
+Do not modify the closed taxonomy merely to land V1 art.

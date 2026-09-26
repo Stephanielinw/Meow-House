@@ -1,0 +1,116 @@
+HOUSE BASE LIBRARY · SHEET E · HOLE REPAIR VALIDATION
+
+baseitem:necklace = REPAIRED / REVIEW READY
+baseitem:ring = REPAIRED / REVIEW READY
+All other Sheet E sprites = APPROVED
+Sheet E overall = READY TO LOCK after human visual check
+
+- baseitem:coin
+  changed: NO
+  before SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  after/source SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  runtime SHA-256: f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (6, 4, 7, 6)
+  clipping: NO
+- baseitem:necklace
+  changed: YES
+  before SHA-256: ddffc2994687b538bbdf7642d70e4567ac68871d7fc9cb9c31c0605a564832cd
+  after/source SHA-256: dc85a81abd8b3cd94c71b9da9e72e6a60d5a2e2799d536cc9efe14be7ad8ad31
+  runtime SHA-256: dc85a81abd8b3cd94c71b9da9e72e6a60d5a2e2799d536cc9efe14be7ad8ad31
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (5, 3, 5, 5)
+  clipping: NO
+- baseitem:watch
+  changed: NO
+  before SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  after/source SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  runtime SHA-256: 7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (7, 3, 7, 5)
+  clipping: NO
+- baseitem:hairclip
+  changed: NO
+  before SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  after/source SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  runtime SHA-256: 9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 16, 4, 17)
+  clipping: NO
+- baseitem:wallet
+  changed: NO
+  before SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  after/source SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  runtime SHA-256: ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 6, 4, 8)
+  clipping: NO
+- baseitem:bank-card
+  changed: NO
+  before SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  after/source SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  runtime SHA-256: 6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 12, 4, 13)
+  clipping: NO
+- baseitem:ring
+  changed: YES
+  before SHA-256: eb3bad21261adf0cca1cc2cd12d026f379ae5fd7e32346d204c9ca590ac67039
+  after/source SHA-256: 731aba9d481c72e29ce4617e21151b7dcac990900e68f134b36c2a47bea7bbff
+  runtime SHA-256: 731aba9d481c72e29ce4617e21151b7dcac990900e68f134b36c2a47bea7bbff
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (7, 3, 7, 6)
+  clipping: NO
+- baseitem:crown
+  changed: NO
+  before SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  after/source SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  runtime SHA-256: 0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 7, 4, 7)
+  clipping: NO
+- baseitem:glasses
+  changed: NO
+  before SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  after/source SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  runtime SHA-256: c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c
+  source_runtime_parity: PASS
+  dimensions: 64×64
+  alpha_values: [0, 255]
+  margins_LTRB: (4, 18, 4, 19)
+  clipping: NO
+
+Focused repair assertions:
+- changed files: necklace.png, ring.png only
+- necklace transparent center restored: PASS
+- ring transparent center restored: PASS
+- necklace bead chain and pendant preserved: PASS
+- ring gemstone, band thickness, and perspective preserved: PASS
+- other seven Sheet E source hashes unchanged: PASS
+- other seven Sheet E runtime hashes unchanged: PASS
+- transparent pixels normalized to RGBA 0,0,0,0: PASS
+- antialiased alpha pixels: 0
+- resolver logic changed: NO
+- visualHint taxonomy changed: NO
+- Sheet D and Sheets A–C changed: NO
+- sprite registry fixture: PASS
+- shared item renderer fixture: PASS
+- Item Visual Schema fixture: PASS
+- git diff --check: PASS
+- static production callAI( count: 40 (unchanged)

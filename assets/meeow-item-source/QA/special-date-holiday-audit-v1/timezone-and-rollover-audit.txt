@@ -1,0 +1,35 @@
+TIMEZONE / MIDNIGHT / LIVE REFRESH AUDIT
+
+TODAY AUTHORITY
+- Holiday detector uses browser local wall-clock date: new Date(), getMonth()/getDate(), and setHours(currentHour-3). The configured "day" changes at 03:00 in the device's timezone (index.html:9795, 13807-13812).
+- getOperationalDate/getOperationalDayKey ~20594-20605 implement the same local 03:00 policy for daily archive and current-day prompt context; there is no saved timezone, home Hall timezone or location-derived timezone for holidays.
+- Lunar.fromDate receives that shifted Date. The external library's internal calendar convention/version is not pinned in repository. No local conversion table or AI date authority exists.
+- ISO strings and UTC are used elsewhere for timestamps/export names (e.g. index.html:28261, 28341), but not in holiday key comparison. No proven UTC/local mismatch in the Mid-Autumn matcher itself. A 03:00 operational date intentionally differs from civil midnight.
+
+BOUNDARY EXAMPLES (America/Los_Angeles, 2026)
+2026-09-25 00:00–02:59 PDT -> operational 2026-09-24 -> lunar 8-14 -> no Mid-Autumn event.
+2026-09-25 03:00–23:59 PDT -> operational 2026-09-25 -> lunar 8-15 -> Mid-Autumn if library loaded.
+2026-09-26 00:00–02:59 PDT -> still operational 2026-09-25 -> Mid-Autumn if recomputed.
+2026-09-26 03:00 PDT onward -> operational 2026-09-26 -> event clears if recomputed.
+The user confirmed their reported 2026-09-25 open/reload occurred after 03:00.
+
+REFRESH BEHAVIOR
+- Detector runs on mount and checkDailyInitialization(). A visibilitychange to visible calls checkDailyInitialization(), so tab-away-and-return can refresh the refs.
+- The 30-second interval updates currentTime and various world reconcilers, not checkSpecialEvent(). The 20-minute autoUpdateLogic() performs status/mail work and may skip, not holiday detection. There is no midnight/03:00 timer, date-key watch, focus-only refresh, or navigation-triggered detector.
+- If the page remains visible across 03:00, todayEvent/todayEventContext can remain stale until reload or visibility return. A Hall sync may continue to prefix yesterday's event. Separately, getDateContext() computes a fresh operational date, so prompt context and stale todayEventContext can temporarily disagree.
+- At 00:00 the lack of refresh is not itself a defect under the current deliberate 03:00 operational-day contract; at 03:00 it becomes a stale-state issue.
+
+LUNAR ENGINE / FAILURE
+- One unversioned external dependency: https://cdn.jsdelivr.net/npm/lunar-javascript/lunar.min.js at index.html:22; no local bundle or fallback found. Classic remote script can generally run from file:// if network/CDN policy permits, but file:// does not guarantee availability. Current user's past network/cache status was not recorded.
+- `Lunar.fromDate(now)` returns getMonth/getDay; the code only tests lunarMonth>0, which excludes negative leap-month values. It does not explicitly validate supported year range or check that the global exists before conversion. A thrown failure is swallowed; solar holidays continue, lunar ones disappear without notice.
+- Supported years are NOT stated/pinned by this repository. Because the URL has no version, a precise stable supported year range cannot be verified from project files. The 2026 date is within ordinary current-library use, but a production guarantee requires a pinned version/test.
+- The computed 除夕 rule tests lunar tomorrow after month=12. If tomorrow conversion throws, this error occurs outside the initial conversion catch and could interrupt the detector; the repository has no explicit recovery for that branch.
+
+READ-ONLY PROPOSED TEST MATRIX (no implementation)
+normal day: 2026-09-24 12:00 PDT -> no holiday (unless a saved birthday overlaps).
+Gregorian: 2026-01-01, 02-14, 04-01, 05-01, 06-01, 10-01, 10-31, 11-01, 12-24, 12-25 at local noon -> each exact configured name.
+Lunar: use lunar calendar test dates for 2026: 02-17 (1-1), 03-03 (1-15), 03-20 (2-2), 06-19 (5-5), 08-19 (7-7), 09-25 (8-15), 10-18 (9-9), 01-26 (12-8), 02-10 (12-23), 02-11 (12-24); 02-16 should trigger computed 除夕. These Gregorian correspondences are diagnostic inputs calculated independently with Intl Chinese calendar and need confirmation against the pinned production library in a future fixture. 2026-09-25 Mid-Autumn is independently confirmed by the Hong Kong Observatory.
+year boundary: 2026-12-31 23:59 vs 2027-01-01 02:59/03:00 local -> New Year only at operational 03:00.
+timezone boundary: same UTC instant in America/Los_Angeles vs Asia/Shanghai, plus 2026-09-25 02:59/03:00 PDT -> use each browser's local operational day, no fixed global holiday date.
+page held open: 2026-09-25 02:59 -> 03:01 while visible -> current refs remain stale; tab hide/show then recomputes.
+missing/throwing Lunar global: lunar events absent, solar events still detected; no diagnostic. Negative leap month=-8/day=15 should not match normal 8-15. Invalid/out-of-range input should be explicitly checked after selecting a pinned library version.

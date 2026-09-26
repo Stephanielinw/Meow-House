@@ -1,0 +1,8 @@
+If an authorized item event exists and AI presentation fails, use one local Chinese template with resident display name and exact item name:
+chase: {resident}正在追着{item}跑。
+bat: {resident}正用爪子拨弄{item}。
+carry: {resident}正带着{item}到处走。
+cuddle: {resident}正抱着{item}休息。
+sniff: {resident}正在仔细闻{item}。
+observe: {resident}正在安静地看着{item}。
+The fallback requires no AI call. It commits the same frozen physical event once if current ownership and request authority still hold.

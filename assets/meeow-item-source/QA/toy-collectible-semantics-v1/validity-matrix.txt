@@ -1,0 +1,14 @@
+CATEGORY-SPECIALIZED VALIDITY V1
+
+semanticType toy (canonical category toy)
+  role play: chase, bat, carry, sniff
+  role comfort: carry, cuddle
+  optional stimuli: rolling, swinging, fluttering, glowing, scented
+
+semanticType collectible (canonical collectible/souvenir type or category)
+  role keepsake: carry, observe
+  role display: observe
+  optional stimuli: glowing, scented
+  rolling/swinging/fluttering are rejected as play-only stimuli.
+
+Exactly one role and interaction; zero to two unique stimuli. Unknown, malformed, duplicate, category-conflicting, and cross-incompatible proposals are rejected in full. Food and literal letters cannot acquire this classification through validation. Missing or ambiguous semantics remain unclassified.

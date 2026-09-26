@@ -1,0 +1,15 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — TRANSFER / PROVENANCE AUTHORITY V1
+No inventory, giftHistory, provenance, bond or production code was changed.
+
+Existing primitives
+- user.residentItems[residentId] is the current resident-owned physical-item container; user.inventory is the USER container. getResidentOwnedItems and scanOwnership expose exact ownership and duplicate detection. validPhysicalId accepts historical numeric IDs and string IDs; physicalKey is type-sensitive.
+- Provenance version 1 has originOwner, origin, append-only giftHistory. validGiftEvent ALREADY accepts from.kind=resident and to.kind=resident with canonical resident IDs. Its transferId must match gift-transfer:<UUIDv4>. appendGiftEvent preserves originOwner/origin and rejects a duplicate transferId.
+- transferUserToResident is a single guarded transaction: exact USER item is removed and the same object is pushed into a resident container; provenance event is appended; recipient bond is ensured; persist must succeed or ownership/provenance/bond are rolled back. It is hardcoded to from.kind=user and USER inventory.
+
+Recommendation: option B, add a resident→resident wrapper around extracted shared transaction primitives. Do not stretch transferUserToResident's existing public contract or change USER gifting. The wrapper must validate both resident IDs, exact typed uniqueId, donor container, recipient container, global duplicate ownership, donor bond, recipient historical bond validity, provenance, anti-loop policy, and frozen gift event before mutation. It must move one object reference, append one resident→resident event, retain immutable originOwner/origin, ensure recipient bond, append gift ledger record, persist atomically, and roll back all effects if persistence fails. Use the existing transferPending guard or equivalent serialized ownership transaction.
+
+Current infrastructure supports an exact physical MOVE and resident→resident giftHistory shape in principle; it does NOT expose a ready-made CAT→CAT transfer API. A uniqueId must never be regenerated or replaced, and visual/semantic/sourceCatalog fields must remain byte-for-byte stable through transfer. Do not transfer letters or Food under the existing resident giftable category rule.
+
+Gift history can detect exact-item loops, but it is not a complete cooldown/idempotency database when items leave accessible containers. A durable compact gift ledger is therefore recommended in the user save. The transferId and higher-level gift eventId are distinct identities.
+
+Code anchor: js/meeow-resident-items.js getResidentOwnedItems, scanOwnership, appendGiftEvent, validGiftEvent, transferUserToResident.

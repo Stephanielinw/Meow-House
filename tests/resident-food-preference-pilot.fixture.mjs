@@ -19,10 +19,10 @@ assert.ok(catalogStart >= 0 && catalogEnd > catalogStart);
 vm.runInContext(`${app.slice(catalogStart, catalogEnd)}\nglobalThis.catalog = initialShopItems;`, context);
 const foods = context.catalog.filter(item => item.category === 'food' && item.semanticType === 'food');
 const foodIds = [
-    'chilled-fish-jelly', 'grilled-fish-plate', 'spiced-meat-jerky', 'steamed-egg-custard',
-    'lactose-free-warm-milk', 'chilled-fermented-cheese', 'sweet-sour-fruit-cup', 'fruit-pulp-drink',
-    'salted-grain-crisps', 'warm-grain-porridge', 'bitter-vegetable-puree', 'spiced-crisp-vegetables',
-    'rich-meat-broth', 'cool-fish-vegetable-plate', 'steamed-egg-meat-roll', 'dairy-grain-pudding'
+    'grilled-fish-plate', 'rich-meat-broth', 'steamed-egg-custard', 'steamed-egg-meat-roll',
+    'bitter-vegetable-puree', 'cool-fish-vegetable-plate', 'chilled-fish-jelly', 'spiced-meat-jerky',
+    'salted-grain-crisps', 'spiced-crisp-vegetables', 'sweet-sour-fruit-cup', 'dairy-grain-pudding',
+    'chilled-fermented-cheese', 'lactose-free-warm-milk', 'fruit-pulp-drink', 'warm-grain-porridge'
 ];
 assert.deepEqual(plain(foods.map(item => item.id)), foodIds.map(id => `builtin-food:${id}`));
 const foodById = new Map(foods.map(item => [item.id, item]));
@@ -180,18 +180,18 @@ delete malformed.reference.foodPreferenceProvenance['taste:salty'];
 assert.equal(semantics.validateSemanticProfile(malformed).valid, false);
 
 const expectedMatrix = {
-    'gotham-bruce': '? LIKE NEUTRAL ? ? ? ? ? LIKE ? ? HATE ? LIKE ? ?',
-    'gotham-dick': '? ? ? DISLIKE DISLIKE LIKE LIKE ? LIKE DISLIKE ? LIKE ? LIKE ? LIKE',
-    'gotham-tim': '? LIKE LIKE DISLIKE DISLIKE ? ? ? LIKE DISLIKE ? LIKE LIKE LIKE ? ?',
-    'marvel-peter': '? ? DISLIKE ? ? ? LOVE LOVE LIKE ? ? NEUTRAL ? ? ? LOVE',
-    'marvel-thor': 'LIKE LIKE LOVE ? ? DISLIKE DISLIKE ? ? ? ? ? LOVE NEUTRAL LOVE ?',
-    'greek-telemachus': 'LIKE ? HATE LIKE LIKE ? ? ? ? LIKE LIKE HATE ? ? LIKE ?',
-    'greek-odysseus': 'LIKE LIKE DISLIKE ? ? DISLIKE DISLIKE ? DISLIKE ? ? ? LIKE LIKE LIKE ?',
-    'underworld-achilles': '? LIKE LIKE NEUTRAL NEUTRAL DISLIKE ? ? LIKE LIKE LIKE ? DISLIKE ? LIKE DISLIKE',
-    'underworld-hades': '? LIKE ? ? ? ? HATE HATE ? ? ? LIKE LIKE ? ? HATE',
-    'olympus-aphrodite': '? LIKE DISLIKE ? ? LIKE LIKE LIKE DISLIKE ? ? DISLIKE ? LIKE ? ?',
-    'olympus-athena': '? LIKE DISLIKE ? ? ? ? ? LIKE ? ? DISLIKE ? ? ? ?',
-    'olympus-dionysus': '? ? NEUTRAL LIKE LIKE LIKE LIKE ? DISLIKE ? ? LIKE LIKE LIKE ? LIKE'
+    'gotham-bruce': 'LIKE ? ? ? ? LIKE LIKE LIKE LIKE HATE ? ? ? ? ? ?',
+    'gotham-dick': '? ? ? ? LIKE LIKE LIKE ? LIKE LIKE ? LIKE LIKE DISLIKE ? LIKE',
+    'gotham-tim': 'LIKE ? ? LIKE LIKE LIKE LIKE LIKE LIKE ? ? ? ? DISLIKE ? ?',
+    'marvel-peter': '? ? ? ? LIKE ? LIKE ? LIKE NEUTRAL LOVE LOVE LOVE ? LOVE LOVE',
+    'marvel-thor': 'LIKE LOVE LIKE LOVE LIKE NEUTRAL LIKE LOVE ? ? ? ? DISLIKE ? ? ?',
+    'greek-telemachus': 'LIKE LIKE LIKE LIKE ? ? ? ? ? HATE LIKE LIKE ? LIKE ? ?',
+    'greek-odysseus': 'LIKE LIKE LIKE LIKE LIKE LIKE LIKE DISLIKE DISLIKE DISLIKE ? ? DISLIKE ? ? ?',
+    'underworld-achilles': 'LIKE LIKE NEUTRAL DISLIKE ? ? LIKE LIKE LIKE ? DISLIKE DISLIKE DISLIKE NEUTRAL ? DISLIKE',
+    'underworld-hades': 'LIKE ? ? LIKE LIKE ? ? ? ? ? HATE HATE HATE ? HATE HATE',
+    'olympus-aphrodite': 'LIKE LIKE ? ? LIKE LIKE DISLIKE DISLIKE DISLIKE DISLIKE ? ? LIKE ? LIKE ?',
+    'olympus-athena': 'LIKE ? ? ? LIKE ? LIKE LIKE LIKE DISLIKE ? ? ? ? ? ?',
+    'olympus-dionysus': '? ? LIKE LIKE ? LIKE DISLIKE DISLIKE DISLIKE NEUTRAL LIKE LIKE LIKE LIKE ? LIKE'
 };
 const totals = { LOVE: 0, LIKE: 0, NEUTRAL: 0, DISLIKE: 0, HATE: 0, '?': 0 };
 for (const [id, expected] of Object.entries(expectedMatrix)) {
@@ -202,9 +202,10 @@ for (const [id, expected] of Object.entries(expectedMatrix)) {
     assert.deepEqual(plain(actual), expected.split(' '), `${id}: production scorer matrix drifted`);
     actual.forEach(value => { totals[value] += 1; });
 }
-assert.deepEqual(totals, { LOVE: 6, LIKE: 53, NEUTRAL: 6, DISLIKE: 22, HATE: 6, '?': 99 });
+assert.deepEqual(totals, { LOVE: 8, LIKE: 68, NEUTRAL: 5, DISLIKE: 20, HATE: 7, '?': 84 });
+for (const item of foods) assert.ok(Object.keys(expectedMatrix).some(id => score(id, item.id.slice('builtin-food:'.length)).classificationKnown), `${item.name}: all residents unknown`);
 for (const [id, suffix, expected] of [
-    ['gotham-bruce', 'spiced-meat-jerky', 'neutral'],
+    ['gotham-bruce', 'spiced-meat-jerky', 'like'],
     ['gotham-bruce', 'spiced-crisp-vegetables', 'hate'],
     ['marvel-peter', 'sweet-sour-fruit-cup', 'love'],
     ['marvel-peter', 'fruit-pulp-drink', 'love'],
@@ -212,16 +213,15 @@ for (const [id, suffix, expected] of [
     ['marvel-thor', 'spiced-meat-jerky', 'love'],
     ['marvel-thor', 'rich-meat-broth', 'love'],
     ['marvel-thor', 'steamed-egg-meat-roll', 'love'],
-    ['greek-telemachus', 'spiced-meat-jerky', 'hate'],
+    ['greek-telemachus', 'lactose-free-warm-milk', 'like'],
     ['greek-telemachus', 'spiced-crisp-vegetables', 'hate'],
     ['underworld-hades', 'sweet-sour-fruit-cup', 'hate'],
     ['underworld-hades', 'fruit-pulp-drink', 'hate'],
     ['underworld-hades', 'dairy-grain-pudding', 'hate'],
-    ['olympus-athena', 'spiced-meat-jerky', 'dislike'],
     ['olympus-athena', 'spiced-crisp-vegetables', 'dislike']
 ]) assert.equal(score(id, suffix).reactionClass, expected);
-assert.equal(score('marvel-thor', 'cool-fish-vegetable-plate').score, 0);
-assert.equal(score('greek-odysseus', 'cool-fish-vegetable-plate').score, 0.5);
+assert.equal(score('marvel-thor', 'rich-meat-broth').score, 1.5);
+assert.equal(score('greek-telemachus', 'spiced-crisp-vegetables').score, -2);
 assert.equal(score('underworld-achilles', 'steamed-egg-custard').score, 0);
-assert.equal(score('underworld-hades', 'chilled-fermented-cheese').reactionClass, 'unknown');
+assert.equal(score('underworld-hades', 'chilled-fermented-cheese').reactionClass, 'hate');
 console.log('Resident Food Preference Pilot V1 fixture passed.');

@@ -1,0 +1,22 @@
+RECOMMENDED REPAIR PLAN — NOT APPLIED
+
+SMALLEST COHERENT REPAIR
+1. Preserve exactly the current 10 solar, 10 lunar, and computed Eve rules; preserve browser-local 03:00 operational date unless the USER later changes that policy. Do not add an unconfigured holiday.
+2. Make lunar dependency deterministic under file://: pin the already-used lunar-javascript version and serve a reviewed local copy (or a local fallback), with explicit load/conversion diagnostics. A failed lunar conversion must not be a silent empty catch. This is not a new calendar dependency; it is reliable packaging of the current one. Confirm license/asset convention during implementation.
+3. Compute one PROGRAM-owned structured result from an explicit operational Date, e.g. { dateKey, holidays:[{id,name,calendar}], error? }, preserving the existing birthday precedence only for legacy greeting copy. No AI selects a holiday. Reuse the result for getDateContext rather than maintaining a partial second four-date holiday table. Avoid persisting a stale "today" in save.
+4. Render a small persistent, theme-aware holiday label/card in the intended home/Hall presentation using the structured state. It must be independent of alfredMessage so Hall entry/status sync cannot erase it. Do not route calendar events to the unrelated affinity/human-reveal Special Event modal.
+5. Re-evaluate the state on mount, on visibility return, and at the next local 03:00 boundary (reschedule when timer fires); optionally at navigation as a guard. Update or clear the visible label atomically with the date key. Do not add a status AI call.
+6. Add focused tests for every configured rule, 2026-09-25 after 03:00, 02:59/03:00 boundary, 2027 New Year boundary, continuous-open rollover, missing/invalid lunar conversion, leap-month exclusion, birthday collision, file:// local dependency, and Hall navigation preserving visible holiday label.
+
+FILES THAT WOULD NEED MODIFICATION IN A LATER IMPLEMENTATION
+- index.html: script source, detector/date-context wiring, lifecycle refresh and persistent presentation markup. An extracted js/meeow-holidays.js would improve testability but is optional for the smallest patch.
+- A local pinned copy of the existing lunar-javascript script under the project's existing vendor/library convention, if reliable offline/file:// behavior is required.
+- A focused tests/special-date-holiday-v1.fixture.mjs (or equivalent) and any minimal theme CSS only if current tokens/markup cannot express the card.
+- No save-schema migration should be needed: the current holiday refs are ephemeral and derived from date.
+- No new calendar library or AI call is needed.
+
+FUTURE PROGRAM INPUT
+After a pure, tested detector exists, rare special-event CAT↔CAT gifting, resident status context, and world events may query its structured holiday ID/dateKey. They should independently decide their own eligibility, cooldown, relationship and ownership gates. They must never allow AI to decide whether the date is a holiday. No consumer is implemented in this audit.
+
+INCIDENT PRIORITY
+First repair deterministic detection/diagnostics and a persistent visible consumer, because the confirmed visual gap explains an after-03:00 reload with no special display even when the lunar date is recognized. Address rollover next so an open session changes at the agreed operational boundary. Do not claim the 2026-09-25 CDN actually failed without browser-session evidence.

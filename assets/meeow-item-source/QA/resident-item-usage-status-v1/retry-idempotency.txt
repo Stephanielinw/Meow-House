@@ -1,0 +1,7 @@
+One _refreshAllStatus execution freezes at most one chance roll and one weighted selection per requested HOME resident before its existing AI call.
+The provider's own retry uses the same statusRequestPrompt and frozen decision map. Rerendering reads persisted current status and currentItemUse; it never rolls or increments use.
+refreshAllStatus joins concurrent same-Hall requests. A foreground request replacing background gives the old request a stale-token check before any item commit. Curator Room occupancy retains its existing independent stale check and does not roll item usage.
+committedItemUseIds protects accepted and fallback paths from double increment within one logical request.
+The item-usage module also rejects a second commit of the same eventId during the running session. The frozen decision is not resumed across reload; persisted currentItemUse is presentation state only.
+Immediately before commit, the exact object reference and ownership/semantics are rechecked. Missing or changed item means no substitution, no reroll, and no bond mutation.
+On AI failure, only a still-current request can commit the frozen event through a local fallback. Preempted work never commits it.

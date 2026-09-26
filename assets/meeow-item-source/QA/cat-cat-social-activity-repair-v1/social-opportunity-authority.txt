@@ -1,0 +1,9 @@
+CAT↔CAT Social Opportunity Authority V1
+
+Authority: Meeow.socialActivity in js/meeow-social-activity.js.
+Per-Hall persisted field: hall.lastHallSocialOpportunityAt (ISO timestamp).
+Cadence: SOCIAL_OPPORTUNITY_CADENCE_MS = 20 minutes.
+The field is independent of hall.lastSuccessfulStatusSyncAt and legacy last_sync_time.
+autoUpdateLogic may launch an ambient Status Sync when social opportunity is due even if ordinary status freshness is still current. Hall arrival and pending Homepage ambient paths use the same claim boundary.
+One in-memory claim per Hall freezes request token and attempt-start timestamp. Internal AI retries reuse that claim and the selected pair. A foreground preemption releases an older background claim. The accepted Status Sync commits the start timestamp, so network latency does not extend the next due time. Failure, stale response, or invalidated frozen pair releases the claim without advancing Hall social freshness.
+A committed opportunity may validly yield scene:null. This is not a guaranteed interaction. Active Social Presence remains display-only and does not mutate relationships.

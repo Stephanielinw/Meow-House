@@ -41,7 +41,7 @@ const makeHallCat = (id, hallId, data) => ({
     id, hallId, ...data, isOut: false, affinity: DEFAULT_RESIDENT_AFFINITY, isHuman: false,
     hasRevealedHumanForm: false, currentForm: 'CAT', lastFormChangeAt: null,
     nextFormReconsiderAt: null, chatHistory: [], diary: [], logs: [],
-    travelogues: [], todayInteractions: [], residentRelationships: {}, lastFocusTime: 0,
+    travelogues: [], todayInteractions: [], residentRelationships: {}, residentRelationshipPairMetadata: {}, lastFocusTime: 0,
     lastInteractionTimestamp: 0, lastLogDate: null, lastStatusUpdateTime: Date.now()
 });
 
@@ -302,7 +302,8 @@ const normalizeResidentRelationshipEvents = (events) => (Array.isArray(events) ?
         const sourceKey = String(event.sourceKey || '').trim();
         const at = typeof event.at === 'string' && !Number.isNaN(new Date(event.at).getTime()) ? event.at : '';
         const changes = event.changes && typeof event.changes === 'object' && !Array.isArray(event.changes) ? event.changes : null;
-        if (!sceneId || sourceKey !== `shared-scene:${sceneId}` || !at || !changes) return null;
+        const baseSourceKey = `shared-scene:${sceneId}`;
+        if (!sceneId || ![baseSourceKey, `${baseSourceKey}:program-familiarity`].includes(sourceKey) || !at || !changes) return null;
         const normalizedChanges = {
             familiarity: clampResidentRelationshipValue(changes.familiarity, 0, 1),
             warmth: clampResidentRelationshipValue(changes.warmth, -1, 1),
@@ -333,6 +334,21 @@ const normalizeResidentRelationships = (relationships, ownerId = '', knownReside
             appliedSceneKeys: sanitizeResidentRelationshipSceneKeys(rawLink.appliedSceneKeys),
             events: normalizeResidentRelationshipEvents(rawLink.events)
         }];
+    }).filter(Boolean));
+};
+const normalizeResidentRelationshipPairMetadata = (metadata, ownerId = '', knownResidentIds = null) => {
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {};
+    const normalizedOwnerId = String(ownerId || '').trim();
+    const knownIds = knownResidentIds instanceof Set ? knownResidentIds : null;
+    return Object.fromEntries(Object.entries(metadata).map(([rawTargetId, rawEntry]) => {
+        const targetId = String(rawTargetId || '').trim();
+        if (!targetId || targetId === normalizedOwnerId || (knownIds && !knownIds.has(targetId)) ||
+            !rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) return null;
+        const exposureCount = Math.max(0, Math.trunc(Number(rawEntry.exposureCount) || 0));
+        const lastProgressionDay = /^\d{4}-\d{2}-\d{2}$/.test(String(rawEntry.lastProgressionDay || '').trim())
+            ? String(rawEntry.lastProgressionDay).trim()
+            : '';
+        return [targetId, { exposureCount, lastProgressionDay }];
     }).filter(Boolean));
 };
 
@@ -373,6 +389,10 @@ const normalizeCatHall = (cat) => {
         // historical logs and archives deliberately remain separate sources.
         episodicMemories: Array.isArray(cat.episodicMemories) ? cat.episodicMemories : [],
         residentRelationships: normalizeResidentRelationships(cat.residentRelationships, id),
+        // Unordered shared-scene exposure metadata is stored separately from
+        // directional semantic relationship links. Roster normalization later
+        // moves each pair to its canonical stable-ID owner.
+        residentRelationshipPairMetadata: normalizeResidentRelationshipPairMetadata(cat.residentRelationshipPairMetadata, id),
         // User-uploaded full-body action sprites are independent from
         // the paused in-house pixel workshop. Only a saved standing
         // sprite can replace the normal profile image.
@@ -513,6 +533,7 @@ const mergeObsoleteIthacaCat = (legacyCat, canonicalCat, canonicalProfile, targe
         CANONICAL_GROUP_RELATIONSHIPS,
         CANONICAL_RESIDENT_RELATIONSHIPS,
         normalizeResidentRelationships,
+        normalizeResidentRelationshipPairMetadata,
         rosterHasValue,
         rosterRecordKey,
         mergeRosterRecords,

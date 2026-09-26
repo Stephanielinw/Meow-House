@@ -1,0 +1,17 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — BOND HANDOFF AUDIT V1
+No transfer was implemented.
+
+Current authority
+- user.residentItemBonds[residentId][<typeof uniqueId>:<String(uniqueId)>] stores a version 1 bond. This is independent of current ownership. getResidentItemBond returns a validated copy; getResidentOwnedItemBonds only joins current owned items to bonds.
+- transferUserToResident creates a neutral recipient bond when missing and preserves a valid existing historical recipient bond. makeNeutralBond(firstOwnedAt) sets familiarity/fondness/useCount to zero and lastUsedAt null.
+- normalizeResidentItemBonds can fill missing eligible bonds from current ownership, deriving firstOwnedAt from the earliest matching giftHistory transfer. It does not erase donor history. isResidentItemCherished uses familiarity>=4 and fondness>=2.
+
+Future CAT→CAT sequence, if approved
+1. Revalidate exact item in donor's residentItems container and validate donor bond/provenance. Do not copy the item or bond.
+2. Atomically remove the same physical object from donor container and push it into recipient container; append one provenance gift transfer.
+3. Leave donor×uniqueId bond untouched as historical. If recipient×uniqueId has a valid historical bond, reuse it unchanged, including firstOwnedAt and lastUsedAt. Otherwise create makeNeutralBond(transferAt).
+4. Persist all affected containers, item provenance, recipient bond, and gift-event ledger together, with rollback on failure. Recheck ownership before commit.
+
+No bond schema change is required. Missing implementation is the resident→resident composite transfer transaction and a reusable recipient-bond ensure step currently embedded inside transferUserToResident. There must be no automatic fondness adjustment merely because an item moves.
+
+Code anchor: js/meeow-resident-items.js bond helpers and transferUserToResident.

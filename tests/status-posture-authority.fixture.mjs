@@ -131,7 +131,7 @@ const findCalls = (source, token) => {
     return calls;
 };
 const statusCalls = findCalls(indexSource, 'setCatStatus(');
-assert.equal(statusCalls.length, 13, 'Focus failure and Focus-local light interaction do not write resident status');
+assert.equal(statusCalls.length, 14, 'the one resident-item fallback adds a posture-authorized status; Focus failure and Focus-local light interaction do not');
 assert.doesNotMatch(indexSource, /source: 'focus-fallback'/);
 for (const call of statusCalls) assert.match(call, /\bposture\b\s*(?::|[,}])/, `missing posture in ${call.slice(0, 120)}`);
 assert.deepEqual(indexSource.match(/cat\.status\s*=/g), ['cat.status ='], 'only daily snapshot restoration may directly restore status');

@@ -1,0 +1,48 @@
+TOY / COLLECTIBLE SEMANTICS — SMALL CLOSED VOCABULARY PROPOSAL V1
+DESIGN ONLY. Names below are proposed, not legal production tags yet.
+
+ARCHITECTURE: SHARED CORE + CATEGORY-SPECIFIC CONSTRAINTS
+Proposed future semanticType: toy | collectible. Both use the same three tag namespaces and validation machinery, but each semanticType permits only role/action combinations that make sense for that category. This keeps one compact schema and lets bond/status code read a shared role and action. It does not force a collectible into Toy play behavior. A fully split design would duplicate observe/carry/attention metadata; an unconstrained shared design could label a coin as a chase toy. Current Food registry remains independent and unchanged.
+
+Schema shape for a future implementation (illustrative, not runtime authority):
+{ semanticType: "toy" | "collectible", tags: ["role:...", "interaction:...", "stimulus:..."] }
+Exactly one role and one primary interaction for a classified item; zero to two stimuli. No free text in tags. If the concrete object is too vague for a defensible primary action, leave it unclassified/partial rather than guessing. Do not reject the physical item merely because classification is absent.
+
+NAMESPACE 1 — role (REQUIRED exactly 1 for a complete classification)
+value | definition | current evidence | future gameplay reason | allowed semanticType
+play | object deliberately used for active play | four fixed Shop toys, soft ball | permits active-play status and play-style bond preference | toy
+comfort | soft/passive object deliberately held or rested against | soft 绒球 fixture, only if its description supports comfort | supports quiet holding/cuddle status; avoid treating all toys as chase toys | toy
+keepsake | portable object retained for personal memory or association | resident-sent 贝壳, 松枝, 护符/信物 | supports possession bond and gentle keep/inspect status | collectible
+display | primarily viewed or arranged, not actively played with | 快船模型, 标本, 徽记 when concrete description confirms display | supports passive display/observe status; avoids play actions | collectible
+
+NAMESPACE 2 — interaction (REQUIRED exactly 1 primary action for a complete classification)
+value | definition | current evidence | future gameplay reason | allowed semanticType
+chase | cat follows a moving object | 星砂发光球; paper ball may also be chased | generates credible movement/play status; preference axis | toy
+bat | cat paws/strikes the object or lure | 伸缩逗猫杆, 谜语纸团球 | play animation/action family | toy
+carry | cat picks up and relocates a small object | soft ball; 贝壳/松枝 if portable | quiet possession/carry status and bond use | toy, collectible
+cuddle | cat holds/rests against a soft object | soft 绒球 only with sufficient description | comfort status and repeated-use familiarity | toy
+sniff | cat investigates a scented object | 浓缩猫薄荷包 | scent-led usage without inventing Food semantics | toy
+observe | cat studies/looks at object without using it physically | shell, coin, jewelry, model, badge | safe passive collectible status | collectible
+
+NAMESPACE 3 — stimulus (OPTIONAL 0–2; observed attention cue, not a material tag)
+value | definition | current evidence | future gameplay reason | allowed semanticType
+rolling | clearly rolls when played with | 星砂发光球, 谜语纸团球 | vary chase/bat presentation; optional preference detail | toy
+swinging | suspended/held lure sweeps or dangles | 伸缩逗猫杆 | vary batting status text/action; no motion simulation here | toy
+fluttering | light lure/feather visibly flutters when moved | approved teaser-wand reference lure; feather souvenir by itself is NOT a toy | narrow play presentation detail | toy only when an actual lure
+glowing | object emits/appears to emit light | 星砂发光球; glowing crystal only if concrete item explicitly says so | attention/status detail, not a resolver sprite ID | toy, collectible
+scented | object has a salient smell | 浓缩猫薄荷包; herb item only if described as scented | attention/status detail without Food taste tags | toy, collectible
+
+CARDINALITY / VALIDATION RECOMMENDATION
+- 3 namespaces, 4 role values, 6 interaction values, 5 stimulus values; at most 4 tags total per classified item (1+1+2).
+- Deduplicate exact tags. Reject unknown namespace/value, malformed tag, category-incompatible role/action, and excess cardinality. A missing or invalid optional stimulus can be dropped. Never silently replace a missing required role/action with a guessed one.
+- Cross-constraints: toy role=play|comfort, collectible role=keepsake|display. toy interaction=chase|bat|carry|cuddle|sniff; collectible interaction=carry|observe. comfort+cuddle/carry and play+chase/bat/carry/sniff are coherent; other combinations should be reviewed rather than inferred. These are design recommendations, not current rules.
+- No material namespace is proposed: the closed visualHint material describes appearance, while this contract describes behavior. A later safety/equipment design may need handling constraints, but current data does not justify inventing them.
+- No "giftable" tag: current PROGRAM eligibility uses canonical item category/type and excludes literal letters. No owner, originOwner, giftHistory, sourceCatalogId, uniqueId, bond score, resident preference, cooldown, event/date, sprite ID, price, effect, or Food taste tag belongs in this vocabulary.
+
+LIMITS / CONCEPTS NOT CLEANLY REPRESENTABLE YET
+- Generic Explore "道具", "奢侈品", "装备", "遗物" or a broad trinket has no defensible role/action until the generated concrete item is known.
+- A tool that is actually equipped/operated, potion that is consumed, or book/letter that is read needs separate future semantics; mapping it to observe does not implement those actions.
+- A model boat may be play or display. The location's loot phrase alone cannot decide.
+- Paper ball's word "谜语" does not prove puzzle gameplay, so no puzzle tag is proposed.
+- Catnip may be a packaged toy, loose herb, or Food-like ingredient. Material/visualHint is insufficient to choose category.
+- No resident personality or item-bond level is inferred from static item tags. Future bond state is per physical uniqueId and resident, not a property of the sprite or catalog noun.

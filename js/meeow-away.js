@@ -455,7 +455,9 @@
                 id: `away-mail-${String(cat.id)}-${departure.getTime()}-${Math.random().toString(36).slice(2, 8)}`,
                 sendAt: new Date(departure.getTime() + Number(mail.sendAfterMinutes) * 60 * 1000).toISOString(),
                 content: cleanText(mail.content),
-                attachment: mail.attachment ? { ...mail.attachment } : null,
+                // Accepted new mail is the visual-identity creation boundary.
+                // normalizeEpisodes and later delivery only copy this frozen value.
+                attachment: mail.attachment ? itemVisuals.assignAutoVisualIdentity(mail.attachment) : null,
                 state: 'planned',
                 deliveredAt: null
             })),

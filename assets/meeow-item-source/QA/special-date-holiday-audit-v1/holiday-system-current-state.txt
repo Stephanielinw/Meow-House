@@ -1,0 +1,31 @@
+SPECIAL DATE / HOLIDAY SYSTEM AUDIT V1 — CURRENT STATE
+Read-only diagnostic, 2026-09-26. No production code or save data changed.
+
+SUMMARY
+- PARTIAL system: 10 fixed Gregorian dates + 10 fixed lunar month/day entries + computed lunar New Year's Eve = 21 active holiday rules. User and resident birthdays are additional special dates, not holidays. A second four-date Gregorian prompt list is a subset, not four more presentation holidays.
+- Primary detector: index.html checkSpecialEvent() ~13804-13839. Called at mount ~29195 and within checkDailyInitialization() ~25512 (also on visibility return). It writes reactive todayEvent and todayEventContext, not a durable holiday record.
+- Calendar source: browser local Date shifted back 3 hours to match the local 03:00 operational-day boundary. Lunar conversion comes from remote lunar-javascript classic script in index.html:22. No bundled/local fallback was found.
+- Mid-Autumn is configured as lunar 8-15. On 2026-09-25 after 03:00 America/Los_Angeles, a loaded working Lunar.fromDate should match and set todayEvent='中秋节快乐'. The user's observation was after an open/reload later that day, so live-midnight staleness alone cannot explain that report.
+- The visible effect is very small: a prefix in the Hall guardian/Alfred message on mount, and on a successful Hall status refresh. enterHall() overwrites that message with generic cached/arrival copy before a refresh; failed/skipped/no refresh leaves no holiday text. No dedicated calendar banner, decoration, theme, particles, seasonal overlay, or automatic holiday modal exists in current code.
+- The remote Lunar global is used inside an empty catch. If CDN loading/conversion fails, lunarMonth remains 0 and every lunar holiday quietly disappears while Gregorian holidays still work. Past browser network/load evidence is unavailable; this is a second possible failure, not proven as the incident cause.
+
+CURRENT CODE MAP
+index.html:22 — lunar-javascript unversioned jsDelivr script.
+index.html:9795 — OPERATIONAL_DAY_START_HOUR = 3.
+index.html:11427-11428 — todayEvent/todayEventContext refs.
+index.html:13804-13839 — detector, two date tables, dynamic Eve, birthday precedence.
+index.html:19382-19420 — getDateContext(): four hard-coded solar dates plus current-day todayEventContext for AI/background prompts; historical archive date lacks lunar lookup.
+index.html:20594-20605 — getLocalDateKey/getOperationalDate/getOperationalDayKey use browser-local getters.
+index.html:25512 — daily initialization recomputes detector.
+index.html:29195-29205 — mount, message prefix, timers, visibility handler.
+index.html:14717,14727 — Hall entry rewrites visible guardian message without holiday.
+index.html:27952 — successful Hall status sync restores a holiday prefix.
+index.html:5422-5428 — only known direct visible Hall message rendering point.
+index.html:24775-24783,25308,25643,25706 — prompt/date context consumers, not deterministic visual effects.
+index.html:8861-8874,14263-14278,16608-16618 — "Special Event" modal is affinity/human-reveal content; it is never triggered by holiday detector.
+docs/architecture/ARCHITECTURE_MAP.md:120 — documents refs as local holiday/event context and special-event UI, but the shared name does not connect the modal to holidays.
+
+FAILURE SCOPE / CONFIDENCE
+Confirmed architectural presentation gap: a successful date match does not itself make a persistent, prominent holiday display. A Hall navigation can erase the only holiday copy.
+Confirmed dependency vulnerability: remote Lunar load failure is swallowed, with no user-visible diagnostic.
+Not established from repository evidence: whether the CDN failed in the user's 2026-09-25 browser session, whether a birthday overrode the holiday, whether a Hall status sync succeeded, or whether a fleeting mount prefix appeared before navigation. Do not claim any of these as observed facts.

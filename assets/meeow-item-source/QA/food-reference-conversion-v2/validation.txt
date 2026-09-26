@@ -1,0 +1,50 @@
+FOOD REFERENCE CONVERSION V2
+
+Reference authority: requested /mnt/data/萌趣像素风美食饮品图标集.png
+Resolved attached file: /var/folders/c4/jrxpgprn1rs8_3vkrhn61vyr0000gp/T/codex-clipboard-bf732424-bb68-48ae-bf74-b8a1f6e075bd.png
+Reference SHA-256: 15eb49258a070e3bc84038ca4a79ccd283762c62239178d2d24d8b6d9865f057
+
+Technical validation:
+- output count: 16
+- every source PNG: 64×64 PASS
+- every runtime PNG: 64×64 PASS
+- source/runtime byte equality: 16/16 PASS
+- transparent background: 16/16 PASS
+- alpha levels restricted to 0 and 255: 16/16 PASS
+- resize filter for conversion: nearest-neighbor only
+- palette cleanup: 40 colors maximum, no dithering
+- crop source: exact corresponding cell from approved 4×4 reference sheet
+- V1 freehand redesigns replaced: YES
+- registry/resolver changed in this correction: NO
+- production built-in mapping changed: NO
+- non-food assets touched: NO
+
+Per-item authority and conversion:
+- 香煎三文鱼排 | housefood:salmon-steak | reference row 1 column 1 bounds [0, 0, 314, 314] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 南瓜鸡肉炖锅 | housefood:pumpkin-chicken-stew | reference row 1 column 2 bounds [314, 0, 627, 314] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 金枪鱼蒸蛋 | housefood:tuna-egg-custard | reference row 1 column 3 bounds [627, 0, 941, 314] | lightly cleaned | deviation: palette/alpha cleanup and 64×64 normalization only
+- 鸡汤燕麦烩饭 | housefood:chicken-oat-risotto | reference row 1 column 4 bounds [941, 0, 1254, 314] | lightly cleaned | deviation: palette/alpha cleanup and 64×64 normalization only
+- 香烤时蔬拼盘 | housefood:roasted-vegetable-platter | reference row 2 column 1 bounds [0, 314, 314, 627] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 酸香凉拌鱼蔬丝 | housefood:sour-fish-vegetable-salad | reference row 2 column 2 bounds [314, 314, 627, 627] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 海苔小鱼脆 | housefood:seaweed-fish-crisps | reference row 2 column 3 bounds [627, 314, 941, 627] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 炭烤鸡肉条 | housefood:charred-chicken-strips | reference row 2 column 4 bounds [941, 314, 1254, 627] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 芝士谷物脆饼 | housefood:cheese-grain-crackers | reference row 3 column 1 bounds [0, 627, 314, 941] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 辣味蔬菜脆片 | housefood:spicy-veggie-chips | reference row 3 column 2 bounds [314, 627, 627, 941] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 草莓奶冻 | housefood:strawberry-panna-cotta | reference row 3 column 3 bounds [627, 627, 941, 941] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 南瓜布丁 | housefood:pumpkin-pudding | reference row 3 column 4 bounds [941, 627, 1254, 941] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 酸奶莓果杯 | housefood:berry-yogurt-cup | reference row 4 column 1 bounds [0, 941, 314, 1254] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 暖暖牛奶 | housefood:warm-milk | reference row 4 column 2 bounds [314, 941, 627, 1254] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 冰镇果肉饮 | housefood:fruit-pulp-drink | reference row 4 column 3 bounds [627, 941, 941, 1254] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+- 苹果燕麦奶 | housefood:apple-oat-milk | reference row 4 column 4 bounds [941, 941, 1254, 1254] | mostly direct conversion | deviation: palette/alpha cleanup and 64×64 normalization only
+
+Unavoidable deviations:
+- The supplied sheet contains soft alpha fringe and more colors than a native 64×64 sprite. The conversion removes the fringe, makes alpha binary, and reduces the palette without changing composition.
+- Tiny highlights and garnish pixels are necessarily merged by the 64×64 grid. No plate, cup, garnish layout, silhouette, or food composition was newly invented.
+
+Regression checks:
+- item-sprite-library.fixture.mjs: PASS
+- item-sprite-renderer-ui.fixture.mjs: PASS
+- item-visual-schema-v1.fixture.mjs: PASS
+- builtin-food-catalog-redesign-v1.fixture.mjs: PASS
+- git diff --check: PASS
+- static callAI( count: 40 (unchanged)

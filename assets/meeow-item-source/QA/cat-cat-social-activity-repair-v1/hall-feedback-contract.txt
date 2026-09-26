@@ -1,0 +1,4 @@
+Hall relationship feedback V1
+
+Only an accepted shared Hall scene with an actually applied warmth, trust, or tension change receives one relationshipCue containing its canonical pair IDs. The Hall scene card shows a compact “关系发生了一点变化 · 查看” link. No raw numeric delta, popup, or interaction-wide toast is shown. Neutral and familiarity-only scenes receive no cue.
+Clicking the cue opens the existing resident archive Relationship tab and its existing pair detail/history. The cue is normalized with Hall scene records so it survives ordinary save/reload. The summary row shows reverse-only direction explicitly as Target → Owner with the existing directional state label. Both directions remain separate; no synthetic affinity score is added.

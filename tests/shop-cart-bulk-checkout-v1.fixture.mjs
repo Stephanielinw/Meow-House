@@ -1,0 +1,156 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+
+const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
+const context = vm.createContext({ window: {}, console, Buffer, Uint8Array, Uint8ClampedArray });
+vm.runInContext(read('../js/meeow-semantics.js'), context);
+vm.runInContext(read('../js/meeow-item-visuals.js'), context);
+vm.runInContext(read('../js/meeow-shop-catalog.js'), context);
+vm.runInContext(read('../js/meeow-shop-cart.js'), context);
+vm.runInContext(read('../js/meeow-inventory.js'), context);
+const { shopCart: cart, shopCatalog: shop, itemVisuals: visuals, inventory } = context.window.Meeow;
+const plain = value => JSON.parse(JSON.stringify(value));
+let sequence = 0;
+const nextId = () => shop.createInstanceUniqueId({ randomUUID: () => `00000000-0000-4000-8000-${String(++sequence).padStart(12, '0')}` });
+const sourceA = 'shop-catalog:00000000-0000-4000-8000-000000000001';
+const sourceB = 'shop-catalog:00000000-0000-4000-8000-000000000002';
+const baseVisual = visuals.createBuiltinItemVisual('baseitem:star-sand-orb');
+const foodVisual = visuals.createBuiltinItemVisual('housefood:salmon-steak');
+const pixels = Buffer.alloc(64 * 64 * 4);
+pixels.set([30, 60, 90, 255], 0);
+const customVisual = { version: 1, mode: 'custom-pixel', spriteId: null, visualHint: null,
+    customPixel: { version: 1, width: 64, height: 64, encoding: 'rgba-base64', data: pixels.toString('base64') } };
+assert.ok(visuals.normalizeItemVisual(customVisual));
+const productA = { id: sourceA, sourceCatalogId: sourceA, name: '相同名称', category: 'toy', type: 'consumable', price: 12, effect: 1, visual: baseVisual };
+const productB = { ...plain(productA), id: sourceB, sourceCatalogId: sourceB };
+const productCustom = { id: 'builtin-food:custom-fixture', name: '自绘', category: 'food', type: 'consumable', price: 7, effect: 1, visual: customVisual };
+const productFood = { id: 'builtin-food:grilled-fish-plate', name: '香煎三文鱼排', category: 'food', type: 'consumable', price: 9, effect: 1, visual: foodVisual };
+const catalog = [productA, productB, productCustom, productFood];
+const session = cart.createSession();
+const user = { coins: 100, inventory: [] };
+assert.equal(cart.add(session, catalog, productA), true);
+assert.equal(cart.add(session, catalog, productA), true);
+assert.equal(session.lines.length, 1);
+assert.equal(session.lines[0].quantity, 2);
+assert.equal(cart.add(session, catalog, productB), true);
+assert.equal(session.lines.length, 2, 'same name and art do not collapse catalog lines');
+assert.notEqual(cart.catalogKey(productA), cart.catalogKey(productB));
+assert.notEqual(cart.catalogKey({ id: 123 }), cart.catalogKey({ id: '123' }));
+assert.notEqual(cart.catalogKey({ id: 'a:b|猫' }), cart.catalogKey({ id: 'a:b|猫 ' }));
+assert.equal(cart.catalogKey({ id: '' }), null);
+assert.equal(cart.add(session, catalog, productCustom), true);
+assert.equal(cart.add(session, catalog, productFood), true);
+assert.equal(cart.setQuantity(session, cart.catalogKey(productA), 3), true);
+assert.equal(cart.setQuantity(session, cart.catalogKey(productA), 0), false);
+assert.equal(cart.setQuantity(session, cart.catalogKey(productA), 1.5), false);
+assert.equal(cart.decrement(session, cart.catalogKey(productA)), true);
+assert.equal(session.lines[0].quantity, 2);
+assert.equal(cart.decrement(session, cart.catalogKey(productB)), true);
+assert.equal(session.lines.length, 3, 'decrement from one removes a line');
+assert.equal(cart.add(session, catalog, productB), true);
+assert.equal(cart.summarize(session, catalog).total, 52);
+assert.equal(cart.summarize(session, catalog).units, 5);
+assert.equal(user.coins, 100, 'cart mutation is not purchase');
+assert.equal(user.inventory.length, 0);
+assert.equal(visuals.getItemVisualDescriptor(cart.summarize(session, catalog).lines[0].item).kind, 'sprite');
+assert.equal(visuals.getItemVisualDescriptor(productCustom).kind, 'custom-pixel');
+assert.equal(visuals.getItemVisualDescriptor(productFood).spriteId, 'housefood:salmon-steak');
+
+// Re-resolution reads the current catalog price, not an add-time copy.
+productA.price = 15;
+assert.equal(cart.summarize(session, catalog).total, 58);
+productA.price = Number.MAX_SAFE_INTEGER;
+assert.equal(cart.summarize(session, catalog).valid, false, 'unsafe multiplication is rejected');
+productA.price = 15;
+const insufficient = { coins: 57, inventory: [] };
+const beforeInsufficient = plain(session.lines);
+assert.equal(cart.checkout(session, catalog, insufficient, () => true, nextId).reason, 'insufficient-funds');
+assert.equal(insufficient.coins, 57);
+assert.equal(insufficient.inventory.length, 0);
+assert.deepEqual(plain(session.lines), beforeInsufficient);
+
+const existingId = nextId();
+const collisionUser = { coins: 100, inventory: [{ uniqueId: existingId, name: 'existing' }] };
+const collisionIds = [existingId, existingId, nextId()];
+const collisionSession = cart.createSession();
+cart.add(collisionSession, catalog, productA);
+assert.equal(cart.checkout(collisionSession, catalog, collisionUser, () => true, () => collisionIds.shift()).ok, true);
+assert.notEqual(collisionUser.inventory[0].uniqueId, collisionUser.inventory[1].uniqueId);
+
+const failedSession = cart.createSession();
+cart.add(failedSession, catalog, productA);
+cart.add(failedSession, catalog, productCustom);
+const failedUser = { coins: 70, inventory: [{ uniqueId: 'old', marker: true }] };
+const originalInventory = failedUser.inventory.slice();
+let failedWrites = 0;
+const failed = cart.checkout(failedSession, catalog, failedUser, () => { failedWrites++; throw new Error('disk full'); }, nextId);
+assert.equal(failed.reason, 'persistence-failed');
+assert.equal(failedWrites, 2, 'failed checkout retries persistence only to restore the prior state');
+assert.equal(failedUser.coins, 70);
+assert.deepEqual(failedUser.inventory, originalInventory);
+assert.equal(failedSession.lines.length, 2);
+assert.equal(failedSession.pending, false);
+
+const partialSession = cart.createSession();
+cart.add(partialSession, catalog, productA);
+const partialUser = { coins: 30, inventory: [] };
+let storedAfterPartialFailure;
+let partialWrites = 0;
+assert.equal(cart.checkout(partialSession, catalog, partialUser, () => {
+    storedAfterPartialFailure = plain(partialUser);
+    return ++partialWrites === 2;
+}, nextId).reason, 'persistence-failed');
+assert.deepEqual(storedAfterPartialFailure, { coins: 30, inventory: [] }, 'a partial first write is restored');
+assert.equal(partialWrites, 2);
+assert.equal(partialSession.lines.length, 1);
+
+let persisted = 0;
+let nestedResult;
+const purchased = cart.checkout(session, catalog, user, () => {
+    persisted++;
+    nestedResult = cart.checkout(session, catalog, user, () => true, nextId);
+    assert.equal(cart.add(session, catalog, productA), false, 'cart cannot mutate during checkout');
+    return true;
+}, nextId);
+assert.equal(purchased.ok, true);
+assert.equal(nestedResult.reason, 'checkout-pending');
+assert.equal(persisted, 1);
+assert.equal(purchased.units, 5);
+assert.equal(purchased.total, 58);
+assert.equal(user.coins, 42);
+assert.equal(user.inventory.length, 5);
+assert.equal(new Set(user.inventory.map(item => item.uniqueId)).size, 5);
+for (const item of user.inventory) assert.match(item.uniqueId, /^item-instance:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+assert.equal(user.inventory.filter(item => item.sourceCatalogId === sourceA).length, 2);
+assert.equal(user.inventory.filter(item => item.sourceCatalogId === sourceB).length, 1);
+assert.equal(user.inventory.find(item => item.id === productCustom.id).visual.customPixel.data, customVisual.customPixel.data,
+    'V1 freezes exact custom pixels in the physical instance');
+assert.equal(visuals.getItemVisualDescriptor(user.inventory.find(item => item.id === productCustom.id)).kind, 'custom-pixel');
+assert.equal(session.lines.length, 0);
+assert.equal(productA.price, 15, 'catalog definition is unchanged by checkout');
+assert.equal(cart.checkout(session, catalog, user, () => true, nextId).reason, 'empty-cart');
+
+const grouping = inventory.deriveInventoryDisplayGroups(user.inventory, catalog);
+assert.ok(grouping.some(group => group.quantity === 2), 'same catalog remains stack-compatible');
+assert.ok(grouping.length >= 4, 'different catalog identities do not merge');
+
+const toClear = cart.createSession();
+cart.add(toClear, catalog, productA);
+cart.add(toClear, catalog, productB);
+assert.equal(cart.remove(toClear, cart.catalogKey(productA)), true);
+assert.equal(toClear.lines.length, 1);
+assert.equal(cart.clear(toClear), true);
+assert.equal(toClear.lines.length, 0);
+
+const html = read('../index.html');
+assert.equal((html.match(/@click\.stop="addShopCartItem\(item\)"/g) || []).length, 2, 'both Shop surfaces use shared cart action');
+assert.match(html, /<meeow-item-visual :item="line\.item" size="medium"><\/meeow-item-visual>/);
+assert.match(html, /const shopCart = reactive\(window\.Meeow\.shopCart\.createSession\(\)\)/);
+assert.match(html, /shopCartSummary = computed\(\(\) => window\.Meeow\.shopCart\.summarize\(shopCart, shopItems\.value\)\)/);
+assert.match(html, /window\.Meeow\.shopCart\.checkout\(shopCart, shopItems\.value, user, \(\) => persistNow\(\)\)/);
+const saveState = html.match(/getState: \(\) => \(\{([^}]+)\}\)/)?.[1] || '';
+assert.ok(!saveState.includes('shopCart'), 'cart is absent from normal save and export authority');
+assert.ok(!html.includes('shopCart: parsed') && !html.includes('saved.shopCart'), 'save import does not restore cart');
+assert.equal((html.match(/callAI\(/g) || []).length, 40);
+console.log('shop-cart-bulk-checkout-v1: PASS');

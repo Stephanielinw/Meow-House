@@ -1,0 +1,45 @@
+SPECIAL DATE / HOLIDAY AUTHORITY V1 — VALIDATION
+
+State and authority
+- Date authority: device/browser local year, month and day.
+- Holiday boundary: local 00:00; existing 03:00 game operational day remains separate.
+- Structured state: {version, dateKey, holidays[], primaryHolidayId, lunar:{available,errorCode}}.
+- Rules: 21 total (10 Gregorian; 10 fixed lunar plus computed 除夕).
+- Current state is derived in memory and is not persisted or migrated.
+- API: Meeow.specialDates.evaluate, refresh, subscribe, getCurrentHolidayState,
+  isHolidayActive, hasHoliday, getCurrentHolidayIds, getInteractionHolidayContext.
+
+Lunar dependency
+- Local classic script: js/vendor/lunar-javascript/lunar.js (version 1.7.7).
+- SHA-256: 9750324bfe1aa63c146f8c72b1143df924466c11c8a5277d7d9225c541a18aaa.
+- Source and MIT license documented in js/vendor/lunar-javascript/SOURCE.txt and LICENSE.
+- Remote runtime lunar dependency removed; script path is relative for file://.
+- Local script executed offline in the focused Node VM fixture; 2026-09-25 converts to lunar 8/15.
+- Missing/failed conversion reports lunar-library-unavailable or lunar-conversion-failed;
+  Gregorian holidays remain available and the Hall does not crash.
+
+Hall and interaction wiring
+- Holiday banner is driven by holidayState, separate from alfredMessage.
+- Theme CSS uses --ui-text, --accent, --accent-dim, --ui-surface-strong,
+  --ui-border-strong and --ui-surface-soft.
+- Timer targets the next local midnight; visibility and focus reschedule it.
+- Structured interaction context is empty on ordinary days and only contains
+  dateKey plus ordered id/name/greeting entries on holidays.
+- Hall direct and Phone sidecar use one captured dispatch-time context; standalone
+  Phone Direct Reply obtains the current shared state at dispatch.
+- AI output cannot mutate or select the calendar authority. No AI request added.
+- Broad character memory date context omits holiday duplication; selected live
+  interaction prompts receive the explicit structured context block.
+- Historical archive evaluation uses its explicit recorded date, never today's holiday.
+
+Verification
+- Focused fixture: tests/special-date-holiday-authority-v1.fixture.mjs PASS.
+- Relevant regression fixtures: 12/12 PASS (navigation, ambient refresh,
+  homepage direct, Phone reply, status prompt/posture, interaction reliability,
+  presentation coherence, resident ownership, Truth or Dare, Food semantics,
+  Away mail reconciliation).
+- Complete repository fixture run: 40/40 PASS, including item visual hints.
+- Syntax checks: holiday module, focused fixture and index inline script PASS.
+- git diff --check PASS.
+- Static production callAI( count: 40 (unchanged).
+- QA PNGs are labeled fixture/mock UI previews, not live browser screenshots.

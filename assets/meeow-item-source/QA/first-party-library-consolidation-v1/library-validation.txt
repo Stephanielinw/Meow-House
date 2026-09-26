@@ -1,0 +1,66 @@
+FIRST-PARTY LIBRARY CONSOLIDATION V1 — VALIDATION
+
+COUNTS
+First-party production sprites: 57
+housefood:*: 16
+basefood:*: 24
+baseitem:*: 17
+Generic resolver candidates before: 57
+Generic resolver candidates after: 41
+Third-party active entries: 0
+
+INTEGRITY
+Duplicate active spriteId: 0
+Missing source files: 0
+Missing active runtime files: 0
+Source/runtime/authority hash mismatches: 0
+Registry/manifest metadata mismatches: 0
+Dimension failures (expected 64x64): 0
+Transparent-background failures: 0
+Non-binary alpha files: 0
+Orphan production PNGs: 0
+QA candidates registered as production: 0
+Invalid generic tag records remaining: 0
+
+POLICY
+housefood generic resolver eligibility before: YES (16/16 reachable)
+housefood generic resolver eligibility after: NO (0/16 reachable)
+basefood eligible: 24/24
+baseitem eligible: 17/17
+Scoring weights changed: NO (object +12, material +3, form +3, context +1)
+Minimum score changed: NO
+Tie-breaking changed: NO
+Built-in House Food explicit mappings preserved: YES
+
+ART SAFETY
+House Food PNG bytes modified: NO
+Base Library PNG bytes modified: NO
+Third-party art restored: NO
+Renderer changed: NO
+Backpack changed: NO
+Shop visual behavior changed: NO
+Save/load behavior changed: NO
+Custom Pixel behavior changed: NO
+
+METADATA REPAIRS
+1. basefood:hot-mug -> object=mug, material=ceramic, form=beverage, context=food.
+2. basefood:fruit-drink -> object=fruit, material=liquid, form=beverage, context=food.
+Both repairs use only existing closed vocabulary.
+
+FIXTURES
+Focused suite: PASS
+- item-sprite-library.fixture.mjs
+- ai-item-visual-hints.fixture.mjs
+- away-souvenir-authority.fixture.mjs
+- item-visual-schema-v1.fixture.mjs
+- item-sprite-renderer-ui.fixture.mjs
+- builtin-food-catalog-redesign-v1.fixture.mjs
+- backpack-redesign-v1.fixture.mjs
+- item-pixel-editor-v1.fixture.mjs
+- shop-visual-authoring-restock-v1.fixture.mjs
+- food-semantic-catalog.fixture.mjs
+- food-semantic-integration.fixture.mjs
+- resident-food-preference-pilot.fixture.mjs
+Syntax checks: PASS
+git diff --check: PASS
+Static callAI(: 40 (unchanged)

@@ -1,0 +1,38 @@
+CONFIGURED HOLIDAYS — EXACT CURRENT PRODUCTION RULES
+Authority: index.html checkSpecialEvent() ~13804-13839; all rows below are enabled in code, not stored in save. All compare the browser-local operational date (wall-clock local time minus 3 hours). Solar keys are MM-DD. Lunar keys are numeric month-day from Lunar.fromDate; leap months have negative month and do not enter the lunar table branch. Fixed rules recur yearly; they are not year-specific.
+
+A. GREGORIAN / SOLAR (10; index.html:13816)
+canonical diagnostic id | displayed eventName | trigger | intended current effect
+solar:01-01 | 元旦快乐 | 01-01 | todayEvent/Context; possible Hall guardian-message prefix
+solar:02-14 | 情人节快乐 | 02-14 | same
+solar:04-01 | 愚人节快乐 | 04-01 | same
+solar:05-01 | 劳动节快乐 | 05-01 | same
+solar:06-01 | 儿童节快乐 | 06-01 | same
+solar:10-01 | 国庆节快乐 | 10-01 | same
+solar:10-31 | 万圣节前夜 | 10-31 | same
+solar:11-01 | 万圣节快乐 | 11-01 | same
+solar:12-24 | 平安夜快乐 | 12-24 | same
+solar:12-25 | 圣诞节快乐 | 12-25 | same
+
+B. CHINESE LUNAR (10 fixed + 1 computed Eve; index.html:13818-13822)
+canonical diagnostic id | displayed eventName | trigger | intended current effect
+lunar:01-01 | 春节快乐 | 1-1 | todayEvent/Context; possible Hall guardian-message prefix
+lunar:01-15 | 元宵节快乐 | 1-15 | same
+lunar:02-02 | 龙抬头快乐 | 2-2 | same
+lunar:05-05 | 端午节快乐 | 5-5 | same
+lunar:07-07 | 七夕节快乐 | 7-7 | same
+lunar:08-15 | 中秋节快乐 | 8-15 | same
+lunar:09-09 | 重阳节快乐 | 9-9 | same
+lunar:12-08 | 腊八节快乐 | 12-8 | same
+lunar:12-23 | 北方小年快乐 | 12-23 | same
+lunar:12-24 | 南方小年快乐 | 12-24 | same
+lunar:new-years-eve | 除夕快乐 | positive lunar month=12 and next local day converts to lunar 1-1 | same; year-dependent Gregorian date computed at runtime
+
+The diagnostic IDs above are report labels; production has no canonical holiday ID field or holiday registry. The displayed names are exact code strings. Gregorian/lunar collisions favor the lunar event because its assignment runs second. A user birthday then replaces eventName/Context; a resident birthday appends to or supplies eventName/Context.
+
+C. OTHER SPECIAL DATES / EVENTS (NOT EXTRA HOLIDAYS)
+- User birthday from user.birthday (YYYY-MM-DD parsed month/day): takes precedence and shows a toast, plus todayEvent context. A malformed/other format may not match.
+- First resident with cat.birthday equal to solar MM-DD: appends to any holiday or creates a birthday event. Only find()'s first matching cat is represented in todayEvent, whereas getDateContext() can mention multiple residents.
+- Affinity Easter egg / first human reveal use showSpecialEventModal. These are relationship events, not calendar/holiday effects. No seasonal event table was found.
+- getDateContext() ~19392-19398 independently lists only solar 01-01, 02-14, 10-31, 12-25 for AI/background copy. This secondary list does not render a holiday UI and does not add active holidays.
+- No current 清明 holiday key was found; this report does not add one.

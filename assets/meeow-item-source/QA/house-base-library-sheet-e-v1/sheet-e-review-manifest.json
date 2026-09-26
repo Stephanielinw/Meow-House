@@ -1,0 +1,270 @@
+{
+  "version": 1,
+  "sheet": "E",
+  "status": "REVIEW READY / NOT LOCKED",
+  "reference": "/var/folders/c4/jrxpgprn1rs8_3vkrhn61vyr0000gp/T/codex-clipboard-9d23f468-9d7e-4e8f-afa4-8323ed1f4ff1.png",
+  "method": "Reference object extraction, nearest-neighbor logical-grid conversion, no-dither palette cleanup, binary alpha; no redesign. Decorative card-background sparkles and shadows excluded.",
+  "sprites": [
+    {
+      "id": "baseitem:coin",
+      "name": "硬币",
+      "filename": "coin.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/coin.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/coin.png",
+      "sha256": "f6e0e65f16c6dc9da85157641f59fc28cf28c49988bae608b6d88196fad05e13",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        6,
+        4,
+        57,
+        58
+      ],
+      "marginsLTRB": [
+        6,
+        4,
+        7,
+        6
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:necklace",
+      "name": "项链",
+      "filename": "necklace.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/necklace.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/necklace.png",
+      "sha256": "ddffc2994687b538bbdf7642d70e4567ac68871d7fc9cb9c31c0605a564832cd",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        5,
+        3,
+        59,
+        59
+      ],
+      "marginsLTRB": [
+        5,
+        3,
+        5,
+        5
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:watch",
+      "name": "手表",
+      "filename": "watch.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/watch.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/watch.png",
+      "sha256": "7e2aef010ec204583d1fe9eb0b21514b9fdbefd981930ca5b2e8e95b1b49661f",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        7,
+        3,
+        57,
+        59
+      ],
+      "marginsLTRB": [
+        7,
+        3,
+        7,
+        5
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:hairclip",
+      "name": "发卡",
+      "filename": "hairclip.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/hairclip.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/hairclip.png",
+      "sha256": "9a782018ceafd024eb4f1b7f4ac1f98321b8c5f95b1e5fa0f62766b1e615c023",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        16,
+        60,
+        47
+      ],
+      "marginsLTRB": [
+        4,
+        16,
+        4,
+        17
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:wallet",
+      "name": "钱包",
+      "filename": "wallet.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/wallet.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/wallet.png",
+      "sha256": "ebc98c7e66fa785757f9c4d43cd50e4e6af7f6348edd6aa20d68564b8f014cb8",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        6,
+        60,
+        56
+      ],
+      "marginsLTRB": [
+        4,
+        6,
+        4,
+        8
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:bank-card",
+      "name": "银行卡",
+      "filename": "bank-card.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/bank-card.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/bank-card.png",
+      "sha256": "6fa9bf63199ac131b50e6b46a4e9b37f44625cc968b2a5478c2eeec7fa437100",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        12,
+        60,
+        51
+      ],
+      "marginsLTRB": [
+        4,
+        12,
+        4,
+        13
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:ring",
+      "name": "戒指",
+      "filename": "ring.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/ring.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/ring.png",
+      "sha256": "eb3bad21261adf0cca1cc2cd12d026f379ae5fd7e32346d204c9ca590ac67039",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        7,
+        3,
+        57,
+        58
+      ],
+      "marginsLTRB": [
+        7,
+        3,
+        7,
+        6
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:crown",
+      "name": "王冠",
+      "filename": "crown.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/crown.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/crown.png",
+      "sha256": "0310a380cd845e4c51b51ea174aaa2a27d6f188fa251b2c30196cf2295868527",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        7,
+        60,
+        57
+      ],
+      "marginsLTRB": [
+        4,
+        7,
+        4,
+        7
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:glasses",
+      "name": "眼镜",
+      "filename": "glasses.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/glasses.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/glasses.png",
+      "sha256": "c89891d493b5445afcd0f71d743c069439ec71d08c05ca4c50afa630d336e07c",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        18,
+        60,
+        45
+      ],
+      "marginsLTRB": [
+        4,
+        18,
+        4,
+        19
+      ],
+      "status": "REVIEW READY / NOT LOCKED"
+    }
+  ]
+}

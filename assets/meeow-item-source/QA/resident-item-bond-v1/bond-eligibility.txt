@@ -1,0 +1,5 @@
+Bond eligibility uses the resident gift ownership policy, not Backpack tab placement.
+Eligible: toy category/type, actual collectible type, souvenir type, including unclassified collectible objects.
+Ineligible: Food category, literal letter type, and non-item records.
+Semantic classification is not required for owning an eligible object or having a bond.
+An item-use caller can require known usable semantics with requireUsableSemantics.

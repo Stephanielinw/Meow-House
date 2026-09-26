@@ -1,0 +1,22 @@
+FIVE CAT ITEMS SPRITE CLEANUP V2 — VALIDATION
+Only the five named source/runtime PNG pairs were edited; manifest SHA-256 records and this QA folder were updated.
+
+baseitem:star-sand-orb | assets/meeow-item-source/house-base-library-v1/star-sand-orb.png = assets/item-sprites/library/house-base-library-v1/star-sand-orb.png | SHA-256 PASS 58ce09ca878ec3f29034f469d87c8f870f9749937d382338934660807b0db46e
+  64×64 RGBA PASS; alpha [0, 255] PASS; opaque bbox (4, 7, 60, 56); margins L/T/R/B (4, 7, 4, 8); clipping NO; removed shadow 111 px; repaired gaps 85 px; new palette colors 0.
+baseitem:teaser-wand | assets/meeow-item-source/house-base-library-v1/teaser-wand.png = assets/item-sprites/library/house-base-library-v1/teaser-wand.png | SHA-256 PASS 8d62a94e34bf832a38d5f336c1e1c56208507e19311683998a4028683cc31919
+  64×64 RGBA PASS; alpha [0, 255] PASS; opaque bbox (4, 7, 60, 57); margins L/T/R/B (4, 7, 4, 7); clipping NO; removed shadow 91 px; repaired gaps 48 px; new palette colors 0.
+baseitem:catnip-pouch | assets/meeow-item-source/house-base-library-v1/catnip-pouch.png = assets/item-sprites/library/house-base-library-v1/catnip-pouch.png | SHA-256 PASS 720999bdb7ab8b88665c10b92b8ffdc7c76235dc8c6c962d38d616d6159348c2
+  64×64 RGBA PASS; alpha [0, 255] PASS; opaque bbox (4, 7, 60, 56); margins L/T/R/B (4, 7, 4, 8); clipping NO; removed shadow 116 px; repaired gaps 62 px; new palette colors 0.
+baseitem:riddle-paper-ball | assets/meeow-item-source/house-base-library-v1/riddle-paper-ball.png = assets/item-sprites/library/house-base-library-v1/riddle-paper-ball.png | SHA-256 PASS 35097d876be1fc80b556ed9272a7f1d0478334783e73dc990bab87180fb288d3
+  64×64 RGBA PASS; alpha [0, 255] PASS; opaque bbox (4, 10, 60, 51); margins L/T/R/B (4, 10, 4, 13); clipping NO; removed shadow 183 px; repaired gaps 122 px; new palette colors 0.
+baseitem:letter | assets/meeow-item-source/house-base-library-v1/letter.png = assets/item-sprites/library/house-base-library-v1/letter.png | SHA-256 PASS 90b7c57612f666835fe9e3dd8b44388e7732ddb9ea58787e315ba0e8772f2db2
+  64×64 RGBA PASS; alpha [0, 255] PASS; opaque bbox (4, 11, 60, 51); margins L/T/R/B (4, 11, 4, 13); clipping NO; removed shadow 132 px; repaired gaps 77 px; new palette colors 0.
+
+Source/runtime hash parity: 5/5 PASS.
+Bottom ground shadows removed: 5/5 PASS (connected ground regions removed and nearest-neighbor before/after visually checked).
+Accidental interior transparent gaps repaired: 5/5 PASS. Catnip bow-loop and spaces between separate leaves/pouch remain intentionally transparent.
+Pre-existing locked art: 57/57 House Food/Base Library source/runtime/manifest hashes unchanged.
+Registry paths/IDs and resolver metadata unchanged; no missing active file; production replacement and resident-letter item remain active.
+Focused fixtures: item-sprite-library, item-sprite-renderer-ui, item-visual-schema-v1, item-vector-retirement-v1, shop-visual-authoring-restock-v1, backpack-redesign-v1, builtin-food-catalog-redesign-v1, away-souvenir-authority, away-mail-reconciliation PASS.
+JavaScript and inline module syntax: PASS. git diff --check: PASS. Static production callAI( count: 40.
+No .DS_Store, House Food, basefood, or other baseitem PNG touched in this pass.

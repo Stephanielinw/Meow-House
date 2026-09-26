@@ -1,0 +1,115 @@
+HOUSE BASE LIBRARY · SHEET B · CANDIDATE VALIDATION
+
+SHEET B = REVIEW / NOT LOCKED
+Awaiting human approval before promotion
+
+Candidate PNGs created: 9/9
+Dimensions 64×64: PASS 9/9
+Transparent background: PASS 9/9
+Alpha values limited to 0/255: PASS 9/9
+Canvas-edge contact: 0/9
+Antialiased alpha pixels: 0
+Nearest-neighbor-safe: PASS 9/9
+Registry entries added for Sheet B: 0
+Runtime Sheet B assets created: 0
+
+- basefood:dried-fish-snack
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/dried-fish-snack.png
+  dimensions: 64×64
+  opaque_bbox: (4, 14, 59, 51)
+  margins_LTRB: (4, 14, 4, 12)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: cc32bd22b1c6206a0ab16be330a191938c9c4c7cb14f6290b06cac5617834e4d
+  recovery_note: none; reference object was complete
+- basefood:meat-jerky
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/meat-jerky.png
+  dimensions: 64×64
+  opaque_bbox: (4, 13, 59, 51)
+  margins_LTRB: (4, 13, 4, 12)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: 6f53f6de0cdd6c90606da2fa3fe7517ca9e87c66f68f972b17f6aa99833e53eb
+  recovery_note: none; reference object was complete
+- basefood:vegetable-snack
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/vegetable-snack.png
+  dimensions: 64×64
+  opaque_bbox: (4, 12, 59, 53)
+  margins_LTRB: (4, 12, 4, 10)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: 3b808eea255c791797dc64eab5b8d8ee6064684e89b47ac63c4b42e730ccbd25
+  recovery_note: none; reference object was complete
+- basefood:fruit-snack
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/fruit-snack.png
+  dimensions: 64×64
+  opaque_bbox: (6, 10, 57, 54)
+  margins_LTRB: (6, 10, 6, 9)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: 8c0f2ab169180bdd7781c9be885290c01d21d754154784b9669e3a85faecdd22
+  recovery_note: none; reference object was complete
+- basefood:bread-loaf
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/bread-loaf.png
+  dimensions: 64×64
+  opaque_bbox: (4, 12, 59, 53)
+  margins_LTRB: (4, 12, 4, 10)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: 5804beb773125999c6f20a4c75e662cc102a96cc77f8db0dab65db404511b781
+  recovery_note: none; reference object was complete
+- basefood:dessert-cake
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/dessert-cake.png
+  dimensions: 64×64
+  opaque_bbox: (5, 10, 58, 54)
+  margins_LTRB: (5, 10, 5, 9)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: 2e7aae743661965262e21e4dc2ebc36ec0a5394e3971e42af3e64edce874634e
+  recovery_note: none; reference object was complete
+- basefood:grain-snack
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/grain-snack.png
+  dimensions: 64×64
+  opaque_bbox: (4, 11, 59, 53)
+  margins_LTRB: (4, 11, 4, 10)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: 2828757c53e8f83b813d99b6bd69bfcdb7a17edfd6bd4aae75a0e4747ad698a4
+  recovery_note: none; reference object was complete
+- basefood:dessert-snack
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/dessert-snack.png
+  dimensions: 64×64
+  opaque_bbox: (4, 13, 59, 51)
+  margins_LTRB: (4, 13, 4, 12)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: aca6fd41b10683b5f8bc0876d03edc8f8c0be51ce89dd8812d82df2b131976c4
+  recovery_note: none; reference object was complete
+- basefood:fruit-dessert
+  candidate: assets/meeow-item-source/QA/house-base-library-sheet-b-v1/sheet-b-candidates/fruit-dessert.png
+  dimensions: 64×64
+  opaque_bbox: (9, 6, 54, 57)
+  margins_LTRB: (9, 6, 9, 6)
+  alpha_values: [0, 255]
+  touches_canvas_edge: NO
+  sha256: 01b8e67abe674e1a6ef331bca3d96568b47e37f54ce8d81844c6e9c809294dbb
+  recovery_note: none; reference object was complete
+
+Scope verification:
+- Sheet A approved PNGs modified: NO
+- House Food production art/mappings modified: NO
+- built-in Food IDs modified: NO
+- Shop or Phone identity logic modified: NO
+- resolver scoring/sorting logic modified: NO
+- visualHint taxonomy modified: NO
+- old saves modified: NO
+- AI calls added: 0
+- static callAI( count: 40
+
+Focused checks:
+- sprite registry and renderer checks: PASS
+- Item Visual Schema check: PASS
+- House Food catalog/semantic checks: PASS
+- Custom Pixel Editor regression check: PASS
+- Shop authoring regression check: PASS
+- git diff --check: PASS

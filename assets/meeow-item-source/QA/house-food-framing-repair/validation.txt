@@ -1,0 +1,38 @@
+HOUSE FOOD SPRITES — 64×64 FRAMING REPAIR
+
+Candidate directory: /Users/Feather/Documents/Codex/2026-08-04/new-chat/Gotham-main_html/assets/meeow-item-source/QA/house-food-framing-repair/candidates
+Production/source overwrite: NO
+Registry/game logic changed: NO
+
+Method: integer-pixel translation for intact art; full-object recovery from the approved reference for clipped slots; exact 5×5-to-1 native-grid repixel; only discrete row/column compaction where an object exceeded the 60px safe interior. No interpolation, antialiasing, blur, or repaint.
+
+Per-sprite validation:
+- salmon-steak.png | dimensions=64×64 | opaque_bbox=(2,14)-(60,59) | left=2 top=14 right=3 bottom=4 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- pumpkin-chicken-stew.png | dimensions=64×64 | opaque_bbox=(2,11)-(61,59) | left=2 top=11 right=2 bottom=4 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- tuna-egg-custard.png | dimensions=64×64 | opaque_bbox=(4,14)-(56,60) | left=4 top=14 right=7 bottom=3 | touches_canvas_edge=NO | recovered_cropped_pixels=NO | design_changed_beyond_framing_repair=NO
+- chicken-oat-risotto.png | dimensions=64×64 | opaque_bbox=(2,12)-(58,59) | left=2 top=12 right=5 bottom=4 | touches_canvas_edge=NO | recovered_cropped_pixels=NO | design_changed_beyond_framing_repair=NO
+- roasted-vegetable-platter.png | dimensions=64×64 | opaque_bbox=(2,7)-(61,53) | left=2 top=7 right=2 bottom=10 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- sour-fish-vegetable-salad.png | dimensions=64×64 | opaque_bbox=(3,8)-(61,54) | left=3 top=8 right=2 bottom=9 | touches_canvas_edge=NO | recovered_cropped_pixels=NO | design_changed_beyond_framing_repair=NO
+- seaweed-fish-crisps.png | dimensions=64×64 | opaque_bbox=(2,5)-(61,55) | left=2 top=5 right=2 bottom=8 | touches_canvas_edge=NO | recovered_cropped_pixels=NO | design_changed_beyond_framing_repair=NO
+- charred-chicken-strips.png | dimensions=64×64 | opaque_bbox=(2,9)-(61,54) | left=2 top=9 right=2 bottom=9 | touches_canvas_edge=NO | recovered_cropped_pixels=NO | design_changed_beyond_framing_repair=NO
+- cheese-grain-crackers.png | dimensions=64×64 | opaque_bbox=(2,2)-(61,49) | left=2 top=2 right=2 bottom=14 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- spicy-veggie-chips.png | dimensions=64×64 | opaque_bbox=(3,2)-(60,49) | left=3 top=2 right=3 bottom=14 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- strawberry-panna-cotta.png | dimensions=64×64 | opaque_bbox=(2,2)-(60,53) | left=2 top=2 right=3 bottom=10 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- pumpkin-pudding.png | dimensions=64×64 | opaque_bbox=(2,2)-(61,48) | left=2 top=2 right=2 bottom=15 | touches_canvas_edge=NO | recovered_cropped_pixels=NO | design_changed_beyond_framing_repair=NO
+- berry-yogurt-cup.png | dimensions=64×64 | opaque_bbox=(6,4)-(56,61) | left=6 top=4 right=7 bottom=2 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- warm-milk.png | dimensions=64×64 | opaque_bbox=(4,2)-(59,61) | left=4 top=2 right=4 bottom=2 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- fruit-pulp-drink.png | dimensions=64×64 | opaque_bbox=(11,2)-(51,61) | left=11 top=2 right=12 bottom=2 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+- apple-oat-milk.png | dimensions=64×64 | opaque_bbox=(7,4)-(55,60) | left=7 top=4 right=8 bottom=3 | touches_canvas_edge=NO | recovered_cropped_pixels=YES | design_changed_beyond_framing_repair=NO
+
+Summary:
+- 16/16 dimensions PASS
+- 16/16 transparent background PASS
+- 16/16 binary alpha PASS
+- 16/16 minimum margin >= 2px PASS
+- touches canvas edge: 0
+- approved source/runtime files modified: 0
+- approved source/runtime byte equality: 16/16 PASS
+- candidate files promoted: 0
+- registry/game logic changed: NO
+- git diff --check: PASS
+- static callAI( count: 40 (unchanged)

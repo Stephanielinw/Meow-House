@@ -1,0 +1,9 @@
+DYNAMIC ITEM COVERAGE — CONSERVATIVE V1
+
+Away / resident Mail: attachment records carry generated name, icon, description, visualHint and structured sender provenance, but no stable PROGRAM-owned object concept key. Object semantics are not inferred from name, sprite, or sender. New freeform souvenirs remain unclassified.
+Explore: 47 fixed locations list 101 possible loot phrases, but settlement loot is freeform and its stable ID identifies the reward event, not a canonical object concept. No mass keyword classification. Current freeform Explore rewards remain unclassified.
+Phone-native item delivery: no new semantics inferred from Phone menu IDs, names or shared visuals. Shop-derived copies preserve their catalog semantic payload through existing exact-copy behavior.
+Shop: fixed toys 2/3/4/5 classified by stable numeric catalog ID. New user-authored toys may receive validated closed proposals in the existing appraisal response. No Shop collectible category exists; none was added.
+Legacy load: no generic prose/name migration. Only the exact fixed Shop toy definitions and matching physical copies get idempotent PROGRAM-owned semantics.
+
+Coverage debt: a future explicit object-concept key in Away/Mail/Explore reward authority would permit the approved shell, portable-branch, badge, and jewelry mappings to be applied safely. This V1 does not add that key or modify those generation authorities.

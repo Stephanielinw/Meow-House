@@ -1,0 +1,16 @@
+Resident Item Bond V1
+
+Persistent location: user.residentItemBonds in the existing whole-save user object.
+Shape: residentItemBonds[canonicalResidentId][typedPhysicalKey] = bond.
+typedPhysicalKey = `${typeof uniqueId}:${String(uniqueId)}` so legacy numeric and string IDs do not collide.
+
+Exact bond fields:
+version: 1
+familiarity: integer 0..5
+fondness: integer -2..3
+useCount: nonnegative safe integer
+firstOwnedAt: ISO timestamp or null
+lastUsedAt: ISO timestamp or null
+
+No current owner, giver, semantics, visual, provenance, derived cherished flag, or AI text is stored in the bond.
+Validation reports invalid records. Existing invalid values are retained for review, not silently reinterpreted.

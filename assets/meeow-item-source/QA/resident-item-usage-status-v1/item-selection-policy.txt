@@ -1,0 +1,5 @@
+Eligible items come only from user.residentItems[residentId]. They need a valid exact uniqueId, valid bond, resident bond eligibility, classified Toy/Collectible semantics, isSemanticallyUsableItem, and a primary interaction of chase/bat/carry/cuddle/sniff/observe.
+Food, literal letters, unclassified collectibles, historical-only bonds, other residents' items, and duplicate physical ownership are excluded.
+Weight = max(1, 6 + familiarity + 2*fondness + (cherished ? 4 : 0)).
+Use one weighted random draw among eligible physical instances; do not always select the highest weight. No personality profile, semantic bonus, boredom, recency penalty, or novelty bonus is used.
+Before commit, compare exact object reference, uniqueId, sourceCatalogId, and semantics. If the item changed or disappeared, invalidate the event, do not substitute, and apply an ordinary neutral status.

@@ -1,0 +1,32 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — HOLIDAY GATE V1
+Authority: Meeow.specialDates in js/meeow-special-dates.js. No new date calculation or holiday rule is proposed.
+
+Read API
+- getCurrentHolidayState() returns {version,dateKey,holidays:[{id,name,greeting,calendar}],primaryHolidayId,lunar:{available,errorCode}}.
+- isHolidayActive() means at least one configured rule is active; hasHoliday(id) checks one exact ID; getCurrentHolidayIds() returns all active IDs. RULES enumerates all 21 configured rules. evaluate(date,lunarConverter) is testable; refresh(date,lunarConverter) updates current state. The app refreshes at local midnight. Multiple rules can overlap; do not use primaryHolidayId alone.
+- Future gift gate: intersect getCurrentHolidayIds() with a PRODUCT-approved giftEligibleHolidayIds allowlist, or call hasHoliday(id) for each approved ID. Require a structurally active rule at commit time. If lunar conversion is unavailable, lunar holidays cannot be guessed or treated as active. The current holiday context explicitly says it does not authorize item transfer or other gameplay decisions.
+
+Exact configured rules (ID | name | calendar)
+new-years-day | 元旦 | Gregorian
+valentines-day | 情人节 | Gregorian
+april-fools-day | 愚人节 | Gregorian
+labor-day | 劳动节 | Gregorian
+childrens-day | 儿童节 | Gregorian
+national-day | 国庆节 | Gregorian
+halloween-eve | 万圣节前夜 | Gregorian
+halloween | 万圣节 | Gregorian
+christmas-eve | 平安夜 | Gregorian
+christmas | 圣诞节 | Gregorian
+spring-festival | 春节 | lunar
+lantern-festival | 元宵节 | lunar
+dragon-raises-head | 龙抬头 | lunar
+dragon-boat | 端午节 | lunar
+qixi | 七夕节 | lunar
+mid-autumn | 中秋节 | lunar
+double-ninth | 重阳节 | lunar
+laba | 腊八节 | lunar
+little-new-year-north | 北方小年 | lunar
+little-new-year-south | 南方小年 | lunar
+lunar-new-years-eve | 除夕 | computed lunar
+
+Product decision required: all 21 are not automatically gift-appropriate (for example April Fools, Labor Day, and National Day do not themselves imply a personal gift). Do not silently make a subset. Conservative proposed policy is fail closed until a reviewed ID allowlist exists; then require an active allowlisted ID AND an independent qualifying special-event marker AND positive relationship trend. Holiday does not increase gift frequency by itself or create an event.

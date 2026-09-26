@@ -1,0 +1,5 @@
+The existing Status Sync prompt gains [CURRENT AUTHORIZED ITEM ACTIVITY] only when PROGRAM has frozen an event.
+It supplies resident ID, exact owned item name, required primary interaction, role, stimulus, and qualitative bond labels/badge.
+AI must write natural current status using that item and interaction. It cannot choose an item, invent ownership, switch action family, or invent a giver/acquisition story.
+Status Sync response validation requires the exact selected item name in that resident's status. Provider retries use the same frozen prompt. If this contract fails, the local fallback presents the selected event.
+No event leaves the previous prompt text materially unchanged. Existing holiday context remains independently available; it does not modify item selection or bond values.

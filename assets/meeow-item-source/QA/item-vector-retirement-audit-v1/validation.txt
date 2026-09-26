@@ -1,0 +1,31 @@
+ITEM VECTOR RETIREMENT VALIDATION V1
+
+Production seed definitions audited: 22
+Seed vector-backed before: 6
+Seed vector-backed after: 4
+Replaced now: 2 (number 1 -> basefood:grain-bowl; number 7 -> baseitem:herb)
+Missing/empty seed visuals: before 6; after 4
+House Food explicit sprites: 16/16 unchanged
+New first-party sprite IDs used: basefood:grain-bowl, baseitem:herb
+Unresolved concrete fixed Shop items: number 2, 3, 4, 5
+Additional variable-name legacy letter template: 1
+Shared item renderer bypass repaired: item-interaction chat card
+Other currently wired item surfaces bypassing shared renderer: 0 identified
+Normal renderer priority: custom-pixel / explicit sprite / frozen auto-sprite / legacy fallback
+
+Data limit: file:// in-app browser live-save inspection was blocked by Browser Use URL policy. No browser-local Shop catalog, inventory, Mail, Away, or Explore save was read or changed. Counts are for the production seed catalog and production code paths; unknown user-created/historical records are not silently included.
+Review image: before-after-ui-review.png is a layout facsimile assembled from actual source sprites and current item names, not a captured browser screenshot.
+
+House Food art modified: NO
+Base Library art modified: NO
+Third-party art restored: NO
+Resolver scoring/weights changed: NO
+visualHint taxonomy changed: NO
+Phone identity production logic changed: NO
+Gameplay semantics changed: NO
+New callAI calls: 0
+Static production callAI( count: 40
+Focused and regression fixtures: 11/11 PASS (item-vector-retirement, sprite library, visual schema, renderer/UI, Backpack, Shop catalog, visual hints, Away souvenir, built-in Food, Food semantics, Pixel Editor)
+First-party art hash verification: 57/57 PASS via Shop catalog fixture manifests
+Inline app and new fixture syntax: PASS
+git diff --check: PASS

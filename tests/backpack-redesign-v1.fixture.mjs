@@ -5,6 +5,7 @@ import vm from 'node:vm';
 const context = vm.createContext({ window: {} });
 vm.runInContext(readFileSync(new URL('../js/meeow-semantics.js', import.meta.url), 'utf8'), context);
 vm.runInContext(readFileSync(new URL('../js/meeow-inventory.js', import.meta.url), 'utf8'), context);
+vm.runInContext(readFileSync(new URL('../js/meeow-resident-items.js', import.meta.url), 'utf8'), context);
 const inventory = context.window.Meeow.inventory;
 const plain = value => JSON.parse(JSON.stringify(value));
 const food = {
@@ -72,9 +73,12 @@ const uiSlice = source.slice(start, end);
 const uiItems = [1, 2, 3].map(uniqueId => ({ ...food, uniqueId }));
 const watchers = [];
 const ui = vm.createContext({
-    window: context.window, user: { inventory: uiItems }, shopItems: { value: catalog },
+    window: context.window, user: { inventory: uiItems, residentItems: {} }, shopItems: { value: catalog },
     currentBagTab: { value: 'consumable' }, selectedBagSelection: { value: null },
     itemInteractionInFlight: { value: false }, showBag: { value: true },
+    showGiftChooser: { value: false }, selectedGiftUniqueId: { value: null }, giftRecipientId: { value: '' },
+    giftError: { value: '' }, giftInFlight: { value: false }, selectedResidentItemUniqueId: { value: null },
+    selectedCat: { value: null }, cats: { value: [] }, getResidentPublicName: () => 'Resident', persistNow: () => true,
     computed: fn => ({ get value() { return fn(); } }), watch: (source, callback) => { watchers.push({ source, callback }); },
     confirm: () => true, showToast: () => {},
     useItem: async item => {

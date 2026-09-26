@@ -1,0 +1,17 @@
+FIVE CAT ITEM SPRITES = LOCKED / PRODUCTION
+baseitem:star-sand-orb: size=(64, 64), alpha=[0, 255], margins=(4, 7, 4, 8), source/runtime/authority=PASS, production=PASS
+baseitem:teaser-wand: size=(64, 64), alpha=[0, 255], margins=(4, 7, 4, 7), source/runtime/authority=PASS, production=PASS
+baseitem:catnip-pouch: size=(64, 64), alpha=[0, 255], margins=(4, 7, 4, 8), source/runtime/authority=PASS, production=PASS
+baseitem:riddle-paper-ball: size=(64, 64), alpha=[0, 255], margins=(4, 10, 4, 13), source/runtime/authority=PASS, production=PASS
+baseitem:letter: size=(64, 64), alpha=[0, 255], margins=(4, 11, 4, 13), source/runtime/authority=PASS, production=PASS
+Registry: five IDs unique in manifest; production replacements: fixed Shop IDs 2-5; resident letter: baseitem:letter.
+No sprite bytes changed in this lock pass.
+
+Active registry counts: {"housefood":16,"basefood":24,"baseitem":22,"thirdParty":0}; total=62
+baseitem:star-sand-orb: active registry count=1, runtime=assets/item-sprites/library/house-base-library-v1/star-sand-orb.png, path=PASS
+baseitem:teaser-wand: active registry count=1, runtime=assets/item-sprites/library/house-base-library-v1/teaser-wand.png, path=PASS
+baseitem:catnip-pouch: active registry count=1, runtime=assets/item-sprites/library/house-base-library-v1/catnip-pouch.png, path=PASS
+baseitem:riddle-paper-ball: active registry count=1, runtime=assets/item-sprites/library/house-base-library-v1/riddle-paper-ball.png, path=PASS
+baseitem:letter: active registry count=1, runtime=assets/item-sprites/library/house-base-library-v1/letter.png, path=PASS
+Fixed Shop production IDs 2-5 and resident inventory letter retain explicit first-party sprite assignments.
+Approved cleanup authority: QA/five-cat-items-sprite-cleanup-v2/validation.txt confirms 5/5 ground shadows removed, 5/5 accidental interior gaps repaired, and 57/57 pre-existing art hashes unchanged. The five current hashes match that approved report exactly.

@@ -1,0 +1,4 @@
+Future gifting trend source (no gifting implemented)
+
+The authoritative source remains timestamped APPLIED directional residentRelationships[targetId].events produced by applyHallSceneRelationshipConsequences. For donor → recipient, count only events within the future chosen recent window where changes.warmth > 0, changes.trust > 0, or changes.tension < 0. Exclude source keys ending :program-familiarity, neutral/saturated/rejected proposals, reverse-only changes, and prose-only scenes.
+This repair preserves that event authority and makes real substantive scene changes visible. Product decisions about the special-event gate, eligible holiday subset, and gift cooldowns remain separate from this repair. No CAT↔CAT gifting or transfer was added.

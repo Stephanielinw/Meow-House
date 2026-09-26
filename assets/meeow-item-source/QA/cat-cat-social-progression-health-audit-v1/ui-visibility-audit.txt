@@ -1,0 +1,15 @@
+CAT↔CAT RELATIONSHIP — PLAYER VISIBILITY
+
+Surface | current display | delta visibility / update
+Resident profile/detail | current status and archive button; no live relationship indicator on ordinary status card | none in main profile/status. User must open archive.
+Archive Relationship tab | list of relevant residents, canonical baseline, save-specific qualitative relationship summary and optional tags | reactive display from current cat relationships; archive defaults to Daily tab, so Relationship requires navigation.
+Archive pair detail | both A→B and B→A; familiarity, warmth, trust, tension as qualitative labels and five-pip signed rows; grouped scene history with date and textual delta labels | YES, including warmth/trust/tension increase/decrease, but only after manual drill-down. No evidence of a stale-cache bug; helpers read reactive cat data.
+Hall scene feed | accepted scene participants, time, USER text where relevant, scene prose or reactions | no relationship outcome footer/icon/delta. Feed is current operational day only, so scene evidence disappears from feed after pruning while relationship history persists.
+Active Social Presence notification | candidate arrived/stayed/left and short content | no relationship delta, because this path never mutates relationship.
+USER-directed scene result toast | success/failure of scene generation | no relationship consequence cue.
+Special Moments / Focus / Truth or Dare / Phone | their own interaction presentation | no CAT↔CAT relationship display; none of these paths mutates the pair state.
+System/debug log | RELATIONSHIP UPDATED record with IDs and numeric actual deltas | yes for diagnostics, not an ordinary player-facing explanation.
+
+Conclusion: meaningful applied changes can be invisible in normal Hall play. The archive is accurate but buried: the profile opens Daily by default, then the player selects Relationship, selects a resident, and inspects history. No small toast, scene footer, history indicator on the Hall card, or status badge announces a substantive change. A directional A→B-only change can appear absent on A's summary card if the USER is viewing B's summary: the list favors the owner direction and only hints that the other side changed; pair detail shows both directions. No confirmed stale UI or reload-only refresh problem was found.
+
+Code anchors: index.html archive template 8705–8788, archive helpers 21179–21350, Hall feed 5350–5365 and 21812–21822, relationship log 21655.

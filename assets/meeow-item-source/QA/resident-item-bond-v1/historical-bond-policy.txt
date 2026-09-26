@@ -1,0 +1,5 @@
+A bond belongs to a canonical resident and exact physical uniqueId, even after that resident stops owning the object.
+Ownership transfer must not erase a former owner's bond. A new owner gets a separate bond for the same uniqueId.
+Historical bonds remain readable but active use and fondness mutation require current exact ownership.
+The validator accepts a well-formed historical record even when its item is absent from current ownership; it reports malformed keys, values, timestamps, and resident IDs.
+Future CAT-to-CAT gifting is out of scope for V1.

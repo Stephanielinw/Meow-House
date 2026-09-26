@@ -1,0 +1,7 @@
+On first successful USER-to-resident gift, create a neutral bond using the exact transfer timestamp.
+Ownership movement, provenance event, bond creation, and persistence share one transaction.
+Failed persistence restores both ownership containers and provenance and removes the new bond.
+An existing historical bond is reused without resetting any field.
+For legacy resident-owned items, normalization creates a neutral bond once. It uses the earliest valid matching transfer into that resident, or null if none is known. No load-time clock is used.
+Only an explicit PROGRAM-authorized use increments useCount, updates lastUsedAt, and raises familiarity.
+No ordinary gameplay path changes fondness in V1.

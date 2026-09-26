@@ -1,0 +1,751 @@
+{
+  "version": 3,
+  "pack": "house-style-food-v1",
+  "sourceType": "first-party",
+  "license": "In-house original",
+  "artAuthority": "User-approved repaired 64x64 candidates from assets/meeow-item-source/QA/house-food-framing-repair/candidates; promoted byte-for-byte.",
+  "method": "Reference-first 4x4 cell conversion; nearest-neighbor to 64x64; binary alpha threshold; 40-color no-dither palette cleanup; no redesign.",
+  "sprites": [
+    {
+      "id": "housefood:salmon-steak",
+      "name": "香煎三文鱼排",
+      "file": "assets/item-sprites/library/house-style-food-v1/salmon-steak.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/salmon-steak.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fish"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "香煎三文鱼排"
+      ],
+      "referenceCell": {
+        "row": 1,
+        "column": 1,
+        "pixelBounds": [
+          0,
+          0,
+          314,
+          314
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "f3cf9bb36045b0bfa573d55217dee97d1071f6becf08bec47f73e00f1124f94f",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/salmon-steak.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:pumpkin-chicken-stew",
+      "name": "南瓜鸡肉炖锅",
+      "file": "assets/item-sprites/library/house-style-food-v1/pumpkin-chicken-stew.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/pumpkin-chicken-stew.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "meat"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "南瓜鸡肉炖锅"
+      ],
+      "referenceCell": {
+        "row": 1,
+        "column": 2,
+        "pixelBounds": [
+          314,
+          0,
+          627,
+          314
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "4d21e656cb61eef2e1d1a1e11e9cb3227ff91ab1559a5e02aad87c5b527e37f6",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/pumpkin-chicken-stew.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:tuna-egg-custard",
+      "name": "金枪鱼蒸蛋",
+      "file": "assets/item-sprites/library/house-style-food-v1/tuna-egg-custard.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/tuna-egg-custard.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "egg"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "金枪鱼蒸蛋"
+      ],
+      "referenceCell": {
+        "row": 1,
+        "column": 3,
+        "pixelBounds": [
+          627,
+          0,
+          941,
+          314
+        ]
+      },
+      "conversion": "lightly cleaned",
+      "sha256": "bc71c07f38d2c8041220fdfa0b7a07a1aa98b57a9d732f84254e4f0b78adda0e",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/tuna-egg-custard.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:chicken-oat-risotto",
+      "name": "鸡汤燕麦烩饭",
+      "file": "assets/item-sprites/library/house-style-food-v1/chicken-oat-risotto.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/chicken-oat-risotto.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "grain"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "鸡汤燕麦烩饭"
+      ],
+      "referenceCell": {
+        "row": 1,
+        "column": 4,
+        "pixelBounds": [
+          941,
+          0,
+          1254,
+          314
+        ]
+      },
+      "conversion": "lightly cleaned",
+      "sha256": "f5a070b96ecfaa2113b81d93dad5e95f786df76c3678d9e4061652bb653a3915",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/chicken-oat-risotto.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:roasted-vegetable-platter",
+      "name": "香烤时蔬拼盘",
+      "file": "assets/item-sprites/library/house-style-food-v1/roasted-vegetable-platter.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/roasted-vegetable-platter.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "vegetable"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "香烤时蔬拼盘"
+      ],
+      "referenceCell": {
+        "row": 2,
+        "column": 1,
+        "pixelBounds": [
+          0,
+          314,
+          314,
+          627
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "9f07daee48ec26b089604ac8acb7dbd19893553cf9b2e4f45c05e237f0fd6a80",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/roasted-vegetable-platter.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:sour-fish-vegetable-salad",
+      "name": "酸香凉拌鱼蔬丝",
+      "file": "assets/item-sprites/library/house-style-food-v1/sour-fish-vegetable-salad.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/sour-fish-vegetable-salad.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fish"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "meal"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "酸香凉拌鱼蔬丝"
+      ],
+      "referenceCell": {
+        "row": 2,
+        "column": 2,
+        "pixelBounds": [
+          314,
+          314,
+          627,
+          627
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "4b7711167e51f5dedd0a0142defb069b41ea160c26e37af98d394313144ff975",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/sour-fish-vegetable-salad.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:seaweed-fish-crisps",
+      "name": "海苔小鱼脆",
+      "file": "assets/item-sprites/library/house-style-food-v1/seaweed-fish-crisps.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/seaweed-fish-crisps.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "fish"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "海苔小鱼脆"
+      ],
+      "referenceCell": {
+        "row": 2,
+        "column": 3,
+        "pixelBounds": [
+          627,
+          314,
+          941,
+          627
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "807f012a1fae8c878febc578b4572cb166dc67ade0695ad15487dc8a7ff37915",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/seaweed-fish-crisps.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:charred-chicken-strips",
+      "name": "炭烤鸡肉条",
+      "file": "assets/item-sprites/library/house-style-food-v1/charred-chicken-strips.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/charred-chicken-strips.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "meat"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "炭烤鸡肉条"
+      ],
+      "referenceCell": {
+        "row": 2,
+        "column": 4,
+        "pixelBounds": [
+          941,
+          314,
+          1254,
+          627
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "cec093f9b564dc3e443e796b85926e6a22b911517d6f27b57e6d425466d0003e",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/charred-chicken-strips.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:cheese-grain-crackers",
+      "name": "芝士谷物脆饼",
+      "file": "assets/item-sprites/library/house-style-food-v1/cheese-grain-crackers.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/cheese-grain-crackers.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "grain"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "芝士谷物脆饼"
+      ],
+      "referenceCell": {
+        "row": 3,
+        "column": 1,
+        "pixelBounds": [
+          0,
+          627,
+          314,
+          941
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "0f2660ec7965d1966bf15f1859678c565d91d472e0db4d0b27d9e635731612be",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/cheese-grain-crackers.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:spicy-veggie-chips",
+      "name": "辣味蔬菜脆片",
+      "file": "assets/item-sprites/library/house-style-food-v1/spicy-veggie-chips.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/spicy-veggie-chips.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "vegetable"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "snack"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "辣味蔬菜脆片"
+      ],
+      "referenceCell": {
+        "row": 3,
+        "column": 2,
+        "pixelBounds": [
+          314,
+          627,
+          627,
+          941
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "2c47e44eee974a04b564c42d0f9c30fde5bc94105084ed67d9b303d19450fe39",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/spicy-veggie-chips.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:strawberry-panna-cotta",
+      "name": "草莓奶冻",
+      "file": "assets/item-sprites/library/house-style-food-v1/strawberry-panna-cotta.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/strawberry-panna-cotta.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "dessert"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "dessert"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "草莓奶冻"
+      ],
+      "referenceCell": {
+        "row": 3,
+        "column": 3,
+        "pixelBounds": [
+          627,
+          627,
+          941,
+          941
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "f83947429c8d450dee3a281759f4be21dbb8fe35feb6fd7950472ab97da2ad06",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/strawberry-panna-cotta.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:pumpkin-pudding",
+      "name": "南瓜布丁",
+      "file": "assets/item-sprites/library/house-style-food-v1/pumpkin-pudding.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/pumpkin-pudding.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "dessert"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "dessert"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "南瓜布丁"
+      ],
+      "referenceCell": {
+        "row": 3,
+        "column": 4,
+        "pixelBounds": [
+          941,
+          627,
+          1254,
+          941
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "8bac1ef838cbea666110536e629cba0fdca0178003e759601041cd50b31b0986",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/pumpkin-pudding.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:berry-yogurt-cup",
+      "name": "酸奶莓果杯",
+      "file": "assets/item-sprites/library/house-style-food-v1/berry-yogurt-cup.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/berry-yogurt-cup.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "dessert"
+      ],
+      "materialTags": [
+        "food"
+      ],
+      "formTags": [
+        "dessert"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "酸奶莓果杯"
+      ],
+      "referenceCell": {
+        "row": 4,
+        "column": 1,
+        "pixelBounds": [
+          0,
+          941,
+          314,
+          1254
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "dce511e0eaa5c52761d9d1a142207feaf6981c58fdfe2fd1683af29bc6a62ad8",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/berry-yogurt-cup.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:warm-milk",
+      "name": "暖暖牛奶",
+      "file": "assets/item-sprites/library/house-style-food-v1/warm-milk.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/warm-milk.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "drink"
+      ],
+      "materialTags": [
+        "liquid",
+        "food"
+      ],
+      "formTags": [
+        "beverage"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "暖暖牛奶"
+      ],
+      "referenceCell": {
+        "row": 4,
+        "column": 2,
+        "pixelBounds": [
+          314,
+          941,
+          627,
+          1254
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "3bbe57d35e98891402315f16667c519d909bcffe4da68a028447af3e44d4a1b4",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/warm-milk.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:fruit-pulp-drink",
+      "name": "冰镇果肉饮",
+      "file": "assets/item-sprites/library/house-style-food-v1/fruit-pulp-drink.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/fruit-pulp-drink.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "drink"
+      ],
+      "materialTags": [
+        "liquid",
+        "food"
+      ],
+      "formTags": [
+        "beverage"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "冰镇果肉饮"
+      ],
+      "referenceCell": {
+        "row": 4,
+        "column": 3,
+        "pixelBounds": [
+          627,
+          941,
+          941,
+          1254
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "72cd466fc30387afa0a36a2a65931d29b6e3a2a45f9cd9b517f2714873d67fd7",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/fruit-pulp-drink.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    },
+    {
+      "id": "housefood:apple-oat-milk",
+      "name": "苹果燕麦奶",
+      "file": "assets/item-sprites/library/house-style-food-v1/apple-oat-milk.png",
+      "sourceFile": "assets/meeow-item-source/house-style-food-v1/apple-oat-milk.png",
+      "sourcePack": "house-style-food-v1",
+      "sourceType": "first-party",
+      "license": "In-house original",
+      "nativeSize": {
+        "width": 64,
+        "height": 64
+      },
+      "qualityTier": "primary",
+      "objectTags": [
+        "drink"
+      ],
+      "materialTags": [
+        "liquid",
+        "food"
+      ],
+      "formTags": [
+        "beverage"
+      ],
+      "contextTags": [
+        "food"
+      ],
+      "category": "food",
+      "semanticType": "food",
+      "aliases": [
+        "苹果燕麦奶"
+      ],
+      "referenceCell": {
+        "row": 4,
+        "column": 4,
+        "pixelBounds": [
+          941,
+          941,
+          1254,
+          1254
+        ]
+      },
+      "conversion": "mostly direct conversion",
+      "sha256": "c6301f47fa2d0fb268df13659e2296f75205b6be58680a7c60e2c1a38bba5502",
+      "approvedRepairFile": "assets/meeow-item-source/QA/house-food-framing-repair/candidates/apple-oat-milk.png",
+      "status": "LOCKED / PRODUCTION",
+      "resolverEligible": false
+    }
+  ],
+  "status": "LOCKED / PRODUCTION",
+  "promotion": "Approved repaired QA PNG = canonical source = runtime by SHA-256."
+}

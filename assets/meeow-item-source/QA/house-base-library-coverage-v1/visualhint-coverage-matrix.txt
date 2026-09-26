@@ -1,0 +1,133 @@
+HOUSE BASE SPRITE LIBRARY — visualHint COVERAGE MATRIX
+Audit date: 2026-09-24
+
+Definition authority: js/meeow-item-visuals.js:5-9
+Coverage authority: active registry built at js/meeow-item-visuals.js:69-93
+
+Legend for FIRST-PARTY COVERAGE
+- SPECIFIC ONLY: one or more housefood:* canonical product sprites carry the value;
+  this is not generic-safe coverage.
+- NO: no active first-party registry entry carries the value.
+- Modifier coverage means a value appears on art but does not independently provide an
+  archetype for all objects that can use it.
+
+OBJECT (45 values; 44 concrete + unknown)
+
+VALUE      | NAMESPACE | DEFINED AT | FIRST-PARTY COVERAGE | ARCHETYPE-WORTHY
+fish       | object | meeow-item-visuals.js:6 | SPECIFIC ONLY (3) | YES — meal/snack/ingredient roles
+meat       | object | meeow-item-visuals.js:6 | SPECIFIC ONLY (2) | YES — meal/snack/ingredient roles
+egg        | object | meeow-item-visuals.js:6 | SPECIFIC ONLY (1) | YES — meal/ingredient roles
+fruit      | object | meeow-item-visuals.js:6 | NO | YES — ingredient/snack/dessert/beverage roles
+vegetable  | object | meeow-item-visuals.js:6 | SPECIFIC ONLY (2) | YES — meal/snack/ingredient roles
+grain      | object | meeow-item-visuals.js:6 | SPECIFIC ONLY (2) | YES — meal/snack/ingredient roles
+bread      | object | meeow-item-visuals.js:6 | NO | YES — meal/snack/dessert roles
+dessert    | object | meeow-item-visuals.js:6 | SPECIFIC ONLY (3) | YES — generic dessert/snack roles
+drink      | object | meeow-item-visuals.js:6 | SPECIFIC ONLY (3) | YES — generic beverage role
+branch     | object | meeow-item-visuals.js:6 | NO | YES — common nature souvenir
+stick      | object | meeow-item-visuals.js:6 | NO | YES, but lower priority beside branch/tool
+leaf       | object | meeow-item-visuals.js:6 | NO | YES — distinct nature silhouette
+flower     | object | meeow-item-visuals.js:6 | NO | YES — distinct nature/gift silhouette
+herb       | object | meeow-item-visuals.js:6 | NO | YES — nature/ingredient/fantasy reuse
+seed       | object | meeow-item-visuals.js:6 | NO | YES, but low observed frequency
+mushroom   | object | meeow-item-visuals.js:6 | NO | YES, but no fixed Explore evidence
+stone      | object | meeow-item-visuals.js:6 | NO | YES — frequent nature keepsake
+gem        | object | meeow-item-visuals.js:6 | NO | YES — jewelry/fantasy reuse
+crystal    | object | meeow-item-visuals.js:6 | NO | YES — frequent fantasy/mineral keepsake
+shell      | object | meeow-item-visuals.js:6 | NO | YES — fixture-backed travel keepsake
+bone       | object | meeow-item-visuals.js:6 | NO | YES, but low observed frequency
+feather    | object | meeow-item-visuals.js:6 | NO | YES — repeated travel/nature evidence
+book       | object | meeow-item-visuals.js:6 | NO | YES, but paper archetype covers V1 urgency
+paper      | object | meeow-item-visuals.js:6 | NO | YES — frequent maps/documents
+scroll     | object | meeow-item-visuals.js:6 | NO | YES, but paper archetype covers V1 urgency
+photo      | object | meeow-item-visuals.js:6 | NO | YES, but no fixed Explore evidence
+letter     | object | meeow-item-visuals.js:6 | NO | YES — Mail/Explore aligned
+bottle     | object | meeow-item-visuals.js:6 | NO | YES — potion/drift bottle/container
+cup        | object | meeow-item-visuals.js:6 | NO | YES, but one observed keepsake example
+mug        | object | meeow-item-visuals.js:6 | NO | YES — useful generic hot beverage
+jar        | object | meeow-item-visuals.js:6 | NO | YES, but no direct fixed evidence
+box        | object | meeow-item-visuals.js:6 | NO | YES, but no direct fixed evidence
+bag        | object | meeow-item-visuals.js:6 | NO | YES, but low observed frequency
+basket     | object | meeow-item-visuals.js:6 | NO | YES, but no direct fixed evidence
+coin       | object | meeow-item-visuals.js:6 | NO | YES — repeated collectible evidence
+key        | object | meeow-item-visuals.js:6 | NO | YES — repeated travel/fantasy evidence
+ring       | object | meeow-item-visuals.js:6 | NO | YES, but broad trinket covers V1 urgency
+necklace   | object | meeow-item-visuals.js:6 | NO | YES, but broad trinket covers V1 urgency
+cloth      | object | meeow-item-visuals.js:6 | NO | YES, but low observed frequency
+ribbon     | object | meeow-item-visuals.js:6 | NO | YES, but no direct fixed evidence
+rope       | object | meeow-item-visuals.js:6 | NO | YES, but lower priority than tool/trinket
+tool       | object | meeow-item-visuals.js:6 | NO | YES — very high actual Explore demand
+toy        | object | meeow-item-visuals.js:6 | NO | YES — repeated and visually distinct
+trinket    | object | meeow-item-visuals.js:6 | NO | YES — highest observed generic demand
+unknown    | object | meeow-item-visuals.js:6 | NO | NO — resolver rejects unknown object
+
+MATERIAL (14 values)
+
+VALUE    | NAMESPACE | DEFINED AT | FIRST-PARTY COVERAGE | ARCHETYPE-WORTHY
+organic  | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+wood     | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+stone    | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+mineral  | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+metal    | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+glass    | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+ceramic  | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+paper    | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+cloth    | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+leather  | material | meeow-item-visuals.js:7 | NO | NO alone — palette/texture modifier
+food     | material | meeow-item-visuals.js:7 | SPECIFIC ONLY (16) | NO alone — food-family modifier
+liquid   | material | meeow-item-visuals.js:7 | SPECIFIC ONLY (3) | NO alone — liquid modifier
+mixed    | material | meeow-item-visuals.js:7 | NO | NO alone — broad modifier
+unknown  | material | meeow-item-visuals.js:7 | NO | NO
+
+FORM (15 values)
+
+VALUE            | NAMESPACE | DEFINED AT | FIRST-PARTY COVERAGE | ARCHETYPE-WORTHY
+meal             | form | meeow-item-visuals.js:8 | SPECIFIC ONLY (6) | NO alone; crucial object composition modifier
+snack            | form | meeow-item-visuals.js:8 | SPECIFIC ONLY (4) | NO alone; crucial object composition modifier
+dessert          | form | meeow-item-visuals.js:8 | SPECIFIC ONLY (3) | NO alone; crucial object composition modifier
+beverage         | form | meeow-item-visuals.js:8 | SPECIFIC ONLY (3) | NO alone; crucial vessel/content modifier
+ingredient       | form | meeow-item-visuals.js:8 | NO | NO alone; high-value object composition modifier
+natural-object   | form | meeow-item-visuals.js:8 | NO | NO alone; nature composition modifier
+keepsake         | form | meeow-item-visuals.js:8 | NO | NO alone; travel/collectible modifier
+container        | form | meeow-item-visuals.js:8 | NO | NO alone; container modifier
+document         | form | meeow-item-visuals.js:8 | NO | NO alone; paper composition modifier
+jewelry          | form | meeow-item-visuals.js:8 | NO | NO alone; jewelry composition modifier
+craft-material   | form | meeow-item-visuals.js:8 | NO | NO alone; craft modifier
+tool             | form | meeow-item-visuals.js:8 | NO | NO alone; tool composition modifier
+toy              | form | meeow-item-visuals.js:8 | NO | NO alone; toy composition modifier
+household-object | form | meeow-item-visuals.js:8 | NO | NO alone; household modifier
+unknown          | form | meeow-item-visuals.js:8 | NO | NO
+
+CONTEXT (11 values)
+
+VALUE       | NAMESPACE | DEFINED AT | FIRST-PARTY COVERAGE | ARCHETYPE-WORTHY
+food        | context | meeow-item-visuals.js:9 | SPECIFIC ONLY (16) | NO alone — usage context
+household   | context | meeow-item-visuals.js:9 | NO | NO alone — usage context
+nature      | context | meeow-item-visuals.js:9 | NO | NO alone — source context
+travel      | context | meeow-item-visuals.js:9 | NO | NO alone — source context
+writing     | context | meeow-item-visuals.js:9 | NO | NO alone — usage context
+craft       | context | meeow-item-visuals.js:9 | NO | NO alone — usage context
+fantasy     | context | meeow-item-visuals.js:9 | NO | NO alone — style/source context
+collectible | context | meeow-item-visuals.js:9 | NO | NO alone — usage context
+gift        | context | meeow-item-visuals.js:9 | NO | NO alone — usage context
+market      | context | meeow-item-visuals.js:9 | NO | NO alone — source context
+unknown     | context | meeow-item-visuals.js:9 | NO | NO
+
+RESOLUTION CONSEQUENCES
+
+- Resolver weight: object=12, material=3, form=3, context=1.
+- Acceptance threshold: 12.
+- Exact object match alone makes a candidate eligible.
+- Secondary values rank candidates sharing an object but cannot prevent a lone wrong-role
+  candidate from matching every hint with that object.
+- Sprite aliases are not scored.
+- Name and description are not resolver inputs.
+- Multiple sprites with the same complete hint tuple are not independently addressable;
+  score ties resolve by quality tier and lexical sprite ID.
+
+PLANNING RULE DERIVED FROM THE MATRIX
+
+Base Library V1 should prefer one broad sprite per distinct, useful object/form role.
+Where one object must support incompatible roles (for example bottle as beverage versus
+potion/container), the library needs both candidates with accurate secondary tags.
+Highly specific food concepts that share the same tuple should not be multiplied until
+a future approved discriminator exists.

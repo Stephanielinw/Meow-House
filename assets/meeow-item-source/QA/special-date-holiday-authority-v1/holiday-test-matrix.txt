@@ -1,0 +1,48 @@
+SPECIAL DATE / HOLIDAY AUTHORITY V1 — TEST MATRIX
+
+Authority: browser/device local calendar date, 00:00–23:59:59 local.
+Pinned converter: lunar-javascript 1.7.7, bundled locally.
+All configured greetings remain unchanged.
+
+GREGORIAN RULES (2026 fixture dates)
+2026-01-01  new-years-day           元旦
+2026-02-14  valentines-day           情人节
+2026-04-01  april-fools-day          愚人节
+2026-05-01  labor-day                劳动节
+2026-06-01  childrens-day            儿童节
+2026-10-01  national-day             国庆节
+2026-10-31  halloween-eve            万圣节前夜
+2026-11-01  halloween                万圣节
+2026-12-24  christmas-eve            平安夜
+2026-12-25  christmas                圣诞节
+
+LUNAR RULES (lunar year 2026; corresponding device-local dates)
+2026-02-17  spring-festival          春节 (1/1)
+2026-03-03  lantern-festival         元宵节 (1/15)
+2026-03-20  dragon-raises-head       龙抬头 (2/2)
+2026-06-19  dragon-boat              端午节 (5/5)
+2026-08-19  qixi                     七夕节 (7/7)
+2026-09-25  mid-autumn               中秋节 (8/15)
+2026-10-18  double-ninth             重阳节 (9/9)
+2027-01-15  laba                     腊八节 (12/8)
+2027-01-30  little-new-year-north    北方小年 (12/23)
+2027-01-31  little-new-year-south    南方小年 (12/24)
+2027-02-05  lunar-new-years-eve      除夕 (computed from next lunar 1/1)
+
+BOUNDARIES AND FAILURES
+- 2026-03-12: ordinary day, no banner or interaction holiday block.
+- America/Los_Angeles: 2026-09-26T06:59:59Z is local 2026-09-25, Mid-Autumn active.
+- America/Los_Angeles: 2026-09-26T07:00:00Z is local 2026-09-26, Mid-Autumn inactive.
+- Local 00:00 refresh and visibility/focus refresh re-evaluate and reschedule.
+- Device clock/date change is adopted at the next visibility/focus refresh.
+- 03:00 operational-day constant remains in other game systems; holiday module does not read it.
+- Negative lunar months (leap months) do not match ordinary lunar festival rules.
+- Lunar conversion failure preserves Gregorian results and reports an error code.
+- A contrived Gregorian+lunar collision preserves rule order and lunar primary precedence.
+
+INTERACTION CONTEXT
+- Ordinary date: no holiday block.
+- Mid-Autumn/Christmas: current structured ID, name and greeting only.
+- Phone Direct Reply and Hall direct use the same dispatch-time holiday snapshot.
+- The Phone sidecar receives its own labeled block; Hall-only details remain outside it.
+- Later requests after a date refresh receive the new local date's context.

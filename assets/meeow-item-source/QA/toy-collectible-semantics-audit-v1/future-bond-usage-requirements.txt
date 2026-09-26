@@ -1,0 +1,26 @@
+FUTURE RESIDENT ↔ ITEM BOND, STATUS, AND CAT↔CAT GIFTING — DATA REQUIREMENTS
+Design notes only. None of these behaviors was implemented.
+
+1. RESIDENT ↔ ITEM BOND (MINIMUM)
+- Key future bond state by canonical resident ID + immutable physical uniqueId. Keep familiarity/use count/cherished level outside item semantic tags and outside visual identity. It must survive owner changes without rewriting uniqueId or originOwner.
+- Static item semantics need only role and primary interaction, plus optional stimulus. Future PROGRAM resident preferences can compare interaction/role; there is no basis now to manufacture cat preferences or a numerical bond score.
+- Repeated legitimate use could increase familiarity. "Cherished" is earned state, not AI classification and not a fixed value on every instance at creation.
+- A resident's current inventory container is the only ownership authority. A future bond record must not imply ownership, and ownership transfer must not silently rewrite item identity or giftHistory.
+- Ambiguous/unclassified objects can still be owned and gifted under current category rules, but should not drive an invented usage action.
+
+2. ITEM-USE STATUS (MINIMUM)
+- PROGRAM queries getResidentOwnedItems(residentId), chooses an exact currently owned physical uniqueId, verifies that role/action are valid for canonical item type, and decides whether an item-use event occurs. No probability, cooldown, or status implementation belongs in this pass.
+- Active toy status can use chase/bat/carry/cuddle/sniff. Passive collectible status can use observe/carry, provided the actual item supports it. A role=display collectible should not receive chase/bat just because its sprite is small.
+- Optional stimulus changes presentation detail (rolling, swinging, glowing, scented) but is never proof of an action on its own. A status writer may receive structured item identity/name, approved action, and observable cue; it must not invent ownership or change the selected item.
+- If required role/action are absent, malformed, or semantically incompatible, PROGRAM skips item-use selection for that item; it remains visible in resident inventory.
+- A visualHint/first-party sprite identifies appearance, not usability. A consumed Shop toy also has gameplay effect, but that existing effect does not define a future resident action.
+
+3. RARE SPECIAL-EVENT CAT↔CAT GIFTING
+- No new semantic namespace or field is specifically needed for event occurrence. PROGRAM gates event/date/milestone, relationship change, cooldown, actual donor ownership, exact physical uniqueId, canonical transferability, and recipient validity outside item tags.
+- A later selector may use role/action to prefer a plausible item for a recipient, but may also choose among valid owned objects without relying on semantics. Do not let AI choose the event, item, transfer, giver, recipient, or ownership mutation.
+- Existing provenance giftHistory already supports resident→resident from/to records. A future implementation appends an event while moving the same instance; it does not need a giftable tag, firstGiver field, or duplicate currentOwner.
+
+4. OPEN DESIGN DEBT
+- No approved Toy or Collectible semantic registry currently exists. Future implementation should first add a versioned closed registry/normalizer compatible with the existing Food registry style and explicit category constraints.
+- "Read", "wear", "equip", "consume", "craft" and safety/fragility are not justified as playable resident actions by current item systems; handle these in dedicated later work if real behaviors require them.
+- A separate resident preference contract and bond-state lifecycle will be needed after semantic validation, but neither belongs to the item tag vocabulary.

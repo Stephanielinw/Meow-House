@@ -1,0 +1,241 @@
+{
+  "version": 1,
+  "sheet": "D",
+  "status": "REVIEW / NOT LOCKED",
+  "reference": "/var/folders/c4/jrxpgprn1rs8_3vkrhn61vyr0000gp/T/codex-clipboard-dda2387f-4751-4dee-8a12-1a3df5dc7466.png",
+  "method": "Reference object extraction from checkerboard, nearest-neighbor logical-grid conversion, no-dither palette cleanup, binary alpha; no redesign.",
+  "sprites": [
+    {
+      "id": "baseitem:branch",
+      "name": "树枝",
+      "filename": "branch.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/branch.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/branch.png",
+      "sha256": "0e21a586cb753de912a9149272e5a0c48c36f3af704828c3ac6de23cfbde5c3e",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        6,
+        60,
+        57
+      ],
+      "marginsLTRB": [
+        4,
+        6,
+        4,
+        7
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:herb",
+      "name": "草药",
+      "filename": "herb.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/herb.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/herb.png",
+      "sha256": "beb0d4cd3c85e7c153c73d5cf00b538385d3c81bc84f8e491301285e87a5efb3",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        7,
+        3,
+        56,
+        59
+      ],
+      "marginsLTRB": [
+        7,
+        3,
+        8,
+        5
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:stone",
+      "name": "石头",
+      "filename": "stone.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/stone.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/stone.png",
+      "sha256": "95805083de6a030327aed38c1b6b979a115b8c1e57ff992a71573b8da7c3afad",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        11,
+        60,
+        53
+      ],
+      "marginsLTRB": [
+        4,
+        11,
+        4,
+        11
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:crystal",
+      "name": "水晶",
+      "filename": "crystal.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/crystal.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/crystal.png",
+      "sha256": "c2b70b0c1d566f55c2bd6d41cb92d637c719afc01b14866e70aa7bc4b6f4e025",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        5,
+        5,
+        60,
+        58
+      ],
+      "marginsLTRB": [
+        5,
+        5,
+        4,
+        6
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:shell",
+      "name": "贝壳",
+      "filename": "shell.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/shell.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/shell.png",
+      "sha256": "a95e37252101ba0ebba2f1ec51bc25e0cb1b239e2b17f0716f1a29015885e78d",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        6,
+        60,
+        58
+      ],
+      "marginsLTRB": [
+        4,
+        6,
+        4,
+        6
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:feather",
+      "name": "羽毛",
+      "filename": "feather.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/feather.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/feather.png",
+      "sha256": "11532af5dce4f39794050963f92512511fa3bb11e85308b9a0c1acc2a3dda84a",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        10,
+        4,
+        54,
+        59
+      ],
+      "marginsLTRB": [
+        10,
+        4,
+        10,
+        5
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:leaf",
+      "name": "叶片",
+      "filename": "leaf.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/leaf.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/leaf.png",
+      "sha256": "5e6c84fa53cc7a9a18d3fc6bc59a3f5e48ea8382944cf7d1fb909718fbea4bf2",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        5,
+        4,
+        58,
+        59
+      ],
+      "marginsLTRB": [
+        5,
+        4,
+        6,
+        5
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    },
+    {
+      "id": "baseitem:flower",
+      "name": "花朵",
+      "filename": "flower.png",
+      "sourceFile": "assets/meeow-item-source/house-base-library-v1/flower.png",
+      "runtimeFile": "assets/item-sprites/library/house-base-library-v1/flower.png",
+      "sha256": "9495644f359d4b7a007bba9f39b5ad47b5bdbe59321945978b47e7d474ca9886",
+      "dimensions": [
+        64,
+        64
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "opaqueBBox": [
+        4,
+        7,
+        60,
+        56
+      ],
+      "marginsLTRB": [
+        4,
+        7,
+        4,
+        8
+      ],
+      "status": "REVIEW / NOT LOCKED"
+    }
+  ]
+}

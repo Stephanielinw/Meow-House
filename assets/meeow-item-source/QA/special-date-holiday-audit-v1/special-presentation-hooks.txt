@@ -1,0 +1,16 @@
+SPECIAL-DATE PRESENTATION HOOKS — WHAT IS REACHABLE
+
+EFFECT | DETECTION DEPENDENCY | RENDER / CONSUMER | CURRENT REACHABILITY
+Small holiday label in Hall guardian message | todayEvent from checkSpecialEvent | index.html:29205 mounts prefix; 27952 successful status-sync prefix; 5426 template renders alfredMessage | Reachable but transient/conditional. enterHall() at 14717/14727 overwrites the message with generic Hall text. No independent holiday slot.
+AI/background date context | getDateContext() plus todayEventContext for current operational day | index.html:19382-19420; consumed by Hall/status/archive/daily partner prompts near 24775, 25308, 25643, 25706 | Reachable conditionally when a relevant generation runs; not a deterministic visual display. Historical archive date gets only four solar prompt holidays, no lunar calculation.
+User birthday toast | user.birthday match inside checkSpecialEvent | index.html:13824-13834 | Reachable on detector invocation; birthday replaces festival name/context.
+Resident birthday text | cat.birthday match inside checkSpecialEvent | index.html:13836 | Reachable via the same small message/prompt path.
+"A Special Moment" modal | affinity Easter egg or first human reveal, not todayEvent | index.html:8861-8874, triggerEasterEgg ~14263, triggerHumanFormEvent ~16608 | Reachable independently of calendar. NOT a holiday presentation hook despite name.
+Easter-egg button | resident affinity >=90 and chance | index.html:5913, 14184 | Independent of holidays.
+Hall scenery, background/theme, decoration, particles, banner, holiday notice/card, icon/accent change | no holiday consumer found in template/CSS/JS | none | Not implemented in current code or earliest available import; do not describe as a disconnected former asset without evidence.
+
+KEY INVARIANT
+todayEvent and todayEventContext are reactive refs, but neither is directly rendered as a persistent holiday component. Returning todayEvent from setup (~29272) is not the same as using it in the template. The visible Hall text is one shared mutable alfredMessage that many ordinary flows replace.
+
+HISTORICAL COMPARISON
+The earliest available 2026-08-06 index.html already used the same brief message prefix and unrelated special modal. Git history available here provides no evidence of a removed festival skin or dedicated Mid-Autumn scene. The user-observed absence is consistent with this limited implementation; broader original design intent is not recoverable from available code alone.

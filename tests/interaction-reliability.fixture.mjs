@@ -392,7 +392,7 @@ assert.doesNotMatch(hallSceneApplySource, /validateOptionalHallScene\(/, 'late p
 assert.match(hallSceneApplySource, /type: sceneToApply\.scene\.type/);
 assert.match(hallSceneApplySource, /userText: sceneMode === 'user-directed' \? String\(sceneContext\?\.rawUserText \|\| ''\) : null/);
 assert.match(hallSceneApplySource, /storeSharedSceneEpisodicMemories\(record, sceneToApply\.scene\.memoryMeta\)/);
-assert.match(hallSceneApplySource, /applyResidentRelationshipDeltas\(record, sceneToApply\.scene\.relationshipDeltas\)/);
+assert.match(hallSceneApplySource, /applyHallSceneRelationshipConsequences\(\s*record, sceneToApply\.scene\.relationshipDeltas, relationshipDiagnostic\)/);
 assert.match(hallSceneApplySource, /setHallSceneFocus\(record\)/);
 assert.match(hallSceneApplySource, /applySuccessfulInteractionUserStatus\(sceneToApply\.scene\.userStatus\)/);
 assert.match(hallSceneApplySource, /HALL SCENE WRITTEN:/);

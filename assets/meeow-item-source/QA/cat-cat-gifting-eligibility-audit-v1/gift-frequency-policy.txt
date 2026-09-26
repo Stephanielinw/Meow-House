@@ -1,0 +1,18 @@
+SPECIAL-EVENT CAT↔CAT GIFTING — CONSERVATIVE FREQUENCY POLICY V1
+Proposal only; no cooldowns or gifting code were added. All durations require product balance approval.
+
+Comparison
+A. Donor-level 90-day cooldown: prevents one resident emptying inventory across many recipients. Necessary.
+B. Canonical unordered resident-pair 180-day cooldown: prevents repeated gifts in either direction between the same two residents. Necessary. Use getCanonicalResidentPairKey; retain donor/recipient direction in the event record.
+C. Exact physical item 365-day CAT↔CAT transfer cooldown: prevents rapid circulation of one uniqueId and gives a transfer time to settle. Necessary when multi-transfer items are allowed. Apply across all resident donors and recipients.
+D. Global CAT↔CAT cooldown: not recommended in V1; would make one pair block unrelated residents and is redundant with strict special-event/date gates plus A–C. Could be revisited only if telemetry shows spam.
+
+Additional deterministic safeguards
+- One completed special-event marker may authorize at most one gift, even if its scene has more than two participants.
+- Donor must retain at least one other eligible physical item after the move; at minimum prohibit gifting the last resident-owned eligible item. Exact inventory floor is a product choice.
+- Reject return to the immediately preceding resident owner. Stronger recommended anti-loop rule: recipient cannot be a resident who previously appears as a giver (from.kind=resident) of that exact uniqueId in append-only giftHistory. This detects A→B→A without prose. If prior owner provenance indicates the recipient originally owned the item, default reject until product policy says otherwise.
+- If future product permits unlimited multi-transfer, add a maximum CAT↔CAT transfer count per uniqueId. Recommended V1 default is at most two CAT↔CAT hops, pending approval. This is independent from the 365-day time gate.
+- Require donor ownership, valid provenance and bond, recipient roster membership, different IDs, active holiday, completed special marker, and trend immediately before commit. Failure must not substitute an equivalent item or consume the event.
+
+Authority source
+Append-only item giftHistory supports exact-item cooldown and anti-loop while the item remains accessible. It cannot reliably answer donor or pair cooldown after a gifted item is later removed or unavailable. Persist a compact gift-event ledger in the same user save, indexed by eventId/sourceSpecialEventId/donor/pair/item and committed atomically with ownership. Do not use transient UI state or AI text.

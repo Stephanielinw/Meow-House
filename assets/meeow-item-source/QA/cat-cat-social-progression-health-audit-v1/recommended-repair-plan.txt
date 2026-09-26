@@ -1,0 +1,22 @@
+CAT↔CAT SOCIAL PROGRESSION — SMALLEST COHERENT REPAIR PLAN
+Design only. No production constants, prompts, state, saves, AI calls or gifting were changed.
+
+A. BUG FIXES / INTEGRITY
+- No confirmed dead social scheduler, missed accepted-scene apply call, normalization loss or stale reactive UI was found. Existing fixtures pass. Do not change relationship mathematics blindly.
+- Diagnostic gap: accepted scene caller ignores applyHallSceneRelationshipConsequences return. Record a compact outcome code and distinguish applied semantic change, exposure-only, invalid normalized delta, saturation, receipt mismatch and rollback. Do not turn an integrity failure into a success cue. Instrument accepted-scene and rejection counts before tuning.
+- Confirmed timing interaction: the 20-minute automatic timer checks a 20-minute cooldown stamped at request completion. With nonzero request duration and regular foreground ticks, the next tick is skipped and cadence becomes about 40 minutes. Scene-less Status Sync also refreshes Hall/global freshness and can postpone ambient opportunities. Separate social-opportunity freshness from generic status freshness or schedule the next check from completion; retain coalescing and retry safety. Actual runtime incidence still needs diagnostics because browser timer drift varies.
+
+B. FREQUENCY TUNING
+- Use one central per-Hall ambient opportunity cadence at the existing Hall Status Sync boundary, with a due stamp distinct from ordinary status freshness. Piggyback on existing AI call; do not add calls. Do not raise every timer or force a scene. Product should set an observable target for accepted scenes only after counting valid/null/quarantined outcomes.
+- Add bounded pair fairness to PROGRAM's allowed participant pool or scheduling hint only after measuring concentration. Current ambient AI chooses participants, and high occupancy plus Away/Curator/protected residents can starve pairs. Preserve group scenes but decide whether all group co-participants should count as exposure.
+
+C. RELATIONSHIP CONSEQUENCE COVERAGE
+- Keep most interactions neutral. Do not automatically change warmth/trust/tension for co-presence or Active Social Presence. First measure valid accepted scenes with [], invalid proposals and saturated deltas. If meaningful completed scenes lack structured consequences too often, refine the existing relationshipDeltas sidecar contract in the same Status Sync call and validate it at the accepted Hall scene boundary; do not infer from prose after the fact or add AI calls. Separate this from exposure familiarity.
+- Preserve signed, directional deltas and normal rollback/idempotency. A→B and B→A may differ. A future gifting trend gate should read applied sourceKey shared-scene:<sceneId> events with recent warmth/trust increase or tension decrease, excluding :program-familiarity. The previous audit proposed 14 days; product approval remains needed.
+
+D. USER FEEDBACK
+- Add one subtle consequence indicator attached to the accepted Hall scene only when actual applied social dimensions changed, using PROGRAM receipt/results and a qualitative phrase such as 关系发生变化. Make pair detail reachable from that indicator. Avoid a popup for every familiarity exposure or ordinary scene. Keep exact directions and signed changes in archive history.
+
+Potential future modification sites: index.html Hall status scheduling and scene accept/apply (~25790, ~27983, ~28286), Social Attention only if product explicitly authorizes a completed social consequence (~21840–22750), relationship archive/feed template (~5352 and ~8717), js/meeow-data.js normalizers only if new diagnostic state requires it, and focused fixtures tests/resident-relationship-progression.fixture.mjs, tests/homepage-ambient-refresh.fixture.mjs, tests/active-social-presence.fixture.mjs. Prefer no schema change for the first feedback/diagnostic pass.
+
+Readiness: recent positive trend can be derived from timestamped applied directional events, but volume is unmeasured and potentially sparse. Instrument/tune Hall scene opportunity and surface actual changes before implementing rare CAT↔CAT gifting. Static production callAI( remains 40.

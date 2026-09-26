@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import socialActivity from '../js/meeow-social-activity.js';
 
 const appSource = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const normalizerStart = appSource.indexOf('const normalizeHallStatusSyncTimestamp');
@@ -25,7 +26,7 @@ assert.ok(statusSettlementStart >= 0 && statusSettlementEnd > statusSettlementSt
 const statusSettlementSource = appSource.slice(statusSettlementStart, statusSettlementEnd);
 
 const now = Date.now();
-const makeHall = (id, lastSuccessfulStatusSyncAt = '') => ({ id, name: `Hall ${id}`, lastSuccessfulStatusSyncAt });
+const makeHall = (id, lastHallSocialOpportunityAt = '') => ({ id, name: `Hall ${id}`, lastHallSocialOpportunityAt });
 const makeResident = (id, hallId, overrides = {}) => ({ id, hallId, physicalHallId: hallId, ...overrides });
 const calls = [];
 const activePresenceIdsByHall = new Map();
@@ -34,6 +35,7 @@ const sandbox = {
     Date,
     Map,
     Set,
+    socialActivity,
     console,
     HOMEPAGE_DIRECT_FRESHNESS_MS: 20 * 60 * 1000,
     homepageHallAmbientRefreshPending: new Map(),
@@ -50,6 +52,7 @@ const sandbox = {
     isResidentAway: cat => Boolean(cat?.away),
     isResidentInCuratorRoom: cat => Boolean(cat?.curator),
     getResidentPhysicalHallId: cat => String(cat?.physicalHallId || ''),
+    isSharedSceneResidentEligible: (cat, hallId) => Boolean(cat && !cat.away && !cat.curator && String(cat.physicalHallId) === String(hallId)),
     getActiveSocialPresenceParticipantIds: hallId => [...(activePresenceIdsByHall.get(String(hallId)) || [])],
     addLog: () => {},
     showToast: () => {},
@@ -104,10 +107,10 @@ scheduler.pending.set('a', { hallId: 'a', queuedAt: now - 60_000, lastQueuedAt: 
 assert.equal(statusSettlement.isQualifyingHallWidePresentationStatusRequest({ requestOptions: {}, activeCatIds: [] }), true);
 statusSettlement.settleHallStatusRefresh({
     requestHallId: 'a', didRefresh: true, qualifyingHallWideRefresh: true, successfulAt: now,
-    trackBackgroundPending: false
+    trackBackgroundPending: false, statusCompletion: { socialOpportunityCommitted: true }
 });
 assert.equal(scheduler.pending.has('a'), false, 'a later successful full-Hall refresh must consume the older ambient opportunity');
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
 sandbox.cats.value = [makeResident('a1', 'a'), makeResident('a2', 'a')];
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now + 21 * 60 * 1000));
 assert.equal(calls.length, 0, 'a superseded opportunity must not resurrect once Hall freshness becomes stale again');
@@ -133,11 +136,11 @@ assert.equal(statusSettlement.isQualifyingHallWidePresentationStatusRequest({ re
 // Hall freshness is independent. A successful Status Sync in Hall B cannot
 // postpone stale pending work in Hall A, and vice versa.
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
-hall('b').lastSuccessfulStatusSyncAt = new Date(now).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
+hall('b').lastHallSocialOpportunityAt = new Date(now).toISOString();
 const a1 = makeResident('a1', 'a');
 const a2 = makeResident('a2', 'a');
-sandbox.cats.value = [a1, a2, makeResident('b1', 'b')];
+sandbox.cats.value = [a1, a2, makeResident('a3', 'a'), makeResident('b1', 'b')];
 assert.equal(scheduler.queueHomepageHallAmbientRefresh(a1, now - 60_000), true);
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
 assert.equal(calls.length, 1);
@@ -145,12 +148,12 @@ assert.equal(calls[0][6].requestHallId, 'a');
 await flush();
 
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now).toISOString();
-hall('b').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now).toISOString();
+hall('b').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
 sandbox.activeHallId.value = 'b';
 const b1 = makeResident('b1', 'b');
 const b2 = makeResident('b2', 'b');
-sandbox.cats.value = [makeResident('a1', 'a'), b1, b2];
+sandbox.cats.value = [makeResident('a1', 'a'), b1, b2, makeResident('b3', 'b')];
 assert.equal(scheduler.queueHomepageHallAmbientRefresh(b1, now - 60_000), true);
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
 assert.equal(calls.length, 1);
@@ -160,7 +163,7 @@ await flush();
 // A fresh Hall coalesces multiple direct replies without dispatching. When its
 // own Hall timestamp becomes stale, protected residents are derived per ID.
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 2 * 60 * 1000).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now - 2 * 60 * 1000).toISOString();
 const protectedA = makeResident('a', 'a');
 const protectedB = makeResident('b', 'a');
 const bystander = makeResident('c', 'a');
@@ -170,7 +173,7 @@ assert.equal(scheduler.queueHomepageHallAmbientRefresh(protectedB, now - 12 * 60
 assert.equal(scheduler.pending.size, 1);
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
 assert.equal(calls.length, 0, 'fresh Hall must not issue Status early');
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
 assert.equal(calls.length, 1);
 assert.deepEqual([...calls[0][2]], ['b'], 'A has expired while B remains protected by its newer direct reply');
@@ -182,7 +185,7 @@ await flush();
 // rolling direct-reply window, then becomes eligible again when the lifecycle
 // record is removed.
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
 const anchorA = makeResident('anchor-a', 'a');
 const presenceB = makeResident('presence-b', 'a');
 const ambientC = makeResident('ambient-c', 'a');
@@ -204,7 +207,7 @@ await flush();
 
 // No request is made when every physical resident is still protected.
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
 const onlyA = makeResident('only-a', 'a');
 sandbox.cats.value = [onlyA];
 scheduler.queueHomepageHallAmbientRefresh(onlyA, now - 60_000);
@@ -229,8 +232,8 @@ for (const surface of [
     () => { sandbox.currentTab.value = 'explore'; }
 ]) {
     reset();
-    hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
-    sandbox.cats.value = [makeResident('a1', 'a'), makeResident('a2', 'a')];
+    hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
+    sandbox.cats.value = [makeResident('a1', 'a'), makeResident('a2', 'a'), makeResident('a3', 'a')];
     scheduler.queueHomepageHallAmbientRefresh(sandbox.cats.value[0], now - 60_000);
     surface();
     assert.equal(scheduler.isContextuallyViewingHallPresentation('a'), false);
@@ -261,8 +264,8 @@ assert.equal(scheduler.isContextuallyViewingHallPresentation('a'), false);
 
 // A pending Hall must not dispatch while another Hall is being observed.
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
-sandbox.cats.value = [makeResident('a1', 'a'), makeResident('a2', 'a')];
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
+sandbox.cats.value = [makeResident('a1', 'a'), makeResident('a2', 'a'), makeResident('a3', 'a')];
 scheduler.queueHomepageHallAmbientRefresh(sandbox.cats.value[0], now - 60_000);
 sandbox.activeHallId.value = 'b';
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
@@ -276,8 +279,8 @@ await flush();
 // An in-flight Status request is never joined with a newly computed exclusion
 // set, and a failed dispatch is delayed rather than retried on every world tick.
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
-sandbox.cats.value = [makeResident('active', 'a'), makeResident('other', 'a')];
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
+sandbox.cats.value = [makeResident('active', 'a'), makeResident('other', 'a'), makeResident('third', 'a')];
 scheduler.queueHomepageHallAmbientRefresh(sandbox.cats.value[0], now - 60_000);
 sandbox.statusRefreshInFlight.set('a', {});
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
@@ -301,14 +304,14 @@ await flush();
 // completes and makes the Hall fresh, the retained ambient record cannot fire
 // immediately as a redundant second request.
 reset();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now - 21 * 60 * 1000).toISOString();
-sandbox.cats.value = [makeResident('active', 'a'), makeResident('other', 'a')];
+hall('a').lastHallSocialOpportunityAt = new Date(now - 21 * 60 * 1000).toISOString();
+sandbox.cats.value = [makeResident('active', 'a'), makeResident('other', 'a'), makeResident('third', 'a')];
 scheduler.queueHomepageHallAmbientRefresh(sandbox.cats.value[0], now - 60_000);
 sandbox.statusRefreshInFlight.set('a', { priority: 'foreground' });
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
 assert.equal(calls.length, 0);
 sandbox.statusRefreshInFlight.clear();
-hall('a').lastSuccessfulStatusSyncAt = new Date(now).toISOString();
+hall('a').lastHallSocialOpportunityAt = new Date(now).toISOString();
 scheduler.reconcileHomepageHallAmbientRefreshes(new Date(now));
 assert.equal(calls.length, 0);
 assert.equal(scheduler.pending.size, 1);
@@ -334,6 +337,10 @@ const makeAutoSandbox = ({ tab = 'lounge', view = 'room' } = {}) => {
         isResidentAway: cat => Boolean(cat?.away),
         isResidentInCuratorRoom: cat => Boolean(cat?.curator),
         getResidentPhysicalHallId: cat => String(cat?.physicalHallId || ''),
+        halls: { value: [makeHall('a')] },
+        getAutomaticHallSocialCandidates: () => [],
+        socialActivity,
+        socialOpportunityClaims: new Map(),
         localStorage: { getItem: () => '0' },
         addLog: () => {},
         refreshAllStatus: async () => { statusCalls += 1; return true; },
@@ -357,6 +364,7 @@ assert.equal(autoOnPhone.mailboxCalls, 0);
 // shared ACTIVE INTERACTION addendum.
 assert.match(appSource, /lastSuccessfulStatusSyncAt/);
 assert.match(appSource, /lastSuccessfulStatusSyncAt: normalizeHallStatusSyncTimestamp\(savedHall\.lastSuccessfulStatusSyncAt\)/);
+assert.match(appSource, /const normalizedSocialAt = normalizeHallStatusSyncTimestamp\(hall\?\.lastHallSocialOpportunityAt\)/);
 assert.match(appSource, /const persistedHall = halls\.value\.find/);
 assert.match(appSource, /if \(!curatorRoomStatusSync\) \{\s*const completedStatusSyncAt/s);
 assert.match(appSource, /activeIdsAreExclusionsOnly = requestOptions\.activeIdsAreExclusionsOnly === true/);
