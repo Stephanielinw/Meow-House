@@ -1,0 +1,9 @@
+RED CONNECTIVITY READINESS
+- curator-bed-surface: requires-future-transition; future transition likely YES
+- curator-rug-surface: direct-floor-continuous; future transition likely NO
+- curator-desk-top: requires-future-transition; future transition likely YES
+- curator-wardrobe-top: requires-future-transition; future transition likely YES
+- curator-chair-seat: requires-future-transition; future transition likely YES
+- curator-bedside-cabinet-top: requires-future-transition; future transition likely YES
+- curator-window-ledge: requires-future-transition; future transition likely YES
+Only the floor-layer rug is visibly continuous with painted ground. Furniture masks touching black do not establish reachability. No approach anchor, edge, spawn, entrance, or movement rule is authored.

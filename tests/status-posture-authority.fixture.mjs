@@ -137,7 +137,7 @@ for (const call of statusCalls) assert.match(call, /\bposture\b\s*(?::|[,}])/, `
 assert.deepEqual(indexSource.match(/cat\.status\s*=/g), ['cat.status ='], 'only daily snapshot restoration may directly restore status');
 for (const producerMarker of [
     'Homepage Chat posture 无效', 'residentUpdates":[{"id"', 'Light interaction posture invalid',
-    'entry ${index} has invalid posture', 'plannedReturnPosture', 'Character Generator posture invalid',
+    'entry ${index} has invalid posture', 'plannedReturnPosture',
     'social-presence-entry'
 ]) assert.ok(indexSource.includes(producerMarker), `missing producer posture contract: ${producerMarker}`);
 assert.ok(inventorySource.includes('validateStatusPosture(status, posture)'));
@@ -202,6 +202,6 @@ assert.match(indexSource, /if \(!cat \|\| getResidentForm\(cat\) !== 'CAT'\) ret
 assert.match(indexSource, /statusActivity: statusPosture\.normalizeStatusActivity\(cat\.statusActivity\)/);
 assert.match(indexSource, /const restoredStatusActivity = statusPosture\.normalizeStatusActivity\(savedCat\.statusActivity\)/);
 assert.ok(indexSource.includes("<script src=\"./js/meeow-status-posture.js\"></script>"));
-assert.equal((indexSource.match(/callAI\(/g) || []).length, 40);
+assert.equal((indexSource.match(/callAI\(/g) || []).length, 38);
 
 console.log('Status posture authority fixture passed.');

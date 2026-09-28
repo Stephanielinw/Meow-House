@@ -1,0 +1,6 @@
+AMBIENT RUNTIME GENERICITY
+GENERIC-READY: opaque resident IDs; independent timers/generation tokens; four structured poses; same-surface neighbor search; occupancy/reservation; bounded idle, no-free-target retry; motion cancellation; zero save writes and zero AI.
+PROTOTYPE-BOUND: one hardcoded getRoom('gotham','living') in index.html; one sidecar key; ambientEntrySlot explicitly maps living-rug and sofa-seat to components and requires exact foot equality; eight discrete slots; no floor<->sofa edge; diagnostic overlay tied to active Gotham living map. Spatial context gates room/page visibility.
+No resident-ID special case in production ambient path. Generic room expansion is feasible by replacing hardcoded room/point mapping with authored sidecar registry and map-point entry contract, not by adding 55 branches.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

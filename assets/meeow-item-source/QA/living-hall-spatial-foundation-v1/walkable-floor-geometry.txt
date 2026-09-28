@@ -1,0 +1,6 @@
+Living Hall Spatial Foundation V1 — walkable floor
+
+Versioned room entry gotham::living uses a conservative authored rug interior rectangle: x=240, y=600, width=365, height=150, in canonical pixels.
+This is smaller than the visible rug and is intentionally not a claim that the full living-room floor is traversable. Both destinations and their entire straight route remain inside it.
+pointIsWalkable requires a point inside an authored floor rectangle and outside every authored obstacle footprint. segmentIsWalkable checks endpoints, rectangle boundary crossings, and each resulting interval; it is deterministic and foot-point-only.
+No runtime pixel scan, alpha threshold, sprite bounds, or full-room navigation mesh is used.

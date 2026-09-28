@@ -1,0 +1,5 @@
+PROGRAM ACTION AUTHORITY ROADMAP — FUTURE
+Current Status/API may still determine ordinary activity, map point, and stored posture. This pass only lets PROGRAM own a transient physical stand/move/rest action while it has ambient Hall ownership.
+Future target: PROGRAM selects legal ordinary action, target, posture, and physical consequence; structured personality influences deterministic choice. AI may narrate the already-selected action. Existing Status fields, cadence, and Hall event authority remain unchanged for now.
+Fixed discrete rug/sofa slots remain V1 validation infrastructure. Free-Floor Roaming / Navigation V1 is separate debt: varied legal destinations in a connected walkable floor region, while exact authored slots remain useful for seats, cushions, observation points, and interaction locations. No free-floor generator or pathfinder is implemented.
+Master Motion is a separate next visual layer: replace static Standing slide with walk and pose transition art without changing behavior authority, target selection, occupancy, or timing.

@@ -1,0 +1,6 @@
+Living Hall Spatial Foundation V1 — destination slots
+
+A: rug-a, foot (443,716). This aligns with the existing living-rug region's first marker placement and minimizes activation movement within the same logical rug point.
+B: rug-b, foot (560,690), near an existing rug anchor.
+Both points pass pointIsWalkable and fail pointInObstacle. The V1 controller has no alternative destination, random roll, or slot substitution.
+These slots are test destinations, not a general POI/occupancy system.

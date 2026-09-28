@@ -1,0 +1,6 @@
+RESIDENT-SPECIFIC LOGIC AUDIT
+createAmbientSimulation stores residents by arbitrary String(id), and its decisions use slot, normalized structured pose, canOwnResident, occupancy and reservations (js/meeow-hall-spatial.js:181-459). index.html:12579-12647 feeds CAT residents from active Gotham living markers. No built-in ID or fandom whitelist is present in this ambient path. The one-shot spatial prototype has a requested-resident debug filter; it is separate from ambient autonomy.
+Visual preset keys are identity-specific appearance data, not locomotion rules. The current gating issue is hall/room/entry geometry. Generated resident:UUID meets the same runtime ID shape; fixture renders one synthetic generated resident in all four poses.
+Future basic eligibility must remain based on authoritative placement, valid structured pose, visual/body support, availability, and surface metadata. Personality may weight decisions later, never grant geometry.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

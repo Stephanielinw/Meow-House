@@ -1,0 +1,8 @@
+OBSOLETE PLACEHOLDER COORDINATES
+- bed (床边): old 24%,73% = (246, 748); painted surface ['curator-rug-surface']; furniture alpha ['carpet']; misleading: on rug rather than beside bed.
+- nightstand (床头柜旁): old 39%,65% = (399, 666); painted surface ['curator-floor']; furniture alpha ['none']; misleading: legal floor but far below cabinet.
+- desk (书桌前): old 73%,64% = (748, 655); painted surface ['unmarked']; furniture alpha ['Table']; invalid: unmarked desktop art.
+- window (窗边): old 79%,25% = (809, 256); painted surface ['unmarked']; furniture alpha ['closet']; invalid: unmarked closet front.
+- wardrobe (衣柜旁): old 20%,31% = (205, 317); painted surface ['curator-bed-surface']; furniture alpha ['bed']; misleading: on bed rather than beside closet.
+- floor (房间里): old 51%,76% = (522, 778); painted surface ['unmarked']; furniture alpha ['Table']; invalid: unmarked table/front art.
+The old window point (809,256) lies over closet art; bed lies on the rug; wardrobe lies on the bed. Desk, window and floor are outside both authored legal masks. All six IDs are location labels; structured pose comes from statusActivity.posture and activity prose from cat.status, with no per-ID pose rule. Old XY is retained only in this audit.

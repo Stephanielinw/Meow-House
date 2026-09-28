@@ -1,0 +1,2 @@
+FUTURE SPATIAL POSITION (DOCUMENT ONLY)
+A later resident position may carry room=curator-room, surface=floor or one of the seven authored surface IDs, and a canonical foot x,y. This is distinct from current curatorRoomPresence.anchor and structured Status posture. No save/Status migration or runtime projection is included. Accepted higher-authority presence and Status events must retain precedence.

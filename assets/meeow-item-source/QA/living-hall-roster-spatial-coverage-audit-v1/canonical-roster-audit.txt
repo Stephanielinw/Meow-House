@@ -1,0 +1,65 @@
+CANONICAL ROSTER AUDIT V1
+Built-in regression corpus: 55 unique IDs. Hall distribution: gotham=8, marvel=11, greek=8, troy=10, underworld=6, olympus=12.
+Every built-in has a visual preset; saved visual overrides derived preset. All 55 resolve under allowDerived. Body distribution: fluffy=22, slim=12, standard=15, chubby=6.
+Generated residents are outside this corpus. OC, Fandom Invite and Fandom Random commit via js/meeow-adoption-drafts.js with resident:UUID, validated saved visual, structured standing Status. New Hall uses the same saved-visual shape in index.html createHall. No built-in roster membership is required by createAmbientSimulation; a generated resident with valid CAT visual/pose and supported authoritative Hall placement can enter the same contract. New/custom Halls currently lack sidecars, so their generated residents cannot yet move there.
+
+ID | HALL | RESOLVED BODY | VISUAL SOURCE
+gotham-bruce | hall=gotham | body=fluffy | visual=derived
+gotham-dick | hall=gotham | body=slim | visual=derived
+gotham-jason | hall=gotham | body=standard | visual=derived
+gotham-tim | hall=gotham | body=slim | visual=derived
+gotham-damian | hall=gotham | body=slim | visual=derived
+gotham-stephanie | hall=gotham | body=standard | visual=derived
+gotham-cassandra | hall=gotham | body=standard | visual=derived
+gotham-barbara | hall=gotham | body=fluffy | visual=derived
+marvel-peter | hall=marvel | body=standard | visual=derived
+marvel-harry | hall=marvel | body=fluffy | visual=derived
+marvel-tony | hall=marvel | body=standard | visual=derived
+marvel-wade | hall=marvel | body=standard | visual=derived
+marvel-steve | hall=marvel | body=fluffy | visual=derived
+marvel-bucky | hall=marvel | body=fluffy | visual=derived
+marvel-natasha | hall=marvel | body=slim | visual=derived
+marvel-thor | hall=marvel | body=fluffy | visual=derived
+marvel-loki | hall=marvel | body=slim | visual=derived
+marvel-clint | hall=marvel | body=standard | visual=derived
+marvel-yelena | hall=marvel | body=fluffy | visual=derived
+greek-telemachus | hall=greek | body=standard | visual=derived
+greek-antinous | hall=greek | body=fluffy | visual=derived
+greek-eurymachus | hall=greek | body=slim | visual=derived
+greek-telegonus | hall=greek | body=standard | visual=derived
+greek-melanthios | hall=greek | body=standard | visual=derived
+greek-amphinomos | hall=greek | body=fluffy | visual=derived
+greek-peiraios | hall=greek | body=slim | visual=derived
+greek-peisistratus | hall=greek | body=fluffy | visual=derived
+greek-odysseus | hall=troy | body=standard | visual=derived
+greek-diomendes | hall=troy | body=chubby | visual=derived
+troy-agamemnon | hall=troy | body=fluffy | visual=derived
+troy-menelaus | hall=troy | body=fluffy | visual=derived
+troy-ajax | hall=troy | body=chubby | visual=derived
+troy-nestor | hall=troy | body=fluffy | visual=derived
+troy-hector | hall=troy | body=standard | visual=derived
+troy-paris | hall=troy | body=fluffy | visual=derived
+troy-aeneas | hall=troy | body=standard | visual=derived
+troy-sarpedon | hall=troy | body=fluffy | visual=derived
+greek-zagreus | hall=underworld | body=standard | visual=derived
+underworld-hades | hall=underworld | body=fluffy | visual=derived
+underworld-hypnos | hall=underworld | body=slim | visual=derived
+underworld-thanatos | hall=underworld | body=slim | visual=derived
+underworld-achilles | hall=underworld | body=fluffy | visual=derived
+underworld-patroclus | hall=underworld | body=fluffy | visual=derived
+olympus-zeus | hall=olympus | body=fluffy | visual=derived
+olympus-hera | hall=olympus | body=fluffy | visual=derived
+olympus-poseidon | hall=olympus | body=standard | visual=derived
+olympus-demeter | hall=olympus | body=chubby | visual=derived
+olympus-athena | hall=olympus | body=slim | visual=derived
+olympus-apollo | hall=olympus | body=fluffy | visual=derived
+olympus-artemis | hall=olympus | body=slim | visual=derived
+olympus-ares | hall=olympus | body=chubby | visual=derived
+olympus-aphrodite | hall=olympus | body=fluffy | visual=derived
+olympus-hephaestus | hall=olympus | body=chubby | visual=derived
+olympus-hermes | hall=olympus | body=slim | visual=derived
+olympus-dionysus | hall=olympus | body=chubby | visual=derived
+
+Architectural conclusion: built-in 55 = regression evidence, not a Living Hall whitelist.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

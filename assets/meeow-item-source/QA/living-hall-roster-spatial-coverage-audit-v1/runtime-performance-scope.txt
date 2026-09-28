@@ -1,0 +1,8 @@
+STATIC-SPRITE AMBIENT PERFORMANCE SCOPE (ANALYTICAL, NOT BENCHMARK)
+1 active: up to one resident idle timer or one motion rAF; one occupancy entry, one wrapper/sprite.
+6 active: up to six independent timers/rAF while routes run; up to six occupied slots if unique.
+12 active: current eight-slot graph caps occupied active slots at eight; additional residents have entry-slot conflicts or unsupported entries. Up to eight moving rAF and eight occupied slots; visible static markers can still be 12.
+20 active: same eight-slot runtime cap, with up to 20 visible map markers and extra suspended conflicts.
+Preparation may add sprite promises and polling/timeout timers; map marker and ambient presentation computed mapping each scan resident lists, so 20 markers cost roughly quadratic small-array work. Debug diagnostics refresh once per second only with flags. No measured FPS/memory claim. Future floor sampling must measure at larger active counts before optimization.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

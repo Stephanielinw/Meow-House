@@ -1,0 +1,5 @@
+Ambient Locomotion Semantics Hotfix V1 — stationary pose contract
+
+A resident on a supported authored entry remains represented when structured posture is sitting, crouching, or lying. Its ambientState is stationary and its reason is stationary-pose. If the structured posture is missing or invalid, the state is stationary with reason missing-authoritative-pose. These reasons are separate from unsupported-entry and entry-slot-conflict.
+
+Stationary residents have no movement decision timer and no target reservation. They retain their normalized structured Status posture and visible presentation. A later accepted structured Standing value is reconciled from the current authoritative Hall placement and gets a fresh ordinary idle delay. No stand-up transition is synthesized in this phase.

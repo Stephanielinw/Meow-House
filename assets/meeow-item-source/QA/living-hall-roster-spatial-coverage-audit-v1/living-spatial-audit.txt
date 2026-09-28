@@ -1,0 +1,6 @@
+LIVING SPATIAL AUDIT
+10 points. Current sidecar: canonical 1024-square, five rug slots (rug-a/left/right/back/b) and three sofa slots (sofa-center/left/right), separate components; 2 authored walkable rectangles and four obstacle rectangles. ambientEntrySlot accepts exact feet for living-rug and sofa-seat only. Four first rug colocated positions and three first sofa positions resolve; later offsets and all other points do not.
+Bookcase levels and scratch locations unsupported. Inspected scratching-board-a image depicts right-side post although scratch-board metadata addresses lower-left; scratching-board-b depicts left-side board although scratch-post-top metadata addresses right/top. Treat both unknown until art/metadata mapping is reconciled.
+Repeated routes among few slots are expected prototype behavior. No floor-to-sofa teleport or transition. No free-floor destination generator.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

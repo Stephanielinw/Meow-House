@@ -1,0 +1,5 @@
+STRUCTURED PERSONALITY READINESS
+Existing tests/resident-personality-full-roster-v1.fixture.mjs validates 55/55 built-in profiles, 10 axes each, normalized semantic schema and runtime getResidentRuntimePersonality accessor in js/meeow-personality-runtime.js. Missing built-in profiles: 0; malformed built-in profiles: 0 under that fixture. Saved generated residents can use the same accessor through getResidentPersonalityProfile.
+This audit does not judge quality, change profiles, or connect personality to locomotion. Personality is optional future weighting, not resident eligibility.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

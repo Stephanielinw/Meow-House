@@ -1,0 +1,11 @@
+Living Hall spatial/motion architecture audit V1 — visual redesign readiness
+
+Evidence: authored map art and 35 POIs in js/meeow-map.js; current layered stage at index.html:5530-5543. The three room layouts are reused in every Hall. These are visual readings, not a computed walkability-area measurement: no floor mask exists.
+
+Living: broad central rug/open lower floor. Start with two foot points on unobstructed rug at approximately (330,690) and (560,690); verify 32-world-px footprint and actual furniture alpha before implementation. Keep out of sofa, shelf, toy pile and scratching posts. Existing ground carpet is suitable for a small loop without redraw. Sofa crossing requires a front-rail occluder and seat transition; static current point alone is insufficient.
+
+Dorm: carpet/cushions on lower floor, but cat-climber, window, shelf and cat-house involve elevated or enclosed surfaces. Ground routes near cushions are plausible after blocker tracing. Upper POIs need explicit climb/jump connections and depth art. It is a poor first free-roam test.
+
+Dining: narrow passages around island/table/chairs; water and food-bowl locations are plausible interaction spots. Hearth/sink/counters are unsafe or elevated for unconstrained roaming. Whole foreground PNGs and four clip profiles cannot generally handle walking behind table/island; needs obstacle/depth authoring first.
+
+Visual redesign needed for living MVP: NO. Spatial metadata and minimal motion art are needed. Broader free roaming may later justify split foreground art, more clear floor and consistent perspective, particularly dining/dorm. Future Curator room has no authored map: this is a greenfield design requirement, never a current missing-art defect. Its floor and occlusion requirements are recorded in map-authoring-workflow.txt and new-custom-hall-spatial-readiness.txt.

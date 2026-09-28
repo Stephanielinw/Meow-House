@@ -1,0 +1,5 @@
+FOUR-POSE TRANSIENT AMBIENT COVERAGE
+Structured statusActivity.posture is normalized to standing/sitting/crouching/lying. Legacy text resolves visible fallback only and does not grant locomotion authority. Ambient valid resting pose reserves a legal target, prepares Standing visual, holds Standing 350 ms, moves, settles Standing 350 ms, then clears Hall-local override. Current accepted Status remains baseline. Standing uses direct path. Missing/invalid structured posture stays stationary.
+The ambient fixture proves two cycles without Status refresh for all three resting poses, direct Standing, visual readiness, preemption in preparation/stand-up/move/settle, reservation release and stale-callback suppression. Identity is an opaque ID, not a pose behavior selector. No walk art exists; static Standing is displayed during travel.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

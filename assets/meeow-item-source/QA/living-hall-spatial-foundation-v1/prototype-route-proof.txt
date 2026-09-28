@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — direct route proof
+
+The route is the single straight segment (443,716) → (560,690), validated against the authored floor and obstacle rectangles before activation.
+The focused fixture proves both endpoints legal, the entire segment legal, a route leaving the floor illegal, and a synthetic obstacle crossing the segment illegal.
+Movement interpolates only on this segment and snaps to the exact B coordinates once at arrival. No waypoint, A*, navmesh, random motion, or dynamic rerouting is present.

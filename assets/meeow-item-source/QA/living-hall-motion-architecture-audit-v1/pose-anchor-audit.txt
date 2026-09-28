@@ -1,0 +1,9 @@
+Living Hall spatial/motion architecture audit V1 — pose/ground anchors
+
+Evidence: js/meeow-cat-renderer.mjs:278, 359-380; js/meeow-resident-visual.js:397-408; index.html:14125-14183, 14237-14255; js/meeow-status-posture.js:1-80.
+
+Production pose IDs are sitting, standing, crouching, lying. Sitting is the base bank and defaults to groundAnchor [37,90] on a 112×104 frame. Standard standing returns [37,89], crouching [37,90], lying [37,82]. The renderer's current lying definition intentionally aliases a Standard chassis across body identities; it is not a distinct lying silhouette for Chubby/Fluffy/Slim. Packed production standing/crouching banks include Standard and the three special-body variants. Capabilities can still reject a specific trait combination; map presentation has a fallback/backoff path.
+
+The map computes a posture from structured statusActivity.posture, falling back to unambiguous legacy status words. A pose change changes sprite size/anchor placement through makeGroundAnchorPlacement and CSS custom properties. This is correct for static foot placement but not a continuous per-frame motion anchor contract. Future animation frames must each carry groundAnchor; playback must hold the world foot point constant as silhouette bounds change. Otherwise sitting/standing transitions visibly slide or hop.
+
+Existing static poses can supply idle/end states. No walk-cycle frame or side-facing pose is registered by production. The current unit tests may register only Standard definitions; do not misread that fixture limit as production's loaded body coverage. Source manifest inventory: one sitting bank, standing Standard/Chubby/Fluffy/Slim, crouching Standard/Chubby/Fluffy/Slim, lying Standard.

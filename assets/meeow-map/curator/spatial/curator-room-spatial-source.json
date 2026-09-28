@@ -1,0 +1,505 @@
+{
+  "schemaVersion": 1,
+  "roomId": "curator-room",
+  "displayName": "馆长室",
+  "scope": "spatial source only; no runtime admission or save integration",
+  "assetBase": "assets/meeow-map/curator",
+  "sourceAssetsDirectory": "source",
+  "canonicalSize": {
+    "width": 1024,
+    "height": 1024
+  },
+  "layerOrder": [
+    "Background.png",
+    "window.png",
+    "cabin.png",
+    "bed.png",
+    "closet.png",
+    "carpet.png",
+    "Table.png",
+    "chair.png"
+  ],
+  "sourceAssets": [
+    {
+      "filename": "Background.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGB",
+      "transparent": false,
+      "nontransparentBounds": null,
+      "sha256": "7b813fd36b1761f8e45685cb5fdb030c7a79d4ecb9e673034188ac97bc3eb7c6"
+    },
+    {
+      "filename": "bed.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA",
+      "transparent": true,
+      "nontransparentBounds": [
+        0,
+        156,
+        381,
+        656
+      ],
+      "sha256": "ecfd7811543ed4eb20f592a9c1655e19e189e1cf66e4897957cb1e5030da96a8"
+    },
+    {
+      "filename": "cabin.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA",
+      "transparent": true,
+      "nontransparentBounds": [
+        332,
+        221,
+        512,
+        434
+      ],
+      "sha256": "1687aa0087b1b380b005ffb2debcb11904a2c9ef954b7cb57074ae6aa9445119"
+    },
+    {
+      "filename": "carpet.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA",
+      "transparent": true,
+      "nontransparentBounds": [
+        22,
+        719,
+        441,
+        922
+      ],
+      "sha256": "7d8cab24027021d37d4834033e08e89fd1c079a8db43e3557f0d39a5fe85671b"
+    },
+    {
+      "filename": "chair.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA",
+      "transparent": true,
+      "nontransparentBounds": [
+        583,
+        715,
+        776,
+        994
+      ],
+      "sha256": "94977e0c7e7b8c56c140d587afdf279923dd49361cb3254f9b3811bb2a828700"
+    },
+    {
+      "filename": "closet.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA",
+      "transparent": true,
+      "nontransparentBounds": [
+        639,
+        50,
+        1024,
+        464
+      ],
+      "sha256": "f94918a9c5fc893f962c0e2dea37f636f3f7f0a602032a1bdaf76e43f8fb2da9"
+    },
+    {
+      "filename": "Table.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA",
+      "transparent": true,
+      "nontransparentBounds": [
+        473,
+        599,
+        1002,
+        922
+      ],
+      "sha256": "edefa46511e5961bf910cc39fc022199b7bf7bb16d7622e8d4364c00e03a869c"
+    },
+    {
+      "filename": "window.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA",
+      "transparent": true,
+      "nontransparentBounds": [
+        302,
+        50,
+        645,
+        303
+      ],
+      "sha256": "06fe74d03d792018d70edb4fde1d53b33148da4bad132ba37aaeeaec5e3abfe3"
+    },
+    {
+      "filename": "Overview.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGB",
+      "transparent": false,
+      "nontransparentBounds": null,
+      "sha256": "22bd4a041d50668f568eaf591da9f53bc198c23071f1864a8b14139841185317"
+    },
+    {
+      "filename": "reference.png",
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGB",
+      "transparent": false,
+      "nontransparentBounds": null,
+      "sha256": "7d713fa8e7db90a0d7e424333c128eeab3015080993f6ed5e69437b4dda1bf3b"
+    }
+  ],
+  "palette": {
+    "black": "R,G,B <= 8 and max channel delta from Overview >= 24",
+    "red": "R >= 245, G <= 18, B <= 22 and max channel delta from Overview >= 40",
+    "purple": "165 <= R <= 190, 65 <= G <= 105, B >= 240 and max channel delta from Overview >= 40",
+    "coreColors": {
+      "black": [
+        [
+          0,
+          0,
+          0
+        ]
+      ],
+      "red": [
+        [
+          255,
+          0,
+          0
+        ],
+        [
+          255,
+          0,
+          4
+        ]
+      ],
+      "purple": [
+        [
+          177,
+          83,
+          255
+        ]
+      ]
+    },
+    "note": "Rules accept narrow near-colors only; comparison to the exact Overview rejects unchanged room art. Ambiguous blended boundary pixels outside these tolerances remain unauthorized."
+  },
+  "floorWalkable": {
+    "source": "reference.png:black",
+    "mask": "spatial/floor-walkable.png",
+    "pixelCount": 340122,
+    "bounds": [
+      0,
+      337,
+      1024,
+      1024
+    ],
+    "components": [
+      {
+        "pixels": 335461,
+        "bounds": [
+          0,
+          337,
+          1024,
+          1024
+        ]
+      },
+      {
+        "pixels": 4655,
+        "bounds": [
+          0,
+          337,
+          38,
+          565
+        ]
+      },
+      {
+        "pixels": 6,
+        "bounds": [
+          0,
+          569,
+          1,
+          575
+        ]
+      }
+    ]
+  },
+  "interactiveWalkableSurfaces": [
+    {
+      "surfaceId": "curator-bed-surface",
+      "ownerLayer": "bed.png",
+      "semanticClass": "bed",
+      "source": "reference.png:red",
+      "mask": "spatial/curator-bed-surface.png",
+      "bounds": [
+        15,
+        223,
+        370,
+        560
+      ],
+      "pixelCount": 97217,
+      "connectedComponents": [
+        {
+          "pixels": 97217,
+          "bounds": [
+            15,
+            223,
+            370,
+            560
+          ]
+        }
+      ],
+      "elevationRelation": "furniture-level",
+      "currentConnectivity": "requires-future-transition",
+      "confidence": "high",
+      "ownerAlphaOverlapPixels": 97212,
+      "evidence": "Painted bedding overlaps the bed layer; bed is in front of the cabinet in Overview."
+    },
+    {
+      "surfaceId": "curator-rug-surface",
+      "ownerLayer": "carpet.png",
+      "semanticClass": "floor-soft",
+      "source": "reference.png:red",
+      "mask": "spatial/curator-rug-surface.png",
+      "bounds": [
+        27,
+        726,
+        433,
+        919
+      ],
+      "pixelCount": 70963,
+      "connectedComponents": [
+        {
+          "pixels": 70963,
+          "bounds": [
+            27,
+            726,
+            433,
+            919
+          ]
+        }
+      ],
+      "elevationRelation": "floor-level",
+      "currentConnectivity": "direct-floor-continuous",
+      "confidence": "high",
+      "ownerAlphaOverlapPixels": 70963,
+      "evidence": "Red lies on the floor-layer carpet, surrounded by black ground across its decorative edge."
+    },
+    {
+      "surfaceId": "curator-desk-top",
+      "ownerLayer": "Table.png",
+      "semanticClass": "tabletop",
+      "source": "reference.png:red",
+      "mask": "spatial/curator-desk-top.png",
+      "bounds": [
+        484,
+        655,
+        989,
+        757
+      ],
+      "pixelCount": 32837,
+      "connectedComponents": [
+        {
+          "pixels": 32837,
+          "bounds": [
+            484,
+            655,
+            989,
+            757
+          ]
+        }
+      ],
+      "elevationRelation": "furniture-level",
+      "currentConnectivity": "requires-future-transition",
+      "confidence": "high",
+      "ownerAlphaOverlapPixels": 32837,
+      "evidence": "One broad painted desktop spans around books and plant and overlaps the Table layer."
+    },
+    {
+      "surfaceId": "curator-wardrobe-top",
+      "ownerLayer": "closet.png",
+      "semanticClass": "wardrobe-top",
+      "source": "reference.png:red",
+      "mask": "spatial/curator-wardrobe-top.png",
+      "bounds": [
+        650,
+        50,
+        1015,
+        113
+      ],
+      "pixelCount": 21360,
+      "connectedComponents": [
+        {
+          "pixels": 21360,
+          "bounds": [
+            650,
+            50,
+            1015,
+            113
+          ]
+        }
+      ],
+      "elevationRelation": "elevated",
+      "currentConnectivity": "requires-future-transition",
+      "confidence": "high",
+      "ownerAlphaOverlapPixels": 21360,
+      "evidence": "Paint covers the wardrobe roof in the closet layer, including one connected edge band."
+    },
+    {
+      "surfaceId": "curator-chair-seat",
+      "ownerLayer": "chair.png",
+      "semanticClass": "seat",
+      "source": "reference.png:red",
+      "mask": "spatial/curator-chair-seat.png",
+      "bounds": [
+        594,
+        814,
+        768,
+        883
+      ],
+      "pixelCount": 6943,
+      "connectedComponents": [
+        {
+          "pixels": 5589,
+          "bounds": [
+            634,
+            814,
+            724,
+            883
+          ]
+        },
+        {
+          "pixels": 677,
+          "bounds": [
+            594,
+            826,
+            616,
+            875
+          ]
+        },
+        {
+          "pixels": 677,
+          "bounds": [
+            747,
+            826,
+            768,
+            873
+          ]
+        }
+      ],
+      "elevationRelation": "furniture-level",
+      "currentConnectivity": "requires-future-transition",
+      "confidence": "medium-high",
+      "ownerAlphaOverlapPixels": 6933,
+      "evidence": "Three red islands overlap the chair cushion/body; purple marks its front legs separately."
+    },
+    {
+      "surfaceId": "curator-bedside-cabinet-top",
+      "ownerLayer": "cabin.png",
+      "semanticClass": "cabinet-top",
+      "source": "reference.png:red",
+      "mask": "spatial/curator-bedside-cabinet-top.png",
+      "bounds": [
+        343,
+        291,
+        490,
+        333
+      ],
+      "pixelCount": 4174,
+      "connectedComponents": [
+        {
+          "pixels": 4174,
+          "bounds": [
+            343,
+            291,
+            490,
+            333
+          ]
+        }
+      ],
+      "elevationRelation": "furniture-level",
+      "currentConnectivity": "requires-future-transition",
+      "confidence": "high",
+      "ownerAlphaOverlapPixels": 4174,
+      "evidence": "Painted top wraps around lamp and plant on the cabinet layer."
+    },
+    {
+      "surfaceId": "curator-window-ledge",
+      "ownerLayer": "window.png",
+      "semanticClass": "window-ledge",
+      "source": "reference.png:red",
+      "mask": "spatial/curator-window-ledge.png",
+      "bounds": [
+        417,
+        258,
+        577,
+        278
+      ],
+      "pixelCount": 1726,
+      "connectedComponents": [
+        {
+          "pixels": 1595,
+          "bounds": [
+            483,
+            258,
+            577,
+            278
+          ]
+        },
+        {
+          "pixels": 131,
+          "bounds": [
+            417,
+            262,
+            437,
+            277
+          ]
+        }
+      ],
+      "elevationRelation": "elevated",
+      "currentConnectivity": "requires-future-transition",
+      "confidence": "medium-high",
+      "ownerAlphaOverlapPixels": 1726,
+      "evidence": "Two painted ledge islands are interrupted by the plant; both overlap the window layer. The smaller also overlaps cabinet art."
+    }
+  ],
+  "occlusionCandidate": {
+    "source": "reference.png:purple",
+    "mask": "spatial/occlusion-candidate.png",
+    "pixelCount": 8512,
+    "bounds": [
+      603,
+      791,
+      755,
+      991
+    ],
+    "ownerLayer": "chair.png",
+    "portion": "two front chair legs / frame strips",
+    "ownerAlphaOverlapPixels": 8511,
+    "relatedSurfaceIds": [
+      "curator-chair-seat"
+    ],
+    "mayOcclude": "chair-seat presentation or adjacent painted floor, subject to future depth authoring",
+    "runtimeClippingEnabled": false,
+    "components": [
+      {
+        "pixels": 4540,
+        "bounds": [
+          721,
+          791,
+          755,
+          991
+        ]
+      },
+      {
+        "pixels": 3972,
+        "bounds": [
+          603,
+          795,
+          638,
+          987
+        ]
+      }
+    ]
+  },
+  "entryPoints": [],
+  "transitions": [],
+  "behaviorAffordances": [],
+  "obstacleMap": null
+}

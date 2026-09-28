@@ -1,0 +1,6 @@
+Living Hall Spatial Foundation V1 — foot anchor
+
+The moving resident has one transient foot coordinate. One positioned DOM wrapper carries its cat button/image, badge, and name; these children have local zero-position offsets, not separate world positions.
+The existing Cat Renderer frame groundAnchor is translated by makeGroundAnchorPlacement(frame, 72) into the button's CSS anchor variables. The wrapper sits at the projected foot coordinate.
+Travel preserves the currently authoritative Standing pose. V1 does not force Sitting after arrival: the current statusActivity/posture is owned by Status Sync, and a local pose override could contradict it. Sitting ground-anchor validation belongs in the later motion pass.
+Collision tests use the foot only; image top-left, the 112x104 frame, and PNG alpha bounds are not collision inputs.

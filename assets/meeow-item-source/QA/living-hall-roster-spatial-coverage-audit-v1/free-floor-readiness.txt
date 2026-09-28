@@ -1,0 +1,7 @@
+FREE-FLOOR ROAMING READINESS (AUDIT)
+Dorm: visible open lower floor and carpet, candidate rug region around x470-875/y560-780; wardrobe/climber/cushions/cat-house constrain clearance. No walkable polygon, obstacle footprints or clearance guarantee. Art likely enough for conservative floor roaming after authoring; under-wardrobe motion needs depth work.
+Living: rug rectangle x240-605/y600-750 is already a bounded safe prototype. Sofa, bookshelf, toy furniture and scratch layers constrain broader floor. Five discrete rug slots show feasibility but no continuous destination sampling. Scratch layer/anchor discrepancy needs authoring before extension.
+Dining: visible lower floor around island, table and bowls, with likely side corridors; table legs, island, chairs, fridge and food shelf create narrow passages. No authored walkable region/obstacle/clearance data, so no safe continuous route claim. Existing background and layers may suffice for conservative clear corridors, but under-table/cabinet moving depth needs work.
+Disconnected floor components and collision margins cannot be proven from background pixels alone. Free-Floor Roaming / Navigation V1 is future work.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

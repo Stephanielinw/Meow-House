@@ -1,0 +1,41 @@
+AUDIT-ONLY SURFACE CLASSES
+Classes are descriptive, not new production authority. Classified from MAP_ROOM_DEFINITIONS anchors/regions, layer order, static clipping, and inspected authored PNGs. Point names were never used as sole proof. Counts: wall-poi=1, elevated-climber=3, elevated-shelf=7, floor-rest=4, rug=2, cushion=4, enclosed-rest=1, sofa-seat=1, floor=5, special=5, unknown=2.
+Two living scratch entries are unknown/requires authoring: point coordinates and linked visual layers disagree. Level descriptions in current-spatial-support-levels.txt do not imply implemented motion.
+
+dorm::window-sill | wall-poi | level=5 | Window foreground image has a visual sill; no landing depth, collision, or floor approach authored.
+dorm::cat-tree-top | elevated-climber | level=4 | Flower top is a distinct raised platform in cat-climber layer; needs ascent edge.
+dorm::cat-tree-high | elevated-climber | level=4 | Raised platform visible on climber; needs authored platform connection.
+dorm::cat-tree-low | elevated-climber | level=4 | Climber base and ramp are visible; floor-to-climber entry remains unauthored.
+dorm::wardrobe-top | elevated-shelf | level=5 | Wardrobe roof is elevated; route, landing and cat depth need authoring.
+dorm::wardrobe-under | floor-rest | level=5 | Under-wardrobe shadow is a rest/occluded location; static wardrobe-front clip exists, moving occlusion does not.
+dorm::dorm-carpet | rug | level=2 | Ground layer shows broad rug and region; connected walkability/obstacles still need authored metadata.
+dorm::flower-cushion | cushion | level=4 | Ground cushion is an exact rest surface; entry and exit need transitions.
+dorm::gingham-cushion | cushion | level=4 | Second ground cushion is an exact rest surface; entry and exit need transitions.
+dorm::cat-house-door | enclosed-rest | level=4 | Cat-house entrance and interior visible; doorway/inside transition and occlusion need authoring.
+living::bookshelf-top | elevated-shelf | level=5 | Shelf top visible; no climb edge or moving depth/occlusion contract.
+living::bookshelf-upper | elevated-shelf | level=5 | Raised shelf visible; no shelf route or moving depth contract.
+living::bookshelf-middle | elevated-shelf | level=5 | Raised shelf visible; no shelf route or moving depth contract.
+living::sofa-seat | sofa-seat | level=3 | Sofa cushion art and isolated three-slot sofa component support same-surface ambient motion; floor entry absent.
+living::sofa-foot | floor | level=2 | Placement region is in front of sofa art; not in current rug/sofa entry graph.
+living::living-rug | rug | level=2 | Carpet ground layer and five-slot rug component support local ambient motion.
+living::toy-area | special | level=5 | Layer contains several raised toys and a box; its broad region has no safe clearance or exact interaction anchor.
+living::scratch-board | unknown | level=5 | Point metadata says lower-left, but referenced scratching-board-a layer depicts a right-side post; reconcile anchor/art first.
+living::scratch-post-top | unknown | level=5 | Point metadata says right elevated top, but referenced scratching-board-b layer depicts a left-side board; reconcile anchor/art first.
+living::owner-feet | floor | level=2 | Bottom floor region is visible and labeled as owner-adjacent; needs walkability and user-focus exclusion authoring.
+dining::fridge-top | elevated-shelf | level=5 | Fridge roof visible in left foreground art; no ascent or landing-depth metadata.
+dining::fridge-side | floor | level=2 | Anchor/region lies beside fridge base on floor; needs obstacle footprint.
+dining::food-cabinet-top | elevated-shelf | level=5 | Food cabinet roof visible in right-side art; no ascent or landing-depth metadata.
+dining::food-cabinet | special | level=3 | Food shelf front is an exact interaction POI rather than a continuous floor surface.
+dining::sink-basin | special | level=5 | Basin interior with sink-rim static clip; locomotion/depth and safe entry unauthored.
+dining::cabinet-top | elevated-shelf | level=5 | Kitchen island countertop visible; no ascent edge or moving depth.
+dining::cabinet-under | floor-rest | level=5 | Under-island shadow uses cabinet-front static clip; moving occlusion unauthored.
+dining::kitchen-island-front | floor | level=2 | Floor-side region near island; furniture footprint and connected floor need authoring.
+dining::table-under-left | floor-rest | level=5 | Under-table floor with table-front static clip; moving occlusion unauthored.
+dining::table-under-right | floor-rest | level=5 | Second under-table floor region with same moving-occlusion gap.
+dining::table-edge | floor | level=2 | Floor around table edge; route corridor needs obstacle authoring.
+dining::chair-left | cushion | level=4 | Chair seat art and anchor imply exact sitting surface; floor-seat transition unauthored.
+dining::chair-right | cushion | level=4 | Second chair seat art and anchor imply exact sitting surface; floor-seat transition unauthored.
+dining::water-bowl | special | level=3 | Four bowls are exact water interaction spots; surrounding floor needs separate region.
+dining::food-bowl | special | level=3 | Four bowls are exact food interaction spots; surrounding floor needs separate region.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

@@ -1,0 +1,9 @@
+Living Hall spatial/motion architecture audit V1 — proposed frame cache
+
+Evidence: js/meeow-resident-visual.js:393-445 already keys static sprites by residentId, form, visual source, renderer/config/asset versions, revision, identityHash, pose and size; index.html:14185-14265 uses request coalescing, stale-key invalidation and failure backoff.
+
+Future animation cache key: resident ID + effective CAT form + canonical identity hash + visual revision + renderer/config/asset-pack/motion-art versions + animation ID + facing + frame index + output scale. Body/ears/coat/marks/eyes/breed seed flow into canonical identity hash; a new source-art or motion-manifest version must invalidate even if resident config does not change. Do not key solely by display name, status prose or sprite URL.
+
+Use in-memory bounded LRU for visible Hall frames. Evict on appearance edit, form change, resident removal/Hall switch, or source-art version mismatch; retain shared bank assets separately. Reuse the existing in-flight request token pattern so stale asynchronous frame generation cannot publish after edits. Do not recompute composed pixels on every requestAnimationFrame; only advance frame index/transform. Do not persist frame blobs or write saves during playback.
+
+Proposed provisional budget for an implementation probe: eight frames per visible cat, at most 6 concurrent animated cats on mobile until measured, with an LRU cap set by decoded image memory rather than raw RGBA arithmetic. Re-evaluate with 1/6/12/20 cats and measure frame time, first-frame latency and memory. The current cache is sufficient for static poses, not a complete animation cache.

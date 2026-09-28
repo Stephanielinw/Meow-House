@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — Status Sync boundary
+
+No Status Sync request, prompt, retry, validation, or acceptance path was changed for this feature. Its accepted setter still owns status, posture, logical room, and map point.
+The prototype reads those fields for eligibility, and accepted status freshness for cancellation. It never writes them. A new accepted update involving the selected resident removes the transient foot override, returning presentation to the existing logical marker placement.
+Current item-use/status events and Arrival continue through their existing acceptance paths. The prototype adds no AI callsite.

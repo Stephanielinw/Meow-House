@@ -1,0 +1,16 @@
+Living Hall spatial/motion architecture audit V1 — PROGRAM versus AI
+
+Current Status Sync asks AI for ordinary status/action prose and mapPoint (index.html:28520-28528, 28624), while PROGRAM already freezes presence, form, selected item use and optional social pair (index.html:28117-28190, 29350-29390). Proposed migration is future architecture only.
+
+Behavior                  Current owner                         Future PROGRAM possibility / AI need
+Idle/standing/sitting     AI status/posture accepted           Local posture/dwell; AI optional for notable status prose.
+Walking/POI visit         AI mapPoint/status jump             Legal route/destination chosen locally; AI not needed.
+Resting/observing         AI activity prose                    Local low-impact behavior; AI for character-specific narrative.
+Owned-item use            PROGRAM event, AI presentation       Keep exact item authority; animation may depict, AI narrates existing event.
+Casual co-presence        Active Social Presence/scene code    Local spatial proximity can be cosmetic; no stat/event inferred.
+Social approach           PROGRAM presence, AI scene prose     PROGRAM route; accepted scene remains structured authority.
+Relationship change      Validated accepted Hall scene        Keep existing resolver; movement never mutates stats.
+Inner thought/dialogue    AI                                  Still valuable for voice, canon and consequential interactions.
+Away/Arrival/Focus        Existing dedicated authorities      Motion yields; no replacement of event transactions.
+
+The safe migration boundary is one-way: locally selected behavior may supply structured context to a later narrative request, but AI never invents path, walkable area, exact physical location, collision, ownership or autonomous item-use authority. Do not attach a new AI call to each behavior tick. Existing Status Sync can remain while local motion starts with a visually constrained loop, then later consume PROGRAM-owned behavior snapshots. No AI prompts or calls changed in this audit.

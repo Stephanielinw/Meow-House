@@ -1,0 +1,14 @@
+Living Hall Spatial Foundation V1 — regression results
+
+Focused fixture: tests/living-hall-spatial-foundation-v1.fixture.mjs PASS (10 groups).
+Status posture, Status Sync prompt, Active Social Presence, CAT↔CAT social activity, relationship progression, resident homepage visual, Curator cross-day status, Unified Resident Generation/Arrival, Resident Item Usage/Status, and Away legacy episode ID fixtures: PASS.
+Full-roster Object Preference, Fondness Evolution, Gameplay Reward semantics, Shop Toy persistent ownership, and Item Visual Hint ownership fixtures: PASS.
+Cat Renderer regression: PASS using the workspace bundled sharp dependency; 24 crown combinations, 144 face/ear/body combinations, 144 switch sequences, and 1344 full cat configurations.
+New module, focused fixture, reviewed guard, and index inline script syntax: PASS. git diff --check: PASS. Production literal callAI( count: 38. All 16 requested QA reports are present.
+Visual browser check limitation: the in-app browser security policy blocks local file:// URLs; no alternate browser surface was used. The geometry, DOM contract, projection, and renderer are verified by fixtures/static checks, while live visual behavior remains for manual development review.
+
+Intentional historical-guard bridge (older golden files remain untouched):
+- tests/reviewed-shop-toy-guards.mjs, index.html SHA-256: previous reviewed current 70b93563c0387cc10bf644c8f9bba8f03ee07bd084d1bc869983106be4b2f6c1; new exact current 1278a1703f6e0dc6cfecbde9d7d17729f22d5dde63043a7be67ab9debaa5ea57. Reason: this pass intentionally inserted map wrapper/style, script load, and transient controller in index.html. The new reviewed-living-hall guard verifies the new bytes before restoring the previous Shop boundary hash.
+- tests/reviewed-living-hall-guards.mjs, js/meeow-hall-spatial.js SHA-256: previous expectation absent; new exact module hash a1e8fd630c6b62765fc1d8559fa37a8177c882f9f1f3f8286b366053190716f6. Reason: new production sidecar/controller; checked exactly, then excluded only from historical inventories that predate it.
+- tests/item-visual-hint-ownership-v1.fixture.mjs, exact live visualHint reference inventory: previous Shop proof index.html line numbers; new index.html rows shift +34 before the setup insertion and +166 after it. All 14 index source strings and occurrence counts are identical; other files and historical reports remain unchanged. The new guard applies those fixed reviewed line offsets only after exact production hashes pass.
+- tests/shop-toy-persistent-ownership-v1.fixture.mjs, protected production inventory: previous no spatial module; new exact module verified and removed only from the prior Shop baseline comparison. Historical Shop production hashes and QA files were not regenerated.

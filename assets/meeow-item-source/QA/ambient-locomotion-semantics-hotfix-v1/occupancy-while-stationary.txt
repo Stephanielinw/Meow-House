@@ -1,0 +1,7 @@
+Ambient Locomotion Semantics Hotfix V1 — occupancy while stationary
+
+A supported stationary resident claims its current authored entry slot if that slot is free. The occupied map then prevents another resident from selecting that slot as a movement target. It has no target and contributes nothing to the reserved map.
+
+If an entry slot is already occupied or reserved by another resident, the incoming resident remains represented as suspended with entry-slot-conflict; it does not steal occupancy. On a real posture change during movement, the target reservation is released before the current authoritative entry is reclaimed.
+
+The focused fixture places a Sitting resident at slot a and a Standing resident at adjacent slot b. The Standing resident receives no-free-target, the Sitting resident keeps occupancy of a, a duplicate claimant stays in conflict, and reserved remains empty.

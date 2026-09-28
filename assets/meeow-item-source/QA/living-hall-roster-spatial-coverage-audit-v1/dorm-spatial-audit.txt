@@ -1,0 +1,5 @@
+DORM SPATIAL AUDIT
+10 map points: window-sill, cat-tree-top/high/low, wardrobe-top/under, dorm-carpet, flower-cushion, gingham-cushion, cat-house-door. 1024-square layered art: ground carpet/cushions; foreground window, climber, wardrobe shelf, house. Window is a visual wall POI rather than evidenced floor; climber has multiple raised surfaces; wardrobe top and under-shadow need special depth.
+Static map markers can present all points. There is no gotham::dorm or other dorm sidecar, so current ambient support is 0/10. First spatial candidate is authored carpet/floor bounds plus obstacle footprints, then exact rest slots and transition anchors. No current floor-to-climber or floor-to-house transition.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

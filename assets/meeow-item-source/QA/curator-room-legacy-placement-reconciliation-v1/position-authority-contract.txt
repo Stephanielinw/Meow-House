@@ -1,0 +1,2 @@
+PRESENTATION-ONLY RECONCILIATION
+curatorRoomPresence.anchor remains the accepted six-ID location authority. CURATOR_ROOM_ANCHORS retains labels and validation, without obsolete XY. Meeow.curatorPlacement maps the ID to one canonical 1024x1024 floor foot, then projects by the shared square stage. Status, save schema, narrative, pose, map-point IDs, and other Hall rooms are untouched. The generic renderer's ground anchor keeps the same world foot through pose changes. Future spatial state should use room + surface + foot x/y; these six compatibility points are not that model.

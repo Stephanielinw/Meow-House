@@ -1,0 +1,6 @@
+Living Hall Spatial Foundation V1 — cancellation and preemption
+
+The controller increments a generation token on cancel; delayed timer/frame callbacks check that token before publishing. Cancel also clears pending timer/frame handles.
+The Hall integration cancels on room/Hall/tab/display-mode change, stage removal, resident unavailability or physical location change, document hiding, and Vue unmount. Once started, the prototype does not restart during the same page load.
+Status preemption watches the selected resident's accepted lastStatusUpdateTime, not arbitrary rerenders or status text changes. Hall-scene preemption watches new records in accepted hallSceneRecords and requires the selected resident ID among participants in the prototype Hall. Other residents' scenes do not cancel it.
+The app does not cancel, rewrite, or delay higher-authority events.

@@ -1,0 +1,74 @@
+Living Hall Spatial Foundation V1 — live smoke diagnosis (2026-09-27)
+
+Test URL: http://localhost:8765/index.html?livingHallSpatial=1&livingHallSpatialDebug=1
+Parsed values: livingHallSpatial === '1', livingHallSpatialDebug === '1'.
+The separate file:// tab had neither flag; it cannot activate the prototype.
+The loaded js/meeow-hall-spatial.js module supplied the room, projection, and
+controller to the index.html setup. In the enabled localhost run, the live
+context was hall=gotham, room=living, mode=map, view=room. The measured rendered
+map content was 758×758 CSS pixels at the normal browser width.
+
+Before correction, the first failed user-visible stage was viewport visibility:
+the rug route was below the fold when the controller began, so Jason reached B
+before the user scrolled to it. This was not an eligibility or cancellation
+failure. The debug SVG mounted, but its dynamic :viewBox became a lowercase
+viewbox attribute in the in-DOM template. Its 1024 coordinates were therefore
+painted unscaled in the 758-pixel stage, making the marker disagree with the
+cat. These two live findings explain the absent visible motion and misleading
+debug overlay.
+
+Narrow correction: wait until both projected route endpoints are in the
+viewport before starting the existing one-shot controller. A capture-phase
+scroll listener rechecks the gate; projection still uses measured map-stage
+content bounds and never changes canonical x/y. A static SVG viewBox scales
+the existing debug geometry. The development-only diagnostic panel reports
+flags, module, Hall/room/view, stage size, requested/selected resident,
+eligibility, rejection, controller/cancel state, foot, target, and each visible
+resident's exact gate reasons. No normal-play display or movement authority
+was added.
+
+Gotham living-room resident eligibility observed in the enabled localhost run:
+ID                Room/spot                Form  Available  Pose      Wrapper  Eligible  Rejection
+gotham-dick       living/bookshelf-upper  CAT   yes        standing  yes      no        not-living-rug
+gotham-jason      living/living-rug        CAT   yes        standing  yes      yes       —
+gotham-tim        living/bookshelf-middle CAT   yes        standing  yes      no        not-living-rug
+gotham-damian     living/scratch-board    CAT   yes        standing  yes      no        not-living-rug
+gotham-stephanie  living/sofa-seat        CAT   yes        standing  yes      no        not-living-rug
+gotham-barbara    living/bookshelf-top    CAT   yes        lying     yes      no        not-living-rug, not-standing
+All six had no explicit saved mapPoint; the listed room/spot came from the
+existing map placement resolver. Zero cats were rejected solely for posture.
+Standing remains a prototype selection gate to avoid moving a resting pose;
+its removal is unnecessary for this live state. The renderer's ground anchor
+could spatially move any current pose without changing posture authority, but
+this pass intentionally retains the existing limited pose scope.
+
+Requested-ID checks: gotham-jason resolved and ran. gotham-dick resolved but
+reported not-living-rug and did not fall back to Jason. Stage states observed:
+idle with route-offscreen; waiting at A=(443,716); arrived at B=(560,690).
+The actual cat, badge, and name remained under one positioned wrapper.
+At arrival the SVG foot center differed from the wrapper foot by under 0.004
+CSS pixels at desktop and at a 420×800 narrow viewport. Room switching to
+dining cleared the wrapper/foot with cancelReason=hall-room-or-view-changed.
+The focused controller fixture separately checks cancellation before arrival.
+
+Status acceptance, scene acceptance, availability, and page-hidden preemption
+remain unchanged except that development diagnostics now name their reasons.
+Movement has no save or AI call site. No sprite, art, status, or map-point data
+was changed.
+
+Intentional exact guard/fixture expectation changes:
+- tests/reviewed-living-hall-guards.mjs: index.html SHA-256 previous
+  1278a1703f6e0dc6cfecbde9d7d17729f22d5dde63043a7be67ab9debaa5ea57,
+  new 04d8d617d15ad6f2c09b34bbec147d857363b4c17a0e91de74af58189ed69166.
+  The guard still requires exact current bytes before restoring the unchanged
+  historical Shop boundary hash.
+- The exact visualHint reference bridge in the same guard previously applied
+  index.html line offsets +34/+166; it now applies +61/+254 because this pass
+  inserted 27 development style/template lines before early references and
+  61 setup lines before later references. Source strings and occurrence counts
+  did not change; the historical visualHint report was not regenerated.
+- tests/living-hall-spatial-foundation-v1.fixture.mjs: the shared-wrapper
+  assertion now includes the development-only data-spatial-id attribute; the
+  cancellation assertions now include the actual diagnostic reason argument.
+  Existing ground-anchor, one-wrapper, accepted-event, and no-write/no-AI
+  assertions remain. New checks cover offscreen waiting and the SVG viewBox.

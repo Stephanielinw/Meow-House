@@ -1,0 +1,13 @@
+EVIDENCE-BASED PHASE ROADMAP
+1. Generic room registry + map-point-to-surface entry contract. Port current Gotham living graph unchanged; explicit unsupported entries.
+2. Author conservative ordinary floor sidecars for dorm/living/dining with walkable regions, obstacles, spawn entries, validation and read-only debug. Expand to other Halls only where real authored spatial data exists.
+3. Free-Floor Roaming / Navigation V1 within connected ordinary floor regions: varied legal destinations and clearance; keep exact furniture/interaction slots.
+4. Authored transitions between floor, sofa/cushion, climber, enclosed house and elevated surfaces, with depth/occlusion support before enabling each edge.
+5. PROGRAM behavior ontology/utility over legal candidate actions, then structured personality weighting at the existing decision hook. Personality never grants spatial legality.
+6. Migrate ordinary action/location authority from Status to PROGRAM with explicit event precedence, compatibility snapshots and save/version tests; AI remains optional narration.
+7. Master Motion layer and animation for stand/sit, walk, jump/climb and depth transitions once movement semantics and routes are stable.
+Target: open any spatially authored supported Hall and its available CAT residents locally live there. This is not a 55-ID whitelist.
+
+No roadmap phase was implemented in this audit.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

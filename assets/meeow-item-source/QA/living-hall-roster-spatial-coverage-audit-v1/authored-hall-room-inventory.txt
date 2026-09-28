@@ -1,0 +1,6 @@
+AUTHORED HALL / ROOM INVENTORY
+Built-in halls from DEFAULT_HALLS: gotham, marvel, greek, troy, underworld, olympus. All six use the shared Hall map UI and its three room definitions (dorm, living, dining), rather than six separately authored room-art sets.
+Room definitions and point counts: dorm=10, living=10, dining=15. Layers: dorm: ground[carpet,cushion-a,cushion-b] foreground[window,cat-climber,shelf,cat-house]; living: ground[carpet] foreground[sofa,shelf,cat-toys,scratching-board-a,scratching-board-b]; dining: ground[] foreground[fridge,wash-basin,hearth,kitchen-island,foodshelf,chair-a,chair-b,table,water-bowl,food-bowl]. Backgrounds inspected as 1024x1024 PNG.
+Spatial sidecar registry has one key, gotham::living, at 1024x1024. No dorm/dining or other Hall sidecar. Curator room uses separate anchor presentation and has no authored Living Hall spatial map. Generated Hall destinations are Explore records, not physical room maps.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

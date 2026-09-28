@@ -1,0 +1,6 @@
+BODY TYPE / GROUND ANCHOR / POSE CONTRACT
+Actual resolved bodies: fluffy 22; slim 12; standard 15; chubby 6. Test-only fixture renders all 55 built-ins in Standing, Sitting, Crouching, Lying: 220 nonempty frames, valid same-body output and finite ground anchors. Synthetic saved-visual generated resident: four more frames.
+Shared renderer manifests: Sitting v1 plus Standing and Crouching for Standard/Chubby/Slim/Fluffy; Lying uses the shared Standard lying definition for all four bodies. index.html:14690-14703 and 12534-12542 use makeGroundAnchorPlacement at display width 72, so pose switch keeps the world foot rather than sprite top-left.
+No identity-specific body blocker found. Lying is a shared visual chassis, so body silhouette differentiation is limited there. Known unrelated tests/cat-renderer/standing.mjs Standard Standing part-mask overlap at (75,68) remains art/test debt, not a Living Hall identity exception.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

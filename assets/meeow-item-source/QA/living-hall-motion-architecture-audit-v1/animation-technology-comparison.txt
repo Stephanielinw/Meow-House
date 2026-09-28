@@ -1,0 +1,14 @@
+Living Hall spatial/motion architecture audit V1 — animation technology
+
+Evidence: current render is 112×104 RGBA -> Canvas PNG data URL -> DOM img (js/meeow-cat-renderer.mjs:1,278; index.html:14191-14265). Current map and UI are DOM-based.
+
+Approach                    CPU/play       Memory/load/storage            Appearance/mobile fit
+Per-resident spritesheet    Low           Many generated files; invalidation/export burden. All 55 variants costly to ship.
+Render every frame          High          Little cache; 12–20 cats strain main thread. Renderer is synchronous pixel composition.
+Layered DOM swaps           Moderate      Many nodes/masks; depth/anchors complex. Hard to preserve pixel ownership.
+Single Canvas scene         Moderate      Manual UI hit testing and layer migration. Broad Hall rewrite for small MVP.
+Cached final frames + DOM   Low           Bounded per-visible-cat frame cache. Reuses Vue stage and renderer identity.
+
+Recommendation: author gait layers/timing once, lazily compose per-resident frames on visual change or first visibility, cache a small frame set, play with one DOM image/sprite per resident and CSS transform for world position. Do not write generated frames to save data. Current static cache proves key-based invalidation, but is one-pose-at-a-time and must be bounded for multi-frame animation. On mobile, create frames in small chunks or worker later if startup stalls. A Canvas-only Hall may be reconsidered if profiling, not assumed now.
+
+Raw frame size is 112×104×4 = 46,592 bytes. An illustrative eight-frame set is ~364 KiB per resident before PNG/data-URL/browser decoded copies: 1 cat ~0.36 MiB, 6 ~2.13 MiB, 12 ~4.27 MiB, 20 ~7.11 MiB raw. These are capacity arithmetic, not measured runtime memory or FPS. Decode copies and multiple poses/directions can multiply cost; profile on a target mobile browser before raising visible-cat limits.

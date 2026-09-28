@@ -1,0 +1,7 @@
+Ambient Locomotion Semantics Hotfix V1 — live smoke observation
+
+URL: http://localhost:8765/index.html?livingHallAmbient=1&livingHallSpatialDebug=1. Local server started on port 8765; existing in-app browser tab reloaded and Gotham Hall room opened. The updated runtime and diagnostics were visible.
+
+Visible residents: gotham-bruce crouching (spatialSupported false, locomotionCapable false, unsupported bookshelf); gotham-dick sitting (spatialSupported true, locomotionCapable false, rug-a); gotham-tim lying (spatialSupported false, locomotionCapable false, unsupported bookshelf); gotham-damian sitting (spatialSupported false, locomotionCapable false, unsupported scratch-post); gotham-stephanie lying (spatialSupported false, locomotionCapable false, unsupported sofa-foot).
+
+Dick remained stationary on rug-a across repeated diagnostic observations after the normal movement-delay window. His moves stayed 0, targetSlot stayed none, occupied retained rug-a, and reserved stayed empty. No supported resident had an authoritative Standing posture. LIVE STANDING MOVEMENT = BLOCKED BY CURRENT SAVE STATE. Standing autonomy is fixture proof, not live visual proof. No resident Status or placement was changed for this test.

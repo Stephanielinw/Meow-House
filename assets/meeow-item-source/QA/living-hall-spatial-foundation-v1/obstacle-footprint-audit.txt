@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — nearby furniture footprints
+
+The sidecar separately records floor-footprint rectangles for sofa-base (365,435,425,55), bookshelf-base (60,420,270,55), toy-box-base (810,715,160,145), and scratch-board-base (825,540,145,90). Tuples are x,y,width,height in canonical pixels.
+They are conservative nearby blocked bases, not each layer's full visual bounding box. The sofa's cushions, shelf's upper height, and hanging portions of toys do not become floor collision merely because pixels exist there.
+The A→B rug route intersects none. Other resident sprites are not obstacles in V1. These footprints provide authored metadata for future expansion; this pass does not make the broader room walkable.

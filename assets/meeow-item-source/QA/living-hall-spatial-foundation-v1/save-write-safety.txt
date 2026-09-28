@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — save safety
+
+spatialFoot, stage bounds, controller, selected ID, and cancellation data live only in Vue setup/session memory. The movement block does not call localStorage, scheduleSave, persistNow, or any save writer.
+No resident x/y schema, mapPoint migration, or storage key was introduced. Reload falls back to the existing historical logical room/map-point state. The URL development flags are not persisted.
+The existing app may save unrelated gameplay state on its own schedule; the prototype's frame updates are not part of the watched save objects.

@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — debug overlay
+
+Enable with ?livingHallSpatialDebug=1 while viewing the Gotham living-room map. It is off by default, has no normal-game control, and is pointer-events:none.
+The SVG shows the authored floor (green), furniture footprints (red), A/B slots, direct route, and, when active, the selected resident's foot and canonical coordinate label. Its 1024x1024 viewBox projects into the measured map-stage content dimensions.
+The overlay reads metadata and transient position only. It neither chooses a resident nor changes geometry, collision, status, saves, or movement.

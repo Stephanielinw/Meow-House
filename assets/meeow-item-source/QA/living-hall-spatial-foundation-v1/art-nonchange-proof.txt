@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — art non-change
+
+No Hall or Cat PNG is edited, added, rescaled, or re-encoded. The layered living-room map and the current Cat Renderer image remain the displayed assets.
+The moving image is the same cached map-cat presentation used outside the prototype. Sprite groundAnchor CSS variables remain the placement offset authority.
+Production file changes for this pass are restricted to the spatial module and Hall markup/style/controller integration. The focused fixture and QA are additive.

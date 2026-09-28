@@ -1,0 +1,3 @@
+ZERO STATUS REFRESH PROOF — V1
+The local idle timer, target choice, standing visual preparation, movement, arrival, settle, and repeat call no Status API. Fixture completes two cycles for each structured resting pose while the in-memory canonical posture never changes.
+Live Dick completed moves 28 to 30 through two full Sitting -> Standing -> move -> Sitting cycles while statusStamp remained 1790560107748. A Hall-entry Status request in the live page failed HTTP 401; it did not cause or authorize the local transition.

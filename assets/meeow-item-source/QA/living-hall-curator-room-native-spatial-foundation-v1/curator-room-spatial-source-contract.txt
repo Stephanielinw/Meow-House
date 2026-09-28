@@ -1,0 +1,2 @@
+MACHINE-READABLE CURATOR ROOM SOURCE
+assets/meeow-map/curator/spatial/curator-room-spatial-source.json describes canonical 1024x1024, source hashes, exact floor and per-surface masks, classes, owners, bounds, components, confidence, connectivity and purple candidate. Full-canvas PNG masks preserve authored geometry. Original reference.png remains in curator/source and is not production-visible. This package is not registered with Hall simulation; no entry point, transition, obstacle map, POI or behavior is created.

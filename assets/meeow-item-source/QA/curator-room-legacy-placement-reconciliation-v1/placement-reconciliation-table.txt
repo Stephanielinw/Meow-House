@@ -1,0 +1,10 @@
+CURATOR ROOM / 馆长室 — LEGACY PRESENTATION COMPATIBILITY
+| Legacy ID | Display meaning | Old XY (%) / canvas | New anchor XY | Surface | Semantic level | Pose/activity | PASS |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `bed` | 床边 | 24,73 / 246,748 | 415,615 | curator-floor | floor-level | independent Status | PASS |
+| `nightstand` | 床头柜旁 | 39,65 / 399,666 | 540,485 | curator-floor | floor-level | independent Status | PASS |
+| `desk` | 书桌前 | 73,64 / 748,655 | 865,970 | curator-floor | floor-level | independent Status | PASS |
+| `window` | 窗边 | 79,25 / 809,256 | 570,400 | curator-floor | floor-level | independent Status | PASS |
+| `wardrobe` | 衣柜旁 | 20,31 / 205,317 | 825,535 | curator-floor | floor-level | independent Status | PASS |
+| `floor` | 房间里 | 51,76 / 522,778 | 605,530 | curator-floor | floor-level | independent Status | PASS |
+All new points are exact BLACK-mask pixels, outside RED/PURPLE and all furniture alpha at the foot. A 31x31 neighborhood around each foot also remains BLACK. These are compatibility presentation positions, never navigation stops, POIs, transition slots, or new Status authority.

@@ -1,0 +1,6 @@
+Living Hall Spatial Foundation V1 — canonical coordinates
+
+World authority is the authored room canvas: x and y in 1024x1024 map pixels. A resident's transient x/y denotes its foot point.
+The module's projectFoot(room, foot, measuredContentBounds) returns CSS coordinates in the map stage's content box. measureStageContent reads clientWidth/clientHeight and the rendered stage rectangle; it excludes the stage border.
+ResizeObserver and the window resize fallback update only measured bounds. Neither edits the foot point, resident save, logical mapPoint, or room metadata.
+There is no inverse projection in V1. Viewport/global screen coordinates are not written as world state.

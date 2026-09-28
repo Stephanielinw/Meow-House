@@ -1,0 +1,5 @@
+DINING SPATIAL AUDIT
+15 points. Fridge/food cabinet roofs and island top are elevated; sink is an interior POI; table under-left/right and cabinet-under use static clipping; chairs are exact seats; water/food bowls are exact interaction targets. Floor-side candidates: fridge-side, kitchen-island-front, table-edge.
+Art provides a broad lower floor but fridge, food shelf, island, table, chairs and bowl banks need obstacle footprints and approach anchors. No gotham::dining sidecar, so current ambient support is 0/15. Food/Item Usage authority must remain independent of navigation; exact bowl targets are not wandering regions.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

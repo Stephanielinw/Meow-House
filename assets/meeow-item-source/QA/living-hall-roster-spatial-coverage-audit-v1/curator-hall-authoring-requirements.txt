@@ -1,0 +1,5 @@
+FUTURE CURATOR HALL (GREENFIELD)
+Curator room currently uses CURATOR_ROOM_ANCHORS and a separate marker presentation in index.html, not a 1024-square Living Hall room with layered art. Missing Curator Hall art is expected, not a regression.
+From day one, future authored art should ship with canonical dimensions, foot-coordinate origin, walkable floor and obstacles, named surfaces/components, exact interaction/rest points, transition/approach anchors, depth/occlusion layers, spawn entries and validation metadata. Do not create speculative runtime sidecar or infer geometry from names before art exists.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

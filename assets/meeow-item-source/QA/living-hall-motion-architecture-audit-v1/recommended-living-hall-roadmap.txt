@@ -1,0 +1,13 @@
+Living Hall spatial/motion architecture audit V1 — phased roadmap
+
+Phase 0: versioned living-rug spatial sidecar and an overlay/checker for safe foot radius, two slots, obstacle/occlusion and responsive projection. Existing art stays.
+Phase 1: one Standard CAT-form resident with session-only x/y, local idle/route/stop/sit, priority cancellation and zero AI; add the minimum reviewed walk frames. This is the minimum-vertical-slice.txt contract.
+Phase 2: master timing/layer ownership and four body-type gait chassis; directional/asymmetric identity regression; bounded frame cache and mobile profile.
+Phase 3: limited multi-cat active-room simulation, occupancy reservations, inter-cat foot-Y sort, static fallback/reduced-motion handling; no invisible Hall loops.
+Phase 4: authored POI approaches/poses, obstacle-aware route graph and room-specific depth/foreground occlusion; retrofit dorm/dining incrementally.
+Phase 5: sparse PROGRAM behavior choice from legal activities; local motion remains consequence-neutral. Only after observation should utility weighting or broader social behavior be considered.
+Phase 6: pass accepted local behavior snapshot to existing Status/scene AI as context, migrate ordinary action choice from AI gradually, retain prose/dialogue/inner voice and existing accepted-event authority. Separately author future Curator map+sidecar from day one.
+
+Biggest architectural blocker: mapPoint registry has no walkable/obstacle/route authority, while accepted Status and Active Social Presence can change location. Biggest art blocker: no directional walk frames, and furniture is not fully split for continuous occlusion. Biggest performance risk: synchronous resident-frame generation/decoded cache multiplied by visible cats, not the two-point position math. First implementation prompt should request only Phases 0–1 for one living-rug Standard resident with explicit cancellation and tests; do not request a broad Living World rewrite.
+
+Audit safety: no production code, runtime behavior, prompts, save schema, source art or AI call sites modified. Exact 27 report files are the only intended outputs. Existing unrelated working-tree changes remain untouched.

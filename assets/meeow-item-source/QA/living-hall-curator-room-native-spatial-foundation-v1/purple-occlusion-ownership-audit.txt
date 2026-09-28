@@ -1,0 +1,3 @@
+PURPLE OCCLUSION CANDIDATE
+Pixels: 8512; bounds [603, 791, 755, 991]; components: 2. Chair layer overlap: 8511/8512.
+Two marked strips follow the front chair legs/frame. They may later cover a resident at the chair seat or adjacent ground. Purple is presentation metadata only: no walkability, collision, transition or live clipping.

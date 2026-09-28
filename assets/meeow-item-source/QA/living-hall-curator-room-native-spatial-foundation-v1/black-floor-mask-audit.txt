@@ -1,0 +1,6 @@
+BLACK FLOOR-WALKABLE SOURCE
+Pixels: 340122; bounds [0, 337, 1024, 1024]; 8-connected components: 3.
+- 1: 335461 pixels; bounds [0, 337, 1024, 1024]
+- 2: 4655 pixels; bounds [0, 337, 38, 565]
+- 3: 6 pixels; bounds [0, 569, 1, 575]
+The large ground component threads around bed, rug, desk and chair. A separate narrow left strip at x<38/y337-565 is not connected under the authored mask; a six-pixel edge fragment is also isolated. Potential bottlenecks around bed/rug and desk/chair need future clearance QA. No erosion, dilation, body radius, pathfinding, destination or obstacle inference is applied. Black means legal foot point only.

@@ -1,0 +1,6 @@
+STATUS / PROGRAM / AI AUTHORITY MIGRATION (FUTURE ONLY)
+Current accepted Status posture and mapPoint/mapRoom/mapSpot influence ordinary Hall map placement and presentation. PROGRAM currently owns only local temporary ambient movement after an accepted entry; it neither saves foot nor changes Status. Legacy Status prose can supply visual/map fallback but never PROGRAM locomotion permission by itself.
+Future boundary: event and availability authority remain higher priority; PROGRAM owns ordinary action choice, legal destination and local posture/motion transitions; Status becomes a narrative snapshot/compatibility baseline for ordinary idle state, while accepted higher-authority events retain preemption. AI may elaborate narration or propose validated content, never drive per-frame movement or supply geometry. Migration needs versioned save compatibility and explicit authority precedence, not an immediate field deletion.
+No Status schema/cadence, AI prompt, save, or authority migration changed here.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

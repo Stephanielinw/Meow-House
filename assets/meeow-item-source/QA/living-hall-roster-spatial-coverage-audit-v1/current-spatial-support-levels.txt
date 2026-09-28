@@ -1,0 +1,41 @@
+CURRENT SUPPORT AND FUTURE AUTHORING LEVEL
+Current support requires: active gotham::living, CAT present in Hall, point presentation foot exactly equal to an ambientSlots foot, and component mapping in ambientEntrySlot. Only living-rug and sofa-seat can produce entries, and only for some colocated placement indexes. Others remain static Hall markers.
+Levels classify the next missing contract: L0 unknown; L1 static only; L2 ordinary same-surface roaming after metadata; L3 exact/special surface graph; L4 authored transition edge; L5 visual/depth/art or anchor reconciliation first. Existing supported points still have a level describing future expansion; level is not a current-support boolean.
+
+dorm::window-sill | CURRENT UNSUPPORTED | next requirement L5
+dorm::cat-tree-top | CURRENT UNSUPPORTED | next requirement L4
+dorm::cat-tree-high | CURRENT UNSUPPORTED | next requirement L4
+dorm::cat-tree-low | CURRENT UNSUPPORTED | next requirement L4
+dorm::wardrobe-top | CURRENT UNSUPPORTED | next requirement L5
+dorm::wardrobe-under | CURRENT UNSUPPORTED | next requirement L5
+dorm::dorm-carpet | CURRENT UNSUPPORTED | next requirement L2
+dorm::flower-cushion | CURRENT UNSUPPORTED | next requirement L4
+dorm::gingham-cushion | CURRENT UNSUPPORTED | next requirement L4
+dorm::cat-house-door | CURRENT UNSUPPORTED | next requirement L4
+living::bookshelf-top | CURRENT UNSUPPORTED | next requirement L5
+living::bookshelf-upper | CURRENT UNSUPPORTED | next requirement L5
+living::bookshelf-middle | CURRENT UNSUPPORTED | next requirement L5
+living::sofa-seat | CURRENT PARTIAL: index 0 -> sofa-center (578,394); index 1 -> sofa-left (517,394); index 2 -> sofa-right (638,394) | next requirement L3
+living::sofa-foot | CURRENT UNSUPPORTED | next requirement L2
+living::living-rug | CURRENT PARTIAL: index 0 -> rug-a (443,716); index 1 -> rug-left (370,716); index 2 -> rug-right (515,716); index 3 -> rug-back (410,671) | next requirement L2
+living::toy-area | CURRENT UNSUPPORTED | next requirement L5
+living::scratch-board | CURRENT UNSUPPORTED | next requirement L5
+living::scratch-post-top | CURRENT UNSUPPORTED | next requirement L5
+living::owner-feet | CURRENT UNSUPPORTED | next requirement L2
+dining::fridge-top | CURRENT UNSUPPORTED | next requirement L5
+dining::fridge-side | CURRENT UNSUPPORTED | next requirement L2
+dining::food-cabinet-top | CURRENT UNSUPPORTED | next requirement L5
+dining::food-cabinet | CURRENT UNSUPPORTED | next requirement L3
+dining::sink-basin | CURRENT UNSUPPORTED | next requirement L5
+dining::cabinet-top | CURRENT UNSUPPORTED | next requirement L5
+dining::cabinet-under | CURRENT UNSUPPORTED | next requirement L5
+dining::kitchen-island-front | CURRENT UNSUPPORTED | next requirement L2
+dining::table-under-left | CURRENT UNSUPPORTED | next requirement L5
+dining::table-under-right | CURRENT UNSUPPORTED | next requirement L5
+dining::table-edge | CURRENT UNSUPPORTED | next requirement L2
+dining::chair-left | CURRENT UNSUPPORTED | next requirement L4
+dining::chair-right | CURRENT UNSUPPORTED | next requirement L4
+dining::water-bowl | CURRENT UNSUPPORTED | next requirement L3
+dining::food-bowl | CURRENT UNSUPPORTED | next requirement L3
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

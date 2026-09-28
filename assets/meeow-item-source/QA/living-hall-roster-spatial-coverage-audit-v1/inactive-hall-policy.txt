@@ -1,0 +1,4 @@
+RECOMMENDED V1 INACTIVE POLICY (NO CODE CHANGE)
+Only visible active Hall + room map runs local simulation. Inactive rooms/Halls hold canonical accepted Status/placement and no timers/rAF; on re-entry initialize fresh local eligibility from current authority, not a stale route. Away or HUMAN residents do not enter CAT ambient runtime. Higher-authority Social Presence, pending Arrival, Item Usage and user focus preempt local ownership; historical scene records alone do not permanently block. Page hidden/unmounted stops simulation. Do not save transient feet/pose as Status.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

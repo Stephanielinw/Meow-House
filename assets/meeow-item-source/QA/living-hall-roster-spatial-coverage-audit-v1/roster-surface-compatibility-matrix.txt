@@ -1,0 +1,64 @@
+DERIVED 55 x FIVE-SURFACE MATRIX
+Resident contract is tested once per identity: visual resolves; actual config renders Standing/Sitting/Crouching/Lying; frame has finite ground anchor. All 55 pass. Surface result is then a shared requirement, not resident-specific logic. A resting structured pose can transition locally; missing/invalid structured pose fails closed.
+R = ordinary floor/rug: resident-capable, spatial metadata or entry needed except exact supported living-rug placements. S = sofa/rest: resident-capable, only exact living sofa slots move now; other rest surfaces need authoring. E = elevated shelf: resident-capable, no transition/depth route. C = climber/scratch: resident-capable, no authored transition graph (scratch map mismatch needs review). U = special/unsupported: resident-capable but movement blocked by spatial contract. The symbols are derived once from shared resident rendering plus surface contracts; they are not 275 rules.
+
+RESIDENT | BODY | FLOOR/RUG SOFA/REST ELEVATED CLIMBER/SCRATCH SPECIAL
+gotham-bruce | fluffy | R S E C U
+gotham-dick | slim | R S E C U
+gotham-jason | standard | R S E C U
+gotham-tim | slim | R S E C U
+gotham-damian | slim | R S E C U
+gotham-stephanie | standard | R S E C U
+gotham-cassandra | standard | R S E C U
+gotham-barbara | fluffy | R S E C U
+marvel-peter | standard | R S E C U
+marvel-harry | fluffy | R S E C U
+marvel-tony | standard | R S E C U
+marvel-wade | standard | R S E C U
+marvel-steve | fluffy | R S E C U
+marvel-bucky | fluffy | R S E C U
+marvel-natasha | slim | R S E C U
+marvel-thor | fluffy | R S E C U
+marvel-loki | slim | R S E C U
+marvel-clint | standard | R S E C U
+marvel-yelena | fluffy | R S E C U
+greek-telemachus | standard | R S E C U
+greek-antinous | fluffy | R S E C U
+greek-eurymachus | slim | R S E C U
+greek-telegonus | standard | R S E C U
+greek-melanthios | standard | R S E C U
+greek-amphinomos | fluffy | R S E C U
+greek-peiraios | slim | R S E C U
+greek-peisistratus | fluffy | R S E C U
+greek-odysseus | standard | R S E C U
+greek-diomendes | chubby | R S E C U
+troy-agamemnon | fluffy | R S E C U
+troy-menelaus | fluffy | R S E C U
+troy-ajax | chubby | R S E C U
+troy-nestor | fluffy | R S E C U
+troy-hector | standard | R S E C U
+troy-paris | fluffy | R S E C U
+troy-aeneas | standard | R S E C U
+troy-sarpedon | fluffy | R S E C U
+greek-zagreus | standard | R S E C U
+underworld-hades | fluffy | R S E C U
+underworld-hypnos | slim | R S E C U
+underworld-thanatos | slim | R S E C U
+underworld-achilles | fluffy | R S E C U
+underworld-patroclus | fluffy | R S E C U
+olympus-zeus | fluffy | R S E C U
+olympus-hera | fluffy | R S E C U
+olympus-poseidon | standard | R S E C U
+olympus-demeter | chubby | R S E C U
+olympus-athena | slim | R S E C U
+olympus-apollo | fluffy | R S E C U
+olympus-artemis | slim | R S E C U
+olympus-ares | chubby | R S E C U
+olympus-aphrodite | fluffy | R S E C U
+olympus-hephaestus | chubby | R S E C U
+olympus-hermes | slim | R S E C U
+olympus-dionysus | chubby | R S E C U
+
+Generated resident with saved validated visual follows the same contract; generated Hall lacks a spatial sidecar, so current placement remains unsupported there.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

@@ -1,0 +1,13 @@
+RED AUTHORING SEGMENTATION
+Exact red mask: 235220 accepted pixels, 10 8-connected painted components. Mapped to 7 logical surfaces without changing any pixel.
+- component 1: 97217 px; bounds [15, 223, 370, 560]
+- component 2: 70963 px; bounds [27, 726, 433, 919]
+- component 3: 32837 px; bounds [484, 655, 989, 757]
+- component 4: 21360 px; bounds [650, 50, 1015, 113]
+- component 5: 5589 px; bounds [634, 814, 724, 883]
+- component 6: 4174 px; bounds [343, 291, 490, 333]
+- component 7: 1595 px; bounds [483, 258, 577, 278]
+- component 8: 677 px; bounds [594, 826, 616, 875]
+- component 9: 677 px; bounds [747, 826, 768, 873]
+- component 10: 131 px; bounds [417, 262, 437, 277]
+Window ledge has two islands around the plant; chair seat has three islands around its frame. All ten meaningful components are assigned. Components are not used as one-to-one surface authority.

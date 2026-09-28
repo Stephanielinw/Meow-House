@@ -1,0 +1,6 @@
+Living Hall Spatial Foundation V1 — next motion pass handoff
+
+Spatial authority: the resident's canonical 1024x1024 foot coordinate in js/meeow-hall-spatial.js, projected through measured map-stage content bounds. The selected DOM node is one .meeow-map-spatial-resident wrapper containing the existing cat button/image, badge, and name.
+Current controller exposes start, intermediate onPosition(point), arrival onArrival(point), cancel, and state. Its direction is B-A and velocity is 80 canonical px/s for the one fixed route. A motion pass should expose a normalized facing vector and start/stop lifecycle to select frames, without changing foot coordinates.
+The cached frame integration hook is getMapCatVisualPresentation/resolveMapCatVisual in index.html, where a pose-specific rendered frame and makeGroundAnchorPlacement already produce the image and ground offset. Replace the static image source there with cached directional frames; keep the wrapper/foot projection unchanged.
+Before animation expansion, verify pose-specific ground anchors for Standing and Sitting, define body-clearance only in a separate collision pass, and author more floor/POI/depth metadata. Curator Hall art and metadata remain future greenfield work.

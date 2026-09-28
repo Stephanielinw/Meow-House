@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — local movement controller
+
+js/meeow-hall-spatial.js exports createOneShotMovement. Defaults: fixed 900ms initial idle and 80 canonical pixels/second. Elapsed performance time controls interpolation; requestAnimationFrame only schedules visual updates.
+start() is one-shot. It publishes A, then intermediate foot points, then exact B and one arrival callback. The app holds only a transient spatialFoot ref for the selected resident. It never edits cats.value or a save object.
+The existing static Cat Renderer image is reused; there is no walk-frame generation, image recomposition per frame, animation cache, or AI request.

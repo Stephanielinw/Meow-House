@@ -1,0 +1,9 @@
+Living Hall Spatial Foundation V1 — prototype room authority
+
+Production Hall ID: gotham (js/meeow-data.js).
+Production map room ID: living (js/meeow-map.js).
+Existing logical map point: living-rug. The map definition gives it a rug region and anchors; those are presentation evidence, not collision authority.
+Spatial sidecar key: gotham::living (js/meeow-hall-spatial.js). Other Halls that reuse the same living PNGs do not receive movement metadata.
+The layered living room art is 1024x1024. Its rug provides a clear direct foot route between the two authored slots. The Curator room is not used.
+Activation: ?livingHallSpatial=1, with optional &livingHallSpatialResidentId=<stable resident ID>. Default normal play has no motion.
+The chosen resident must be in this Hall and room, at living-rug, available, in CAT form, and shown with a Standing pose. Candidates sort by stable resident ID; no character identity is hardcoded.

@@ -1,0 +1,6 @@
+RECOMMENDED IMMEDIATE NEXT IMPLEMENTATION (FUTURE, NOT DONE HERE)
+Introduce an authored map-point -> spatial entry/surface contract with a generic hallId::roomId sidecar registry, first by expressing existing gotham::living rug and sofa entries through data rather than string/foot special casing. Preserve exact current graph, event gates, occupancy, scheduler, and no floor<->sofa edge. Validate all 35 points as supported or explicitly unsupported, then author conservative dorm/dining floor sidecars separately.
+This is the smallest boundary because current ambient runtime is ID-generic but entry selection and room binding are not. Biggest blocker: missing spatial surface/entry metadata (and scratch art/anchor mismatch). Roster blocker: none among built-ins; generated Hall placement lacks a sidecar. Renderer blocker: no moving depth/occlusion for elevated/under-furniture surfaces; known Standing art mask-test debt remains separate.
+Do not touch Status Sync, Social, Arrival, Food, Item Usage, Personality, AI, art, or animation in that phase.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

@@ -1,0 +1,11 @@
+FUTURE TRANSITION CLASSES (NOT IMPLEMENTED)
+floor->sofa / sofa->floor: approach at sofa-foot; continuous floor movement to approach, special climb/jump and landing required; current sofa art exists, moving depth/occlusion does not.
+floor->cushion / cushion->floor: approach cushion edge; short world movement possible, stand/sit pose switch; art exists, surface boundary needs authoring.
+floor->climber / climber platform->platform / climber->floor: approach cat-tree-low; ascent and platform changes require authored motion and depth; visible ramp/platform art exists, moving occlusion absent.
+floor->enclosed house / house->floor: approach cat-house-door; continuous floor to threshold, enter/exit visual and front occlusion needed.
+floor->elevated shelf / shelf->floor: approach at shelf base, then special climb/jump; static shelf art exists but landing, route and depth need authoring.
+floor->chair / chair->floor: approach chair base; seat transition and moving table occlusion needed.
+floor->food/water POI / return: floor approach plus exact interaction slot; Food authority remains separate.
+No current floor<->sofa, floor<->elevated, or cross-component edge exists.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

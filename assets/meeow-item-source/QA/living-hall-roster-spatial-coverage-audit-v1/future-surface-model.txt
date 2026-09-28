@@ -1,0 +1,5 @@
+MINIMUM FUTURE SURFACE CONTRACT (PROPOSAL ONLY)
+Room sidecar registry by hallId::roomId with canonical dimensions. Each room declares ordinary walkable floor region(s), obstacle footprints, surface IDs and connected components. Map-point entry mapping refers to a surface plus exact spawn/interaction slot or region. Exact rest/interaction surfaces retain authored slots. Transition anchors/edges connect components only when authored; per-surface depth/occluder references control moving presentation.
+Separate ordinary floor/rug roaming from sofa/chair/cushion, shelf/climber, enclosed furniture and food/interaction points. Do not infer a surface from map-point ID text. Store semantic surface mapping as authored data after art and anchor review. Preserve current rug and sofa disconnection until a transition is authored.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

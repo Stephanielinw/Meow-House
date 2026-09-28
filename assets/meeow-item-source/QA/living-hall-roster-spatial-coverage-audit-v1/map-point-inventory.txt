@@ -1,0 +1,40 @@
+ALL 35 ROOM-QUALIFIED PRODUCTION MAP POINTS
+Each row is read from MAP_ROOM_DEFINITIONS; coordinates are canonical 1024-square. Region rectangles are x,y,width,height. index.html getMapPlacement uses the region offset sequence for colocated residents or anchor rotation when no region exists; marker position is a percentage projection. Depth defaults to surface; listed occlusion profiles are static presentation clips.
+
+dorm::window-sill | furniture=window | anchors=(350,287),(435,287) | region=none | depth=surface | clip=none | aliases=window
+dorm::cat-tree-top | furniture=cat-climber | anchors=(140,352),(250,352) | region=none | depth=surface | clip=none | aliases=tree-top
+dorm::cat-tree-high | furniture=cat-climber | anchors=(305,510),(370,510) | region=none | depth=surface | clip=none | aliases=tree-platform
+dorm::cat-tree-low | furniture=cat-climber | anchors=(180,690),(285,690) | region=none | depth=surface | clip=none | aliases=tree-base,tree,cat-tree
+dorm::wardrobe-top | furniture=shelf | anchors=(720,320),(835,320) | region=610,265,280,70 | depth=surface | clip=none | aliases=wardrobe
+dorm::wardrobe-under | furniture=shelf | anchors=(760,600) | region=635,535,250,100 | depth=surface | clip=wardrobe-front | aliases=wardrobe-under
+dorm::dorm-carpet | furniture=carpet | anchors=(650,735),(805,740) | region=470,560,405,220 | depth=surface | clip=none | aliases=carpet
+dorm::flower-cushion | furniture=cushion-a | anchors=(165,935) | region=70,850,230,135 | depth=surface | clip=none | aliases=cushion-a,cushion
+dorm::gingham-cushion | furniture=cushion-b | anchors=(440,925) | region=335,855,225,120 | depth=surface | clip=none | aliases=cushion-b
+dorm::cat-house-door | furniture=cat-house | anchors=(770,925) | region=none | depth=surface | clip=none | aliases=nest
+living::bookshelf-top | furniture=shelf | anchors=(190,120),(255,120) | region=145,80,170,70 | depth=surface | clip=none | aliases=
+living::bookshelf-upper | furniture=shelf | anchors=(185,235),(255,235) | region=105,195,215,70 | depth=surface | clip=none | aliases=bookshelf
+living::bookshelf-middle | furniture=shelf | anchors=(185,330),(255,330) | region=105,292,215,70 | depth=surface | clip=none | aliases=
+living::sofa-seat | furniture=sofa | anchors=(500,410),(620,410) | region=410,345,335,85 | depth=surface | clip=none | aliases=sofa
+living::sofa-foot | furniture=sofa | anchors=(500,495),(640,495) | region=400,448,360,90 | depth=surface | clip=none | aliases=
+living::living-rug | furniture=carpet | anchors=(390,690),(560,690) | region=240,585,405,225 | depth=surface | clip=none | aliases=rug
+living::toy-area | furniture=cat-toys | anchors=(760,790),(880,790) | region=690,690,270,255 | depth=surface | clip=none | aliases=toy
+living::scratch-board | furniture=scratching-board-a | anchors=(135,835),(160,900) | region=70,735,150,220 | depth=surface | clip=none | aliases=scratch,scratch-board-front
+living::scratch-post-top | furniture=scratching-board-b | anchors=(845,350) | region=820,310,100,65 | depth=surface | clip=none | aliases=scratch-post,scratch-column
+living::owner-feet | furniture=floor | anchors=(510,905),(600,905) | region=405,835,280,120 | depth=surface | clip=none | aliases=
+dining::fridge-top | furniture=fridge | anchors=(150,170) | region=45,70,220,95 | depth=surface | clip=none | aliases=fridge-top
+dining::fridge-side | furniture=fridge | anchors=(285,505) | region=250,430,120,130 | depth=surface | clip=none | aliases=fridge
+dining::food-cabinet-top | furniture=foodshelf | anchors=(900,170) | region=790,70,220,95 | depth=surface | clip=none | aliases=food-cabinet-top
+dining::food-cabinet | furniture=foodshelf | anchors=(900,500),(900,590) | region=800,330,200,230 | depth=surface | clip=none | aliases=snack-shelf
+dining::sink-basin | furniture=wash-basin | anchors=(410,325) | region=325,285,165,80 | depth=surface | clip=sink-rim | aliases=sink,sink-basin
+dining::cabinet-top | furniture=kitchen-island | anchors=(620,330),(710,330) | region=560,285,210,75 | depth=surface | clip=none | aliases=cabinet-top,countertop
+dining::cabinet-under | furniture=kitchen-island | anchors=(610,585),(710,585) | region=500,515,270,110 | depth=surface | clip=cabinet-front | aliases=cabinet-under
+dining::kitchen-island-front | furniture=kitchen-island | anchors=(455,505),(625,505) | region=340,470,390,115 | depth=surface | clip=none | aliases=kitchen-island
+dining::table-under-left | furniture=table | anchors=(145,700) | region=60,620,205,125 | depth=surface | clip=table-front | aliases=under-table
+dining::table-under-right | furniture=table | anchors=(390,700) | region=300,620,205,125 | depth=surface | clip=table-front | aliases=
+dining::table-edge | furniture=table | anchors=(270,800),(420,800) | region=100,720,410,120 | depth=surface | clip=none | aliases=table
+dining::chair-left | furniture=chair-a | anchors=(105,675) | region=55,595,115,115 | depth=surface | clip=table-front | aliases=chair
+dining::chair-right | furniture=chair-b | anchors=(390,675) | region=345,595,115,115 | depth=surface | clip=table-front | aliases=
+dining::water-bowl | furniture=water-bowl | anchors=(560,785),(685,785),(810,785),(935,785) | region=515,725,445,90 | depth=surface | clip=none | aliases=
+dining::food-bowl | furniture=food-bowl | anchors=(560,900),(685,900),(810,900),(935,900) | region=515,850,445,95 | depth=surface | clip=none | aliases=
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

@@ -1,0 +1,5 @@
+FUTURE PERSONALITY DECISION HOOK
+js/meeow-hall-spatial.js schedule() timer callback, immediately before free-neighbor filtering and hash-based target choice, is the current generic PROGRAM decision point ('what should this resident do next?'). It receives an opaque resident ID and runtime slot; no resident-specific branch.
+Later structured personality could weight an action/destination candidate after legal spatial filtering. It must not grant unavailable surfaces or replace event ownership, occupancy, Status authority, or geometry. No personality integration performed in this audit.
+
+Sources: js/meeow-data.js; js/meeow-resident-visual.js; js/meeow-map.js; js/meeow-hall-spatial.js; index.html. Relevant authored art inspected under assets/meeow-map/dorm, living, and dining. Test: tests/living-hall-roster-spatial-coverage-audit-v1.fixture.mjs.

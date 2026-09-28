@@ -1,0 +1,7 @@
+Ambient Locomotion Semantics Hotfix V1 — standing locomotion contract
+
+Locomotion permission requires a supported spatial entry and normalized structured statusActivity.posture === standing. A visible standing pose inferred from legacy prose is insufficient. Missing or invalid structured posture fails closed.
+
+The Hall passes an authoritative getter into createAmbientSimulation. The controller checks the getter when claiming an entry, before scheduling an idle decision, immediately when the decision timer fires before choosing or reserving a target, and during movement frames/arrival. The decision-time check prevents an old entry snapshot from authorizing a new route.
+
+Standing residents retain the V1 deterministic bounded idle delay (1200–2800 ms), free-neighbor selection, reservation, motion, settle, and repeated cycle. No Status mutation, Status cadence change, save write, or AI call is introduced.

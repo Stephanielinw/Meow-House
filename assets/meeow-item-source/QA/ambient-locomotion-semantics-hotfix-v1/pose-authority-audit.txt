@@ -1,0 +1,9 @@
+Ambient Locomotion Semantics Hotfix V1 — pose authority audit
+
+Production source: js/meeow-status-posture.js. normalizeStatusActivity accepts only a plain object whose posture normalizes to standing, sitting, crouching, or lying. The stored Status field is resident.statusActivity.posture. No field or normalization rule was changed by this hotfix.
+
+Visible Hall presentation: index.html getMapCatPose(cat) calls statusPosture.resolveMapPose(cat). That resolver first uses normalized statusActivity.posture, then infers a pose from legacy Status text for presentation. Ambiguous or absent legacy posture text falls back visually to standing. mapCatMarkers stores this result as marker.pose.
+
+Ambient authority: index.html getStructuredStatusPose(cat) reads only statusPosture.normalizeStatusActivity(cat?.statusActivity)?.posture. The ambient controller receives this as its authoritative pose and also reads it through getAuthoritativePose(id) at movement decisions. Legacy text can still affect the sprite shown, but cannot grant movement.
+
+Prior defect: getSpatialAmbientEntries checked Hall availability, CAT form, room, and supported slot, but omitted pose. The controller then scheduled any supported entry. This let a visually Sitting Dick travel across the rug. Pose authority changed: NO.

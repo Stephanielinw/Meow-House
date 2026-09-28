@@ -1,0 +1,4 @@
+REST TO STANDING CONTRACT — V1
+After the ordinary bounded idle decision selects a legal neighbor, the runtime reserves that target. Structured sitting, crouching, and lying then enter transitioning/preparing-standing while their resting image remains displayed. The existing Cat Renderer prepares a standing sprite using the same visual config.
+When ready, ambientMotionPose becomes standing. The displayed Standing image holds for 350 ms before movement can start. No pose art or stored Status mutation occurs. A failed visual preparation or 5 s readiness timeout releases the target and returns to the normal idle retry.
+Structured standing uses the direct movement path without a rest-to-stand hold. Missing/invalid structured posture remains stationary.

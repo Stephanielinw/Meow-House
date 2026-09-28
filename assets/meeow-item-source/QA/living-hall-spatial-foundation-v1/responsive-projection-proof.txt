@@ -1,0 +1,5 @@
+Living Hall Spatial Foundation V1 — responsive projection
+
+The map stage's actual content width/height are measured after render and by ResizeObserver. A 1px border is excluded through clientWidth/clientHeight and clientLeft/clientTop.
+projectFoot multiplies canonical x by measured width/1024 and y by measured height/1024. The same point is fixture-checked at 600x600 and 320x320 stage content sizes, including resize during a synthetic movement.
+Only the projected CSS left/top changes when size changes. The canonical foot coordinates and route are unchanged. The debug SVG uses the same 1024x1024 viewBox inside those measured stage bounds.
