@@ -26,6 +26,8 @@ const queued = [];
 const queueSandbox = {
   Date,
   getPhoneReplyOpportunities: () => queued,
+  getPhoneReplySourceMessages: op => op.sourceMessageIds.map(id => ({ id, role: 'user' })),
+  markPhoneReplyIntegrityMismatch: op => { op.status = 'integrity-mismatch'; },
   isEligiblePhoneReplySource: message => message?.role === 'user' && Boolean(message.id),
   isAcceptedPhoneContact: () => true,
   getCanonicalCatId: value => String(value),
@@ -59,14 +61,17 @@ const threadSandbox = {
   cleanText: value => String(value ?? '').replace(/\s+/g, ' ').trim(),
   isValidPhoneReplyTime: value => Number.isFinite(new Date(value || '').getTime()),
   getAllStoredPhoneMessages: () => threadMessages,
+  isEligiblePhoneReplySource: message => message?.role === 'user' && !message.recalled && Boolean(message.id),
+  getPhoneMessageTimestamp: message => new Date(message.at).getTime(),
   cats: { value: [{ id: 'resident-a', hallId: 'hall-a' }] },
   halls: { value: [{ id: 'hall-a', name: 'A馆' }] },
   sameCatId: (left, right) => String(left) === String(right),
   buildFocusedResidentStateContext: () => 'FROZEN RESIDENT',
+  getPhoneContactDisplayName: () => 'A',
   buildAuthoritativeUserIdentityContext: () => 'FROZEN USER'
 };
 vm.createContext(threadSandbox);
-vm.runInContext(`${section('const compactPhoneReplyThreadContent', 'const hasUnresolvedPhoneReply')}
+vm.runInContext(`${section('const getPhoneReplySourceMessages', 'const hasUnresolvedPhoneReply')}
 globalThis.freezeThread = freezePhoneReplyThreadContext;`, threadSandbox);
 const threadOpportunity = { contactId: 'resident-a', sourceMessageIds: ['u1', 'u2'], threadContextFrozen: false };
 threadSandbox.freezeThread(threadOpportunity);
@@ -91,6 +96,7 @@ const claimSandbox = {
   PHONE_REPLY_UNRESOLVED_STATUSES: new Set(['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'failed', 'integrity-mismatch']),
   phoneReplyGenerationInFlight: new Map(), phoneReplyGenerationSequence: 0,
   getPhoneReplyOpportunities: () => claimItems,
+  getPhoneReplySourceMessages: op => op.sourceMessageIds.map(id => ({ id, role: 'user' })),
   getCanonicalCatId: value => String(value), sameCatId: (left, right) => String(left) === String(right),
   isAcceptedPhoneContact: () => true,
   clonePhoneReplyValue: value => structuredClone(value),
@@ -151,7 +157,7 @@ assert.match(source, /sameCatId\(opportunity\.contactId, canonicalResidentId\)/)
 assert.match(source, /claimPhoneReplyGeneration\(opportunity, 'homepage-direct-piggyback'/);
 assert.match(source, /claimPhoneReplyGeneration\(opportunity, 'phone-dedicated'/);
 assert.equal((source.match(/claimPhoneReplyGeneration\(opportunity,/g) || []).length, 2, 'only dedicated Phone and same-resident Direct may claim generation');
-assert.match(directSource, /validateResponse: content => validateMergedHomepageChatResponse/);
+assert.match(directSource, /validateResponse: content => \{[\s\S]*?return validateMergedHomepageChatResponse/);
 assert.match(directSource, /settleHomepageDirectPhoneSidecar\(phoneReplyPiggybackClaim, payload\.phoneReply\)/);
 assert.match(source, /PHONE REPLY PIGGYBACK SOFT MISS/);
 assert.match(source, /Do not use the current Homepage Direct USER action/);
@@ -188,6 +194,7 @@ const runCommitCase = persistSteps => {
   const sandbox = {
     Date,
     getPhoneReplyOpportunities: () => [opportunity],
+    getPhoneReplySourceMessages: () => [{ id: 'source', role: 'user' }],
     validatePhoneChatReplyPayload: () => true,
     parsePhoneChatReplyEnvelope: payload => payload,
     clonePhoneReplyValue: value => structuredClone(value),
@@ -245,7 +252,194 @@ assert.match(source, /state === 'ready'/);
 assert.match(source, /获取回复/);
 assert.match(source, /等回复/);
 assert.match(source, /\['retryable', 'in-flight', 'generated', 'delivering'\]/);
-assert.equal((source.match(/callAI\(/g) || []).length, 40);
+assert.equal((source.match(/callAI\(/g) || []).length, 36);
+
+// M1: exercise the real merged storage reader, normalization, claim, commit,
+// delivery and user-send persistence boundary. No provider or disk writes.
+const makeM1 = () => {
+  const user = { currentStatus: 'PRIVATE OWNER SENTINEL', phoneData: {
+    friends: ['a', 'b'], chats: [{ contactId: 'a', history: [] }, { contactId: 'b', history: [] }],
+    chatArchives: {}, replyOpportunities: []
+  } };
+  const saves = [], toasts = [];
+  let saveSteps = [];
+  const sandbox = {
+    user, Date, Math, Map, Set,
+    cleanText: value => String(value ?? '').replace(/\s+/g, ' ').trim(),
+    getCanonicalCatId: String, sameCatId: (a, b) => String(a) === String(b),
+    cats: { value: [{ id: 'a', hallId: 'hall', name: 'A', innerVoice: 'A PRIVATE' },
+      { id: 'b', hallId: 'hall', name: 'B', innerVoice: 'B PRIVATE SENTINEL' }] },
+    halls: { value: [{ id: 'hall', name: 'Hall' }] },
+    buildFocusedResidentStateContext: cat => `OWN PROFILE ${cat.id}`,
+    getPhoneContactDisplayName: cat => cat.name,
+    buildAuthoritativeUserIdentityContext: () => 'PUBLIC IDENTITY',
+    isValidPhoneReplyTime: value => Boolean(value) && Number.isFinite(new Date(value).getTime()),
+    getPhoneChatHistory: id => user.phoneData.chats.find(chat => chat.contactId === id)?.history || [],
+    ensurePhoneChatHistory: id => user.phoneData.chats.find(chat => chat.contactId === id).history,
+    getOperationalDayKey: date => date.toISOString().slice(0, 10),
+    appendPhoneChatMemory: () => {}, announceIncomingPhoneMessage: () => {},
+    showToast: text => toasts.push(text), addLog: () => {},
+    scrollPhoneChatToBottom: () => {}, isPhoneChatNearBottom: () => false,
+    schedulePhoneReplyReconciliation: () => {}, knowledgeLedger: { value: [] },
+    freezePhoneReplyUserDisclosureScope: () => {}, applyFrozenPhoneUserDisclosureKnowledge: () => {},
+    freezePhoneReplyKnowledgeScope: () => {}, freezePhoneReplyEpisodicMemoryScope: () => {},
+    normalizePhoneReplyKnowledgeSnapshots: rows => rows || [], normalizePhoneReplyEpisodicMemorySnapshots: rows => rows || [],
+    normalizePhoneReplyDisclosureFactIdsByBubble: rows => rows || [], makePhoneReplyKnowledgeFactRefs: () => [],
+    getLifeThreadFactLocation: () => null, validatePhoneChatReplyPayload: () => true,
+    parsePhoneChatReplyEnvelope: payload => payload, validatePhoneReplyKnowledgeDisclosures: () => [],
+    normalizePhoneReplyTimingHint: () => 'normal', computePhoneReplyDeliverAt: (_op, _token, _hint, now) => now.toISOString(),
+    PHONE_REPLY_STATUSES: new Set(['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'completed', 'failed', 'integrity-mismatch']),
+    PHONE_REPLY_UNRESOLVED_STATUSES: new Set(['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'failed', 'integrity-mismatch']),
+    PHONE_REPLY_RETRY_DELAYS_MS: [60_000, 180_000, 480_000], PHONE_REPLY_BUBBLE_DELAY_MS: 750,
+    phoneReplyGenerationInFlight: new Map(), phoneReplyGenerationSequence: 0,
+    persistNow: () => {
+      const ok = saveSteps.length ? saveSteps.shift() : true;
+      if (ok) saves.push(JSON.parse(JSON.stringify(user)));
+      return ok;
+    }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(`
+    ${section('const getStoredPhoneArchiveMessages', 'const phoneMessageVisibleInContainer')}
+    ${section('const getPhoneMessageTimestamp', 'const getLatestPhoneMessageTimestamp')}
+    ${section('const getPhoneReplyOpportunities', 'const normalizePhoneReplyKnowledgeSnapshots')}
+    ${section('const normalizePhoneReplyThreadMessages', 'const makePhoneReplyKnowledgeFactRefs')}
+    ${section('const normalizePhoneReplyOpportunities', 'const hasUnresolvedPhoneReply')}
+    ${section('const queuePhoneReplyOpportunity', 'const removePhoneReplySource')}
+    ${section('const getPhoneReplyBubbleId', 'const releasePhoneReplyGeneration')}
+    ${section('const commitPhoneReplyGeneration', 'const markPhoneReplyFailure')}
+    ${section('const appendPhoneMessage', 'const getPhoneArchiveForContact')}
+    globalThis.m1 = { getAllStoredPhoneMessages, queuePhoneReplyOpportunity, getPhoneReplySourceMessages,
+      freezePhoneReplyThreadContext, normalizePhoneReplyOpportunities, claimPhoneReplyGeneration,
+      getPhoneReplyLaneHeadForContact, commitPhoneReplyGeneration, promoteGeneratedPhoneReplyDeliveries,
+      flushPhoneReplyDeliveries, appendPhoneMessage };
+  `, sandbox);
+  return { ...sandbox.m1, user, saves, toasts, sandbox, setSaveSteps: steps => { saveSteps = [...steps]; } };
+};
+const row = (id, role, content, at, extra = {}) => ({ id, role, type: 'text', content, at, ...extra });
+const live = (h, id = 'a') => h.user.phoneData.chats.find(chat => chat.contactId === id).history;
+const archive = (h, id, messages) => { h.user.phoneData.chatArchives[id] = { '2026-10-04': { messages } }; };
+const ids = rows => Array.from(rows, message => message.id);
+const time = new Date('2026-10-05T10:00:00Z');
+const aTurn = row('resident-before', 'assistant', 'How was your day?', '2026-10-04T23:00:00Z');
+const u1 = row('u1', 'user', 'Terrible.', '2026-10-05T09:00:00Z');
+const u2 = row('u2', 'user', 'Also tired.', '2026-10-05T09:00:01Z');
+const u3 = row('u3', 'user', 'I stayed home.', '2026-10-05T09:00:02Z');
+
+// A same-day; B cross-day; C canonical duplicate; D wrong-contact archive.
+const sameDay = makeM1(); live(sameDay).push(u1, aTurn);
+const sameOp = sameDay.queuePhoneReplyOpportunity('a', u1, time);
+sameDay.freezePhoneReplyThreadContext(sameOp);
+assert.deepEqual(ids(sameOp.threadContextMessages), ['resident-before', 'u1']);
+const h = makeM1(); live(h).push(u3, u1, u2);
+archive(h, 'a', [aTurn, { ...u1 }, row('wrong-tag', 'assistant', 'B PRIVATE CHAT SENTINEL', aTurn.at, { contactId: 'b' })]);
+archive(h, 'b', [row('b-private', 'assistant', 'B PRIVATE CHAT SENTINEL', aTurn.at)]);
+assert.deepEqual(ids(h.getAllStoredPhoneMessages('a')), ['resident-before', 'u1', 'u2', 'u3']);
+assert.equal(h.getAllStoredPhoneMessages('a').filter(message => message.id === 'u1').length, 1);
+const tie = makeM1(); live(tie).push({ ...u1, id: 'z' }, { ...u1, id: 'a' });
+assert.deepEqual(ids(tie.getAllStoredPhoneMessages('a')), ['a', 'z']);
+
+// E three sends merge and IDs reorder by canonical chronology, not arrival array.
+const batchA = h.queuePhoneReplyOpportunity('a', u3, time);
+h.queuePhoneReplyOpportunity('a', u1, time); h.queuePhoneReplyOpportunity('a', u2, time);
+assert.equal(h.user.phoneData.replyOpportunities.length, 1);
+assert.deepEqual(Array.from(batchA.sourceMessageIds), ['u1', 'u2', 'u3']);
+assert.equal(batchA.generationDueAt, '');
+const claim = h.claimPhoneReplyGeneration(batchA, 'phone-dedicated', time);
+assert.ok(claim);
+assert.deepEqual(ids(batchA.threadContextMessages), ['resident-before', 'u1', 'u2', 'u3']);
+const packet = JSON.stringify(batchA);
+assert.ok(!packet.includes('B PRIVATE')); assert.ok(!packet.includes('PRIVATE OWNER'));
+
+// F claimed sources/context remain frozen; G real commit/delivery settles own batch only.
+const u4 = row('u4', 'user', 'One more thing.', '2026-10-05T10:01:00Z'); live(h).push(u4);
+const batchB = h.queuePhoneReplyOpportunity('a', u4, time);
+assert.notEqual(batchB.id, batchA.id);
+assert.equal(JSON.stringify(batchA), packet);
+assert.equal(h.commitPhoneReplyGeneration(claim, { messages: ['Tell me more.'] }, time).committed, true);
+h.promoteGeneratedPhoneReplyDeliveries(time); h.flushPhoneReplyDeliveries(time);
+assert.equal(batchA.status, 'completed'); assert.equal(batchB.status, 'scheduled');
+assert.deepEqual(Array.from(batchB.sourceMessageIds), ['u4']);
+assert.equal(h.getPhoneReplyLaneHeadForContact('a').id, batchB.id);
+h.flushPhoneReplyDeliveries(time);
+assert.equal(h.getAllStoredPhoneMessages('a').filter(message => message.phoneReplyOpportunityId === batchA.id).length, 1);
+
+// H missing/wrong-contact/assistant/oversize IDs fail explicitly, no false settlement.
+for (const [sourceId, expected] of [['missing', 'source-message-missing'], ['b-private', 'source-message-missing'], ['resident-before', 'source-message-invalid']]) {
+  assert.throws(() => h.getPhoneReplySourceMessages({ contactId: 'a', sourceMessageIds: [sourceId] }), new RegExp(expected));
+}
+const tooLong = row('large', 'user', 'x'.repeat(361), u4.at); live(h).push(tooLong);
+assert.throws(() => h.freezePhoneReplyThreadContext({ contactId: 'a', sourceMessageIds: ['large'] }), /source-context-too-large/);
+const duplicates = { contactId: 'a', sourceMessageIds: ['u2', 'u1', 'u1'] };
+assert.deepEqual(ids(h.getPhoneReplySourceMessages(duplicates)), ['u1', 'u2']);
+
+// I loading/recovery retains broken IDs and quarantines instead of silently dropping.
+const damaged = makeM1(); live(damaged).push(u1, u2);
+const broken = damaged.queuePhoneReplyOpportunity('a', u1, time);
+broken.sourceMessageIds = ['missing'];
+const next = damaged.queuePhoneReplyOpportunity('a', u2, time);
+assert.equal(broken.status, 'integrity-mismatch');
+assert.deepEqual(Array.from(broken.sourceMessageIds), ['missing']);
+assert.equal(damaged.getPhoneReplyLaneHeadForContact('a').id, next.id);
+assert.ok(damaged.claimPhoneReplyGeneration(next, 'phone-dedicated', time));
+const reload = makeM1(); live(reload).push(u1);
+reload.user.phoneData.replyOpportunities = [{ ...broken }];
+reload.normalizePhoneReplyOpportunities();
+assert.equal(reload.user.phoneData.replyOpportunities[0].status, 'integrity-mismatch');
+assert.deepEqual(Array.from(reload.user.phoneData.replyOpportunities[0].sourceMessageIds), ['missing']);
+const failed = makeM1(); live(failed).push(u1, u2);
+const exhausted = failed.queuePhoneReplyOpportunity('a', u1, time); exhausted.status = 'failed';
+const validLater = failed.queuePhoneReplyOpportunity('a', u2, time);
+assert.equal(failed.getPhoneReplyLaneHeadForContact('a').id, validLater.id);
+assert.equal(exhausted.status, 'failed'); assert.deepEqual(Array.from(exhausted.sourceMessageIds), ['u1']);
+
+// Claimed source loss rejects acceptance; a surviving frozen turn reloads unchanged.
+const lost = makeM1(); live(lost).push(u1);
+const lostOp = lost.queuePhoneReplyOpportunity('a', u1, time);
+const lostClaim = lost.claimPhoneReplyGeneration(lostOp, 'phone-dedicated', time);
+live(lost).splice(0);
+assert.equal(lost.commitPhoneReplyGeneration(lostClaim, { messages: ['wrong'] }, time).committed, false);
+assert.equal(lostOp.status, 'integrity-mismatch'); assert.equal(lostOp.completedAt, '');
+assert.equal(lost.sandbox.phoneReplyGenerationInFlight.size, 0);
+const recovered = makeM1(); live(recovered).push(u1);
+const recOp = recovered.queuePhoneReplyOpportunity('a', u1, time);
+recovered.claimPhoneReplyGeneration(recOp, 'phone-dedicated', time);
+const recPacket = JSON.stringify(recOp.threadContextMessages);
+recovered.normalizePhoneReplyOpportunities({ recoverInFlight: true, now: time });
+assert.equal(recovered.user.phoneData.replyOpportunities[0].status, 'retryable');
+assert.equal(JSON.stringify(recovered.user.phoneData.replyOpportunities[0].threadContextMessages), recPacket);
+
+// A stored foreign row cannot become authorized by being inside a frozen packet.
+const foreignPacket = makeM1(); live(foreignPacket).push(u1);
+archive(foreignPacket, 'b', [row('b-secret', 'assistant', 'B PRIVATE', aTurn.at)]);
+const ownOp = foreignPacket.queuePhoneReplyOpportunity('a', u1, time);
+foreignPacket.claimPhoneReplyGeneration(ownOp, 'phone-dedicated', time);
+ownOp.threadContextMessages.push(row('b-secret', 'assistant', 'B PRIVATE', aTurn.at));
+assert.throws(() => foreignPacket.getPhoneReplySourceMessages(ownOp), /frozen-thread-contact-mismatch/);
+
+// Existing claimed recall preserves the authorized original source, not a new turn.
+const recall = makeM1(); const recalledRow = { ...u1 }; live(recall).push(recalledRow);
+const recalledOp = recall.queuePhoneReplyOpportunity('a', recalledRow, time);
+recall.claimPhoneReplyGeneration(recalledOp, 'phone-dedicated', time);
+recalledRow.originalPhoneReplySource = { type: 'text', content: u1.content, desc: '' };
+recalledRow.type = 'system'; recalledRow.content = '你撤回了一条消息'; recalledRow.recalled = true;
+assert.equal(recall.getPhoneReplySourceMessages(recalledOp)[0].content, u1.content);
+recall.normalizePhoneReplyOpportunities({ recoverInFlight: true, now: time });
+assert.equal(recall.user.phoneData.replyOpportunities[0].status, 'retryable');
+
+// Sending order: durable canonical row before source IDs; both failure stages safe.
+const send = makeM1(); const sent = send.appendPhoneMessage('a', 'user', 'text', 'hello');
+assert.ok(sent); assert.equal(send.saves.length, 2);
+assert.equal(send.saves[0].phoneData.chats[0].history[0].id, sent.id);
+assert.equal(send.saves[0].phoneData.replyOpportunities.length, 0);
+assert.deepEqual(send.saves[1].phoneData.replyOpportunities[0].sourceMessageIds, [sent.id]);
+const failMessage = makeM1(); failMessage.setSaveSteps([false]);
+assert.equal(failMessage.appendPhoneMessage('a', 'user', 'text', 'unsaved'), null);
+assert.equal(live(failMessage).length, 0); assert.equal(failMessage.user.phoneData.replyOpportunities.length, 0);
+const failPending = makeM1(); failPending.setSaveSteps([true, false]);
+assert.ok(failPending.appendPhoneMessage('a', 'user', 'text', 'durable'));
+assert.equal(live(failPending).length, 1); assert.equal(failPending.user.phoneData.replyOpportunities.length, 0);
+assert.equal(failPending.saves.length, 1); assert.ok(failPending.toasts.length);
 
 console.log(JSON.stringify({
   fixture: 'phone-reply-generation-delivery-v2',
@@ -255,6 +449,8 @@ console.log(JSON.stringify({
     'thread-freeze', 'single-winner-claim', 'claim-persistence', 'same-resident-only',
     'logical-channel-isolation', 'soft-sidecar', 'token-guard', 'program-delivery-timing',
     'generated-before-delivery', 'rollback-quarantine', 'local-exact-once-delivery',
-    'phone-presence-exclusion', 'manual-ui', 'callAI-budget'
+    'phone-presence-exclusion', 'manual-ui', 'callAI-budget',
+    'M1-canonical-order', 'M1-cross-day', 'M1-live-archive-dedupe', 'M1-contact-privacy',
+    'M1-source-integrity', 'M1-batching-freeze', 'M1-completion-isolation', 'M1-terminal-head', 'M1-send-persistence'
   ]
 }));

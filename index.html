@@ -19034,11 +19034,25 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         dateKey: getOperationalDayKey(now),
                         ...extra
                     };
-                    ensurePhoneChatHistory(catId).push(message);
+                    const history = ensurePhoneChatHistory(catId);
+                    history.push(message);
+                    if (message.role === 'user' && !persistNow()) {
+                        history.splice(history.indexOf(message), 1);
+                        showToast('消息未能保存，请稍后再试。', 'info');
+                        return null;
+                    }
                     appendPhoneChatMemory(cat, message);
                     if (message.role === 'assistant') announceIncomingPhoneMessage(cat, message);
                     else {
-                        queuePhoneReplyOpportunity?.(catId, message, now);
+                        const previousOpportunities = clonePhoneReplyValue(getPhoneReplyOpportunities());
+                        try {
+                            queuePhoneReplyOpportunity(catId, message, now);
+                            if (!persistNow()) throw new Error('pending-persist-failed');
+                        } catch (error) {
+                            user.phoneData.replyOpportunities = previousOpportunities;
+                            showToast('消息已保存，但待回复记录未能保存。', 'info');
+                            addLog(`PHONE REPLY QUEUE FAILED: ${cleanText(error.message)}`, 'warn');
+                        }
                         scrollPhoneChatToBottom(isPhoneChatNearBottom());
                     }
                     return message;
@@ -19140,10 +19154,22 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     if (!archives || typeof archives !== 'object') return [];
                     return Object.values(archives).flatMap(day => Array.isArray(day?.messages) ? day.messages : []);
                 };
-                const getAllStoredPhoneMessages = (contactId) => [
-                    ...getPhoneChatHistory(contactId),
-                    ...getStoredPhoneArchiveMessages(contactId)
-                ];
+                const getAllStoredPhoneMessages = (contactId) => {
+                    const catId = getCanonicalCatId(contactId);
+                    const byId = new Map();
+                    const live = (user.phoneData?.chats || []).filter(chat => sameCatId(chat.contactId, catId))
+                        .flatMap(chat => Array.isArray(chat.history) ? chat.history : []);
+                    // Live rows carry current recall/read metadata; archive duplicates
+                    // reuse that canonical identity, never content-based identity.
+                    [...live, ...getStoredPhoneArchiveMessages(catId)].forEach(message => {
+                        if (!message?.id || (message.contactId && !sameCatId(message.contactId, catId))) return;
+                        const id = String(message.id);
+                        if (!byId.has(id)) byId.set(id, message);
+                    });
+                    return [...byId.values()].sort((left, right) =>
+                        getPhoneMessageTimestamp(left) - getPhoneMessageTimestamp(right) ||
+                        String(left.id).localeCompare(String(right.id)));
+                };
                 const phoneMessageVisibleInContainer = (container, messageId) => {
                     if (!container || !messageId) return false;
                     const escapedId = typeof CSS !== 'undefined' && CSS.escape
@@ -19498,23 +19524,23 @@ RULES:
                 };
                 const normalizePhoneReplyOpportunities = ({ recoverInFlight = false, now = new Date() } = {}) => {
                     const nowIso = now.toISOString();
-                    const knownMessages = new Map();
-                    (user.phoneData?.chats || []).forEach(chat => getAllStoredPhoneMessages(chat?.contactId).forEach(message => {
-                        if (message?.id) knownMessages.set(String(message.id), message);
-                    }));
                     const normalized = getPhoneReplyOpportunities().map(raw => {
                         if (!raw || typeof raw !== 'object' || !raw.id || !raw.contactId) return null;
                         let status = PHONE_REPLY_STATUSES.has(raw.status) ? raw.status : 'scheduled';
                         const claimedAt = isValidPhoneReplyTime(raw.claimedAt) ? raw.claimedAt : '';
                         const rawSourceMessageIds = [...new Set((Array.isArray(raw.sourceMessageIds) ? raw.sourceMessageIds : [])
                             .map(id => String(id)))];
-                        // A claimed turn never sheds its source IDs during reload
-                        // normalization. Unclaimed records may safely discard a
-                        // recalled/missing source before anyone has read it.
-                        const sourceMessageIds = claimedAt
-                            ? rawSourceMessageIds
-                            : rawSourceMessageIds.filter(id => knownMessages.has(id));
-                        if ((status === 'scheduled' || status === 'retryable') && !claimedAt && !sourceMessageIds.length) return null;
+                        let sourceMessageIds = rawSourceMessageIds;
+                        let sourceError = '';
+                        if (status !== 'completed') {
+                            try {
+                                const sources = getPhoneReplySourceMessages({ ...raw, claimedAt, sourceMessageIds });
+                                if (!claimedAt) sourceMessageIds = sources.map(message => String(message.id));
+                            } catch (error) {
+                                status = 'integrity-mismatch';
+                                sourceError = error.message;
+                            }
+                        }
                         if (recoverInFlight && status === 'in-flight') {
                             status = 'retryable';
                             // Recovery preserves the frozen turn but never launches AI
@@ -19598,22 +19624,44 @@ RULES:
                             generatedBubbleIds: Array.from({ length: messages.length }, (_, index) =>
                                 String(Array.isArray(raw.generatedBubbleIds) ? raw.generatedBubbleIds[index] || '' : '') || `phone-reply-bubble:${String(raw.id)}:${index}`),
                             recoveryPending: raw.recoveryPending === true,
-                            integrityState: malformedCursor ? 'invalid-cursor' : cleanText(String(raw.integrityState || '')).slice(0, 80),
+                            integrityState: sourceError || (malformedCursor ? 'invalid-cursor' : cleanText(String(raw.integrityState || '')).slice(0, 80)),
                             completedAt: isValidPhoneReplyTime(raw.completedAt) ? raw.completedAt : '',
-                            lastError: cleanText(String(raw.lastError || '')).slice(0, 240)
+                            lastError: sourceError || cleanText(String(raw.lastError || '')).slice(0, 240)
                         };
                     }).filter(Boolean);
                     user.phoneData.replyOpportunities = normalized;
                     return normalized;
                 };
                 const getPhoneReplySourceMessages = (opportunity) => {
-                    const available = new Map(getAllStoredPhoneMessages(opportunity.contactId)
-                        .map(message => [String(message?.id || ''), message]));
-                    return opportunity.sourceMessageIds.map(id => available.get(String(id))).filter(message => {
-                        return opportunity.claimedAt ? Boolean(message) : isEligiblePhoneReplySource(message);
-                    }).map(message => message?.originalPhoneReplySource
-                        ? { ...message, ...message.originalPhoneReplySource }
-                        : message);
+                    const ids = [...new Set((opportunity?.sourceMessageIds || []).map(String))];
+                    const thread = getAllStoredPhoneMessages(opportunity?.contactId);
+                    const available = new Map(thread.map(message => [String(message.id), message]));
+                    if (!ids.length || ids.some(id => !available.has(id))) throw new Error('source-message-missing');
+                    const sources = thread.filter(message => ids.includes(String(message.id))).map(message => {
+                        const original = opportunity.claimedAt && message.originalPhoneReplySource;
+                        const source = original ? { ...message, type: original.type, content: original.content,
+                            desc: original.desc, recalled: false } : message;
+                        if (!isEligiblePhoneReplySource(source) || !getPhoneMessageTimestamp(message)) throw new Error('source-message-invalid');
+                        const limit = source.type === 'image' || source.type === 'location' ? 220
+                            : source.type === 'voice' ? 40 : ['red-envelope', 'transfer'].includes(source.type) ? 80 : 360;
+                        const content = source.type === 'image' ? source.desc || '一张图片'
+                            : source.type === 'voice' ? source.duration || '时长未知' : source.content || '';
+                        if (cleanText(String(content)).length > limit ||
+                            cleanText(String(source.quotedMsg?.content || '')).length > 240 ||
+                            cleanText(String(source.quotedMsg?.sender || '')).length > 80) throw new Error('source-context-too-large');
+                        return source;
+                    });
+                    if (opportunity.claimedAt && sources.some((message, index) => String(message.id) !== ids[index])) {
+                        throw new Error('frozen-source-order-mismatch');
+                    }
+                    if (opportunity.threadContextFrozen && (opportunity.threadContextMessages || []).some(message =>
+                        !available.has(String(message.id)))) throw new Error('frozen-thread-contact-mismatch');
+                    if (opportunity.threadContextFrozen && sources.some(message => {
+                        const frozen = opportunity.threadContextMessages?.find(row => String(row.id) === String(message.id));
+                        return !frozen || frozen.role !== 'user' || frozen.type !== (message.type || 'text') ||
+                            frozen.content !== compactPhoneReplyThreadContent(message);
+                    })) throw new Error('frozen-source-context-mismatch');
+                    return sources;
                 };
                 const clonePhoneReplyValue = value => JSON.parse(JSON.stringify(value));
                 const restorePhoneReplyObject = (target, snapshot) => {
@@ -19631,10 +19679,14 @@ RULES:
                     return cleanText(String(message?.content || '')).slice(0, 360);
                 };
                 const freezePhoneReplyThreadContext = opportunity => {
-                    if (!opportunity || opportunity.threadContextFrozen === true) return opportunity?.threadContextMessages || [];
-                    const sourceIds = new Set((opportunity.sourceMessageIds || []).map(String));
+                    if (!opportunity) return [];
+                    const sources = getPhoneReplySourceMessages(opportunity);
+                    if (opportunity.threadContextFrozen === true) return opportunity.threadContextMessages;
+                    opportunity.sourceMessageIds = sources.map(message => String(message.id));
+                    const sourceIds = new Set(opportunity.sourceMessageIds);
+                    const sourceById = new Map(sources.map(message => [String(message.id), message]));
                     const relevant = getAllStoredPhoneMessages(opportunity.contactId)
-                        .map((message, index) => ({ message: message?.originalPhoneReplySource ? { ...message, ...message.originalPhoneReplySource } : message, index }))
+                        .map((message, index) => ({ message: sourceById.get(String(message.id)) || message, index }))
                         .filter(entry => entry.message && !entry.message.recalled && entry.message.type !== 'system' &&
                             ['user', 'assistant'].includes(entry.message.role) && entry.message.id);
                     const sourceEntries = relevant.filter(entry => sourceIds.has(String(entry.message.id)));
@@ -19689,11 +19741,18 @@ RULES:
                 const queuePhoneReplyOpportunity = (contactId, message, now = new Date()) => {
                     if (!isEligiblePhoneReplySource(message) || !isAcceptedPhoneContact(contactId)) return null;
                     const catId = getCanonicalCatId(contactId);
+                    getPhoneReplySourceMessages({ contactId: catId, sourceMessageIds: [message.id] });
                     const opportunities = getPhoneReplyOpportunities();
+                    opportunities.filter(item => sameCatId(item.contactId, catId) &&
+                        ['scheduled', 'retryable'].includes(item.status) && !item.claimedAt).forEach(item => {
+                        try { getPhoneReplySourceMessages(item); }
+                        catch (error) { markPhoneReplyIntegrityMismatch(item, error.message); }
+                    });
                     const coalescible = opportunities.find(item => sameCatId(item.contactId, catId) &&
                         (item.status === 'scheduled' || item.status === 'retryable') && !item.claimedAt);
                     if (coalescible) {
                         if (!coalescible.sourceMessageIds.includes(message.id)) coalescible.sourceMessageIds.push(message.id);
+                        coalescible.sourceMessageIds = getPhoneReplySourceMessages(coalescible).map(source => String(source.id));
                         schedulePhoneReplyReconciliation();
                         return coalescible;
                     }
@@ -19945,27 +20004,29 @@ RULES:
                 const getPhoneReplyLaneOrder = opportunity => new Date(
                     opportunity?.claimedAt || opportunity?.createdAt || opportunity?.generationDueAt || 0
                 ).getTime() || 0;
-                // One contact is a chronological reply lane, not merely a
-                // generation mutex. A recovered older turn—including a durable
-                // delivery mismatch—must settle or be explicitly quarantined
-                // before a newer turn for that contact is allowed to overtake it.
-                const isPhoneReplyLaneHead = (opportunity) => {
-                    const unresolved = getPhoneReplyOpportunities()
-                        .filter(item => sameCatId(item.contactId, opportunity?.contactId) &&
-                            PHONE_REPLY_UNRESOLVED_STATUSES.has(item.status))
-                        .sort((left, right) => getPhoneReplyLaneOrder(left) - getPhoneReplyLaneOrder(right) ||
-                            String(left.id).localeCompare(String(right.id)));
-                    return unresolved.length > 0 && String(unresolved[0].id) === String(opportunity?.id);
-                };
+                // Integrity failures are quarantined, with source IDs/errors retained.
+                // Exhausted failed work stays manually retryable when no active batch
+                // remains, but cannot indefinitely block a later valid user turn.
                 const getPhoneReplyLaneHeadForContact = contactId => getPhoneReplyOpportunities()
-                    .filter(item => sameCatId(item.contactId, getCanonicalCatId(contactId)) && PHONE_REPLY_UNRESOLVED_STATUSES.has(item.status))
-                    .sort((left, right) => getPhoneReplyLaneOrder(left) - getPhoneReplyLaneOrder(right) || String(left.id).localeCompare(String(right.id)))[0] || null;
+                    .filter(item => sameCatId(item.contactId, getCanonicalCatId(contactId)) &&
+                        PHONE_REPLY_UNRESOLVED_STATUSES.has(item.status) && item.status !== 'integrity-mismatch')
+                    .sort((left, right) => Number(left.status === 'failed') - Number(right.status === 'failed') ||
+                        getPhoneReplyLaneOrder(left) - getPhoneReplyLaneOrder(right) || String(left.id).localeCompare(String(right.id)))[0] || null;
+                const isPhoneReplyLaneHead = opportunity =>
+                    String(getPhoneReplyLaneHeadForContact(opportunity?.contactId)?.id || '') === String(opportunity?.id || '');
                 const isPhoneReplyRetryEligible = (opportunity, now = new Date()) => opportunity?.status !== 'retryable' ||
                     !opportunity.retryAt || new Date(opportunity.retryAt).getTime() <= now.getTime();
                 const claimPhoneReplyGeneration = (opportunity, channel, now = new Date(), { countAttempt = false } = {}) => {
                     if (!opportunity || !['scheduled', 'retryable'].includes(opportunity.status) ||
                         !isPhoneReplyRetryEligible(opportunity, now) || !isPhoneReplyLaneHead(opportunity) ||
                         phoneReplyGenerationInFlight.has(opportunity.id) || !isAcceptedPhoneContact(opportunity.contactId)) return null;
+                    try {
+                        const sources = getPhoneReplySourceMessages(opportunity);
+                        if (!opportunity.claimedAt) opportunity.sourceMessageIds = sources.map(message => String(message.id));
+                    } catch (error) {
+                        markPhoneReplyIntegrityMismatch(opportunity, error.message);
+                        return null;
+                    }
                     const opportunitySnapshot = clonePhoneReplyValue(opportunity);
                     const knowledgeSnapshot = clonePhoneReplyValue(knowledgeLedger.value);
                     const token = `phone-reply-generation:${opportunity.id}:${now.getTime()}:${(++phoneReplyGenerationSequence).toString(36)}`;
@@ -20053,6 +20114,11 @@ RULES:
                         String(opportunity.generationToken || '') !== String(claim?.token || '')) {
                         return { committed: false, stale: true, error: '回复生成声明已过期。' };
                     }
+                    try { getPhoneReplySourceMessages(opportunity); }
+                    catch (error) {
+                        markPhoneReplyIntegrityMismatch(opportunity, error.message);
+                        return { committed: false, quarantined: true, error: error.message };
+                    }
                     const validation = validatePhoneChatReplyPayload(rawPayload);
                     if (validation !== true) return { committed: false, invalid: true, error: validation };
                     const envelope = parsePhoneChatReplyEnvelope(rawPayload);
@@ -20118,6 +20184,9 @@ RULES:
                     const expectedCount = Array.isArray(opportunity?.messages) ? opportunity.messages.length : 0;
                     const durableCount = getDurablePhoneReplyBubbleCount(opportunity);
                     opportunity.status = 'integrity-mismatch';
+                    phoneReplyGenerationInFlight.delete(opportunity.id);
+                    opportunity.generationToken = '';
+                    opportunity.lastError = cleanText(reason || 'integrity-mismatch').slice(0, 240);
                     opportunity.integrityState = cleanText(reason || 'integrity-mismatch').slice(0, 80);
                     opportunity.deliverAt = '';
                     opportunity.nextDeliveryAt = '';
@@ -20126,6 +20195,10 @@ RULES:
                     return false;
                 };
                 const reconcilePhoneReplyDeliveryIntegrity = (opportunity, now = new Date()) => {
+                    if (opportunity.status !== 'completed') {
+                        try { getPhoneReplySourceMessages(opportunity); }
+                        catch (error) { return markPhoneReplyIntegrityMismatch(opportunity, error.message); }
+                    }
                     const expectedCount = Array.isArray(opportunity?.messages) ? opportunity.messages.length : 0;
                     if (opportunity?.integrityState === 'invalid-cursor' || !Number.isInteger(opportunity?.nextDeliveryIndex) ||
                         opportunity.nextDeliveryIndex < 0 || opportunity.nextDeliveryIndex > expectedCount) {
@@ -20341,7 +20414,8 @@ RULES:
                         sender: phoneState.replyToMsg.sender || (phoneState.replyToMsg.role === 'user' ? '我' : phoneIdentities.value[phoneState.selectedContactId]?.name),
                         content: phoneState.replyToMsg.content
                     } : null;
-                    appendPhoneMessage(phoneState.selectedContactId, 'user', type, text, { desc: typeof descArg === 'string' ? descArg : null, quotedMsg });
+                    const message = appendPhoneMessage(phoneState.selectedContactId, 'user', type, text, { desc: typeof descArg === 'string' ? descArg : null, quotedMsg });
+                    if (!message) return;
                     phoneState.replyToMsg = null;
                     if (type === 'text' && !contentArg) {
                         phoneChatInput.value = '';
