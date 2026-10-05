@@ -143,7 +143,7 @@
       "mode": "RGB",
       "transparent": false,
       "nontransparentBounds": null,
-      "sha256": "7d713fa8e7db90a0d7e424333c128eeab3015080993f6ed5e69437b4dda1bf3b"
+      "sha256": "7adeb7efa06561d79a64cb0078aba115f12228948552cfb04818fc24858a816e"
     }
   ],
   "palette": {
@@ -387,7 +387,7 @@
       "currentConnectivity": "requires-future-transition",
       "confidence": "medium-high",
       "ownerAlphaOverlapPixels": 6933,
-      "evidence": "Three red islands overlap the chair cushion/body; purple marks its front legs separately."
+      "evidence": "Three red islands overlap the chair cushion/body; purple selects its approved foreground frame."
     },
     {
       "surfaceId": "curator-bedside-cabinet-top",
@@ -462,38 +462,29 @@
   "occlusionCandidate": {
     "source": "reference.png:purple",
     "mask": "spatial/occlusion-candidate.png",
-    "pixelCount": 8512,
+    "pixelCount": 19949,
     "bounds": [
-      603,
-      791,
-      755,
+      596,
+      716,
+      759,
       991
     ],
     "ownerLayer": "chair.png",
-    "portion": "two front chair legs / frame strips",
-    "ownerAlphaOverlapPixels": 8511,
+    "portion": "approved chair back / foreground frame and downward members",
+    "ownerAlphaOverlapPixels": 19948,
     "relatedSurfaceIds": [
       "curator-chair-seat"
     ],
-    "mayOcclude": "chair-seat presentation or adjacent painted floor, subject to future depth authoring",
-    "runtimeClippingEnabled": false,
+    "mayOcclude": "real chair pixels selected by purple may cover an authorized chair-seat resident",
+    "runtimeClippingEnabled": true,
     "components": [
       {
-        "pixels": 4540,
+        "pixels": 19949,
         "bounds": [
-          721,
-          791,
-          755,
+          596,
+          716,
+          759,
           991
-        ]
-      },
-      {
-        "pixels": 3972,
-        "bounds": [
-          603,
-          795,
-          638,
-          987
         ]
       }
     ]
@@ -501,5 +492,117 @@
   "entryPoints": [],
   "transitions": [],
   "behaviorAffordances": [],
-  "obstacleMap": null
+  "obstacleMap": null,
+  "furnitureInteractions": [
+    {
+      "slotId": "curator-bed-rest",
+      "furnitureId": "curator-bed",
+      "surfaceId": "curator-bed-surface",
+      "exclusive": true,
+      "affordance": "resting-surface",
+      "approachPoint": {
+        "x": 414,
+        "y": 550
+      },
+      "exitPoint": {
+        "x": 414,
+        "y": 550
+      },
+      "slotPoint": {
+        "x": 200,
+        "y": 490
+      },
+      "posture": "lying",
+      "presentation": {
+        "aboveLayer": "bed.png"
+      },
+      "behaviors": [
+        "sleep",
+        "rest"
+      ],
+      "enterWaypoints": [],
+      "traversalAccess": {
+        "ownerLayer": "bed.png",
+        "scope": "active-instance segment only; authored owner surfaces and approved foreground; never blanket owner-solid clearance",
+        "segments": [
+          {
+            "from": {
+              "x": 414,
+              "y": 550
+            },
+            "to": {
+              "x": 200,
+              "y": 490
+            },
+            "surfaceIds": [
+              "curator-bed-surface"
+            ],
+            "foreground": false
+          }
+        ]
+      }
+    },
+    {
+      "slotId": "curator-chair-sit",
+      "furnitureId": "curator-chair",
+      "surfaceId": "curator-chair-seat",
+      "exclusive": true,
+      "affordance": "sitting-surface",
+      "approachPoint": {
+        "x": 677,
+        "y": 927
+      },
+      "exitPoint": {
+        "x": 677,
+        "y": 927
+      },
+      "slotPoint": {
+        "x": 677,
+        "y": 880
+      },
+      "posture": "sitting",
+      "presentation": {
+        "aboveLayer": "chair.png",
+        "foregroundMask": "spatial/occlusion-candidate.png",
+        "supportContact": {
+          "pose": "sitting",
+          "runs": [
+            [
+              882,
+              698,
+              702
+            ]
+          ],
+          "evidence": "Four verified green seat-cushion pixels omitted by RED and PURPLE masks; exact chair slot, Sitting, using only. No wood or traversal allowance."
+        },
+        "traversalDisabled": true,
+        "traversalDisabledReason": "Single authored chain failed real-alpha entry/exit clearance; static support remains independent."
+      },
+      "behaviors": [
+        "sit-idle",
+        "observe"
+      ],
+      "enterWaypoints": [],
+      "traversalAccess": {
+        "ownerLayer": "chair.png",
+        "scope": "active-instance segment only; authored owner surfaces and approved foreground; never blanket owner-solid clearance",
+        "segments": [
+          {
+            "from": {
+              "x": 677,
+              "y": 927
+            },
+            "to": {
+              "x": 677,
+              "y": 880
+            },
+            "surfaceIds": [
+              "curator-chair-seat"
+            ],
+            "foreground": true
+          }
+        ]
+      }
+    }
+  ]
 }

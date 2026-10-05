@@ -169,7 +169,7 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
         timedOut = true;
         controller.abort();
     }, providerPolicy.timeoutMs);
-    let response;
+    let response, result;
     try {
         onProgress?.({ stage: 'connecting' });
         onProgress?.({ stage: 'waiting' });
@@ -179,6 +179,26 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
             body: serializedPayload,
             signal: controller.signal
         });
+        if (request) {
+            request.lastWaitMs = Date.now() - (request.attemptStartedAt || Date.now());
+            dependencies.addLog(`API REQUEST #${request.id} RESPONSE HEADERS after ${(request.lastWaitMs / 1000).toFixed(1)}s; HTTP ${response.status}.`, 'info');
+        }
+        onProgress?.({ stage: 'received' });
+
+        // --- 检测 HTTP 状态码错误（包括403）---
+        if (!response.ok) {
+            const errorText = await response.text();
+            let errorData;
+            try { errorData = JSON.parse(errorText); } catch (e) { }
+            throw new Error(formatProviderError(response.status, errorData, errorText));
+        }
+
+        try {
+            result = await response.json();
+        } catch (error) {
+            if (error?.name === 'AbortError') throw error;
+            throw new Error(`API 返回了无法解析的 JSON：${error.message}`);
+        }
     } catch (err) {
         if (request?.preempted) {
             throw new AIRequestPreemptedError();
@@ -190,32 +210,13 @@ const _doSingleAPICall = async (prompt, systemPrompt, maxTokens, thinkingLevel, 
         if (timedOut || err?.name === 'AbortError') {
             throw new Error(`请求超时：等待反代或模型响应超过 ${providerPolicy.timeoutMs / 1000} 秒。`);
         }
+        if (response) throw err;
         const errorMsg = `网络请求失败: ${err.message}。可能是由于 CORS 跨域限制、反代地址无效或网络连接中断。请确保反代地址以 https:// 开头。`;
         dependencies.addLog(`FETCH ERROR: ${err.message} (Target: ${url})`, "error");
         throw new Error(errorMsg);
     } finally {
         window.clearTimeout(timeoutId);
         if (request?.abortController === controller) request.abortController = null;
-    }
-    if (request) {
-        request.lastWaitMs = Date.now() - (request.attemptStartedAt || Date.now());
-        dependencies.addLog(`API REQUEST #${request.id} RESPONSE HEADERS after ${(request.lastWaitMs / 1000).toFixed(1)}s; HTTP ${response.status}.`, 'info');
-    }
-    onProgress?.({ stage: 'received' });
-
-    // --- 检测 HTTP 状态码错误（包括403）---
-    if (!response.ok) {
-        const errorText = await response.text();
-        let errorData;
-        try { errorData = JSON.parse(errorText); } catch (e) { }
-        throw new Error(formatProviderError(response.status, errorData, errorText));
-    }
-
-    let result;
-    try {
-        result = await response.json();
-    } catch (error) {
-        throw new Error(`API 返回了无法解析的 JSON：${error.message}`);
     }
 
     if (request) {
@@ -416,7 +417,7 @@ const _runAIRequest = async (request) => {
             }
         }
 
-        if (request.uiMode === 'background') {
+        if (request.generationEpisode || request.uiMode === 'background') {
             dependencies.addLog(`API REQUEST #${request.id} BACKGROUND FAILED AFTER ${attemptsUsed}/${maxAttempts}; releasing queue.`, 'warn');
             throw lastError || new Error('后台请求未返回有效内容。');
         }
@@ -460,14 +461,34 @@ const _processAIQueue = async () => {
 
 // Public AI entry point. Existing call sites keep the same signature;
 // the optional fifth argument supports labels, batches and dedupe keys.
+const generationContentCache = new Map(), generationFailureUntil = new Map();
 const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, options = {}) => {
-    const dedupeKey = options.dedupeKey || '';
+    const scoped = Boolean(options.generationEpisode && options.generationSignature);
+    const signature = scoped ? String(options.generationSignature) : '';
+    const current = () => !scoped || typeof options.isCurrentGeneration !== 'function' || options.isCurrentGeneration();
+    if (!current()) return Promise.reject(new AIRequestCancelledError('Content episode is no longer current.'));
+    if (scoped && generationContentCache.has(signature)) {
+        const content = generationContentCache.get(signature);
+        return Promise.resolve().then(() => {
+            if (!current()) throw new AIRequestCancelledError();
+            const valid = options.validateResponse?.(content) ?? true;
+            if (valid !== true) throw new Error(String(valid));
+            return content;
+        });
+    }
+    if (scoped && !options.explicitGenerationRetry && Date.now() < (generationFailureUntil.get(signature) || 0))
+        return Promise.reject(new Error('Unchanged content generation is cooling down.'));
+    const dedupeKey = scoped ? `episode:${options.generationEpisode}:${signature}` : options.dedupeKey || '';
     if (dedupeKey && apiRequestDedupe.has(dedupeKey)) return apiRequestDedupe.get(dedupeKey);
 
     const request = {
         id: ++apiRequestSequence,
         prompt, systemPrompt, maxTokens, thinkingLevel,
-        validateResponse: options.validateResponse || null,
+        validateResponse: scoped ? content => {
+            if (!current()) return 'Content episode is no longer current.';
+            return options.validateResponse?.(content) ?? true;
+        } : options.validateResponse || null,
+        generationEpisode: scoped ? options.generationEpisode : null,
         onProgress: typeof options.onProgress === 'function' ? options.onProgress : null,
         label: options.label || 'MEEOW HOUSE AI REQUEST',
         origin: options.origin || (options.priority === 'background' ? 'world-autonomy' : 'user-action'),
@@ -481,7 +502,7 @@ const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, op
         preemptionLogged: false,
         abortController: null,
         priority: options.priority || 'normal',
-        maxAttempts: Number.isInteger(options.maxAttempts) ? Math.max(1, options.maxAttempts) : null,
+        maxAttempts: scoped ? 1 : Number.isInteger(options.maxAttempts) ? Math.max(1, options.maxAttempts) : null,
         temperature: Number.isFinite(options.temperature) ? options.temperature : null,
         resolveRetryDecision: null,
         enqueuedAt: Date.now(),
@@ -498,6 +519,16 @@ const callAI = (prompt, systemPrompt, maxTokens = 8192, thinkingLevel = null, op
     const promise = new Promise((resolve, reject) => {
         request.resolve = resolve;
         request.reject = reject;
+    });
+    if (scoped) promise.then(content => {
+        if (!current()) return;
+        generationContentCache.set(signature, content);
+        generationFailureUntil.delete(signature);
+        while (generationContentCache.size > 128) generationContentCache.delete(generationContentCache.keys().next().value);
+    }, error => {
+        if (error?.code === 'AI_REQUEST_CANCELLED' || error?.code === 'AI_REQUEST_PREEMPTED') return;
+        generationFailureUntil.set(signature, Date.now() + 30000);
+        while (generationFailureUntil.size > 128) generationFailureUntil.delete(generationFailureUntil.keys().next().value);
     });
     if (dedupeKey) {
         apiRequestDedupe.set(dedupeKey, promise);

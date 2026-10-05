@@ -26,6 +26,20 @@
 
     storage.buildSaveData = () => dependencies.getState();
 
+    // Draft/adoption transactions write one complete save before publishing
+    // their staged changes to reactive state. A failed setItem leaves the prior
+    // localStorage value untouched.
+    storage.persistSnapshot = snapshot => {
+        const { storageKey, addLog } = dependencies;
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(snapshot));
+            return true;
+        } catch (error) {
+            addLog(`ADOPTION SNAPSHOT SAVE FAILED: ${error.message}`, 'error');
+            return false;
+        }
+    };
+
     storage.persistNow = () => {
         const { getState, storageKey, modelStorageKey, addLog, showToast } = dependencies;
         const state = getState();

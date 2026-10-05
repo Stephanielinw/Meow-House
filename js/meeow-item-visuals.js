@@ -131,7 +131,8 @@
         ['star-sand-orb','toy,trinket','glass','toy,keepsake','fantasy,household','星砂发光球,star sand orb','trinket'],
         ['teaser-wand','toy,tool','mixed','toy','household','伸缩逗猫杆,teaser wand','trinket'],
         ['catnip-pouch','herb,bag','cloth,organic','toy,container','household','浓缩猫薄荷包,catnip pouch','trinket'],
-        ['riddle-paper-ball','paper,toy','paper','toy','household','谜语纸团球,riddle paper ball','trinket'],
+        ['riddle-paper-ball','paper,toy','paper','toy','household','谜语纸团球,riddle paper ball','trinket',
+            { interaction: 'bat', pose: 'standing', groundAnchor: [32, 51], width: 24, offset: [-24, 1] }],
         ['letter','letter,paper','paper','document','writing,gift','来自居民的信,resident letter','trinket']
     ];
     const registry = Object.freeze([
@@ -151,13 +152,15 @@
             formTags: Object.freeze(forms.split(',')), contextTags: Object.freeze(contexts.split(',')),
             aliases: Object.freeze(aliases.split(','))
         })),
-        ...baseitem.map(([name, objects, materials, forms, contexts, aliases, semanticType]) => Object.freeze({
+        ...baseitem.map(([name, objects, materials, forms, contexts, aliases, semanticType, staticProp]) => Object.freeze({
             id: `baseitem:${name}`, sourcePack: 'house-base-library-v1', sourceType: 'first-party', provenance: 'house-art',
             file: `assets/item-sprites/library/house-base-library-v1/${name}.png`, license: 'In-house original',
             nativeSize: Object.freeze({ width: 64, height: 64 }), qualityTier: 'primary', category: 'item', semanticType, resolverEligible: true,
             objectTags: Object.freeze(objects.split(',')), materialTags: Object.freeze(materials.split(',')),
             formTags: Object.freeze(forms.split(',')), contextTags: Object.freeze(contexts.split(',')),
-            aliases: Object.freeze(aliases.split(','))
+            aliases: Object.freeze(aliases.split(',')),
+            ...(staticProp ? { staticProp: Object.freeze({ ...staticProp,
+                groundAnchor: Object.freeze(staticProp.groundAnchor), offset: Object.freeze(staticProp.offset) }) } : {})
         }))
     ]);
     const approvedFirstPartyPacks = new Set(['house-style-food-v1', 'house-base-library-v1']);
@@ -222,6 +225,15 @@
         } else return null;
         return { version: 1, mode: raw.mode, spriteId: raw.spriteId, visualHint: hint };
     };
+    // Read-only diagnostic/compatibility access. Any declared visual envelope
+    // owns its hint, including null or malformed canonical data; stale top-level
+    // fields cannot repair it. Legacy fallback must be explicitly requested and
+    // never participates in display or sprite resolution.
+    const getItemVisualHint = (item, { allowLegacyTopLevel = false } = {}) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+        if (item.visual != null) return normalizeItemVisual(item.visual)?.visualHint || null;
+        return allowLegacyTopLevel ? validateVisualHint(item.visualHint) : null;
+    };
     const createBuiltinItemVisual = (spriteId, entries = registry) => {
         if (!entries.some(entry => entry.id === spriteId)) return null;
         return { version: 1, mode: 'builtin-sprite', spriteId, visualHint: null };
@@ -231,9 +243,9 @@
         const hint = validateAuthoredItemVisualHint(item);
         if (!hint) return null;
         const candidate = resolveItemSpriteCandidate(hint, entries);
+        const { visualHint: wireHint, ...definition } = item;
         return {
-            ...item,
-            visualHint: hint,
+            ...definition,
             visual: { version: 1, mode: candidate ? 'auto-sprite' : 'legacy-icon',
                 spriteId: candidate?.spriteId || null, visualHint: { ...hint } }
         };
@@ -248,9 +260,23 @@
         if (entry) {
             return { kind: 'sprite', spriteId: entry.id, file: entry.file,
                 nativeWidth: entry.nativeSize.width, nativeHeight: entry.nativeSize.height,
+                ...(entry.staticProp ? { staticProp: entry.staticProp } : {}),
                 sheetRect: entry.sheetRect ? { ...entry.sheetRect, sheetWidth: entry.sheetSize.width, sheetHeight: entry.sheetSize.height } : null };
         }
         return { kind: 'legacy-icon', icon: item?.icon ?? '' };
+    };
+    // Presentation geometry only. The caller owns request/ownership validation
+    // and checks this final room-space contact against its navigation domain.
+    const getStaticItemPropPlacement = (descriptor, { foot, catWidth, catNativeWidth, pose }) => {
+        const prop = descriptor?.staticProp;
+        if (!prop || prop.pose !== pose || ![foot?.x, foot?.y, catWidth, catNativeWidth].every(Number.isFinite) ||
+            catWidth <= 0 || catNativeWidth <= 0) return null;
+        const scale = catWidth / catNativeWidth;
+        const width = prop.width * scale, height = width * descriptor.nativeHeight / descriptor.nativeWidth;
+        const contact = { x: foot.x + prop.offset[0] * scale, y: foot.y + prop.offset[1] * scale };
+        return { src: descriptor.file, contact, width, height,
+            x: contact.x - prop.groundAnchor[0] * width / descriptor.nativeWidth,
+            y: contact.y - prop.groundAnchor[1] * height / descriptor.nativeHeight };
     };
     const itemVisualSizes = Object.freeze({ small: Object.freeze({ box: 32, art: 32 }),
         medium: Object.freeze({ box: 48, art: 32 }), large: Object.freeze({ box: 80, art: 64 }) });
@@ -313,7 +339,7 @@
         </span>`
     };
     Object.assign(visuals, { taxonomy, registry, validateVisualHint, validateAuthoredItemVisualHint, formatVisualHintContract, validateSpriteRegistry, resolveItemSpriteCandidate,
-        normalizeCustomPixel, normalizeItemVisual, createBuiltinItemVisual, assignAutoVisualIdentity, getItemVisualDescriptor, getItemSpriteLayout,
+        normalizeCustomPixel, normalizeItemVisual, getItemVisualHint, createBuiltinItemVisual, assignAutoVisualIdentity, getItemVisualDescriptor, getStaticItemPropPlacement, getItemSpriteLayout,
         base64ToBytes, bytesToBase64, component });
     if (typeof module !== 'undefined' && module.exports) module.exports = visuals;
 })(typeof window !== 'undefined' ? window : globalThis);

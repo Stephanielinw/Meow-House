@@ -116,6 +116,47 @@
         };
     };
 
+    // Compatibility identity uses only persisted, immutable episode facts.
+    // Lifecycle/delivery state and attachment/visual data are deliberately absent.
+    // Identical historical facts remain ambiguous; neither array order nor RNG
+    // can turn them into evidence of two independently identified episodes.
+    const getLegacyAwayEpisodeDeterministicId = (episode) => {
+        const text = value => typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+        // Retain saved timestamp spelling/type rather than parsing a zone-less
+        // historical date in the current machine's timezone. Date inputs match
+        // their JSON save representation; no clock is consulted.
+        const timestamp = value => {
+            if (typeof value === 'string') return value.trim();
+            if (typeof value === 'number' && Number.isFinite(value)) return value;
+            if (value && Object.prototype.toString.call(value) === '[object Date]')
+                return Number.isNaN(value.getTime()) ? '' : value.toISOString();
+            return '';
+        };
+        const activities = (Array.isArray(episode?.activityPlans) ? episode.activityPlans
+            : episode?.activityPlan && typeof episode.activityPlan === 'object' ? [episode.activityPlan] : [])
+            .map(plan => [timestamp(plan?.activityAt), text(plan?.plannedResidentActivity), text(plan?.publicTrace)])
+            .filter(([at, activity, trace]) => at && activity && trace)
+            .sort((a, b) => JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0);
+        const mail = (Array.isArray(episode?.mailPlan) ? episode.mailPlan : [])
+            .filter(entry => entry && typeof entry === 'object').slice(0, 1)
+            .map(entry => [String(entry.id || ''), timestamp(entry.sendAt), text(entry.content)])
+            .filter(([, at, content]) => at && content);
+        const provenance = normalizeLifeThreadProvenance(episode?.provenance);
+        const key = JSON.stringify([1, String(episode?.residentId || ''), String(episode?.hallId || ''),
+            timestamp(episode?.departedAt), timestamp(episode?.plannedReturnAt), text(episode?.destination),
+            text(episode?.plannedReturnStatus), text(episode?.plannedArchiveNarrative),
+            text(episode?.ordinaryAwayOperationId), activities, mail,
+            provenance ? [provenance.threadId, provenance.threadExcursionId, provenance.actorId,
+                provenance.operationToken, [...provenance.basisFactIds].sort(),
+                provenance.continuationSourceEventId, provenance.outcomeSourceEventId] : null]);
+        // Fixed 128-bit FNV-style hash over UTF-16 code units, synchronous and
+        // dependency-free. This is not a claim of collision-proof uniqueness.
+        let hash = 0x6c62272e07bb014262b821756295c58dn;
+        for (let index = 0; index < key.length; index++)
+            hash = BigInt.asUintN(128, (hash ^ BigInt(key.charCodeAt(index))) * 0x1000000000000000000013bn);
+        return `away-legacy:v1:${hash.toString(16).padStart(32, '0')}`;
+    };
+
     const normalizeEpisodes = (episodes) => (Array.isArray(episodes) ? episodes : [])
         .filter(episode => episode && typeof episode === 'object')
         .map(episode => {
@@ -163,7 +204,7 @@
                 });
             }
             return {
-                id: String(episode.id || `away-episode-${departedAt || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+                id: String(episode.id || getLegacyAwayEpisodeDeterministicId(episode)),
                 residentId: String(episode.residentId || ''),
                 hallId: String(episode.hallId || ''),
                 departedAt,
@@ -561,6 +602,7 @@
         createMailDecision,
         normalizeMailDecision,
         completeMailDecisionAtExecution,
+        getLegacyAwayEpisodeDeterministicId,
         normalizeEpisodes,
         getActiveEpisode,
         getRecentReturn,

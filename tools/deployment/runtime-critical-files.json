@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "entrypoint": "index.html",
+  "startupScripts": [
+    "js/vendor/lunar-javascript/lunar.js",
+    "js/meeow-core.js",
+    "js/meeow-status-posture.js",
+    "js/meeow-data.js",
+    "js/meeow-special-dates.js",
+    "js/meeow-semantics.js",
+    "js/meeow-resident-semantics.js",
+    "js/meeow-personality-runtime.js",
+    "js/meeow-resident-copy-library.js",
+    "js/meeow-resident-copy.js",
+    "js/meeow-resident-object-preferences.js",
+    "js/meeow-presence.js",
+    "js/meeow-item-visuals.js",
+    "js/meeow-shop-catalog.js",
+    "js/meeow-phone-items.js",
+    "js/meeow-shop-cart.js",
+    "js/meeow-item-pixel-editor.js",
+    "js/meeow-away.js",
+    "js/meeow-map.js",
+    "js/meeow-curator-placement.js",
+    "js/meeow-hall-navigation.js",
+    "js/meeow-hall-spatial.js",
+    "js/meeow-hall-hitch-diagnostic.js",
+    "js/meeow-hall-activities.js",
+    "js/meeow-hall-animation.js",
+    "js/meeow-storage.js",
+    "js/meeow-ai.js",
+    "js/meeow-memory.js",
+    "js/meeow-reader.js",
+    "js/meeow-gameplay-rewards.js",
+    "js/meeow-inventory.js",
+    "js/meeow-resident-items.js",
+    "js/meeow-resident-item-usage.js",
+    "js/meeow-social-activity.js",
+    "js/meeow-character-moments.js",
+    "js/meeow-cat-gifts.js",
+    "js/meeow-item-detail-presentation.js",
+    "js/meeow-dice.js",
+    "js/meeow-truth-or-dare.js",
+    "js/meeow-resident-visual.js",
+    "js/meeow-cat-breeds.js",
+    "js/meeow-resident-generation.js",
+    "js/meeow-adoption-drafts.js",
+    "js/meeow-adoption-oc-form.js",
+    "js/meeow-fandom-resident-generator.js"
+  ],
+  "dynamicScripts": {
+    "renderer": "js/meeow-cat-runtime.js",
+    "sitting": "js/meeow-cat-bank-sitting.js",
+    "standing": "js/meeow-cat-bank-standing.js",
+    "crouching": "js/meeow-cat-bank-crouching.js",
+    "lying": "js/meeow-cat-bank-lying.js"
+  },
+  "loadOrder": [
+    {
+      "producer": "js/meeow-semantics.js",
+      "provides": "Meeow.semantics",
+      "consumers": [
+        "js/meeow-resident-semantics.js",
+        "js/meeow-personality-runtime.js",
+        "js/meeow-resident-copy-library.js",
+        "js/meeow-resident-object-preferences.js",
+        "js/meeow-adoption-drafts.js",
+        "js/meeow-adoption-oc-form.js",
+        "js/meeow-fandom-resident-generator.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-resident-semantics.js",
+      "provides": "Meeow.residentSemantics",
+      "consumers": [
+        "js/meeow-personality-runtime.js",
+        "js/meeow-resident-object-preferences.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-resident-copy-library.js",
+      "provides": "Meeow.residentCopyLibrary",
+      "consumers": [
+        "js/meeow-resident-copy.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-item-visuals.js",
+      "provides": "Meeow.itemVisuals.component",
+      "consumers": [
+        "js/meeow-item-detail-presentation.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-resident-visual.js",
+      "provides": "Meeow.residentVisual",
+      "consumers": [
+        "js/meeow-cat-breeds.js",
+        "js/meeow-adoption-drafts.js",
+        "js/meeow-adoption-oc-form.js",
+        "js/meeow-fandom-resident-generator.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-cat-breeds.js",
+      "provides": "Meeow.catBreeds",
+      "consumers": [
+        "js/meeow-adoption-drafts.js",
+        "js/meeow-adoption-oc-form.js",
+        "js/meeow-fandom-resident-generator.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-resident-object-preferences.js",
+      "provides": "Meeow.objectPreferences",
+      "consumers": [
+        "js/meeow-adoption-drafts.js",
+        "js/meeow-adoption-oc-form.js",
+        "js/meeow-fandom-resident-generator.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-resident-generation.js",
+      "provides": "Meeow.residentGeneration",
+      "consumers": [
+        "js/meeow-adoption-drafts.js",
+        "js/meeow-fandom-resident-generator.js"
+      ]
+    },
+    {
+      "producer": "js/meeow-adoption-drafts.js",
+      "provides": "Meeow.adoptionDrafts",
+      "consumers": [
+        "js/meeow-adoption-oc-form.js",
+        "js/meeow-fandom-resident-generator.js"
+      ]
+    },
+    {
+      "producer": "js/vendor/lunar-javascript/lunar.js",
+      "provides": "Lunar / Solar",
+      "consumers": [
+        "js/meeow-special-dates.js"
+      ]
+    }
+  ],
+  "externalGlobals": {
+    "Vue": "https://unpkg.com/vue@3/dist/vue.global.js"
+  }
+}

@@ -17,6 +17,7 @@
         id: String(resident.id), name: text(resident.name, 60), avatar: text(resident.avatar, 1000),
         personality: text(resident.personality, 200), sourceWork: text(resident.sourceWork, 100),
         sourceRole: text(resident.sourceRole, 150), form: resident.form === 'HUMAN' ? 'HUMAN' : 'CAT',
+        structuredPersonalityContext: text(resident.structuredPersonalityContext, 720),
         closeness: Number(resident.affinity) >= 80 ? '亲近' : Number(resident.affinity) >= 50 ? '熟悉' : '保持礼貌边界'
     });
     const validSession = session => Boolean(session && typeof session.sessionId === 'string' && Array.isArray(session.participants) &&
@@ -44,7 +45,7 @@
         const max = Math.max(...rolls.map(r => r.value)), min = Math.min(...rolls.map(r => r.value));
         return { maxPool: rolls.filter(r => r.value === max).map(r => r.actorId), minPool: rolls.filter(r => r.value === min).map(r => r.actorId), allTie: max === min };
     };
-    const applyRollSet = (session, random, at) => {
+    const applyRollSet = (session, random, at, getDareChance = () => 0.5) => {
         const r = session.round;
         if (!['rolling', 'resolve-ties'].includes(r.phase)) throw new Error('不是掷骰阶段');
         const kind = !r.rollSets.length ? 'initial' : r.allTie ? 'all-tie' : !r.winnerId ? 'max-tie' : 'min-tie';
@@ -69,7 +70,11 @@
         if (r.winnerId === r.loserId) throw new Error('Winner and loser must differ');
         event(session, `${r.roundId}:result`, 'system', '', `本轮胜者：${session.participants.find(p => p.id === r.winnerId).name}；本轮败者：${session.participants.find(p => p.id === r.loserId).name}`, {}, at);
         if (r.loserId === USER) r.phase = 'truth-dare-choice';
-        else choose(session, random() < 0.5 ? 'truth' : 'dare', at);
+        else {
+            const proposed = Number(getDareChance(r.loserId));
+            const dareChance = Number.isFinite(proposed) ? Math.max(0.4, Math.min(0.6, proposed)) : 0.5;
+            choose(session, random() < 1 - dareChance ? 'truth' : 'dare', at);
+        }
         return set;
     };
     const choose = (session, choice, at) => {
@@ -121,7 +126,9 @@ No sidecars, actions, metadata, private thoughts or world mutations. All chat me
         }
         return result;
     };
-    const createController = ({ getData, setData, persist, request, random = Math.random, now = () => new Date().toISOString(), makeId = () => `party:${Date.now()}:${Math.random().toString(36).slice(2)}` }) => {
+    const createController = ({ getData, setData, persist, request, random = Math.random,
+        getDareChance = () => 0.5, now = () => new Date().toISOString(),
+        makeId = () => `party:${Date.now()}:${Math.random().toString(36).slice(2)}` }) => {
         const inFlight = new Map(), unsavedResults = new Map();
         const transaction = mutate => {
             const before = getData();
@@ -144,7 +151,7 @@ No sidecars, actions, metadata, private thoughts or world mutations. All chat me
                 startedAt: now(), endedAt: '', roundNumber: 1, round: round(sessionId, 1), rounds: [], events: [], continuationState: '' };
             event(data.activeSession, `${sessionId}:opening`, 'system', '', '线上派对开始。跨馆连线，游戏内容仅保存在本房间，不改变馆舍世界。', {}, now());
         });
-        const roll = () => transaction(data => { ensure(); return applyRollSet(data.activeSession, random, now()); });
+        const roll = () => transaction(data => { ensure(); return applyRollSet(data.activeSession, random, now(), getDareChance); });
         const chooseUser = choice => transaction(data => { const s = data.activeSession; if (s?.round.phase !== 'truth-dare-choice' || s.round.loserId !== USER) throw new Error('当前不能选择'); choose(s, choice, now()); });
         const submit = input => transaction(data => {
             const s = data.activeSession, r = s?.round;

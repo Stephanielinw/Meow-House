@@ -397,6 +397,8 @@
         return [...(user.missionReports || [])].reverse()
             .find(report => report.missionName === '昨日总结报告' && getBriefingDateKey(report) === previousOperationalDayKey) || null;
     };
+    const eyeColorFor = cat => Meeow.adoptionDrafts?.residentEyeColorDisplay(cat) || cat?.eyeColor || '未设定';
+    const breedFor = cat => Meeow.catBreeds?.getResidentBreedDisplay(cat) || cat?.breed || '未设定';
     const buildCatIdentityBlock = (cat) => {
         const halls = dependencies.getHalls();
         const currentHall = dependencies.getCurrentHall();
@@ -404,7 +406,7 @@
         return `[IMMUTABLE CHARACTER IDENTITY]
 - Name: ${getResidentPublicName(cat)}; Hall: ${hall?.name || 'Meeow House'}
 - Canon personality / stored prompt: ${cat?.prompt || cat?.personality || '以原作设定为准'}
-- Fixed cat breed: ${cat?.breed || '未设定'}; fixed eye color: ${cat?.eyeColor || '未设定'}.
+- Fixed cat breed: ${breedFor(cat)}; fixed eye color: ${eyeColorFor(cat)}.
 - Current physical form: ${describeResidentForm(cat)}; closeness (affinity): ${cat?.affinity ?? 0}/100.
 - The supplied current physical form is the authoritative visible anatomy for this request.
 - The USER is already a trusted and accepted caretaker. Affinity controls intimacy and disclosure, never basic safety or permission to be nearby.
@@ -571,7 +573,7 @@ ${options.extra || ''}
         const context = `[STATUS SYNC CONTEXT]
 ID: ${String(cat?.id || '')}
 Name: ${getResidentPublicName(cat)}
-Breed: ${truncateMemoryText(cat?.breed || '未设定', 32)}; Eyes: ${truncateMemoryText(cat?.eyeColor || '未设定', 22)}
+Breed: ${truncateMemoryText(breedFor(cat), 32)}; Eyes: ${truncateMemoryText(eyeColorFor(cat), 22)}
 Traits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}
 Canon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}
 Affinity: ${cat?.affinity ?? 0}/100; Physical form: ${describeResidentForm(cat)}; Out: ${Boolean(cat?.isOut)}

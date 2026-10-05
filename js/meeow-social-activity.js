@@ -5,6 +5,9 @@
     const PAIR_EXPOSURE_RECENT_MS = 6 * 60 * 60 * 1000;
     const MAX_PAIR_EXPOSURES = 200;
     const MAX_OUTCOME_DIAGNOSTICS = 100;
+    const BASE_PAIR_WEIGHT = 6;
+    // Presentation only: the selected pair must already have the existing observe intent.
+    const staticObservePresentation = Object.freeze({ pose: 'standing', spacingInCatWidths: 1.25 });
     const validTime = value => typeof value === 'string' && Number.isFinite(Date.parse(value));
     const pairIds = (left, right) => {
         const a = String(left || '').trim(), b = String(right || '').trim();
@@ -33,13 +36,19 @@
         const key = pairKey(left, right);
         const matches = normalizePairExposures(exposure, nowMs).filter(entry => pairKey(...entry.residentIds) === key);
         const recentlySeen = matches.some(entry => nowMs - Date.parse(entry.at) < PAIR_EXPOSURE_RECENT_MS);
-        return Math.max(1, 6 - 2 * Math.min(2, matches.length) - (recentlySeen ? 1 : 0));
+        return Math.max(1, BASE_PAIR_WEIGHT - 2 * Math.min(2, matches.length) - (recentlySeen ? 1 : 0));
     };
-    const selectPair = ({ residents, exposure, nowMs = Date.now(), random = Math.random }) => {
+    const selectPair = ({ residents, exposure, nowMs = Date.now(), random = Math.random,
+        personalityAdjustment = null }) => {
         const ids = [...new Set((Array.isArray(residents) ? residents : []).map(cat => String(cat?.id || '').trim()).filter(Boolean))].sort();
         const candidates = [];
         for (let left = 0; left < ids.length; left += 1) for (let right = left + 1; right < ids.length; right += 1) {
-            candidates.push({ residentIds: [ids[left], ids[right]], weight: pairWeight(ids[left], ids[right], exposure, nowMs) });
+            const fairnessWeight = pairWeight(ids[left], ids[right], exposure, nowMs);
+            const rawAdjustment = typeof personalityAdjustment === 'function'
+                ? Number(personalityAdjustment(ids[left], ids[right])) : 0;
+            const adjustment = Number.isFinite(rawAdjustment) ? Math.max(-1, Math.min(1, rawAdjustment)) : 0;
+            candidates.push({ residentIds: [ids[left], ids[right]], baseWeight: BASE_PAIR_WEIGHT, fairnessWeight,
+                personalityAdjustment: adjustment, weight: Math.max(1, fairnessWeight + adjustment) });
         }
         if (!candidates.length) return null;
         const total = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
@@ -52,22 +61,56 @@
         const last = candidates[candidates.length - 1];
         return { ...last, pairKey: pairKey(...last.residentIds) };
     };
-    const claimOpportunity = ({ hall, hallId, token, claims, nowMs = Date.now() }) => {
+    const claimOpportunity = ({ hall, hallId, token, claims, nowMs = Date.now(), participants = null,
+        roomId = '', isCurrent = null, sceneId = '' }) => {
         const id = String(hallId || '').trim();
         if (!id || !hall || !token || !(claims instanceof Map) || claims.has(id) || !isDue(hall, nowMs)) return null;
-        const claim = Object.freeze({ hallId: id, token: String(token), at: new Date(nowMs).toISOString() });
+        let shared = null;
+        if (participants) {
+            if (!Array.isArray(participants)) return null;
+            const ids = pairIds(...participants);
+            // ponytail: scan existing Hall claims; index only if Hall-scale contention warrants it.
+            if (participants.length !== 2 || ids.length !== 2 || !roomId || !sceneId ||
+                typeof isCurrent !== 'function' || !isCurrent() ||
+                [...claims.values()].some(claim => claim.participantIds?.some(residentId => ids.includes(residentId)))) return null;
+            let settle;
+            const started = new Promise(resolve => { settle = resolve; });
+            shared = { phase: 'awaiting-readiness', readyIds: [], started, settle };
+        }
+        const claim = Object.freeze({ hallId: id, token: String(token), at: new Date(nowMs).toISOString(),
+            ...(shared ? { participantIds: Object.freeze(pairIds(...participants)),
+                initiatorId: String(participants[0]), recipientId: String(participants[1]),
+                pairKey: pairKey(...participants), roomId, sceneId, isCurrent, shared } : {}) });
         claims.set(id, claim);
         return claim;
     };
+    const ownsOpportunity = (claim, claims) => Boolean(claim && claims instanceof Map &&
+        claims.get(claim.hallId) === claim && (!claim.shared || claim.isCurrent()));
+    const acknowledgeReadiness = (claim, claims, residentId) => {
+        if (!ownsOpportunity(claim, claims)) { releaseOpportunity(claim, claims); return false; }
+        if (claim.shared?.phase !== 'awaiting-readiness' || !claim.participantIds.includes(String(residentId))) return false;
+        if (!claim.shared.readyIds.includes(String(residentId))) claim.shared.readyIds.push(String(residentId));
+        if (claim.shared.readyIds.length === 2) {
+            claim.shared.phase = 'shared-active';
+            claim.shared.settle(true);
+        }
+        return true;
+    };
     const releaseOpportunity = (claim, claims) => {
+        if (claim?.shared && claim.shared.phase !== 'completed') {
+            claim.shared.phase = 'cancelled';
+            claim.shared.settle(false);
+        }
         if (!claim || !(claims instanceof Map) || claims.get(claim.hallId) !== claim) return false;
         claims.delete(claim.hallId);
         return true;
     };
     const commitOpportunity = (claim, claims, hall) => {
-        if (!claim || !hall || !(claims instanceof Map) || claims.get(claim.hallId) !== claim ||
+        if (!hall || !ownsOpportunity(claim, claims) ||
+            (claim.shared && claim.shared.phase !== 'shared-active') ||
             !isDue(hall, Date.parse(claim.at))) return false;
         hall.lastHallSocialOpportunityAt = claim.at;
+        if (claim.shared) claim.shared.phase = 'completed';
         claims.delete(claim.hallId);
         return true;
     };
@@ -116,8 +159,8 @@
         return true;
     };
     Meeow.socialActivity = Object.freeze({ SOCIAL_OPPORTUNITY_CADENCE_MS, PAIR_EXPOSURE_WINDOW_MS,
-        MAX_PAIR_EXPOSURES, MAX_OUTCOME_DIAGNOSTICS, pairIds, pairKey, isDue, normalizePairExposures,
-        pairWeight, selectPair, claimOpportunity, releaseOpportunity, commitOpportunity,
+        MAX_PAIR_EXPOSURES, MAX_OUTCOME_DIAGNOSTICS, staticObservePresentation, pairIds, pairKey, isDue, normalizePairExposures,
+        pairWeight, selectPair, claimOpportunity, ownsOpportunity, acknowledgeReadiness, releaseOpportunity, commitOpportunity,
         appendSceneExposures, classifyOutcome, substantivePair, recordDiagnostic });
     if (typeof module !== 'undefined' && module.exports) module.exports = Meeow.socialActivity;
 })(typeof window !== 'undefined' ? window : globalThis);

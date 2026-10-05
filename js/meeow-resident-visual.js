@@ -590,7 +590,14 @@
             return { frame: render(config, { pose: 'sitting' }), requestedPose: 'standing', renderedPose: 'sitting', fallback: true, fallbackReason, standingError: String(standingError?.message || standingError) };
         }
     };
+    // Completed pose frames face left natively. Compare final projected contacts,
+    // never world-axis guesses; a retained/stopped contact preserves its facing.
+    const resolvePresentationFacing = (previous, screenFoot, preferred, key) => {
+        if (previous?.key !== key || !Number.isFinite(screenFoot?.x)) return preferred;
+        const dx = screenFoot.x - previous.screenFoot.x;
+        return Math.abs(dx) > 0.05 ? (dx > 0 ? 'right' : 'left') : previous.facing;
+    };
     const isCurrentPreviewRequest = (token, currentToken, editorOpen = true) => editorOpen === true && token === currentToken;
 
-    Object.assign(visual, { OPTIONS, COATS, MARKS, EYES, MUZZLES, POSE_CAPABILITY_CODES, DEFAULT_CONFIG, BUILTIN_VISUAL_PRESETS, canonicalizeIdentity, stableIdentity, identityHash, getBuiltinVisualPreset, seedIdentity, normalizeVisual, resolveResidentVisual, makeSpriteCacheKey, makeGroundAnchorPlacement, createSpriteRequestCoordinator, createSpriteFailureBackoff, createSpriteRetryWakeup, makeVisual, saveVisual, renderStandingWithFallback, isCurrentPreviewRequest, clone });
+    Object.assign(visual, { OPTIONS, COATS, MARKS, EYES, MUZZLES, POSE_CAPABILITY_CODES, DEFAULT_CONFIG, BUILTIN_VISUAL_PRESETS, canonicalizeIdentity, stableIdentity, identityHash, getBuiltinVisualPreset, seedIdentity, normalizeVisual, resolveResidentVisual, makeSpriteCacheKey, makeGroundAnchorPlacement, createSpriteRequestCoordinator, createSpriteFailureBackoff, createSpriteRetryWakeup, makeVisual, saveVisual, renderStandingWithFallback, isCurrentPreviewRequest, resolvePresentationFacing, clone });
 })(typeof window !== 'undefined' ? window : globalThis);

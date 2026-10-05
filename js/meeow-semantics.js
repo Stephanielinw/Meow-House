@@ -174,7 +174,9 @@
     };
     const getItemObjectSemantics = item => {
         if (!isRecord(item) || !Object.hasOwn(OBJECT_VALIDITY, item.semanticType)) return null;
-        const checked = normalizeSemanticTags(item);
+        // Persistent object gameplay is owned by semanticType/tags. Legacy
+        // presentation fields cannot veto a validated object classification.
+        const checked = normalizeSemanticTags({ semanticType: item.semanticType, tags: item.tags });
         return checked.classificationKnown ? checked.normalized : null;
     };
     const getPrimaryItemInteraction = item => getItemObjectSemantics(item)?.tags
@@ -232,7 +234,8 @@
         }
         return { tags, rejected, complete: normalizeSemanticTags({ semanticType: 'food', tags }).classificationKnown };
     };
-    const hasValidSemanticClassification = input => normalizeSemanticTags(input).classificationKnown;
+    const hasValidSemanticClassification = input => ['toy', 'collectible'].includes(input?.semanticType)
+        ? getItemObjectSemantics(input) !== null : normalizeSemanticTags(input).classificationKnown;
     const MBTI_CODES = new Set(['INTJ', 'INTP', 'ENTJ', 'ENTP', 'INFJ', 'INFP', 'ENFJ', 'ENFP',
         'ISTJ', 'ISFJ', 'ESTJ', 'ESFJ', 'ISTP', 'ISFP', 'ESTP', 'ESFP']);
     const profileResult = (valid, errors, normalized = null) => ({ valid, error: errors[0] || null, errors, normalized });
@@ -335,23 +338,17 @@
         const matches = checkedObject.normalized.tags.filter(tag => Object.hasOwn(preferences, tag)).map(tag => ({
             namespace: tag.split(':')[0], tag, weight: preferences[tag]
         }));
-        if (!matches.length) return unknown('no-matched-preferences');
-        const contributions = Object.keys(SEMANTIC_TAG_REGISTRY[checkedObject.normalized.semanticType].namespaces)
-            .map(namespaceName => {
-                const weights = matches.filter(match => match.namespace === namespaceName);
-                if (!weights.length) return null;
-                const sum = weights.reduce((total, match) => total + match.weight, 0);
-                return { namespace: namespaceName, rawSum: sum, contribution: Math.max(AXIS_MIN, Math.min(AXIS_MAX, sum)) };
-            }).filter(Boolean);
-        const total = contributions.reduce((sum, entry) => sum + entry.contribution, 0);
-        const count = contributions.length;
-        const reactionClass = total * 4 >= count * 5 ? 'love'
-            : total * 4 >= count ? 'like'
-            : total * 4 > -count ? 'neutral'
-            : total * 4 > -count * 5 ? 'dislike' : 'hate';
+        // Food Preference V1: each exact namespaced tag contributes its explicit
+        // weight once. No namespace averaging, clamping, or inferred neighbors.
+        const total = matches.reduce((sum, match) => sum + match.weight, 0);
+        const reactionClass = total >= 3 ? 'strong_like'
+            : total >= 1 ? 'like'
+            : total === 0 ? 'neutral'
+            : total === -1 ? 'dislike' : 'strong_dislike';
         return {
-            valid: true, classificationKnown: true, score: total / count, reactionClass, reason: 'matched-preferences',
-            matchedPreferences: matches, matchedNamespaces: contributions
+            valid: true, classificationKnown: true, score: total, reactionClass,
+            reason: matches.length ? 'matched-preferences' : 'no-matched-preferences',
+            matchedPreferences: matches
         };
     };
     Meeow.semantics = Object.freeze({

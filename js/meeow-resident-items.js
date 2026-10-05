@@ -7,8 +7,12 @@
         const key = (typeof id === 'string' || typeof id === 'number') && String(id).trim() ? String(id) : '';
         return ['__proto__', 'prototype', 'constructor'].includes(key) ? '' : key;
     };
-    const isGiftableToResident = item => isRecord(item) && item.type !== 'letter' && item.category !== 'food' &&
-        (item.category === 'toy' || item.type === 'toy' || item.type === 'collectible' || item.type === 'souvenir');
+    const isGiftableToResident = item => {
+        if (!isRecord(item)) return false;
+        if (Object.hasOwn(item, 'semanticType')) return Boolean(Meeow.semantics?.getItemObjectSemantics(item));
+        return item.type !== 'letter' && item.category !== 'food' &&
+            (item.category === 'toy' || item.type === 'toy' || item.type === 'collectible' || item.type === 'souvenir');
+    };
     const validPhysicalId = id => (typeof id === 'string' && id.trim().length > 0) ||
         (typeof id === 'number' && Number.isFinite(id)); // Preserve historical primitive instance IDs.
     const physicalKey = id => `${typeof id}:${String(id)}`;

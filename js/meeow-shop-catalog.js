@@ -80,6 +80,38 @@
         }
         return /^legacy-shop:string:[A-Za-z0-9_-]+$/.test(value);
     };
+    const BUILT_IN_TOY_IDS = Object.freeze([2, 3, 4, 5]);
+    // Catalog identity, never a display name or sprite, proves this narrow class.
+    const getBuiltInShopToyId = (item, { catalog = false } = {}) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+        if (Object.hasOwn(item, 'sourceCatalogId'))
+            return BUILT_IN_TOY_IDS.find(id => item.id === id &&
+                item.sourceCatalogId === legacySourceCatalogId(id)) ?? null;
+        if (!BUILT_IN_TOY_IDS.includes(item.id)) return null;
+        if (catalog || (Meeow.residentItems?.isValidProvenance(item.provenance) &&
+            item.provenance.origin.kind === 'shop')) return item.id;
+        return null;
+    };
+    const isBuiltInShopToy = (item, options) => getBuiltInShopToyId(item, options) !== null &&
+        Meeow.semantics?.getItemObjectSemantics(item)?.semanticType === 'toy';
+    // Explicit startup/import boundary only. No semantic, visual or history repair.
+    const normalizeBuiltInShopToyTaxonomy = (user, catalog = []) => {
+        let updatedCount = 0;
+        const normalize = (item, isCatalog) => {
+            if (!isBuiltInShopToy(item, { catalog: isCatalog }) ||
+                (item.type === 'collectible' && item.category === 'toy')) return;
+            item.type = 'collectible';
+            item.category = 'toy';
+            updatedCount += 1;
+        };
+        (Array.isArray(catalog) ? catalog : []).forEach(item => normalize(item, true));
+        (Array.isArray(user?.inventory) ? user.inventory : []).forEach(item => normalize(item, false));
+        if (user?.residentItems && typeof user.residentItems === 'object' && !Array.isArray(user.residentItems))
+            Object.values(user.residentItems).forEach(items => {
+                if (Array.isArray(items)) items.forEach(item => normalize(item, false));
+            });
+        return { changed: updatedCount > 0, updatedCount };
+    };
     const normalizeShopCatalog = (rawItems, builtInIds = []) => {
         const items = Array.isArray(rawItems) ? rawItems : [];
         const builtInKeys = new Set((Array.isArray(builtInIds) ? builtInIds : []).map(typedIdKey).filter(Boolean));
@@ -106,7 +138,9 @@
 
     const sameLegacyDefinition = (item, catalogItem) => item && catalogItem &&
         typedIdKey(item.id) === typedIdKey(catalogItem.id) && item.id === catalogItem.id &&
-        item.name === catalogItem.name && item.category === catalogItem.category && item.type === catalogItem.type;
+        item.name === catalogItem.name && item.category === catalogItem.category &&
+        (item.type === catalogItem.type || (item.type === 'consumable' && catalogItem.type === 'collectible' &&
+            isBuiltInShopToy(catalogItem, { catalog: true })));
     const migrateOwnedCatalogSources = (rawItems, catalog) => {
         const items = Array.isArray(rawItems) ? rawItems : [];
         const definitions = (Array.isArray(catalog) ? catalog : []).filter(item => validSourceCatalogId(item?.sourceCatalogId));
@@ -188,7 +222,6 @@
             category: snapshot.category, type: snapshot.type,
             price: normalizedAppraisal.price, effect: normalizedAppraisal.effect,
             visual: cloneSerializable(visual),
-            ...(visual.visualHint ? { visualHint: cloneSerializable(visual.visualHint) } : {}),
             ...(foodClassification?.complete
                 ? { semanticType: 'food', tags: [...foodClassification.tags] }
                 : foodClassification?.tags.length
@@ -208,11 +241,8 @@
         if (!Number.isInteger(raw.price) || raw.price < 1 || raw.price > 999999 ||
             !Number.isInteger(raw.effect) || raw.effect < 1 || raw.effect > 3) return { valid: false, error: 'invalid-appraisal' };
         if (!visual) return { valid: false, error: 'invalid-visual' };
-        if (Object.hasOwn(raw, 'visualHint')) {
-            const hint = Meeow.itemVisuals?.validateVisualHint(raw.visualHint);
-            if (!hint || JSON.stringify(hint) !== JSON.stringify(visual.visualHint))
-                return { valid: false, error: 'invalid-visual-hint' };
-        }
+        // The validated nested visual owns its hint. An old top-level field is
+        // inert historical baggage, not a second validator or repair source.
         const hasCanonicalTags = Object.hasOwn(raw, 'semanticType') || Object.hasOwn(raw, 'tags');
         if (hasCanonicalTags) {
             const expectedType = raw.category === 'food' ? 'food' : raw.category === 'toy' ? 'toy' : null;
@@ -234,7 +264,13 @@
     const createPurchaseInstance = (catalogItem, uniqueId) => {
         if (!catalogItem || typeof catalogItem !== 'object' || !validInstanceUniqueId(uniqueId) ||
             (Object.hasOwn(catalogItem, 'sourceCatalogId') && !validSourceCatalogId(catalogItem.sourceCatalogId))) return null;
-        return { ...cloneSerializable(catalogItem), uniqueId,
+        const { visualHint: legacyHint, ...definition } = cloneSerializable(catalogItem);
+        if (isBuiltInShopToy(definition, { catalog: true })) {
+            definition.type = 'collectible';
+            definition.category = 'toy';
+            definition.sourceCatalogId = legacySourceCatalogId(getBuiltInShopToyId(definition, { catalog: true }));
+        }
+        return { ...definition, uniqueId,
             provenance: { version: 1, originOwner: { kind: 'user' }, origin: { kind: 'shop' }, giftHistory: [] } };
     };
     const findCatalogDefinition = (catalog, sourceCatalogId) => {
@@ -247,7 +283,10 @@
         if (!Array.isArray(catalog) || !checked.valid) {
             return { ok: false, reason: 'invalid-definition', definition: null };
         }
-        definition = checked.definition;
+        // Explicit new-definition commit boundary; do not migrate saved items
+        // during validation/read. Never re-resolve the frozen visual here.
+        const { visualHint: legacyHint, ...canonicalDefinition } = checked.definition;
+        definition = canonicalDefinition;
         const existing = catalog.find(item => item?.id === definition.id || item?.sourceCatalogId === definition.sourceCatalogId);
         if (existing) return { ok: true, reason: 'already-exists', definition: existing };
         catalog.push(definition);
@@ -286,6 +325,7 @@
         createSourceCatalogId, createInstanceUniqueId, createAppraisalRequestToken,
         isActiveAppraisalRequest, validInstanceUniqueId,
         validSourceCatalogId, normalizeShopCatalog, migrateOwnedCatalogSources,
+        BUILT_IN_TOY_IDS, getBuiltInShopToyId, isBuiltInShopToy, normalizeBuiltInShopToyTaxonomy,
         legacyVisual, captureAuthoringSnapshot, normalizeAppraisal, resolveAppraisedVisual, createCatalogDefinition,
         validateCatalogDefinition,
         createPurchaseInstance, findCatalogDefinition, commitCatalogDefinition, commitCatalogPurchase
