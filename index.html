@@ -10898,6 +10898,7 @@
                         if (migrateLegacyGothamResidentIds(parsed)) rosterMigrationPendingSave = true;
                         if (parsed.user) {
                             Object.assign(user, parsed.user);
+                            if (!Object.hasOwn(parsed.user, 'currentStatusProvenance')) delete user.currentStatusProvenance;
                             if (!parsed.user.livingHallSettledPositions || typeof parsed.user.livingHallSettledPositions !== 'object' ||
                                 Array.isArray(parsed.user.livingHallSettledPositions)) user.livingHallSettledPositions = {};
                             if (Object.hasOwn(parsed.user, 'adoptionDrafts')) user.adoptionDrafts = window.Meeow.adoptionDrafts.normalizeDraftStore(parsed.user.adoptionDrafts);
@@ -16118,8 +16119,8 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                     const mailContext = lastMail ? `Recent Mail from ${lastMail.from}: ${lastMail.content.substring(0, 30)}...` : "No recent mail.";
 
                     const userProfile = isHomepageProjection
-                        ? `[USER LIFE CONTEXT]\nCurrent Status: ${user.currentStatus || 'Unknown'}.`
-                        : `${buildAuthoritativeUserIdentityContext()}\nJob/Role: ${user.job || 'Unknown'}. Current Status: ${user.currentStatus || 'Unknown'}.`;
+                        ? `[USER LIFE CONTEXT]\nCurrent Status: ${getSharedUserCurrentStatus() || 'Unknown'}.`
+                        : `${buildAuthoritativeUserIdentityContext()}\nJob/Role: ${user.job || 'Unknown'}. Current Status: ${getSharedUserCurrentStatus() || 'Unknown'}.`;
                     const realLifeContext = `${buildOwnerDailyContext('compact', { includeCuratorProfile: !isHomepageProjection, includeHoliday: false })}\n[MAIL CONTEXT] ${mailContext}`;
 
                     return `${userProfile}\n${realLifeContext}`;
@@ -16555,7 +16556,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const applySuccessfulInteractionUserStatus = (value) => {
                     const userStatus = cleanText(value || '');
                     if (!userStatus) return false;
-                    user.currentStatus = userStatus.substring(0, 15);
+                    setUserCurrentStatus(userStatus.substring(0, 15), 'shared-scene', 'private');
                     tempUserStatus.value = user.currentStatus;
                     return true;
                 };
@@ -16799,7 +16800,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     activeHallId.value = hall.id;
                     const arrivalStatus = `刚刚迈步进入${hall.name}`;
                     tempUserStatus.value = arrivalStatus;
-                    user.currentStatus = arrivalStatus;
+                    setUserCurrentStatus(arrivalStatus, 'hall-arrival', 'public');
                     alfredMessage.value = `${hall.guardian}：欢迎进入${hall.name}。馆内信号已切换，小猫们继续各自的活动。`;
                     hallSceneActive.value = true;
                     loungeView.value = 'room';
@@ -16837,7 +16838,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     setCatStatus(cat, `正站在${targetHall.name}观察新馆舍的气味与动静`, { posture: 'standing', source: 'visit', forceLog: true });
                     appendInteractionEvent(cat, 'visit-start', `前往${targetHall.name}串门`, { source: 'visit' });
                     addLog(`VISITOR PASS: ${cat.name} -> ${targetHall.name}`, 'info');
-                    user.currentStatus = `已将 ${cat.name} 送往${targetHall.name}串门`;
+                    setUserCurrentStatus(`已将 ${cat.name} 送往${targetHall.name}串门`, 'resident-visit', 'public');
                     showToast(`${cat.name} 已前往${targetHall.name}串门`, 'success');
                     visitIsProcessing.value = false;
                     showCatVisitModal.value = false;
@@ -17051,7 +17052,7 @@ personalityAxes 必须恰好包含 ${JSON.stringify(axisKeys)}，各值整数 -2
                 };
 
                 const updateUserStatus = async () => {
-                    user.currentStatus = tempUserStatus.value;
+                    setUserCurrentStatus(tempUserStatus.value, 'manual', 'public');
                     addLog(`USER STATUS UPDATED: ${user.currentStatus || '(Empty)'}`, 'info');
                     showToast('你的状态已更新', 'success');
                 };
@@ -19313,7 +19314,7 @@ PHONE CONTACT: ${identity.name}
 CONTACT VOICE: ${compactPhonePresenceText(resident.personality, 360) || '保持既有性格与说话习惯。'}
 ${buildStructuredPersonalityContext(resident, identity.name)}
 USER PUBLIC PROFILE: ${compactPhonePresenceText(user.nickname, 60) || 'USER'} · ${compactPhonePresenceText(user.job, 80) || '未提供'}
-USER NOW: hall=${userHall?.name || 'Meeow House'}; status=${compactPhonePresenceText(user.currentStatus, 120) || '未提供'}
+USER NOW: hall=${userHall?.name || 'Meeow House'}; status=${compactPhonePresenceText(getSharedUserCurrentStatus(), 120) || '未提供'}
 CONTACT NOW: hall=${residentHall?.name || 'Meeow House'}; status=${compactPhonePresenceText(resident.status, 120) || '未提供'}; away=${isResidentAway(resident) ? 'yes' : 'no'}; visiting=${resident.isVisiting ? 'yes' : 'no'}; exploring=${isExploring ? 'yes' : 'no'}; focusing=${isFocusingResident ? 'yes' : 'no'}; directPhysicalInteraction=${isDirectlyInteracting ? 'yes' : 'no'}; sameHall=${residentHall?.id === userHall?.id ? 'yes' : 'no'}
 TIME: ${new Date().toLocaleString()} · operational day ${getOperationalDayKey(new Date())}
 RECENT DIRECT USER/CONTACT INTERACTIONS (observable only):
@@ -22394,7 +22395,7 @@ RULES:
                 };
                 const buildStatusSyncUserContext = (additionalContext = '') => {
                     const recentEvent = truncateMemoryText(cleanText(additionalContext || ''), 360);
-                    return `${buildAuthoritativeUserIdentityContext()}\n[STATUS USER]\nName: ${truncateMemoryText(user.nickname || '馆长', 48)}\nCurrent status: ${truncateMemoryText(user.currentStatus || '未知', 90)}\nRecent event: ${recentEvent || 'None'}`;
+                    return `${buildAuthoritativeUserIdentityContext()}\n[STATUS USER]\nName: ${truncateMemoryText(user.nickname || '馆长', 48)}\nCurrent status: ${truncateMemoryText(getSharedUserCurrentStatus() || '未知', 90)}\nRecent event: ${recentEvent || 'None'}`;
                 };
                 const getStatusSyncDeltaTier = (diffMinutes) => diffMinutes < 30 ? 'short' : (diffMinutes > 60 ? 'long' : 'meaningful');
                 const buildPresenceInferenceContext = (cat, options = {}) => {
@@ -27459,7 +27460,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     const eventContext = getDateContext(null, { includeHoliday: options.includeHoliday !== false });
                     return `[OWNER DAILY CONTEXT]
 - Operational day: ${operationalKey} (local day changes at 03:00).
-${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user.job || '未设定'}; current status: ${user.currentStatus || '未知'}.
+${includeCuratorProfile ? `- Curator: ${user.nickname || '馆长'}; role: ${user.job || '未设定'}; current status: ${getSharedUserCurrentStatus() || '未知'}.
 ` : ''}- Completed plans: ${completedPlans.join(' / ') || 'None recorded'}.
 - Pending plans: ${pendingPlans.join(' / ') || 'None recorded'}.
 - Today's schedule: ${schedule.join(' / ') || 'No scheduled event'}.
@@ -28636,6 +28637,27 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     return text.split(/[“”"。！？!?\n]/).some(clause =>
                         /^\s*(?:(?:请\s*)?(?:你)?(?:能不能|能|可以|可不可以|愿意|能否)[^。！？!?]{0,18}(?:变(?:回|成)(?:人形|人类形态)|用人形(?:和我|跟我)(?:说话|聊))|(?:请\s*)?变(?:回|成)(?:人形|人类形态)(?:$|吧|和我|跟我)|(?:请\s*)?用人形(?:和我|跟我)(?:说话|聊))/.test(clause));
                 };
+                // Owner status is shareable only with explicit, matching public provenance.
+                const setUserCurrentStatus = (value, source, visibility = 'private') => {
+                    user.currentStatus = value;
+                    user.currentStatusProvenance = { source, visibility, value };
+                };
+                const getSharedUserCurrentStatus = () => {
+                    const provenance = user.currentStatusProvenance;
+                    return typeof user.currentStatus === 'string' && provenance?.visibility === 'public' &&
+                        ['manual', 'hall-arrival', 'resident-visit'].includes(provenance.source) &&
+                        provenance.value === user.currentStatus ? user.currentStatus : '';
+                };
+                const buildHomepagePrivateUserStatusContext = cat => {
+                    const record = [...(cat?.todayInteractions || [])].reverse().find(entry =>
+                        entry?.source === 'detail-chat' && entry.type === 'chat-reply' &&
+                        entry.privateUserStatus?.residentId === String(cat.id) &&
+                        entry.privateUserStatus.visibility === 'private' && entry.privateUserStatus.authority === 'INTERPRETATION');
+                    const value = cleanText(record?.privateUserStatus?.value || '');
+                    return value ? `[RESIDENT-PRIVATE CONTINUITY · INTERPRETATION / UNVERIFIED]
+Prior interaction impression: ${value}
+Generated interpretation only; not current public state or historical evidence.` : '';
+                };
                 const applyHomepageHumanFormRequest = (cat, message, now = new Date()) => {
                     const detectedFormIntent = getHomepageHumanFormIntent(message);
                     if (!detectedFormIntent) return null;
@@ -28781,7 +28803,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                             hallName: (halls.value.find(hall => String(hall?.id) === String(requestHallId)) || currentHall.value)?.name || 'Meeow House'
                         });
                         const activeLocationContext = buildHomepageDirectPresenceContext(sendingCat);
-                        const directUserContext = `[USER CURRENT CONTEXT]\n${buildAuthoritativeUserIdentityContext()}\n- Job/role: ${cleanText(user.job || 'Unknown') || 'Unknown'}.\n- Current status: ${cleanText(user.currentStatus || 'Unknown') || 'Unknown'}.\n- Current time: ${frozenNow.toLocaleString()}.`;
+                        const directUserContext = `[USER CURRENT CONTEXT]\n${buildAuthoritativeUserIdentityContext()}\n- Job/role: ${cleanText(user.job || 'Unknown') || 'Unknown'}.\n- Current status: ${getSharedUserCurrentStatus() || 'Unknown'}.\n- Current time: ${frozenNow.toLocaleString()}.`;
+                        const privateUserContinuity = recentConversation.text ? buildHomepagePrivateUserStatusContext(sendingCat) : '';
                         const interactionHolidayContext = getInteractionHolidayContext();
                         const claimedPhoneOpportunity = getClaimedPhoneReplyOpportunity(phoneReplyPiggybackClaim);
                         const phoneReplyTask = claimedPhoneOpportunity
@@ -28830,6 +28853,7 @@ ${interactionHolidayContext}
 ${foreground.relationship ? `\n[USER ↔ RESIDENT RELATIONSHIP BASELINE]\n${foreground.relationship}` : ''}
 
 ${directUserContext}
+${privateUserContinuity}
 ${timePerceptionStr}
 
 ${recentConversation.text}
@@ -28903,12 +28927,14 @@ ${outputContract}`;
                         const userStatus = cleanText(activeResponse.userStatus);
                         // Language does not supply a new physical state.
                         if (voice) sendingCat.innerVoice = voice;
-                        applySuccessfulInteractionUserStatus(userStatus);
                         const replyTime = getCurrentTimeStr();
                         sendingCat.chatHistory.push({ role: 'assistant', content: reply, time: replyTime, at: new Date().toISOString() });
                         const acceptedMomentReply = appendInteractionEvent(sendingCat, 'chat-reply', `[${getResidentForm(sendingCat)}][REPLY]: ${reply}`, {
                             source: 'detail-chat',
                             chatAt: userChatAt,
+                            // The record proves the exchange, never this generated interpretation.
+                            ...(userStatus ? { privateUserStatus: { value: userStatus.substring(0, 15),
+                                residentId: String(sendingCat.id), visibility: 'private', authority: 'INTERPRETATION' } } : {}),
                             interactionEpisodeId: directEpisode.id,
                             physicalHallId: String(getResidentPhysicalHallId(sendingCat) || ''),
                             // Prospective-only, successful plain Homepage turns are
@@ -29384,7 +29410,7 @@ ${buildLeanAmbientContext(cat, {
                     const catNames = participants.map(c => c.name).join(', ');
                     const chronologicalLogs = [...currentFocusLog.value].reverse();
                     const endedFocusStatus = `刚刚结束「${cleanText(focusAction.value)}」专注任务`;
-                    user.currentStatus = endedFocusStatus;
+                    setUserCurrentStatus(endedFocusStatus, 'focus-completion', 'private');
                     tempUserStatus.value = endedFocusStatus;
                     const fallbackSummary = success
                         ? `${catNames || '参与猫咪'}陪馆长完成了「${focusAction.value}」。本次记录已归档。`
@@ -31805,6 +31831,7 @@ ${statusOutputRules}`;
                             if (migrateLegacyGothamResidentIds(data)) rosterMigrationPendingSave = true;
                             if (data.user) {
                                 Object.assign(user, data.user);
+                                if (!Object.hasOwn(data.user, 'currentStatusProvenance')) delete user.currentStatusProvenance;
                                 user.livingHallSettledPositions = data.user.livingHallSettledPositions &&
                                     typeof data.user.livingHallSettledPositions === 'object' &&
                                     !Array.isArray(data.user.livingHallSettledPositions)
