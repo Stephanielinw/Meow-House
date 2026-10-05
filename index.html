@@ -18649,35 +18649,49 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const applyExploreSuggestedAction = action => { exploreInput.value = compactExploreText(action, 100); };
                 const closeExplore = () => { exploreState.active = false; exploreState.caseId = ''; exploreState.location = null; exploreState.companion = null; exploreState.sessionForm = null; exploreState.history = []; exploreState.currentCheck = null; exploreState.waitingForDice = false; exploreState.lastDiceResult = null; exploreState.settlement = null; exploreState.showNotebook = false; exploreState.selectedNotebookClueId = ''; exploreState.showExitMenu = false; showExploreSettlement.value = false; };
 
+                // Program-only first-reveal authorization, shared by the existing
+                // special-event flow and an explicit Homepage request. No AI call here.
+                const authorizeFirstHumanReveal = (cat, { directInteraction = false, now = new Date() } = {}) => {
+                    const id = String(cat?.id ?? '');
+                    if (!cat ||
+                        cat.affinity < 50 ||
+                        cat.hasRevealedHumanForm) return false;
+                    if (!directInteraction ||
+                        !isResidentInHall(cat) ||
+                        isResidentAway(cat) ||
+                        cat.isVisiting ||
+                        isResidentInCuratorRoom(cat)) return false;
+                    // The program-owned authorization is only real once its
+                    // durable receipt is saved. Keep an exact in-memory
+                    // rollback snapshot for a failed local write.
+                    const priorReveal = cat.humanReveal ? { ...cat.humanReveal } : null;
+                    const priorForm = {
+                        currentForm: cat.currentForm,
+                        isHuman: cat.isHuman,
+                        hasRevealedHumanForm: cat.hasRevealedHumanForm,
+                        humanFormUnlocked: cat.humanFormUnlocked,
+                        lastFormChangeAt: cat.lastFormChangeAt,
+                        nextFormReconsiderAt: cat.nextFormReconsiderAt
+                    };
+                    cat.humanReveal = {
+                        eligibleAt: cat.humanReveal?.eligibleAt || now.toISOString(), authorizedAt: now.toISOString(),
+                        revealedAt: now.toISOString(), firstRevealEventId: cat.humanReveal?.firstRevealEventId || `human-reveal:${id}:${now.getTime()}`
+                    };
+                    unlockResidentHumanForm(cat, { now });
+                    const formSaved = persistNow();
+                    if (!formSaved) {
+                        cat.humanReveal = priorReveal;
+                        Object.assign(cat, priorForm);
+                        return false;
+                    }
+                    return true;
+                };
                 const checkAffinityThreshold = async (cat, { directInteraction = false } = {}) => {
                     const id = String(cat?.id ?? '');
-                    if (!cat || cat.affinity < 50 || cat.hasRevealedHumanForm || firstHumanRevealInFlight.has(id)) return false;
-                    if (!directInteraction || !isResidentInHall(cat) || isResidentAway(cat) || cat.isVisiting || isResidentInCuratorRoom(cat)) return false;
+                    if (firstHumanRevealInFlight.has(id)) return false;
                     firstHumanRevealInFlight.add(id);
                     try {
-                        const now = new Date();
-                        // The program-owned authorization is only real once its
-                        // durable receipt is saved. Keep an exact in-memory
-                        // rollback snapshot for a failed local write.
-                        const priorReveal = cat.humanReveal ? { ...cat.humanReveal } : null;
-                        const priorForm = {
-                            currentForm: cat.currentForm,
-                            isHuman: cat.isHuman,
-                            hasRevealedHumanForm: cat.hasRevealedHumanForm,
-                            humanFormUnlocked: cat.humanFormUnlocked,
-                            lastFormChangeAt: cat.lastFormChangeAt,
-                            nextFormReconsiderAt: cat.nextFormReconsiderAt
-                        };
-                        cat.humanReveal = {
-                            eligibleAt: cat.humanReveal?.eligibleAt || now.toISOString(), authorizedAt: now.toISOString(),
-                            revealedAt: now.toISOString(), firstRevealEventId: cat.humanReveal?.firstRevealEventId || `human-reveal:${id}:${now.getTime()}`
-                        };
-                        unlockResidentHumanForm(cat, { now });
-                        if (!persistNow()) {
-                            cat.humanReveal = priorReveal;
-                            Object.assign(cat, priorForm);
-                            return false;
-                        }
+                        if (!authorizeFirstHumanReveal(cat, { directInteraction })) return false;
                         return await triggerHumanFormEvent(cat);
                     } finally {
                         firstHumanRevealInFlight.delete(id);
@@ -21824,7 +21838,7 @@ RULES:
                         eventAt: chatAt || new Date().toISOString()
                     };
                 };
-                const normalizeHomepageMemoryCandidate = ({ candidate, owner, userText, reply, groundedRelatedIds }) => {
+                const normalizeHomepageMemoryCandidate = ({ candidate, owner, groundedRelatedIds }) => {
                     if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return null;
                     const summary = cleanText(candidate.summary || '');
                     const relatedResidentIds = Array.isArray(candidate.relatedResidentIds)
@@ -21835,8 +21849,7 @@ RULES:
                     const emotionalWeight = Number(candidate.emotionalWeight);
                     if (!summary || summary.length < 18 || summary.length > 280 || !relatedResidentIds || !tags ||
                         !Number.isInteger(importance) || importance < 3 || importance > 5 ||
-                        !Number.isInteger(emotionalWeight) || emotionalWeight < 1 || emotionalWeight > 5 ||
-                        !hasMeaningfulMemoryOverlap(summary, `${userText || ''}\n${reply || ''}`)) return null;
+                        !Number.isInteger(emotionalWeight) || emotionalWeight < 1 || emotionalWeight > 5) return null;
                     const grounded = new Set(groundedRelatedIds || []);
                     if (relatedResidentIds.some(id => !grounded.has(id))) return null;
                     const allowedIds = new Set([String(owner.id), ...relatedResidentIds]);
@@ -21853,9 +21866,9 @@ RULES:
                     const reason = result?.stored ? '' : `; reason=${result?.reason || 'not-eligible'}`;
                     addLog(`MEMORY ${outcome}: owner=${ownerId}; source=${sourceType}${reason}`, result?.stored ? 'info' : 'info');
                 };
-                const storeHomepageEpisodicMemory = ({ owner, candidate, userText, reply, chatAt, interactionRecord }) => {
+                const storeHomepageEpisodicMemory = ({ owner, candidate, userText, chatAt, interactionRecord }) => {
                     const groundedRelatedIds = getHomepageGroundedResidentIds(owner, userText);
-                    const normalized = normalizeHomepageMemoryCandidate({ candidate, owner, userText, reply, groundedRelatedIds });
+                    const normalized = normalizeHomepageMemoryCandidate({ candidate, owner, groundedRelatedIds });
                     if (!normalized) {
                         if (candidate !== null && candidate !== undefined) logEpisodicMemoryResult(String(owner?.id || ''), 'homepage', { stored: false, reason: 'not-grounded' });
                         return null;
@@ -21866,6 +21879,8 @@ RULES:
                         sourceKey: source.sourceKey,
                         eventAt: source.eventAt,
                         summary: normalized.summary,
+                        authority: 'INTERPRETATION',
+                        ...(interactionRecord?.id ? { sourceRecordId: String(interactionRecord.id) } : {}),
                         participantIds: [String(owner.id), 'USER', ...normalized.relatedResidentIds],
                         tags: normalized.tags,
                         importance: normalized.importance,
@@ -21937,9 +21952,12 @@ RULES:
                         retrievalV2: true,
                         userSharedOnly: true,
                         allowedSourceTypes: USER_SHARED_EPISODIC_SOURCE_TYPES,
+                        authorityBoundary: context.feature === 'homepage-direct',
                         maxEntries,
                         maxChars,
-                        header: '[RELEVANT SHARED / EPISODIC MEMORY]'
+                        header: context.feature === 'homepage-direct'
+                            ? '[CONTINUITY / INTERPRETIVE MEMORY · NOT HISTORICAL EVIDENCE]'
+                            : '[RELEVANT SHARED / EPISODIC MEMORY]'
                     });
                     const selected = built.result.selected.map(entry => `${entry.memory.id}:${entry.score}`).join(', ');
                     addLog(`MEMORY RETRIEVAL V2: owner=${String(cat.id)}; stored=${built.result.stored}; eligible=${built.result.eligible}; selected=[${selected}]`, 'info');
@@ -28488,7 +28506,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     await sendMessageInternal(arg1, arg2, false);
                 };
 
-                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = []) => {
+                const validateMergedHomepageChatResponse = (content, activeCatId, currentMessage, recentUserMessages = [], historyBundle, acceptedPosture) => {
                     const payload = parseAIJSON(content);
                     if (!payload || Array.isArray(payload) || typeof payload !== 'object') {
                         return 'Homepage Chat 回包不是有效 JSON 对象。';
@@ -28500,14 +28518,23 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     if (String(active.id ?? '') !== String(activeCatId)) {
                         return 'Homepage Chat activeCat ID 与当前角色不匹配。';
                     }
+                    // Normal response contracts never inspect model-supplied history metadata.
+                    if (historyBundle) {
+                        if (historyBundle.ownerId !== String(activeCatId)) return 'Missing resident historical evidence boundary.';
+                        const historyValidation = window.Meeow.memory.validateHistoricalResponse(active, historyBundle);
+                        if (historyValidation !== true) return historyValidation;
+                    }
                     for (const field of ['reply', 'status', 'innerVoice', 'userStatus', 'posture']) {
                         if (typeof active[field] !== 'string' || !active[field].trim() ||
                             ((field === 'status' || field === 'innerVoice') && !cleanText(active[field]))) {
                             return `Homepage Chat activeCat 缺少有效 ${field}。`;
                         }
                     }
-                    const postureValidation = statusPosture.validateStatusPosture(active.status, active.posture);
-                    if (!postureValidation.valid) return `Homepage Chat posture 无效：${postureValidation.error}`;
+                    // Homepage prose is not a physical-state command. Only the
+                    // structured posture echo is checked against program authority.
+                    if (!statusPosture.normalizePosture(active.posture)) return 'Homepage Chat posture 无效。';
+                    if (acceptedPosture !== undefined && active.posture !== acceptedPosture)
+                        return 'Generated response conflicts with accepted posture.';
                     if (hasMechanicalAppearanceRepetition(active.reply, currentMessage, recentUserMessages)) {
                         return MECHANICAL_APPEARANCE_REPLY_ERROR;
                     }
@@ -28533,7 +28560,7 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     const included = [];
                     let length = '[RECENT DIRECT CONVERSATION]'.length;
                     candidates.forEach(entry => {
-                        const role = entry?.role === 'assistant' ? 'RESIDENT' : 'USER';
+                        const role = entry?.role === 'assistant' ? 'RESIDENT [GENERATED EXPRESSION; NOT HISTORICAL EVIDENCE]' : 'USER [USER_STATEMENT; NOT OBJECTIVE EVENT PROOF]';
                         const content = cleanText(entry?.content || '');
                         const line = `${role}: ${content}`;
                         if (!content || length + line.length + 1 > HOMEPAGE_DIRECT_RECENT_MESSAGE_MAX_CHARS) return;
@@ -28602,6 +28629,41 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     return lines.join('\n');
                 };
 
+                const getHomepageHumanFormIntent = message => {
+                    // ponytail: explicit request phrases only; ambiguous prose stays chat.
+                    const text = String(message || '');
+                    if (/(?:如果|假如|假设|要是|万一|以前|曾经|上次|昨天|明天|将来|不要|别变|不想|不用)/.test(text)) return false;
+                    return text.split(/[“”"。！？!?\n]/).some(clause =>
+                        /^\s*(?:(?:请\s*)?(?:你)?(?:能不能|能|可以|可不可以|愿意|能否)[^。！？!?]{0,18}(?:变(?:回|成)(?:人形|人类形态)|用人形(?:和我|跟我)(?:说话|聊))|(?:请\s*)?变(?:回|成)(?:人形|人类形态)(?:$|吧|和我|跟我)|(?:请\s*)?用人形(?:和我|跟我)(?:说话|聊))/.test(clause));
+                };
+                const applyHomepageHumanFormRequest = (cat, message, now = new Date()) => {
+                    const detectedFormIntent = getHomepageHumanFormIntent(message);
+                    if (!detectedFormIntent) return null;
+                    const previousForm = getResidentForm(cat);
+                    const result = outcome => {
+                        const value = { outcome, previousForm, acceptedForm: getResidentForm(cat), transitioned: previousForm !== getResidentForm(cat) };
+                        return value;
+                    };
+                    // Same explicit-control eligibility as the Homepage form button.
+                    if (!cat ||
+                        !(cat.affinity >= 50) ||
+                        isResidentAway(cat) ||
+                        firstHumanRevealInFlight.has(String(cat.id))) return result('denied');
+                    if (!cat.hasRevealedHumanForm) {
+                        return result(authorizeFirstHumanReveal(cat, { directInteraction: true, now }) ? 'accepted' : 'denied');
+                    }
+                    if (previousForm === 'HUMAN') return result('already_human');
+                    const prior = { currentForm: cat.currentForm, isHuman: cat.isHuman,
+                        lastFormChangeAt: cat.lastFormChangeAt, nextFormReconsiderAt: cat.nextFormReconsiderAt };
+                    setResidentForm(cat, 'HUMAN', { now, scheduleNext: true });
+                    const formSaved = persistNow();
+                    if (!formSaved) {
+                        Object.assign(cat, prior);
+                        return result('persistence_failed');
+                    }
+                    return result('accepted');
+                };
+
                 const sendMessageInternal = async (arg1 = null, arg2 = false, isReRoll = false, rerollSource = null) => {
                     let overrideContent = null;
                     let isItemUse = false;
@@ -28615,7 +28677,6 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     if (!overrideContent) chatInput.value = '';
                     const isFirstInteraction = !isReRoll && !(sendingCat.todayInteractions || []).length;
                     const shouldSendFriendRequest = isFirstInteraction;
-                    const frozenActiveForm = getResidentForm(sendingCat);
                     let userChatAt = cleanText(rerollSource?.at || '');
                     let userInteractionRecord = null;
                     let phoneReplyPiggybackClaim = null;
@@ -28667,6 +28728,10 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         phoneReplyPiggybackClaim = claimPhoneReplyForHomepageDirect(sendingCat.id);
                     }
 
+                    // Apply the explicit program command before freezing request facts.
+                    // The single AI reply observes the persisted result, never authorizes it.
+                    const formRequest = !isReRoll && !isItemUse ? applyHomepageHumanFormRequest(sendingCat, msg) : null;
+                    const frozenActiveForm = getResidentForm(sendingCat);
                     const directFacts = window.Meeow.residentCopy.factFor(sendingCat,
                         statusPosture.normalizeStatusActivity(sendingCat.statusActivity)?.posture, frozenActiveForm);
                     const directEpisodeId = `${sendingCat.id}:${userChatAt}:${isReRoll ? Date.now() : 'direct'}`;
@@ -28681,6 +28746,13 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                         const now = Date.now();
                         const recentConversation = buildHomepageDirectRecentConversation(sendingCat, userChatAt, now);
                         const retrievalQuery = [msg, recentConversation.userAuthoredText].filter(Boolean).join('\n');
+                        const historyIntent = window.Meeow.memory.classifyHistoricalIntent(msg);
+                        const historyBundle = historyIntent.historical ? window.Meeow.memory.buildHistoricalEvidenceBundle(sendingCat, {
+                            query: msg, excludeRecordId: userInteractionRecord?.id || '',
+                            focusReports: user.missionReports || [],
+                            momentRecords: [...currentMomentHistory(), ...archivedMomentHistory()],
+                            dayKey: getOperationalDayKey(), previousDayKey: getPreviousOperationalDayKey()
+                        }) : null;
                         const requestHallId = sendingCat.hallId || (sendingCat.isMarvel ? 'marvel' : 'gotham');
                         const episodicMemory = buildUserSharedEpisodicMemoryContext(sendingCat, {
                             userInput: retrievalQuery,
@@ -28723,17 +28795,30 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
 - Preserve original-work personality and voice. Do not act like another character, a generic tsundere cat, or default to Gotham/DC/superhero premises.
 - CAT form has only feline vocalization/body language; no human-language speech. HUMAN form may speak naturally with ordinary feline ears and tail.
 - Fixed appearance is reference-only: mention it only when the USER explicitly asks, directly interacts with it, or it is causally necessary.`;
-                        const outputShape = phoneReplyTask
-                            ? `{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","posture":"standing|sitting|lying|crouching","innerVoice":"","userStatus":"","memoryCandidate":null},"phoneReply":{"messages":[""],"timingHint":"quick|normal|slow","knowledgeDisclosures":[]}}`
-                            : `{"activeCat":{"id":"${String(sendingCat.id)}","reply":"","status":"","posture":"standing|sitting|lying|crouching","innerVoice":"","userStatus":"","memoryCandidate":null}}`;
+                        const historyContract = historyBundle ? `[HISTORICAL EVIDENCE BOUNDARY · ${window.Meeow.memory.HISTORY_BOUNDARY_VERSION}]
+- Only FACTUAL EVIDENCE proves the specific structured event fields listed. USER_STATEMENT proves only what USER said. Generated replies, summaries, diaries, status/inner thought and continuity prose never prove past events.
+- Current affinity does not establish its historical origin. A bounded record set cannot establish the first-ever event. Do not invent remembered scenes, dates, causes or first feelings.
+- Program historical intent: ${JSON.stringify(historyBundle.intent)}.
+- If historical intent is unsupported or has no matching event type/day evidence, use insufficient_evidence with no IDs. If supported, cite only matching IDs supplied below.
+- Answer in the resident's established voice, not as a database report. For insufficient_evidence, clearly acknowledge uncertainty without inventing a specific past scene, date or cause; innerVoice must follow the same rule. Current feelings may be expressed without inventing their origin. Do not include a memoryCandidate for a historical answer.` : '';
+                        const activeCatShape = { id: String(sendingCat.id), reply: '', status: '',
+                            posture: directFacts.posture, innerVoice: '', userStatus: '', memoryCandidate: null,
+                            ...(historyBundle ? { historyGrounding: { mode: 'supported|insufficient_evidence', evidenceIds: [] } } : {}) };
+                        const outputShape = JSON.stringify(phoneReplyTask
+                            ? { activeCat: activeCatShape, phoneReply: { messages: [''], timingHint: 'quick|normal|slow', knowledgeDisclosures: [] } }
+                            : { activeCat: activeCatShape });
                         const outputContract = `[OUTPUT CONTRACT]
 Return exactly one JSON object, no markdown, code fences, or commentary. All text values are Simplified Chinese.
 ${outputShape}
-- status: third-person current action, about 10 Chinese characters. posture is the exact current physical posture expressed by status. Location/furniture and posture are independent: a resident may stand on a cushion, sit on a cabinet, lie on the floor, or crouch beside furniture when the status says so. innerVoice: first-person using 我, wrapped in 【】, never a feline vocalization. userStatus: a short USER activity summary within 15 Chinese characters.
-- reply: normally 80–140 Chinese characters; continue this exact turn through concrete, in-character action and nearby space.
-- memoryCandidate is optional and normally null. It may describe only a durable fact from this USER/${getResidentPublicName(sendingCat)} exchange or supplied direct USER-shared context; never infer bystander experience or Knowledge. Use {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.
+- posture: echo exactly ${JSON.stringify(directFacts.posture)} from the accepted program state; never choose a different posture. status is a short third-person narrative reaction, about 10 Chinese characters, not a command to update physical state. Actions in reply/status do not authorize posture, location or form changes. innerVoice: first-person using 我, wrapped in 【】, never a feline vocalization. userStatus: a short USER activity summary within 15 Chinese characters.
+- reply is required and must be a non-empty string, normally 80–140 Chinese characters; continue this exact turn through concrete, in-character action and nearby space. In CAT form, put the character's observable reaction and feline vocalization in reply, not human speech; do not leave reply empty. A request for an unavailable form change still needs an in-character response in the accepted current form.
+- memoryCandidate is optional and normally null. It may provide an INTERPRETATION of this exchange for emotional continuity, never factual evidence of an event. Do not infer bystander experience or Knowledge. Use {"summary":"20-280 Chinese characters","relatedResidentIds":[],"tags":["short concept"],"importance":3,"emotionalWeight":1,"unresolved":false}.
 ${phoneReplyTask ? '- phoneReply is the sole optional Phone sidecar. Do not output arrays or alternate Phone fields. Its identity is bound locally; never choose an opportunity ID.' : ''}`;
                         const prompt = `${interactionContract}
+
+${historyContract}
+${historyBundle?.text || ''}
+${formRequest ? `[PROGRAM FORM REQUEST RESULT]\n${JSON.stringify(formRequest)}\nThe program has already applied and persisted any accepted transition. Reply in acceptedForm. When transitioned=true, this turn may acknowledge that accepted change; otherwise do not narrate a transformation. A denied request still needs a natural in-character response in the unchanged form.` : ''}
 
 [SELECTED RESIDENT CANON]
 ${foreground.canon}
@@ -28771,6 +28856,8 @@ ${outputContract}`;
                             episodicMemory,
                             scenePresence: activeLocationContext,
                             interactionContract,
+                            historyContract,
+                            historicalEvidence: historyBundle?.text || '',
                             outputContract
                         });
                         let responseRaw;
@@ -28779,30 +28866,36 @@ ${outputContract}`;
                             label: `HOMEPAGE DIRECT · ${sendingCat.name}`,
                             generationEpisode: directEpisode.id,
                             generationSignature: JSON.stringify({ trigger: 'homepage-interaction', intent: msg, facts: directFacts,
-                                context: recentConversation.text, personality: foreground.canon }),
+                                context: recentConversation.text, personality: foreground.canon,
+                                chatContract: window.Meeow.memory.HISTORY_BOUNDARY_VERSION, replyContract: 'homepage-reply-v1', formRequest,
+                                historical: historyIntent.historical, historyEvidence: historyBundle?.fingerprint || null }),
                             isCurrentGeneration: isCurrentDirect, explicitGenerationRetry: isReRoll,
                             priority: 'foreground',
                             maxAttempts: 1,
                             validateResponse: content => {
-                                const parsed = parseAIJSON(content);
-                                if (!isCurrentDirect() || parsed?.activeCat?.posture !== directFacts.posture)
-                                    return 'Generated response conflicts with accepted posture.';
-                                return validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext);
+                                if (!isCurrentDirect()) return 'Content episode is no longer current.';
+                                return validateMergedHomepageChatResponse(content, sendingCat.id, msg, recentUserAppearanceContext, historyBundle, directFacts.posture);
                             }
                         });
 
                         } catch (error) {
                             if (!isCurrentDirect() || error?.code === 'AI_REQUEST_CANCELLED' || error?.code === 'AI_REQUEST_PREEMPTED') throw error;
+                            const category = /histor|evidence|grounding/i.test(String(error?.message || '')) ? 'history-validation'
+                                : /posture/i.test(String(error?.message || '')) ? 'posture-validation' : 'request-or-response';
+                            addLog(`HOMEPAGE DIRECT FAILED: route=${historyBundle ? 'historical' : 'normal'}; category=${category}`, 'warn');
+                            if (!historyBundle) throw error;
                             responseRaw = JSON.stringify({ activeCat: { id: String(sendingCat.id),
-                                reply: frozenActiveForm === 'CAT' ? '它留意着你的举动，安静地陪在原处。' : '“我在听。”对方留在原处，安静地回应你。',
-                                status: window.Meeow.residentCopy.statusFor(directFacts), posture: directFacts.posture,
-                                innerVoice: directFacts.innerVoice || '【安静听着。】', userStatus: '与居民交流', memoryCandidate: null } });
+                                ...window.Meeow.memory.makeHistoricalFallback({ form: frozenActiveForm,
+                                    status: window.Meeow.residentCopy.statusFor(directFacts), posture: directFacts.posture }) } });
                         }
                         if (!isCurrentDirect()) return;
-                        const directValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext);
+                        const directValidation = validateMergedHomepageChatResponse(responseRaw, sendingCat.id, msg, recentUserAppearanceContext, historyBundle, directFacts.posture);
                         if (directValidation !== true) throw new Error(directValidation);
                         const payload = parseAIJSON(responseRaw);
-                        const activeResponse = payload.activeCat;
+                        // Extra model metadata is discarded; it cannot route normal chat
+                        // or turn a generated reply into future historical evidence.
+                        const { historyGrounding: ignoredHistoryGrounding, ...acceptedResponse } = payload.activeCat;
+                        const activeResponse = historyBundle ? { ...acceptedResponse, memoryCandidate: null } : acceptedResponse;
                         const reply = cleanText(activeResponse.reply);
 
                         const status = cleanText(activeResponse.status);
@@ -28828,7 +28921,6 @@ ${outputContract}`;
                                 owner: sendingCat,
                                 candidate: activeResponse.memoryCandidate,
                                 userText: msg,
-                                reply,
                                 chatAt: userChatAt,
                                 interactionRecord: userInteractionRecord
                             });
@@ -28836,9 +28928,9 @@ ${outputContract}`;
                         if (shouldSendFriendRequest) void sendFriendRequest(sendingCat.id);
 
                         sendingCat.lastInteractionTimestamp = Date.now();
-                        // A first HUMAN reveal can only be authorized by this
-                        // successful, direct, in-person Homepage interaction.
-                        if (!isReRoll && !isItemUse) void checkAffinityThreshold(sendingCat, { directInteraction: true });
+                        // Ordinary turns retain the existing post-success reveal.
+                        // Explicit form commands already resolved before generation.
+                        if (!isReRoll && !isItemUse && !formRequest) void checkAffinityThreshold(sendingCat, { directInteraction: true });
                         if (!isReRoll && !isItemUse) {
                             // Active Social Presence observes only that another private
                             // A turn completed; B never receives this turn's text/reply.

@@ -112,7 +112,7 @@ assert.doesNotMatch(directSlice, /refreshAllStatus\(/);
 assert.match(directSlice, /label: `HOMEPAGE DIRECT/);
 assert.match(directSlice, /buildHomepageDirectPresenceContext/);
 
-assert.match(appSource, /const activeResponse = payload\.activeCat/);
+assert.match(appSource, /const \{ historyGrounding: ignoredHistoryGrounding, \.\.\.acceptedResponse \} = payload\.activeCat;[\s\S]*?const activeResponse = historyBundle \?/);
 assert.equal((appSource.match(/applyMergedHomepageHallUpdates/g) || []).length, 0);
 
 console.log(JSON.stringify({
