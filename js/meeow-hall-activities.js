@@ -145,7 +145,8 @@
         const start = now.getTime() - ((now.getMinutes() % 20) * 60000 + now.getSeconds() * 1000 + now.getMilliseconds());
         return { key: String(start), start, end: start + 1200000 };
     };
-    const buildEpisodeWindow = ({ hallId, now, residents }) => {
+    const episodeBeatLimit = 3;
+    const buildEpisodeWindow = ({ hallId, now, residents, seedSuffix = '', beatLimit = episodeBeatLimit, claims = residents }) => {
         const window = episodeWindow(now);
         if (!window) return null;
         const plan = { version: 1, hallId: String(hallId), windowKey: window.key,
@@ -153,14 +154,14 @@
             residents: [], content: { state: 'unclaimed', entries: [] } };
         for (const row of residents) {
             if (!row.domain?.legalPoint(row.foot) || !definitions[initialBehavior(row.posture)]) continue;
-            const residentId = String(row.id), seed = `${hallId}:${window.key}:${residentId}`;
+            const residentId = String(row.id), seed = `${hallId}:${window.key}:${residentId}${seedSuffix ? ':' + seedSuffix : ''}`;
             const record = { residentId, roomId: row.roomId, authority: row.authority,
                 state: 'valid', lastFoot: { ...row.foot }, beats: [] };
             let foot = { ...row.foot }, cursor = Number(now), recent = [];
-            for (let i = 0; i < 3 && cursor < window.end; i++) {
+            for (let i = 0; i < Math.min(episodeBeatLimit, beatLimit) && cursor < window.end; i++) {
                 const candidates = buildCandidates({ surfaceId: row.domain.surfaceAt(foot),
                     capabilities: row.domain.capabilityFor(row.domain.surfaceAt(foot)), recent,
-                    navigationAvailable: row.canMove === true && i < 2,
+                    navigationAvailable: row.canMove === true && i < Math.min(episodeBeatLimit, beatLimit) - 1,
                     afterRoam: recent.at(-1) === 'roam', interactions: [] });
                 let behaviorId = i === 0 && candidates.some(c => c.behaviorId === row.currentBehavior && c.eligible)
                     ? row.currentBehavior : selectCandidate(candidates, seed, i);
@@ -168,7 +169,7 @@
                 let target = null, duration = durationFor(seed, i, behaviorId, { hallPresence: true, axes: row.axes });
                 if (behaviorId === 'roam') {
                     target = Meeow.hallNavigation.sampleDestination(row.domain, { from: foot, seed: `${seed}:${i}:target`,
-                        claims: residents.filter(other => other.id !== row.id && other.roomId === row.roomId).map(other => other.foot),
+                        claims: claims.filter(other => other.id !== row.id && other.roomId === row.roomId).map(other => other.foot),
                         acceptsPresentation: row.domain.groundPresentationPoint });
                     const route = target && Meeow.hallNavigation.planRoute(row.domain, foot, target);
                     duration = route?.valid ? Math.ceil(route.points.slice(1).reduce((sum, point, n) =>
@@ -180,7 +181,7 @@
                 }
                 const posture = selectPosture({ residentId: seed, cycle: i, behaviorId, current: row.posture });
                 if (!posture || !duration) break;
-                const sustainable = definitions[behaviorId].stationary && (i === 2 || row.canMove !== true || cursor + duration >= window.end);
+                const sustainable = definitions[behaviorId].stationary && (i === Math.min(episodeBeatLimit, beatLimit) - 1 || row.canMove !== true || cursor + duration >= window.end);
                 const beat = { id: `${seed}:${i}`, behaviorId, posture, roomId: row.roomId,
                     startAt: cursor, endAt: sustainable ? window.end : Math.min(cursor + duration, window.end),
                     foot: { ...foot }, target: target && { x: target.x, y: target.y }, state: 'pending',
@@ -193,6 +194,23 @@
         }
         return plan;
     };
+    const buildEpisodeContinuation = ({ plan, row, resident, now, sourceId, claims }) => {
+        if (!plan || !row || !resident || episodeWindow(now)?.key !== plan.windowKey) return null;
+        const past = row.beats.filter(beat => ['completed', 'skipped'].includes(beat.state) && beat.endAt <= now);
+        const continuation = buildEpisodeWindow({ hallId: plan.hallId, now, residents: [resident],
+            seedSuffix: sourceId, beatLimit: episodeBeatLimit - past.length, claims }).residents[0];
+        return continuation ? { ...continuation, beats: [...past, ...continuation.beats],
+            continuation: { sourceId, startedAt: Number(now), pastCount: past.length } } : null;
+    };
+    const affectedResidentReasons = (id, { targetId, observerIds = [], dependencies = [] }) => [
+        ...(String(id) === String(targetId) ? ['direct'] : []),
+        ...(dependencies.some(dependency => dependency.interrupted === true &&
+            dependency.participantIds?.includes(String(targetId)) && dependency.participantIds.includes(String(id)) &&
+            String(id) !== String(targetId)) ? ['shared_dependency'] : []),
+        ...(String(id) !== String(targetId) && observerIds.map(String).includes(String(id)) ? ['observer'] : [])
+    ];
+    const buildAffectedResidentIds = input => [...new Set(input.residentIds.map(String))]
+        .filter(id => affectedResidentReasons(id, input).length).sort();
     const validateEpisodeContent = (payload, plan) => {
         if (!payload || Object.keys(payload).some(key => key !== 'entries') || !Array.isArray(payload.entries)) return 'Invalid episode content envelope.';
         const expected = new Set(plan.residents.flatMap(row => row.beats.map(beat => `${row.residentId}|${beat.id}`)));
@@ -246,6 +264,7 @@
     Meeow.hallActivities = Object.freeze({ definitions, surfaceCapabilities, capabilityFor,
         buildCandidates, selectCandidate, initialBehavior, selectBehavior,
         selectPosture, durationFor, labelFor, placementSignature, validateSettled, makeSettled,
-        stageSettledSnapshot, episodeWindow, buildEpisodeWindow, validateEpisodeContent,
+        stageSettledSnapshot, episodeWindow, episodeBeatLimit, buildEpisodeWindow, buildEpisodeContinuation,
+        buildAffectedResidentIds, affectedResidentReasons, validateEpisodeContent,
         observerPolicy, observerProbabilities, observerCategory, decideObserverReactions, validateObserverContent });
 }(window));

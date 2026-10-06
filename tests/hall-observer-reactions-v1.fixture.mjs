@@ -297,6 +297,7 @@ for (const observerFails of [false, true]) {
         HOMEPAGE_DIRECT_EPISODIC_MAX_MEMORIES: 3, HOMEPAGE_DIRECT_EPISODIC_MAX_CHARS: 1200,
         getCurrentTimeStr: () => '12:00', applyHomepageHumanFormRequest: () => null, claimCharacterInvitation: () => null,
         claimPhoneReplyForHomepageDirect: () => null, completeCharacterInvitation: noop,
+        captureHallContinuitySource: () => null, queueAffectedHallReconciliation: noop,
         statusPosture: { normalizeStatusActivity: value => value, normalizePosture: value => value === 'sitting' },
         buildHomepageDirectRecentConversation: () => ({ text: 'PRIVATE_RECENT_CHAT_SENTINEL', userAuthoredText: '' }),
         buildUserSharedEpisodicMemoryContext: () => ({ text: 'PRIVATE_TARGET_MEMORY_SENTINEL' }),
