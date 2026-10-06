@@ -13254,18 +13254,36 @@ ${buildLeanForegroundContext(cat)}`;
                     const resolvedGroundFoot = (id, visual, foot, facing) => {
                         const row = spatialAmbientSnapshot.value.residents.find(item => item.id === id);
                         const marker = activeMapCatMarkers.value.find(item => String(item.cat.id) === id);
-                        const key = [activeHallId.value, source.roomId, spatialStageBounds.value.width,
+                        const key = [activeHallId.value, source.roomId, spatialStageBounds.value.width, spatialStageBounds.value.height,
                             row?.placementKey || marker?.cat.mapPoint, row?.behaviorInstanceId,
-                            row?.transitionGeneration, visual?.key, facing].join('|');
-                        const priorFacing = roomGroundFootMemo.get(id)?.facingSample;
+                            row?.transitionGeneration, visual?.key, facing, domain.geometryVersion].join('|');
+                        const prior = roomGroundFootMemo.get(id), priorFacing = prior?.facingSample;
                         const facingKey = [activeHallId.value, source.roomId, id, spatialStageBounds.value.width,
                             row?.placementKey || marker?.cat.mapPoint, row?.behaviorInstanceId, row?.transitionGeneration,
                             visual?.key, domain.geometryVersion].join('|');
-                        const fits = candidate => groundFits(visual, candidate, residentVisual.resolvePresentationFacing(priorFacing,
-                            hallSpatial.projectFoot({width: 1024, height: 1024}, candidate, spatialStageBounds.value), facing, facingKey));
-                        return hallSpatial.resolvePresentationFoot(roomGroundFootMemo, id, key, foot, {
+                        const effectiveFacing = candidate => residentVisual.resolvePresentationFacing(priorFacing,
+                            hallSpatial.projectFoot({width: 1024, height: 1024}, candidate, spatialStageBounds.value), facing, facingKey);
+                        const scale = MAP_CAT_INTERACTION_WIDTH / visual?.nativeWidth;
+                        const validation = prior?.groundValidation;
+                        // Only identical, fully resolved ground queries are reusable. Resident
+                        // occupancy is checked by movement ownership/reservations, not groundFits.
+                        if (prior?.key === key && validation?.domain === domain &&
+                            validation.frame === visual?.clearanceFrame && validation.scale === scale &&
+                            validation.facing === effectiveFacing(foot) && prior.blockedAt === null &&
+                            prior.sourceFoot?.x === foot.x && prior.sourceFoot?.y === foot.y &&
+                            prior.target?.x === foot.x && prior.target?.y === foot.y &&
+                            prior.foot?.x === foot.x && prior.foot?.y === foot.y) {
+                            prior.at = performance.now();
+                            return { ...prior.foot };
+                        }
+                        const fits = candidate => groundFits(visual, candidate, effectiveFacing(candidate));
+                        const result = hallSpatial.resolvePresentationFoot(roomGroundFootMemo, id, key, foot, {
                             now: performance.now(), fits,
                             nearby: candidate => domain.groundEntry(candidate, [], fits, 144) });
+                        const memo = roomGroundFootMemo.get(id);
+                        if (result?.x === foot.x && result?.y === foot.y && memo?.blockedAt === null)
+                            memo.groundValidation = { domain, frame: visual?.clearanceFrame, scale, facing: effectiveFacing(foot) };
+                        return result;
                     };
                     const spritePlacement = (visual, foot) => {
                         const height = width * (parseFloat(visual?.style?.['--meeow-map-cat-height']) || 74) / MAP_CAT_DISPLAY_WIDTH;
