@@ -33,13 +33,14 @@ assert.doesNotMatch(restoreSource, /\bopenCuratorRoom\s*\(/);
 assert.doesNotMatch(restoreSource, /terminateActiveSocialPresence|reconcileAwayEpisodes|refreshAllStatus|maybeRefreshCuratorRoomStatus/);
 
 const makeRestoreHarness = () => {
-    const counters = { phoneReset: 0, scrollRemembered: 0, phoneScrollRemembered: 0, worldMutations: 0 };
+    const counters = { phoneReset: 0, scrollRemembered: 0, phoneScrollRemembered: 0, worldMutations: 0, hallActivation: 0 };
     const sandbox = {
         showCatVisualEditor: { value: false },
         requestCatVisualEditorClose: () => { throw new Error('editor guard should not run'); },
         rememberHallScrollPosition: () => { counters.scrollRemembered += 1; },
         rememberPhoneChatScrollPosition: () => { counters.phoneScrollRemembered += 1; },
         resetPhoneTransientUI: () => { counters.phoneReset += 1; },
+        activateHallEpisodeWindow: hall => { assert.equal(hall.id, sandbox.activeHallId.value); counters.hallActivation += 1; },
         currentTab: { value: 'mission' },
         loungeView: { value: 'selector' },
         phoneReturnRoute: { value: null },
@@ -78,6 +79,7 @@ assert.equal(hallRestore.hallSceneActive.value, true);
 assert.equal(hallRestore.phoneReturnRoute.value, null);
 assert.equal(hallRestore.scrollTop, 77);
 assert.equal(hallRestore.counters.worldMutations, 0);
+assert.equal(hallRestore.counters.hallActivation, 1, 'restored Hall explicitly ensures its existing T6 window');
 
 // A remembered Curator location restores presentation directly, without
 // manufacturing a new Curator entry.
@@ -87,6 +89,7 @@ curatorRestore.restoreForFixture();
 assert.equal(curatorRestore.currentTab.value, 'lounge');
 assert.equal(curatorRestore.loungeView.value, 'curator');
 assert.equal(curatorRestore.hallSceneActive.value, false);
+assert.equal(curatorRestore.counters.hallActivation, 0);
 
 // Invalid raw Hall IDs never use currentHall's silent first-Hall fallback.
 const invalidRestore = makeRestoreHarness();
@@ -96,6 +99,7 @@ assert.equal(invalidRestore.loungeView.value, 'curator');
 assert.equal(invalidRestore.lastMeeowLocation.value.type, 'curator');
 assert.equal(invalidRestore.lastMeeowLocation.value.hallId, null);
 assert.equal(invalidRestore.activeHallId.value, 'gotham', 'invalid Hall must not silently select another Hall');
+assert.equal(invalidRestore.counters.hallActivation, 0);
 
 // Every new Phone entry replaces any stale route snapshot.
 const captureSource = sliceBetween('const capturePhoneReturnRoute = () => {', 'const leavePhone = () => {');
@@ -127,8 +131,10 @@ assert.match(curatorEntry, /lastMeeowLocation\.value = \{ type: 'curator', hallI
 const hallEntry = sliceBetween('const enterHall = (hall) => {', 'const openCatVisit = (cat) => {');
 assert.match(hallEntry, /terminateActiveSocialPresencesForNavigation/);
 assert.match(hallEntry, /reconcileAwayEpisodes\(new Date\(\)\)/);
-assert.match(hallEntry, /user\.currentStatus = arrivalStatus/);
+assert.match(hallEntry, /setUserCurrentStatus\(arrivalStatus, 'hall-arrival', 'public'\)/);
 assert.match(hallEntry, /startHallArrivalRefresh\(hall\)/);
+assert.equal((hallEntry.match(/activateHallEpisodeWindow\(hall\)/g) || []).length, 2,
+    'fresh and cached entry both activate through the existing T6 authority');
 assert.equal((hallEntry.match(/lastMeeowLocation\.value = \{ type: 'hall', hallId: hall\.id \}/g) || []).length, 2,
     'both cached and fresh Hall-entry branches must remember the Hall');
 

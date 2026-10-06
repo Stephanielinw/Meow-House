@@ -12853,6 +12853,10 @@ ${buildLeanForegroundContext(cat)}`;
                     hallEpisodeInFlight.set(hall, task);
                     try { return await task; } finally { if (hallEpisodeInFlight.get(hall) === task) hallEpisodeInFlight.delete(hall); }
                 };
+                const activateHallEpisodeWindow = (hall, now = new Date()) => {
+                    if (!hall || !halls.value.includes(hall) || String(hall.id) !== String(activeHallId.value)) return Promise.resolve(false);
+                    return reconcileCurrentHallEpisodeWindow(now);
+                };
                 // End T6 current-Hall episode authority.
                 const hallAnimation = window.Meeow.hallAnimation;
                 const curatorSpatialDebugEnabled = spatialParams.get('curatorRoomSpatialDebug') === '1';
@@ -16946,6 +16950,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                                 hallSceneActive.value = true;
                                 setContentScrollTop(hallScrollPositions[hall.id] || 0);
                                 addLog(`PHONE RETURN: origin=hall:${hall.id}; restored=hall`, 'info');
+                                void activateHallEpisodeWindow(hall);
                                 return;
                             }
                             currentTab.value = 'lounge';
@@ -16990,6 +16995,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                             curatorRoomMapPreviewCat.value = null;
                             setContentScrollTop(hallScrollPositions[hall.id] || 0);
                             addLog(`MEEOW NAVIGATION RESTORED: hall=${hall.id}`, 'info');
+                            void activateHallEpisodeWindow(hall);
                             return;
                         }
                     }
@@ -17152,6 +17158,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     detailReturnOrigin.value = '';
                     showEasterEggBtn.value = false;
                     setContentScrollTop(hallScrollPositions[returnHallId] || 0);
+                    void activateHallEpisodeWindow(halls.value.find(hall => String(hall.id) === String(returnHallId)));
                 };
 
                 // Hall-presentation Status is only meaningful while the USER is
@@ -17207,6 +17214,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                         addLog(`ENTER HALL CACHED: ${hall.name} / ${Math.max(0, Math.floor(elapsedSinceLastEntry / 60000))}m since previous entry`, 'info');
                         reconcileActiveSocialPresences(new Date());
                         if (hallStatusRefreshPending.has(hall.id)) startHallArrivalRefresh(hall, true);
+                        void activateHallEpisodeWindow(hall);
                         return;
                     }
                     activeHallId.value = hall.id;
@@ -17226,6 +17234,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     addLog(`ENTER HALL READY: ${hall.name} / using accepted world state`, 'info');
                     reconcileActiveSocialPresences(new Date());
                     startHallArrivalRefresh(hall);
+                    void activateHallEpisodeWindow(hall);
                 };
 
                 const openCatVisit = (cat) => {
