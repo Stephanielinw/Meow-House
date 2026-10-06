@@ -242,10 +242,11 @@ assert.equal(quarantinedCommit.opportunity.status, 'integrity-mismatch');
 assert.equal(quarantinedCommit.opportunity.integrityState, 'generation-persist-rollback-failed');
 assert.deepEqual([...quarantinedCommit.opportunity.messages], []);
 
-// Phone Presence applies the correctness filter before either preferred or fallback selection.
+// Phone Presence preserves reply priority and no longer falls back to unqualified contacts.
 const presenceCandidates = section('const getPhonePresenceCandidates', 'const choosePhonePresenceCandidate');
 assert.match(presenceCandidates, /\.filter\(cat => !hasUnresolvedPhoneReply\(cat\.id\)\)/);
-assert.match(presenceCandidates, /return preferred\.length \? preferred : contacts/);
+assert.doesNotMatch(presenceCandidates, /return preferred\.length \? preferred : contacts/);
+assert.match(presenceCandidates, /return preferred\.filter/);
 for (const status of ['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'failed', 'integrity-mismatch']) {
   assert.ok(source.includes(`'${status}'`), `unresolved lifecycle includes ${status}`);
 }
@@ -758,6 +759,198 @@ assert.notEqual(q.validatePhoneChatReplyPayload({ messages: ['【转身看向你
 
 }
 
+{
+// M4 exercises the dormant producer only in isolation; no production caller.
+const makeM4 = () => {
+  const m = makeM2();
+  let dueAt = new Date(m.now().getTime() - 1).toISOString();
+  const scenes = [];
+  Object.assign(m.sandbox, {
+    isPermanentOutBuiltin: cat => Boolean(cat.permanentOut),
+    getDuePhonePresenceConsideration: now => new Date(dueAt) <= now ? dueAt : null,
+    scheduleNextPhonePresenceConsideration: now => { dueAt = new Date(now.getTime() + 3 * 60 * 60_000).toISOString(); return dueAt; },
+    getCatAvatarSource: () => '', buildStructuredPersonalityContext: cat => `OWN PERSONALITY ${cat.id}`,
+    normalizeHallSceneRecords: rows => rows, hallSceneRecords: { value: scenes },
+    callAI: (prompt, _system, tokens, _thinking, options) => {
+      assert.equal(tokens, 420); assert.equal(options.priority, 'background');
+      return new Promise((resolve, reject) => m.requests.push({ prompt, resolve, reject }));
+    }
+  });
+  vm.runInContext(`
+    ${section('const PHONE_PRESENCE_RECENT_SEND_MS', 'const parsePhonePresenceConsiderAt')}
+    ${section('const getLatestPhoneMessageTimestamp', 'const getUnreadPhonePresenceCount')}
+    ${section('const getUnreadPhonePresenceCount', 'const phonePresenceUnreadCount')}
+    ${section('const hasPhonePresenceSourceKey', 'const openPhonePresenceConversation')}
+    ${section('const hasUnresolvedPhoneReply', 'const schedulePhoneReplyReconciliation')}
+    ${section('const getSharedUserCurrentStatus', 'const buildHomepagePrivateUserStatusContext')}
+    ${section('const ATTENTION_PUBLIC_TEXT_MAX_CHARS', 'const ACTIVE_SOCIAL_PRESENCE_BID_TYPES')}
+    ${section('const getAttentionSceneRecord', 'const markAttentionBidSuppressed')}
+    ${section('const isPhonePresenceOpportunityCurrent', 'const PHONE_REPLY_GENERATION_DELAY_RANGES_MS')}
+    globalThis.m4 = { getPhonePresenceCandidates, getPhonePresenceReason,
+      buildPhonePresenceSafeContext, maybeRunPhonePresenceAfterHomepage, isPhonePresenceOpportunityCurrent };
+  `, m.sandbox);
+  const recentAt = () => new Date(m.now().getTime() - 60 * 60_000).toISOString();
+  const result = { ...m, ...m.sandbox.m4, scenes,
+    resident: id => m.sandbox.cats.value.find(cat => cat.id === id),
+    addExchange: id => {
+      const cat = result.resident(id); cat.affinity = 50;
+      cat.todayInteractions = [{ id: `own-exchange-${id}`, at: recentAt(), type: 'chat-reply', source: 'detail-chat', content: 'own accepted exchange' }];
+    },
+    addEvent: (id = 'a') => {
+      const op = { id: `attention-${id}`, source: 'explicit-public', sourceEventId: `explicit-source-${id}`,
+        status: 'delivered', candidateId: id, hallId: 'hall', createdAt: recentAt(), deliveredAt: recentAt(),
+        deliveredSceneId: `scene-${id}`, observableEvent: { kind: 'explicit-public', targetResidentId: id, publicText: `馆长当着${id}的面展示了画作。` } };
+      m.user.attentionBidOpportunities = [...(m.user.attentionBidOpportunities || []), op];
+      scenes.push({ id: op.deliveredSceneId, type: 'attention-bid', hallId: 'hall', attentionBidId: op.id, participantIds: [id], content: 'accepted surface' });
+      return op;
+    },
+    resolvePresence: async (message = '那幅画，我还在琢磨。') => {
+      m.requests.at(-1).resolve(JSON.stringify({ message })); await settle();
+    }
+  };
+  return result;
+};
+const candidateIds = m => Array.from(m.getPhonePresenceCandidates(m.now()), cat => cat.id);
+
+// A/B/G: no reason or pending work never reaches the existing provider call.
+const noReason = makeM4();
+noReason.resident('a').affinity = 99; // relationship alone is insufficient
+assert.deepEqual(candidateIds(noReason), []);
+noReason.maybeRunPhonePresenceAfterHomepage(); assert.equal(noReason.requests.length, 0);
+for (const status of ['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'failed', 'integrity-mismatch']) {
+  const m = makeM4(); m.addExchange('a'); m.addEvent();
+  m.user.phoneData.replyOpportunities.push({ id: 'pending', contactId: 'a', status });
+  assert.deepEqual(candidateIds(m), []);
+  m.maybeRunPhonePresenceAfterHomepage(); assert.equal(m.requests.length, 0);
+}
+
+// C: product-approved policy boundaries; no new relationship semantics.
+for (const [affinity, eligible] of [[49, false], [50, true], [100, true], [101, false], ['50', false], [NaN, false]]) {
+  const m = makeM4(); m.addExchange('a'); m.resident('a').affinity = affinity;
+  assert.equal(candidateIds(m).includes('a'), eligible);
+}
+for (const [age, eligible] of [[24 * 60 * 60_000, true], [24 * 60 * 60_000 + 1, false], [-1, false]]) {
+  const m = makeM4(); m.addExchange('a');
+  m.resident('a').todayInteractions[0].at = new Date(m.now().getTime() - age).toISOString();
+  assert.equal(candidateIds(m).includes('a'), eligible);
+}
+for (const [sourceType, age, eligible] of [['presence', 3 * 60 * 60_000 - 1, false], ['presence', 3 * 60 * 60_000, true],
+  ['other', 20 * 60_000 - 1, false], ['other', 20 * 60_000, true]]) {
+  const m = makeM4(); m.addExchange('a');
+  live(m).push(row(`cooldown-${age}`, 'assistant', 'recent', new Date(m.now().getTime() - age).toISOString(), { source: sourceType, read: true }));
+  assert.equal(candidateIds(m).includes('a'), eligible);
+}
+
+// D: exact delivered, explicitly targeted program event, never mention/proximity.
+const validEvent = makeM4(); validEvent.resident('a').affinity = 0; const event = validEvent.addEvent();
+assert.deepEqual(candidateIds(validEvent), ['a']);
+assert.equal(validEvent.getPhonePresenceReason(validEvent.resident('a'), validEvent.now()).scope, 'observer-safe-surface');
+for (const corrupt of [
+  (op, m) => { op.candidateId = 'b'; },
+  op => { op.observableEvent.targetResidentId = 'b'; },
+  op => { op.status = 'pending'; },
+  op => { op.source = 'ambient-engagement'; },
+  op => { op.observableEvent.kind = 'ambient-engagement'; },
+  op => { op.createdAt = ''; },
+  op => { op.deliveredAt = new Date(Date.parse(op.createdAt) - 24 * 60 * 60_000).toISOString(); },
+  op => { op.observableEvent.publicText = '长'.repeat(321); },
+  op => { op.deliveredSceneId = 'wrong'; },
+  (_op, m) => { m.scenes[0].participantIds = ['b']; },
+  (_op, m) => { m.scenes[0].hallId = 'wrong'; }
+]) {
+  const m = makeM4(); const op = m.addEvent(); corrupt(op, m);
+  assert.deepEqual(candidateIds(m), []);
+}
+
+// E/F/K: private Telemachus material is neither salience nor shared context;
+// an independent exact-Zagreus reason is not globally suppressed by that chat.
+const privacy = makeM4();
+Object.assign(privacy.resident('b'), { name: 'Telemachus', affinity: 99, innerVoice: 'TELEMACHUS PRIVATE VOICE',
+  chatHistory: [{ role: 'user', content: 'TELEMACHUS PRIVATE CHAT', at: privacy.now().toISOString() }],
+  todayInteractions: [{ id: 'private-t', type: 'chat-reply', source: 'detail-chat', at: privacy.now().toISOString(), content: 'PRIVATE RELATIONSHIP DETAIL' }] });
+privacy.user.phoneData.friends = ['a']; privacy.resident('a').name = 'Zagreus';
+privacy.user.currentStatus = 'TELEMACHUS PRIVATE STATUS'; privacy.user.currentStatusProvenance = { visibility: 'private', source: 'homepage', value: privacy.user.currentStatus };
+Object.assign(privacy.sandbox, { isInteracting: { value: true }, selectedCat: { value: privacy.resident('b') },
+  currentHall: { value: { name: 'PRIVATE CURATOR ROOM' } } });
+assert.deepEqual(candidateIds(privacy), []);
+privacy.maybeRunPhonePresenceAfterHomepage(); assert.equal(privacy.requests.length, 0);
+const independent = makeM4();
+Object.assign(independent.user, { currentStatus: privacy.user.currentStatus, currentStatusProvenance: privacy.user.currentStatusProvenance });
+Object.assign(independent.resident('b'), privacy.resident('b'));
+independent.user.phoneData.friends = ['a']; independent.addEvent('a');
+Object.assign(independent.sandbox, { isInteracting: { value: true }, selectedCat: { value: independent.resident('b') }, currentHall: privacy.sandbox.currentHall });
+independent.maybeRunPhonePresenceAfterHomepage(); assert.equal(independent.requests.length, 1);
+const frozenPrompt = independent.requests[0].prompt;
+for (const sentinel of ['TELEMACHUS PRIVATE CHAT', 'TELEMACHUS PRIVATE VOICE', 'TELEMACHUS PRIVATE STATUS', 'PRIVATE RELATIONSHIP DETAIL', 'PRIVATE CURATOR ROOM']) {
+  assert.ok(!frozenPrompt.includes(sentinel), sentinel);
+}
+assert.ok(frozenPrompt.includes('not a REPLY')); assert.ok(frozenPrompt.includes('maximum event scope'));
+await independent.resolvePresence();
+const eventMessage = live(independent)[0];
+assert.equal(eventMessage.origin, 'event'); assert.equal(eventMessage.contactId, 'a');
+assert.equal(eventMessage.reasonType, 'explicit-public-attention'); assert.equal(eventMessage.sourceEventId, 'explicit-source-a');
+assert.equal(eventMessage.reasonScope, 'observer-safe-surface');
+assert.ok(eventMessage.generatedAt); assert.ok(eventMessage.deliveredAt); assert.ok(eventMessage.reasonCreatedAt);
+assert.ok(!JSON.stringify(eventMessage).includes('馆长当着a的面展示了画作。'), 'history stores reason pointer, not event text or prompt');
+assert.deepEqual(candidateIds(independent), [], 'consumed event cannot authorize another message');
+assert.equal(independent.saves.at(-1).phoneData.chats[0].history[0].origin, 'event');
+const savedEvent = JSON.parse(JSON.stringify(independent.saves.at(-1).phoneData));
+const reloadedEvent = makeM4(); reloadedEvent.user.phoneData = savedEvent;
+assert.equal(live(reloadedEvent)[0].origin, 'event');
+archive(reloadedEvent, 'a', live(reloadedEvent).splice(0));
+assert.equal(reloadedEvent.getAllStoredPhoneMessages('a')[0].sourceEventId, 'explicit-source-a');
+
+// I: ordinary relationship/recency provenance and actual safe public setter.
+const casual = makeM4(); casual.addExchange('a');
+casual.user.currentStatus = 'PUBLIC MANUAL STATUS'; casual.user.currentStatusProvenance = { visibility: 'public', source: 'manual', value: casual.user.currentStatus };
+casual.maybeRunPhonePresenceAfterHomepage(); assert.equal(casual.requests.length, 1);
+assert.ok(casual.requests[0].prompt.includes('PUBLIC MANUAL STATUS'));
+await casual.resolvePresence('刚才聊的事，我又想了一点。');
+assert.equal(live(casual)[0].origin, 'proactive'); assert.equal(live(casual)[0].sourceRecordId, 'own-exchange-a');
+assert.equal(casual.saves.at(-1).phoneData.chats[0].history[0].origin, 'proactive');
+casual.maybeRunPhonePresenceAfterHomepage(); assert.equal(casual.requests.length, 1);
+
+// The frozen reason cannot change after dispatch or revive from a different
+// event. New pending work wins even while a proactive result is in flight.
+for (const invalidation of ['new-reply', 'changed-surface', 'expired-event', 'lost-scene', 'lost-contact']) {
+  const m = makeM4(); const op = m.addEvent();
+  m.maybeRunPhonePresenceAfterHomepage(); assert.equal(m.requests.length, 1);
+  if (invalidation === 'new-reply') m.send('I now need a reply');
+  if (invalidation === 'changed-surface') op.observableEvent.publicText = 'OTHER SURFACE';
+  if (invalidation === 'expired-event') m.setClock(m.now().getTime() + 24 * 60 * 60_000 + 1);
+  if (invalidation === 'lost-scene') m.scenes.splice(0);
+  if (invalidation === 'lost-contact') m.user.phoneData.friends = [];
+  await m.resolvePresence();
+  assert.equal(live(m).filter(message => message.role === 'assistant').length, 0, invalidation);
+  assert.equal(m.requests.length, 1);
+}
+
+// H: delayed reply remains a reply during an unrelated private conversation.
+const delayed = makeM2(); delayed.send('owed reply'); delayed.setClock(delayed.current().generationDueAt); await delayed.tick();
+const opportunityId = delayed.current().id, generatedAt = delayed.now().toISOString();
+await delayed.succeed(0, ['迟到的同线程回复。']);
+delayed.sandbox.isInteracting = { value: true }; delayed.sandbox.selectedCat = { value: { id: 'b' } };
+delayed.setClock(delayed.now().getTime() + 60_000); await delayed.tick();
+const replyMessage = live(delayed).find(message => message.role === 'assistant');
+assert.equal(replyMessage.origin, 'reply'); assert.equal(replyMessage.contactId, 'a');
+assert.equal(replyMessage.phoneReplyOpportunityId, opportunityId);
+assert.deepEqual(Array.from(replyMessage.sourceMessageIds), Array.from(delayed.current().sourceMessageIds));
+assert.equal(replyMessage.generatedAt, generatedAt); assert.equal(replyMessage.deliveredAt, delayed.now().toISOString());
+const replyReload = makeM2(); replyReload.user.phoneData = JSON.parse(JSON.stringify(delayed.user.phoneData));
+archive(replyReload, 'a', live(replyReload).splice(0));
+assert.equal(replyReload.getAllStoredPhoneMessages('a').find(message => message.role === 'assistant').origin, 'reply');
+
+// J: legacy rows are never guessed, backfilled or rewritten on read/dedupe.
+const legacyOrigin = makeM4();
+const oldRow = row('old-unknown', 'assistant', '旧消息', legacyOrigin.now().toISOString(), { source: 'presence', sourceKey: 'old' });
+live(legacyOrigin).push(oldRow); const legacyBefore = JSON.stringify(oldRow);
+legacyOrigin.getAllStoredPhoneMessages('a');
+legacyOrigin.appendPhoneMessage('a', 'assistant', 'text', 'ignored duplicate', { id: oldRow.id, origin: 'proactive' });
+assert.equal(oldRow.origin, undefined); assert.equal(JSON.stringify(oldRow), legacyBefore);
+assert.equal(legacyOrigin.appendPhoneMessage('a', 'assistant', 'text', 'unclassified new output').origin, 'unknown');
+assert.equal((source.match(/maybeRunPhonePresenceAfterHomepage\(/g) || []).length, 0, 'producer remains dormant');
+}
+
 console.log(JSON.stringify({
   fixture: 'phone-reply-generation-delivery-v2',
   status: 'PASS',
@@ -772,6 +965,9 @@ console.log(JSON.stringify({
     'M2-stable-timing', 'M2-zero-send-AI', 'M2-due-CAS', 'M2-reload-overdue', 'M2-sidecar-race',
     'M2-lane-order', 'M2-no-double-delay', 'M2-waiting-states', 'M2-provider-attempts-exactly-four', 'M2-privacy',
     'M3-labeled-current-turn', 'M3-previous-resident-turn', 'M3-batched-order', 'M3-thread-priority',
-    'M3-specific-one-beat-contract', 'M3-no-forced-question-length', 'M3-short-multi-schema', 'M3-frozen-privacy'
+    'M3-specific-one-beat-contract', 'M3-no-forced-question-length', 'M3-short-multi-schema', 'M3-frozen-privacy',
+    'M4-program-salience', 'M4-strict-cooldowns', 'M4-no-random-fallback', 'M4-pending-priority',
+    'M4-exact-public-event', 'M4-private-context-isolation', 'M4-frozen-reason-stale-rejection',
+    'M4-reply-proactive-event-provenance', 'M4-legacy-unknown', 'M4-producer-still-dormant'
   ]
 }));

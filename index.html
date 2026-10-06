@@ -19033,6 +19033,17 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         dateKey: getOperationalDayKey(now),
                         ...extra
                     };
+                    if (message.role === 'assistant') {
+                        const reply = extra.phoneReplyOpportunityId ? getPhoneReplyOpportunities().find(opportunity =>
+                            String(opportunity.id) === String(extra.phoneReplyOpportunityId) && sameCatId(opportunity.contactId, catId) &&
+                            message.id === getPhoneReplyBubbleId(opportunity, extra.phoneReplyBubbleIndex)) : null;
+                        message.origin = reply ? 'reply' :
+                            extra.source === 'presence' && extra.reasonType && ['proactive', 'event'].includes(extra.origin) ? extra.origin : 'unknown';
+                        message.contactId = String(catId);
+                        message.generatedAt = reply?.generatedAt || extra.generatedAt || '';
+                        message.deliveredAt = now.toISOString();
+                        if (reply) message.sourceMessageIds = [...reply.sourceMessageIds];
+                    }
                     const history = ensurePhoneChatHistory(catId);
                     history.push(message);
                     if (message.role === 'user' && !persistNow()) {
@@ -19123,6 +19134,9 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                 const PHONE_PRESENCE_MAX_DELAY_MS = 8 * 60 * 60 * 1000;
                 const PHONE_PRESENCE_RECENT_SEND_MS = 3 * 60 * 60 * 1000;
                 const PHONE_PRESENCE_RECENT_EXCHANGE_MS = 20 * 60 * 1000;
+                // M4 product-approved policy, not inherited relationship authority.
+                // 50 exists for form reveal; 24h is new for proactive salience.
+                const PHONE_PRESENCE_SALIENCE_POLICY = Object.freeze({ minimumAffinity: 50, recencyMs: 24 * 60 * 60 * 1000 });
                 let phonePresenceInFlight = false;
 
                 const parsePhonePresenceConsiderAt = (value) => {
@@ -19268,13 +19282,52 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     .replace(/\s+/g, ' ')
                     .trim()
                     .slice(0, maxLength);
+                const getPhonePresenceReason = (resident, now = new Date()) => {
+                    if (!resident?.id) return null;
+                    const recent = value => {
+                        const at = typeof value === 'string' ? new Date(value).getTime() : NaN;
+                        return Number.isFinite(at) && at <= now.getTime() && now.getTime() - at <= PHONE_PRESENCE_SALIENCE_POLICY.recencyMs;
+                    };
+                    const events = (Array.isArray(user.attentionBidOpportunities) ? user.attentionBidOpportunities : []).filter(operation =>
+                        operation?.source === 'explicit-public' && operation.status === 'delivered' &&
+                        operation.observableEvent?.kind === 'explicit-public' && typeof operation.observableEvent.publicText === 'string' &&
+                        operation.observableEvent.publicText.trim() && operation.observableEvent.publicText.length <= ATTENTION_PUBLIC_TEXT_MAX_CHARS &&
+                        sameCatId(operation.candidateId, resident.id) && sameCatId(operation.observableEvent.targetResidentId, resident.id) &&
+                        operation.sourceEventId && recent(operation.createdAt) && recent(operation.deliveredAt))
+                        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt) || String(a.id).localeCompare(String(b.id)));
+                    for (const operation of events) {
+                        const scene = getAttentionSceneRecord(operation);
+                        if (!scene || String(scene.id) !== String(operation.deliveredSceneId) || String(scene.hallId) !== String(operation.hallId) ||
+                            !scene.participantIds?.some(id => sameCatId(id, resident.id))) continue;
+                        if (getAllStoredPhoneMessages(resident.id).some(message => message.role === 'assistant' &&
+                            message.reasonType === 'explicit-public-attention' && message.sourceEventId === operation.sourceEventId)) continue;
+                        return { reasonType: 'explicit-public-attention', sourceRecordId: String(operation.id),
+                            sourceEventId: String(operation.sourceEventId), createdAt: operation.createdAt,
+                            scope: 'observer-safe-surface', surface: String(operation.observableEvent.publicText) };
+                    }
+                    if (!Number.isFinite(resident.affinity) || resident.affinity > 100 || resident.affinity < PHONE_PRESENCE_SALIENCE_POLICY.minimumAffinity) return null;
+                    const exchanges = (Array.isArray(resident.todayInteractions) ? resident.todayInteractions : []).filter(record => record?.id &&
+                        record.type === 'chat-reply' && record.source === 'detail-chat' && recent(record.at))
+                        .map(record => ({ id: String(record.id), at: record.at, source: 'homepage' }));
+                    getAllStoredPhoneMessages(resident.id).filter(message => message.role === 'assistant' &&
+                        message.phoneReplyOpportunityId && recent(message.at)).forEach(message => {
+                            const reply = getPhoneReplyOpportunities().find(opportunity =>
+                                String(opportunity.id) === String(message.phoneReplyOpportunityId) && sameCatId(opportunity.contactId, resident.id) &&
+                                message.id === getPhoneReplyBubbleId(opportunity, message.phoneReplyBubbleIndex));
+                            if (reply) exchanges.push({ id: String(message.id), at: message.at, source: 'phone-reply' });
+                        });
+                    exchanges.sort((a, b) => new Date(b.at) - new Date(a.at) || a.id.localeCompare(b.id));
+                    const exchange = exchanges[0];
+                    return exchange ? { reasonType: 'relationship-recency', sourceRecordId: exchange.id, sourceEventId: '',
+                        createdAt: exchange.at, scope: 'same-resident-private-continuity', surface: '', source: exchange.source } : null;
+                };
                 const getPhonePresenceCandidates = (now = new Date()) => {
                     const seen = new Set();
                     const contacts = (user.phoneData?.friends || [])
                         .map(id => cats.value.find(cat => sameCatId(cat.id, getCanonicalCatId(id))))
                         .filter(cat => cat && !isPermanentOutBuiltin(cat))
                         // A direct conversational obligation is correctness authority,
-                        // not a diversity preference. Never relax it in the fallback.
+                        // not a diversity preference. It is never relaxed.
                         .filter(cat => !hasUnresolvedPhoneReply(cat.id))
                         .filter(cat => {
                             const key = String(cat.id);
@@ -19289,7 +19342,7 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         return (!lastPresence || currentTime - lastPresence >= PHONE_PRESENCE_RECENT_SEND_MS)
                             && (!lastExchange || currentTime - lastExchange >= PHONE_PRESENCE_RECENT_EXCHANGE_MS);
                     });
-                    return preferred.length ? preferred : contacts;
+                    return preferred.filter(cat => Boolean(getPhonePresenceReason(cat, now)));
                 };
                 const choosePhonePresenceCandidate = (now = new Date()) => {
                     const candidates = getPhonePresenceCandidates(now);
@@ -19320,13 +19373,8 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     }
                     return exchanges.slice(-2);
                 };
-                const buildPhonePresenceSafeContext = (resident) => {
+                const buildPhonePresenceSafeContext = (resident, reason = null) => {
                     const identity = phoneIdentities.value[resident.id] || { name: resident.humanName || resident.name || '联系人' };
-                    const residentHall = halls.value.find(hall => hall.id === (resident.hallId || (resident.isMarvel ? 'marvel' : 'gotham')));
-                    const userHall = currentHall.value;
-                    const isExploring = Boolean(exploreState.active && sameCatId(exploreState.companion?.id, resident.id));
-                    const isFocusingResident = Boolean(isFocusing.value && focusCats.value.some(cat => sameCatId(cat?.id, resident.id)));
-                    const isDirectlyInteracting = Boolean(isInteracting.value && sameCatId(selectedCat.value?.id, resident.id));
                     const phoneThread = getPhoneChatHistory(resident.id).slice(-6).map(message => {
                         const speaker = message.role === 'user' ? 'USER' : identity.name;
                         return `${speaker}: ${compactPhonePresenceText(message.content, 100) || '（非文字内容）'}`;
@@ -19339,10 +19387,11 @@ PHONE CONTACT: ${identity.name}
 CONTACT VOICE: ${compactPhonePresenceText(resident.personality, 360) || '保持既有性格与说话习惯。'}
 ${buildStructuredPersonalityContext(resident, identity.name)}
 USER PUBLIC PROFILE: ${compactPhonePresenceText(user.nickname, 60) || 'USER'} · ${compactPhonePresenceText(user.job, 80) || '未提供'}
-USER NOW: hall=${userHall?.name || 'Meeow House'}; status=${compactPhonePresenceText(getSharedUserCurrentStatus(), 120) || '未提供'}
-CONTACT NOW: hall=${residentHall?.name || 'Meeow House'}; status=${compactPhonePresenceText(resident.status, 120) || '未提供'}; away=${isResidentAway(resident) ? 'yes' : 'no'}; visiting=${resident.isVisiting ? 'yes' : 'no'}; exploring=${isExploring ? 'yes' : 'no'}; focusing=${isFocusingResident ? 'yes' : 'no'}; directPhysicalInteraction=${isDirectlyInteracting ? 'yes' : 'no'}; sameHall=${residentHall?.id === userHall?.id ? 'yes' : 'no'}
+USER PUBLIC STATUS: ${compactPhonePresenceText(getSharedUserCurrentStatus(), 120) || '未提供'}
+CONTACT RELATIONSHIP: affinity=${Number.isFinite(resident.affinity) ? resident.affinity : 'unknown'}/100; USER is the accepted caretaker, not a stranger.
+AUTHORIZED CONTACT REASON: ${reason ? JSON.stringify(reason) : 'none; context alone does not authorize contact'}
 TIME: ${new Date().toLocaleString()} · operational day ${getOperationalDayKey(new Date())}
-RECENT DIRECT USER/CONTACT INTERACTIONS (observable only):
+RECENT PRIVATE USER/THIS-CONTACT CONTINUITY (dialogue, not independently verified historical fact):
 ${directInteractions.join('\n') || 'none'}
 RECENT SAME-CONTACT PHONE THREAD:
 ${phoneThread.join('\n') || 'none'}`;
@@ -19368,6 +19417,11 @@ ${phoneThread.join('\n') || 'none'}`;
                     navigateToTab('phone');
                     nextTick(() => openPhoneChat(contactId));
                 };
+                const isPhonePresenceOpportunityCurrent = (opportunity, now = new Date()) => {
+                    const resident = getPhonePresenceCandidates(now).find(cat => sameCatId(cat.id, opportunity.contactId));
+                    return Boolean(resident && !hasPhonePresenceSourceKey(opportunity.sourceKey) &&
+                        JSON.stringify(getPhonePresenceReason(resident, now)) === JSON.stringify(opportunity.reason));
+                };
                 const maybeRunPhonePresenceAfterHomepage = () => {
                     const now = new Date();
                     const dueAt = getDuePhonePresenceConsideration(now);
@@ -19384,38 +19438,49 @@ ${phoneThread.join('\n') || 'none'}`;
                         addLog(`PHONE PRESENCE: result=none-local; opportunity=${dueAt}; reason=no-eligible-contact`, 'info');
                         return;
                     }
+                    const reason = getPhonePresenceReason(resident, now);
+                    if (!reason) return;
+                    const opportunity = Object.freeze({ contactId: String(resident.id), sourceKey, createdAt: now.toISOString(),
+                        reason: Object.freeze({ ...reason }), contextText: buildPhonePresenceSafeContext(resident, reason) });
+                    if (!isPhonePresenceOpportunityCurrent(opportunity, now)) return;
                     phonePresenceInFlight = true;
                     const identity = phoneIdentities.value[resident.id] || { name: resident.humanName || resident.name || '联系人', avatar: getCatAvatarSource(resident) };
                     const prompt = `[MEEOW HOUSE PHONE PRESENCE]
-You are considering one optional, incoming Phone / 喵信 message from the human-contact identity ${identity.name} to USER.
-${buildAuthoritativeUserIdentityContext()}
-${buildPhonePresenceSafeContext(resident)}
+This is a program-authorized NEW conversation initiation from ${identity.name}, not a REPLY. No unresolved USER turn is supplied; never invent a recent USER message.
+${opportunity.contextText}
 
 Return exactly one JSON object and nothing else: {"message":null} OR {"message":"简短自然的简体中文消息"}.
 
 RULES:
-- Current state above is authoritative. Do not use any older premise that conflicts with it: if USER is now in the same hall, do not ask when they will return; if directPhysicalInteraction=yes, do not describe USER as absent; if away=no, do not speak as if still away.
-- A same-hall or cross-hall message can both be natural. This is an optional, occasional contact, not a required engagement. If there is no timely, character-specific reason to message, return null.
-- You may use only PHONE PRESENCE SAFE CONTEXT. Do not infer or reveal another resident's private thoughts, diary, chat, memories, Away life, Shared Scene interpretation, Focus material, Mailbox content, or any unstated world briefing.
-- Keep the Phone human-contact social convention and plausible deniability. Never make an automatic identity confession such as saying you are literally USER's cat, and do not create identity states.
-- Physical CAT/HUMAN-world context may guide timing, mood, indirect teasing, or a null decision, but it is not a first-person Phone experience. Keep the message independently plausible without equating this contact with the physical resident: never claim that USER hugged, held, petted, touched, woke, ignored, or otherwise physically interacted with “me.” A witnessed HUMAN reveal remains real shared history, but it does not remove this Phone expression boundary.
-- Do not send automatic departure, return, good-morning, good-night, status-report, or engagement-bait messages. A spontaneous thought, teasing, a legitimate recent shared moment, the contact's own present situation, or ordinary character-specific social behavior may justify a message when timely.
-- No markdown, no prose wrapper, no array, no explanation.`;
+- The frozen AUTHORIZED CONTACT REASON is the maximum event scope. Use only its explicit public surface or this contact's own authorized continuity; do not expand it into new actions, history, motives or consequences. A reason authorizes contact, not factual verification of generated dialogue.
+- Relationship and personality affect wording; they do not authorize extra knowledge. Public owner status is supporting context, never a contact reason.
+- Do not infer or reveal another resident's private chat, thoughts, relationship, diary, memories, Curator dialogue, Character Moments, Away life, Focus material or Mailbox content. Mention, proximity and a current private conversation are not observation authority.
+- Keep the Phone human-contact convention and plausible deniability. Never automatically confess being USER's cat or claim physical CAT interactions as this Phone identity's first-person experience.
+- Write within the frozen reason, or return null if no natural message fits. Do not invent an unrelated greeting, fake USER question, status report, identity state or world command.
+- No markdown, prose wrapper, array or explanation.`;
 
                     void (async () => {
                         try {
+                            if (!isPhonePresenceOpportunityCurrent(opportunity)) return;
                             const raw = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 420, ThinkingLevel.LOW, {
                                 label: `PHONE PRESENCE · ${identity.name}`,
                                 priority: 'background'
                             });
                             const parsed = parsePhonePresenceResponse(raw);
                             if (!parsed.valid) throw new Error(`Phone Presence ${parsed.error}`);
+                            if (!isPhonePresenceOpportunityCurrent(opportunity)) {
+                                scheduleNextPhonePresenceConsideration(new Date());
+                                return;
+                            }
                             if (parsed.message !== null && !hasPhonePresenceSourceKey(sourceKey)) {
                                 appendPhoneMessage(resident.id, 'assistant', 'text', parsed.message, {
-                                    source: 'presence',
-                                    sourceKey,
+                                    source: 'presence', sourceKey,
+                                    origin: reason.reasonType === 'explicit-public-attention' ? 'event' : 'proactive',
+                                    reasonType: reason.reasonType, sourceRecordId: reason.sourceRecordId, sourceEventId: reason.sourceEventId,
+                                    reasonCreatedAt: reason.createdAt, reasonScope: reason.scope, generatedAt: new Date().toISOString(),
                                     read: false
                                 });
+                                persistNow();
                                 addLog(`PHONE PRESENCE: result=message; resident=${String(resident.id)}; opportunity=${dueAt}`, 'info');
                             } else {
                                 addLog(`PHONE PRESENCE: result=${parsed.message === null ? 'null' : 'deduped'}; resident=${String(resident.id)}; opportunity=${dueAt}`, 'info');
