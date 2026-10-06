@@ -8339,7 +8339,7 @@
                             <span class="meeow-mail-sender font-bold text-xs flex items-center gap-1">
                                 <i class="fas fa-user-shield text-[10px]"></i> {{ mail.from }}
                             </span>
-                            <span class="meeow-mail-time text-[9px] font-mono">{{ mail.date }}</span>
+                            <span class="meeow-mail-time text-[9px] font-mono">{{ formatMailboxDate(mail) }}</span>
                         </div>
                         <p class="meeow-mail-body text-xs mb-2 leading-relaxed font-sans">{{ mail.content }}</p>
                         <div v-if="mail.item"
@@ -16149,6 +16149,15 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                 // Mail is a whole-house system: only an actual resident currently
                 // outside may write. It is deliberately called only after a
                 // successful scheduled status sync, never after direct interaction.
+                const formatMailboxDate = mail => {
+                    const timestamp = [mail?.sentAt, mail?.deliveredAt, mail?.deliveryClaimedAt]
+                        .filter(value => (typeof value === 'string' && value.trim()) ||
+                            (typeof value === 'number' && Number.isFinite(value) && value > 0))
+                        .map(parseLogicalDate).find(Boolean);
+                    return timestamp ? timestamp.toLocaleString(undefined, {
+                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false
+                    }) : `${String(mail?.date || '').trim()}${mail?.date ? ' · ' : ''}日期未知`;
+                };
                 const getMailOperationalDayKey = (mail) => {
                     const sentAt = parseLogicalDate(mail?.sentAt);
                     return sentAt ? getOperationalDayKey(sentAt) : String(mail?.operationalDayKey || '');
@@ -26958,6 +26967,52 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     }
                     return episode;
                 };
+                // T5 product policy: new ordinary letter grants, not departure/delivery cadence.
+                const ORDINARY_AWAY_LETTER_CHANCE_PERCENT = 20;
+                const ORDINARY_AWAY_LETTER_GRANT_INTERVAL_MS = 8 * 60 * 60 * 1000;
+                // Unsaved drafts only: a failed save must not reroll or publish a grant.
+                const unsavedAwayMailConsiderations = new WeakMap();
+                const prepareAwayMailConsideration = (cat, hallId, opportunityId, now, reservedGrantAt = 0) => {
+                    const denied = { decision: { roll: null, shouldWrite: false } };
+                    if (!cat || !opportunityId || !Number.isFinite(now?.getTime()) ||
+                        String(getCatHallId(cat)) !== String(hallId) || !isResidentInHall(cat) ||
+                        cat.isOut || cat.isVisiting || isResidentInCuratorRoom(cat) || getActiveAwayEpisode(cat, now)) return denied;
+                    const key = `${hallId}:${opportunityId}`;
+                    const saved = cat.awayMailConsideration;
+                    const savedDecision = saved?.opportunityId === key && awayLifecycle.normalizeMailDecision(saved.decision);
+                    if (savedDecision) return { decision: savedDecision };
+                    const lastGrant = typeof user.lastAwayLetterGrantedAt === 'string'
+                        ? parseLogicalDate(user.lastAwayLetterGrantedAt)?.getTime() || 0 : 0;
+                    const lastDelivery = Math.max(0, ...(user.mailbox || []).filter(isPhysicalAwayMailboxRow)
+                        .map(mail => getPhysicalMailboxDeliveryTime(mail)?.getTime() || 0));
+                    const blocked = Math.max(lastGrant, lastDelivery, reservedGrantAt) + ORDINARY_AWAY_LETTER_GRANT_INTERVAL_MS > now.getTime();
+                    let draft = unsavedAwayMailConsiderations.get(cat);
+                    if (draft?.opportunityId !== key) {
+                        draft = { opportunityId: key, consideredAt: now.toISOString(), decision: blocked
+                            ? denied.decision : awayLifecycle.createMailDecision(rollPercent, ORDINARY_AWAY_LETTER_CHANCE_PERCENT) };
+                        unsavedAwayMailConsiderations.set(cat, draft);
+                    }
+                    // If another grant was saved meanwhile, keep this failed draft frozen and wait.
+                    if (draft.decision.shouldWrite && blocked) return null;
+                    return { decision: draft.decision, consideration: draft, grant: draft.decision.shouldWrite };
+                };
+                const persistAwayMailChanges = (changes, now) => {
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    for (const { cat, fields } of changes) {
+                        const stagedCat = snapshot.cats.find(item => String(item.id) === String(cat.id));
+                        if (!stagedCat) return false;
+                        Object.assign(stagedCat, fields);
+                    }
+                    const granted = changes.some(change => change.grant);
+                    if (granted) snapshot.user.lastAwayLetterGrantedAt = now.toISOString();
+                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true) return false;
+                    changes.forEach(({ cat, fields }) => {
+                        Object.assign(cat, fields);
+                        unsavedAwayMailConsiderations.delete(cat);
+                    });
+                    if (granted) user.lastAwayLetterGrantedAt = snapshot.user.lastAwayLetterGrantedAt;
+                    return true;
+                };
                 const getOrdinaryAwayAllocator = () => {
                     if (!user.ordinaryAwayAutonomy || typeof user.ordinaryAwayAutonomy !== 'object' || Array.isArray(user.ordinaryAwayAutonomy)) {
                         user.ordinaryAwayAutonomy = { lastAIDispatchAt: '' };
@@ -27128,7 +27183,10 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         candidates.sort((a, b) => a.opportunityAt - b.opportunityAt || String(a.cat.id).localeCompare(String(b.cat.id)));
                         const selected = candidates[0];
                         if (!selected) return false;
-                        const mailDecision = awayLifecycle.createMailDecision(rollPercent);
+                        const opportunityId = `ordinary-away:${String(selected.cat.id)}:${selected.opportunityAt.getTime()}`;
+                        const consideration = prepareAwayMailConsideration(selected.cat, selected.hall.id, opportunityId, now);
+                        if (!consideration) return false;
+                        const mailDecision = consideration.decision;
                         const operation = {
                             id: `ordinary-away:${String(selected.cat.id)}:${selected.opportunityAt.getTime()}`,
                             hallId: String(selected.hall.id), opportunityAt: selected.opportunityAt.toISOString(),
@@ -27136,8 +27194,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                             status: 'claimed', attemptCount: 0, retryAt: now.toISOString(), claimedAt: now.toISOString(), lastError: '', episodeId: '', promptText: ''
                         };
                         operation.promptText = buildOrdinaryAwayPlanPrompt(selected.cat, selected.hall, operation);
-                        selected.cat.ordinaryAwayOperation = operation;
-                        candidate = { cat: selected.cat, operation };
+                        candidate = { cat: selected.cat, operation, consideration };
                         addLog(`AWAY AUTONOMY: due=${candidates.length}; eligible=${candidates.length}; claimed=${String(selected.cat.id)}; hall=${selected.hall.id}`, 'info');
                     }
                     const operation = candidate.operation;
@@ -27156,7 +27213,9 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     allocator.lastAIDispatchAt = now.toISOString();
                     // The frozen decision and in-flight operation must survive a
                     // reload before any AI work is issued.
-                    if (!persistNow()) {
+                    if (!persistAwayMailChanges([{ cat: candidate.cat, grant: candidate.consideration?.grant,
+                        fields: { ordinaryAwayOperation: operation, ...(candidate.consideration?.consideration
+                            ? { awayMailConsideration: candidate.consideration.consideration } : {}) } }], now)) {
                         operation.status = 'retryable';
                         operation.attemptCount = priorAttemptCount;
                         operation.retryAt = now.toISOString();
@@ -27569,30 +27628,36 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     }, {});
                 const prepareStatusSyncAwayMailDecisions = ({ presenceDirectives, requestedCats, hallId, carriedDecisions, now }) => {
                     const decisions = buildAwayMailDecisions(presenceDirectives, carriedDecisions);
-                    let needsPersistence = false;
+                    const changes = [];
+                    let reservedGrantAt = 0;
                     for (const [id, directive] of Object.entries(presenceDirectives)) {
                         if (directive !== 'DEPARTING_NOW') continue;
                         const cat = requestedCats.find(item => String(item.id) === String(id));
                         if (!cat) return null;
                         const deferred = normalizeDeferredOrdinaryAwayDeparture(cat);
                         const matchingDeferred = deferred?.hallId === String(hallId) ? deferred : null;
-                        if (matchingDeferred) needsPersistence = true;
                         const prior = matchingDeferred?.mailDecision || decisions[String(id)];
-                        const decision = prior
-                            ? awayLifecycle.completeMailDecisionAtExecution(prior, rollPercent)
-                            : awayLifecycle.createMailDecision(rollPercent);
-                        if (!decision) return null;
-                        if (prior?.shouldWrite && !prior.souvenirDecision) {
+                        const opportunityAt = cat.nextAwayOpportunityAt && parseLogicalDate(cat.nextAwayOpportunityAt);
+                        const opportunityId = matchingDeferred?.claimId || (opportunityAt && opportunityAt <= now
+                            ? `ordinary-away:${String(id)}:${opportunityAt.getTime()}` : '');
+                        const prepared = prior ? { decision: awayLifecycle.completeMailDecisionAtExecution(prior, rollPercent) }
+                            : prepareAwayMailConsideration(cat, hallId, opportunityId, now, reservedGrantAt);
+                        if (!prepared?.decision) return null;
+                        const fields = {};
+                        if (prepared.consideration) fields.awayMailConsideration = prepared.consideration;
+                        if (matchingDeferred || (prior?.shouldWrite && !prior.souvenirDecision)) {
                             cat.deferredOrdinaryAwayDeparture = {
                                 claimId: matchingDeferred?.claimId || `status-sync-away-mail:${String(id)}:${now.getTime()}`,
-                                hallId: String(hallId), mailDecision: decision,
+                                hallId: String(hallId), mailDecision: prepared.decision,
                                 createdAt: matchingDeferred?.createdAt || now.toISOString()
                             };
-                            needsPersistence = true;
+                            fields.deferredOrdinaryAwayDeparture = cat.deferredOrdinaryAwayDeparture;
                         }
-                        decisions[String(id)] = Object.freeze(decision);
+                        if (Object.keys(fields).length) changes.push({ cat, fields, grant: prepared.grant });
+                        if (prepared.grant) reservedGrantAt = now.getTime();
+                        decisions[String(id)] = Object.freeze(prepared.decision);
                     }
-                    if (needsPersistence && !persistNow()) return null;
+                    if (changes.length && !persistAwayMailChanges(changes, now)) return null;
                     return Object.freeze(decisions);
                 };
                 const formatAwayMailAuthority = (departingIds, mailDecisions = {}) => {
@@ -33124,7 +33189,7 @@ ${episodicMemory}`;
                     isUsingPixelAvatar, makePixelCatAvatar, openPixelAvatarWorkshop, closePixelAvatarWorkshop, savePixelAvatar, useOriginalAvatar, resetPixelAvatarDraft, randomizePixelAvatarDraft,
                     showFocusSetupModal, focusSetupData, availableCatsForFocus, canStartFocus, openFocusSetupModal, toggleFocusCat, startFocus,
                     currentFocusVoice, currentFocusVoiceCat, focusVoiceEntries, focusVoiceIndex, cycleFocusVoice, focusWakeLockMessage,
-                    currentSettlement, unreadMailCount, openMailbox, claimMailItem, todayEvent,
+                    currentSettlement, unreadMailCount, openMailbox, claimMailItem, formatMailboxDate, todayEvent,
                     addTodo, newTodo, addDDL, newDDL, ddlCountdownStr, sortedDDLs, nearestDDL, isGeneratingReport,
                     newItem, isSubmittingItem, submitShopItem, lastShopVisualResult,
                     showShopPixelEditor, shopPixelEditorDraftItem, shopDraftPreviewItem, authoredShopItems, hasShopAuthoringDraft,

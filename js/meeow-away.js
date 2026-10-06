@@ -17,10 +17,11 @@
     const AWAY_SOUVENIR_CHANCE_PERCENT = 60;
 
     const isPercentRoll = value => Number.isInteger(value) && value >= 1 && value <= 100;
-    const createMailDecision = rollPercent => {
+    const createMailDecision = (rollPercent, chancePercent = AWAY_LETTER_CHANCE_PERCENT) => {
+        if (!Number.isInteger(chancePercent) || chancePercent < 0 || chancePercent > 100) throw new Error('Away letter chance must be an integer from 0 to 100');
         const roll = rollPercent();
         if (!isPercentRoll(roll)) throw new Error('Away letter roll must be an integer from 1 to 100');
-        if (roll > AWAY_LETTER_CHANCE_PERCENT) return { roll, shouldWrite: false };
+        if (roll > chancePercent) return { roll, shouldWrite: false };
         const souvenirRoll = rollPercent();
         if (!isPercentRoll(souvenirRoll)) throw new Error('Away souvenir roll must be an integer from 1 to 100');
         return {
@@ -31,6 +32,7 @@
     // A missing souvenirDecision belongs to pre-V1 state. Normalization keeps
     // it incomplete; only a pending operation at execution may finish the roll.
     const normalizeMailDecision = raw => {
+        if (raw && raw.roll === null && raw.shouldWrite === false) return { roll: null, shouldWrite: false };
         if (!raw || typeof raw !== 'object' || !isPercentRoll(Number(raw.roll)) || typeof raw.shouldWrite !== 'boolean') return null;
         const decision = { roll: Number(raw.roll), shouldWrite: raw.shouldWrite };
         if (raw.shouldWrite && raw.souvenirDecision !== undefined) {

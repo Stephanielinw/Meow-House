@@ -29,7 +29,11 @@ const extract = (start, end) => {
 };
 const decisionsSlice = extract('                const buildAwayMailDecisions =', '                const buildAwayPromptContract =');
 const enforcementSlice = extract('                const enforceAwayMailDecision =', '                const reconcileAwayEpisodes =');
-const decisionContext = vm.createContext({ awayLifecycle: away, window: awayContext.window, rollPercent: () => { throw new Error('unexpected roll'); } });
+const decisionContext = vm.createContext({ prepareAwayMailConsideration: () => { throw new Error('unexpected new qualification'); }, persistAwayMailChanges: changes => {
+    const saved = decisionContext.persistNow();
+    if (saved) changes.forEach(({cat, fields}) => Object.assign(cat, fields));
+    return saved;
+}, awayLifecycle: away, window: awayContext.window, rollPercent: () => { throw new Error('unexpected roll'); } });
 vm.runInContext(`${decisionsSlice}\nglobalThis.buildDecisions = buildAwayMailDecisions; globalThis.prepareDecisions = prepareStatusSyncAwayMailDecisions; globalThis.formatAuthority = formatAwayMailAuthority;`, decisionContext);
 vm.runInContext(`${enforcementSlice}\nglobalThis.enforce = enforceAwayMailDecision;`, decisionContext);
 const rolls = (...values) => {
@@ -155,7 +159,7 @@ const dispatchSlice = extract('                    const operation = candidate.o
     '                const getLifeThreadExcursionIntent =');
 const ordinaryDispatch = new Function('ctx', `
     const { candidate, isOrdinaryAwayEligible, halls, awayLifecycle, rollPercent,
-        buildOrdinaryAwayPlanPrompt, persistNow, allocator, now,
+        buildOrdinaryAwayPlanPrompt, persistAwayMailChanges, allocator, now,
         ordinaryAwayPlanningInFlight, runOrdinaryAwayOperation, addLog } = ctx;
     return () => { ${dispatchSlice.replace(/\n\s*\};\s*$/, '')} };
 `);
@@ -174,6 +178,11 @@ const ordinaryCtx = {
         ordinaryEvents.push('persist');
         if (saveSucceeds) savedOrdinaryCat = JSON.parse(JSON.stringify(ordinaryCat));
         return saveSucceeds;
+    },
+    persistAwayMailChanges: changes => {
+        if (!ordinaryCtx.persistNow()) return false;
+        changes.forEach(({cat, fields}) => Object.assign(cat, fields));
+        return true;
     },
     allocator: { lastAIDispatchAt: '' }, now: new Date('2026-08-31T08:00:00.000Z'),
     ordinaryAwayPlanningInFlight: new Set(),
@@ -214,7 +223,7 @@ ordinaryEvents.length = 0;
 assert.equal(ordinaryDispatch(ordinaryCtx)(), true);
 assert.deepEqual(ordinaryEvents, ['persist', 'AI']);
 assert.equal(ordinaryRollCalls, 2);
-assert.match(source, /mailDecision = awayLifecycle\.createMailDecision\(rollPercent\)/, 'ordinary autonomy must use the shared helper');
+assert.match(source, /const consideration = prepareAwayMailConsideration\(selected\.cat/, 'ordinary autonomy must use the shared qualification helper');
 assert.match(source, /const awayMailDecisions = prepareStatusSyncAwayMailDecisions\(/, 'Status Sync must prepare frozen decisions before prompting');
 const statusPreparationAt = source.indexOf('const awayMailDecisions = prepareStatusSyncAwayMailDecisions(');
 const statusAIAt = source.indexOf('await callAI(statusRequestPrompt', statusPreparationAt);
@@ -393,3 +402,211 @@ const threadProvenance = {
 assert.equal(away.createEpisode(cat, accepted.plan, departedAt, frozen, threadProvenance).mailPlan.length, 0);
 
 console.log('Away souvenir authority fixture: PASS');
+
+// T5: actual production qualification, snapshot transaction and both departure
+// entry points. No provider/network; the existing combined planner is spied.
+const clone = value => JSON.parse(JSON.stringify(value));
+const hour = 3_600_000, t0 = new Date('2026-10-05T10:00:00Z').getTime();
+const qualificationSlice = extract('                // T5 product policy:', '                const getOrdinaryAwayAllocator =');
+const autonomySlice = extract('                const getOrdinaryAwayAllocator =', '                const getLifeThreadExcursionIntent =');
+function cadence({ saved = null, values = [20, 60] } = {}) {
+    let now = t0, works = true, durable = saved ? clone(saved) : null, rollCalls = 0;
+    class Clock extends Date {
+        constructor(...args) { super(...(args.length ? args : [now])); }
+        static now() { return now; }
+    }
+    const cat = id => ({ id, name: id, hallId: 'gotham', nextAwayOpportunityAt: new Clock(t0 - 1).toISOString(),
+        chatHistory: ['PRIVATE_CHAT'], innerVoice: 'PRIVATE_VOICE' });
+    const residents = saved?.cats || [cat('telemachus'), cat('zagreus')];
+    const owner = saved?.user || { mailbox: [], currentStatus: 'PRIVATE_OWNER' };
+    const episodes = saved?.awayEpisodes || [];
+    const queue = [...values], events = [], requests = [];
+    const ctx = vm.createContext({ Date: Clock, Math, console, WeakMap, Set, Object, ThinkingLevel: { LOW: 'low' },
+        user: owner, cats: { value: residents }, halls: { value: [{ id: 'gotham', name: 'Gotham' }] },
+        awayEpisodes: { value: episodes }, awayLifecycle: { ...away, buildDepartureSchedule: ({ requestedCats }) => ({
+            selectedIds: requestedCats.filter(cat => !cat.isOut && cat.nextAwayOpportunityAt &&
+                new Date(cat.nextAwayOpportunityAt).getTime() <= now).slice(0, 1).map(cat => cat.id)
+        }) }, parseLogicalDate, cleanText, getCatHallId: cat => cat.hallId,
+        isResidentInHall: cat => !cat.isOut, isResidentInCuratorRoom: cat => Boolean(cat.curatorRoomPresence),
+        getActiveAwayEpisode: () => null, hasLifeThreadExcursionDepartureClaim: () => false,
+        hasFrozenOrdinaryAwayDepartureClaim: () => false, isFocusing: { value: false }, focusCats: { value: [] },
+        exploreState: { active: false }, isInteracting: { value: false }, selectedCat: { value: null },
+        settings: { apiKey: 'mock' }, ordinaryAwayPlanningInFlight: new Set(), ORDINARY_AWAY_AI_MIN_INTERVAL_MS: 30 * 60_000,
+        getResidentForm: () => 'CAT', getResidentLiveStatus: () => '在馆内',
+        buildCatIdentityBlock: cat => `resident=${cat.id}`, AWAY_ACTIVITY_PLANNING_RULES: 'existing planning rules',
+        rollPercent: () => { rollCalls++; assert.ok(queue.length, 'T5 unexpected roll'); return queue.shift(); },
+        addLog: () => {}, buildSaveData: () => ({ user: owner, cats: residents, awayEpisodes: episodes }),
+        window: { Meeow: { itemVisuals: awayContext.window.Meeow.itemVisuals, storage: { persistSnapshot(snapshot) {
+            events.push('save');
+            assert.equal(owner.lastAwayLetterGrantedAt, durable?.user.lastAwayLetterGrantedAt,
+                'candidate grant must not be live before successful save');
+            if (!works) return false;
+            durable = clone(snapshot); return true;
+        } } } },
+        normalizeAwayEpisodes: away.normalizeEpisodes, indexAwayPlans: away.indexPlans,
+        classifyAwayPlanDiagnostic: away.classifyPlan, parseAIJSON: JSON.parse,
+        scheduleIndependentAwayDepartureGate: () => {}, appendMonitorEvent: () => {}, appendAwayTransitionTravelogue: () => {},
+        createAwayEpisode: (cat, plan, at, decision, provenance, options) => {
+            const episode = away.createEpisode(cat, plan, at, decision, provenance, options);
+            episodes.push(episode); return episode;
+        },
+        requestStructuredEngine: (prompt, options) => new Promise((resolve, reject) => {
+            events.push('AI'); requests.push({ prompt, options, resolve, reject });
+            assert.equal(durable.cats[0].ordinaryAwayOperation.mailDecision.shouldWrite,
+                residents[0].ordinaryAwayOperation.mailDecision.shouldWrite, 'frozen plan saved before AI');
+        })
+    });
+    vm.runInContext(extract('                const isPhysicalAwayMailboxRow =', '                const getDeliveredPhysicalAwayMailCountForOperationalDay =') +
+        qualificationSlice + deferredSlice + decisionsSlice + enforcementSlice + autonomySlice +
+        '\nglobalThis.api = { prepare: prepareAwayMailConsideration, persist: persistAwayMailChanges, status: prepareStatusSyncAwayMailDecisions, reconcile: reconcileOrdinaryAwayAutonomy };', ctx);
+    const status = (cat = residents[0], carriedDecisions = {}) => ctx.api.status({
+        presenceDirectives: { [cat.id]: 'DEPARTING_NOW' }, requestedCats: [cat], hallId: cat.hallId, carriedDecisions, now: new Clock()
+    });
+    return { ctx, owner, residents, events, requests, status, rolls: () => rollCalls, saved: () => durable,
+        advance: ms => { now += ms; }, failSave: () => { works = false; }, allowSave: () => { works = true; },
+        reconcile: () => ctx.api.reconcile(new Clock()) };
+}
+assert.equal(away.createMailDecision(rolls(20, 60), 20).shouldWrite, true);
+assert.equal(away.createMailDecision(rolls(21), 20).shouldWrite, false);
+assert.equal(away.normalizeMailDecision({ roll: null, shouldWrite: false }).roll, null);
+assert.equal(away.normalizeMailDecision({ roll: null, shouldWrite: true }), null);
+assert.equal(away.normalizeMailDecision({ shouldWrite: false }), null);
+assert.throws(() => away.createMailDecision(rolls(1), 101));
+
+let c = cadence();
+// Invalid/no opportunity never rolls, grants or dispatches.
+delete c.residents[0].nextAwayOpportunityAt;
+assert.equal(c.status().telemachus.shouldWrite, false);
+assert.equal(c.rolls(), 0); assert.equal(c.requests.length, 0);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined);
+c.residents[0].curatorRoomPresence = { anchor: 'desk' };
+const rejected = c.ctx.api.prepare(c.residents[0], 'gotham', 'op', new Date(t0));
+assert.equal(rejected.decision.shouldWrite, false); assert.equal(c.rolls(), 0);
+assert.equal(c.ctx.api.prepare(c.residents[1], 'wrong', 'op', new Date(t0)).decision.shouldWrite, false);
+
+// Inspection alone freezes a draft without advancing the durable grant.
+c = cadence();
+const inspection = c.ctx.api.prepare(c.residents[0], 'gotham', `ordinary-away:telemachus:${t0 - 1}`, new Date(t0));
+assert.equal(inspection.decision.shouldWrite, true);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined);
+assert.equal(c.residents[0].awayMailConsideration, undefined);
+assert.equal(c.requests.length, 0); assert.equal(c.events.length, 0);
+assert.equal(c.status().telemachus.shouldWrite, true); assert.equal(c.rolls(), 2);
+
+// Miss, repeated checks, save failure/retry, reload and cache identity.
+c = cadence({ values: [21] }); c.failSave();
+assert.equal(c.status(), null); assert.equal(c.rolls(), 1);
+assert.equal(c.residents[0].awayMailConsideration, undefined);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined);
+c.allowSave(); assert.equal(c.status().telemachus.shouldWrite, false);
+assert.equal(c.status().telemachus.shouldWrite, false); assert.equal(c.rolls(), 1);
+let reloaded = cadence({ saved: c.saved(), values: [] });
+assert.equal(reloaded.status().telemachus.shouldWrite, false); assert.equal(reloaded.rolls(), 0);
+assert.equal(reloaded.owner.lastAwayLetterGrantedAt, undefined);
+
+// New positive qualification is not published on failed save; successful save
+// owns the grant. A reused qualification never advances the clock.
+c = cadence(); c.failSave();
+assert.equal(c.status(), null); assert.equal(c.rolls(), 2);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined); assert.equal(c.requests.length, 0);
+c.allowSave(); c.advance(60_000);
+assert.equal(c.status().telemachus.shouldWrite, true);
+const grant = c.owner.lastAwayLetterGrantedAt;
+assert.equal(grant, new Date(t0 + 60_000).toISOString());
+c.advance(hour);
+assert.equal(c.status().telemachus.shouldWrite, true);
+assert.equal(c.owner.lastAwayLetterGrantedAt, grant); assert.equal(c.rolls(), 2);
+// Another resident's negative receipt is independent and remains negative after
+// cooldown expiry and reload. A later real opportunity may receive a new roll.
+assert.equal(c.status(c.residents[1]).zagreus.shouldWrite, false); assert.equal(c.rolls(), 2);
+assert.equal(c.residents[1].awayMailConsideration.decision.roll, null);
+assert.notEqual(c.residents[0].awayMailConsideration.opportunityId, c.residents[1].awayMailConsideration.opportunityId);
+reloaded = cadence({ saved: c.saved(), values: [] }); reloaded.advance(9 * hour);
+assert.equal(reloaded.status(reloaded.residents[1]).zagreus.shouldWrite, false);
+assert.equal(reloaded.rolls(), 0); assert.equal(reloaded.owner.lastAwayLetterGrantedAt, grant);
+reloaded.residents[1].nextAwayOpportunityAt = new Date(t0 + 9 * hour).toISOString();
+reloaded.ctx.rollPercent = rolls(20, 61);
+assert.equal(reloaded.status(reloaded.residents[1]).zagreus.shouldWrite, true);
+assert.equal(reloaded.owner.lastAwayLetterGrantedAt, new Date(t0 + 9 * hour).toISOString());
+
+// One Status request with two new departures authorizes at most one grant,
+// saving the positive and blocked decisions atomically. Exact 8h allows a NEW event.
+c = cadence();
+const both = c.ctx.api.status({ presenceDirectives: { telemachus: 'DEPARTING_NOW', zagreus: 'DEPARTING_NOW' },
+    requestedCats: c.residents, hallId: 'gotham', carriedDecisions: {}, now: new Date(t0) });
+assert.equal(both.telemachus.shouldWrite, true); assert.equal(both.zagreus.shouldWrite, false);
+assert.equal(c.rolls(), 2); assert.equal(c.events.length, 1);
+c.advance(8 * hour);
+c.residents[1].nextAwayOpportunityAt = new Date(t0 + 8 * hour).toISOString();
+c.ctx.rollPercent = rolls(20, 61);
+assert.equal(c.status(c.residents[1]).zagreus.shouldWrite, true);
+assert.equal(c.owner.lastAwayLetterGrantedAt, new Date(t0 + 8 * hour).toISOString());
+
+// Delivery time is a conservative reader only, never backfilled as a grant.
+c = cadence({ values: [] }); c.owner.mailbox.push({ deliveredAt: new Date(t0 - hour).toISOString() });
+assert.equal(c.status().telemachus.shouldWrite, false); assert.equal(c.rolls(), 0);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined);
+// Old positive decisions remain valid under the new chance and cost no grant.
+c = cadence({ values: [] });
+assert.equal(c.status(c.residents[0], { telemachus: souvenirAtBoundary }).telemachus.shouldWrite, true);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined); assert.equal(c.rolls(), 0);
+
+// Real ordinary reconciliation saves operation + frozen result + grant together.
+c = cadence(); c.failSave();
+assert.equal(c.reconcile(), false); assert.equal(c.requests.length, 0);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined);
+assert.equal(c.residents[0].ordinaryAwayOperation, undefined);
+c.allowSave(); assert.equal(c.reconcile(), true);
+assert.equal(c.requests.length, 1); assert.equal(c.rolls(), 2);
+assert.deepEqual(c.events, ['save', 'save', 'AI']);
+const ordinaryGrant = c.owner.lastAwayLetterGrantedAt;
+assert.equal(c.saved().user.lastAwayLetterGrantedAt, ordinaryGrant);
+assert.ok(c.saved().cats[0].awayMailConsideration);
+assert.match(c.requests[0].prompt, /shouldWrite=true/);
+assert.doesNotMatch(c.requests[0].prompt, /PRIVATE_CHAT|PRIVATE_VOICE|PRIVATE_OWNER/);
+assert.equal(c.reconcile(), false); assert.equal(c.requests.length, 1);
+c.requests[0].reject(new Error('mock provider failure after successful grant'));
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(c.owner.lastAwayLetterGrantedAt, ordinaryGrant);
+assert.equal(c.status(c.residents[1]).zagreus.shouldWrite, false, 'no compensating departure grant');
+c.advance(30 * 60_000); assert.equal(c.reconcile(), true);
+assert.equal(c.requests.length, 2); assert.equal(c.rolls(), 2);
+assert.equal(c.owner.lastAwayLetterGrantedAt, ordinaryGrant, 'planning retry does not extend grant');
+const response = JSON.stringify({ ...basePlan([letter(attachment)]), residentId: 'telemachus' });
+assert.equal(c.requests[1].options.validateResponse(response), true);
+c.requests[1].resolve(response); await new Promise(resolve => setImmediate(resolve));
+assert.equal(c.residents[0].isOut, true);
+assert.equal(c.residents[0].ordinaryAwayOperation, null);
+assert.equal(c.ctx.awayEpisodes.value.length, 1);
+assert.equal(c.ctx.awayEpisodes.value[0].mailPlan.length, 1);
+assert.equal(c.owner.lastAwayLetterGrantedAt, ordinaryGrant);
+// Chance miss still starts ONE necessary combined Away plan, no letter request.
+c = cadence({ values: [21] }); assert.equal(c.reconcile(), true);
+assert.equal(c.requests.length, 1); assert.match(c.requests[0].prompt, /shouldWrite=false/);
+assert.match(c.requests[0].prompt, /"mailPlan":\[\]/);
+assert.equal(c.owner.lastAwayLetterGrantedAt, undefined);
+c.requests[0].reject(new Error('mock cleanup')); await new Promise(resolve => setImmediate(resolve));
+
+// Calendar date derives only from stored canonical time, never now/op-day.
+const dateContext = vm.createContext({ parseLogicalDate });
+vm.runInContext(extract('                const formatMailboxDate =', '                const getMailOperationalDayKey =') +
+    '\nglobalThis.formatDate = formatMailboxDate;', dateContext);
+const dateOptions = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false };
+for (const sentAt of ['2026-10-05T18:20:00Z', '2026-10-04T18:20:00Z', '2025-12-31T23:48:00Z']) {
+    const mail = { sentAt, deliveredAt: '2026-10-05T23:00:00Z', operationalDayKey: 'WRONG_DAY' };
+    const expected = new Date(sentAt).toLocaleString(undefined, dateOptions);
+    assert.equal(dateContext.formatDate(mail), expected);
+    assert.equal(dateContext.formatDate(clone(mail)), expected);
+}
+assert.equal(dateContext.formatDate({ sentAt: 'invalid', deliveredAt: '2025-12-31T23:48:00Z' }),
+    new Date('2025-12-31T23:48:00Z').toLocaleString(undefined, dateOptions));
+assert.equal(dateContext.formatDate({ deliveryClaimedAt: '2025-12-31T23:48:00Z' }),
+    new Date('2025-12-31T23:48:00Z').toLocaleString(undefined, dateOptions));
+for (const sentAt of [null, '', undefined, 'invalid']) {
+    assert.equal(dateContext.formatDate({ sentAt, date: '18:20', operationalDayKey: '2026-10-05' }), '18:20 · 日期未知');
+}
+assert.equal(dateContext.formatDate({ sentAt: t0 }), new Date(t0).toLocaleString(undefined, dateOptions));
+assert.equal(dateContext.formatDate({ sentAt: 0 }), '日期未知');
+assert.equal(dateContext.formatDate({}), '日期未知');
+assert.equal((source.match(/checkMailboxLogic/g) || []).length, 1, 'dormant producer stays dormant');
+console.log('T5 cadence/date: 20% boundary, 8h saved grant, no reroll, failed-save/provider boundaries, real departure planner, calendar date PASS');
