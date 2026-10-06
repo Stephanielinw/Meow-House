@@ -645,6 +645,119 @@ assert.ok([...claimSaveFail.timers.values()].every(timer => timer.delay >= 30_00
 const disposed = makeM2(); disposed.send('disposed'); disposed.setClock(disposed.current().generationDueAt);
 disposed.sandbox.statusRefreshDisposed = true; await disposed.tick(); assert.equal(disposed.requests.length, 0);
 
+{
+// M3 checks what the model receives, not subjective prose quality.
+// Use the real shared prompt builder and the unchanged production validator.
+const qualitySandbox = {
+  cleanText: value => String(value ?? '').replace(/\s+/g, ' ').trim(),
+  getCanonicalCatId: String, getInteractionHolidayContext: () => '',
+  buildResidentConversationKnowledgeContext: (id, options) => {
+    assert.equal(id, 'a'); assert.equal(options.channel, 'phone-reply');
+    assert.equal(options.intentionalConversation, true); assert.equal(options.hasOtherResidentOutput, false);
+    assert.deepEqual(Array.from(options.frozenSnapshots, item => item.text), ['AUTHORIZED KNOWLEDGE']);
+    return { prompt: 'AUTHORIZED KNOWLEDGE' };
+  },
+  user: { currentStatus: 'UNSAFE GLOBAL STATUS', chat: 'OTHER PRIVATE CHAT' },
+  cats: { value: [{ id: 'b', innerVoice: 'OTHER PRIVATE INNER VOICE', relationship: 'OTHER PRIVATE RELATIONSHIP' }] },
+  callAI: () => { throw new Error('Prompt projection must not call a provider'); }
+};
+vm.createContext(qualitySandbox);
+vm.runInContext(`
+  ${section('const parsePhoneChatReplyEnvelope', 'const validatePhoneReplyKnowledgeDisclosures')}
+  ${section('const formatFrozenPhoneReplyThread', 'const stablePhoneReplyNumber')}
+  globalThis.quality = { formatFrozenPhoneReplyThread, buildPhoneReplyGenerationTask,
+    parsePhoneChatReplyEnvelope, validatePhoneChatReplyPayload };
+`, qualitySandbox);
+const q = qualitySandbox.quality;
+const qualityOpportunity = {
+  contactId: 'a', sourceMessageIds: ['q-user-2', 'q-user-1'],
+  phoneResidentContextText: 'AUTHORIZED OWN PROFILE', episodicMemoryContextText: 'AUTHORIZED LONG-TERM MEMORY',
+  phoneUserContextText: 'PUBLIC IDENTITY', phoneHallName: 'Hall', knowledgeScopeFrozen: true,
+  knowledgeFactSnapshots: [{ text: 'AUTHORIZED KNOWLEDGE' }],
+  threadContextMessages: [
+    row('q-old-user', 'user', '上周的剪辑话题。', time.toISOString()),
+    row('q-old-resident', 'assistant', '我记得你说过片头。', time.toISOString()),
+    row('q-old-user-2', 'user', '今天先不谈片头。', time.toISOString()),
+    row('q-before-1', 'assistant', '我这边忙完了。', time.toISOString()),
+    row('q-before-2', 'assistant', '你今天怎么样？', time.toISOString()),
+    row('q-user-1', 'user', '糟透了，剪辑软件还崩了两次。', time.toISOString()),
+    row('q-user-2', 'user', '你觉得我该先停一下吗？', time.toISOString(), { quotedMsg: { sender: 'A', content: '引用信息仍然保留' } })
+  ]
+};
+const qualityBefore = JSON.stringify(qualityOpportunity);
+// Frozen packets are read-only; no reordering, refreezing, widening or persistence.
+const freezeQualityInput = value => {
+  if (value && typeof value === 'object') { Object.values(value).forEach(freezeQualityInput); Object.freeze(value); }
+  return value;
+};
+freezeQualityInput(qualityOpportunity);
+const packet = q.formatFrozenPhoneReplyThread(qualityOpportunity, 'A');
+const prompt = q.buildPhoneReplyGenerationTask(qualityOpportunity, 'A');
+const awaiting = packet.slice(packet.indexOf('[USER MESSAGES AWAITING REPLY'), packet.indexOf('[PREVIOUS RESIDENT TURN]'));
+const previous = packet.slice(packet.indexOf('[PREVIOUS RESIDENT TURN]'), packet.indexOf('[RECENT THREAD CONTEXT'));
+const background = packet.slice(packet.indexOf('[RECENT THREAD CONTEXT'));
+assert.ok(awaiting.includes('糟透了，剪辑软件还崩了两次。'));
+assert.ok(awaiting.indexOf('糟透了') < awaiting.indexOf('你觉得我该先停一下吗？'), 'canonical packet order beats source ID array order');
+assert.ok(awaiting.includes('（回复 A：引用信息仍然保留）'));
+assert.ok(previous.includes('我这边忙完了。')); assert.ok(previous.includes('你今天怎么样？'));
+assert.ok(previous.indexOf('我这边忙完了。') < previous.indexOf('你今天怎么样？'));
+assert.ok(!previous.includes('糟透了')); assert.ok(!awaiting.includes('你今天怎么样？'));
+assert.ok(background.includes('上周的剪辑话题。')); assert.ok(background.includes('我记得你说过片头。'));
+assert.ok(!background.includes('你今天怎么样？')); assert.ok(!background.includes('糟透了'));
+for (const message of qualityOpportunity.threadContextMessages) {
+  assert.equal(packet.split(message.content).length - 1, 1, 'each frozen message body appears once');
+}
+assert.equal(JSON.stringify(qualityOpportunity), qualityBefore);
+const noPrevious = q.formatFrozenPhoneReplyThread({ sourceMessageIds: ['only-user'], threadContextMessages: [
+  row('only-user', 'user', '只有这一条。', time.toISOString())
+] }, 'A');
+assert.ok(noPrevious.includes('(no previous resident turn in frozen packet)'));
+assert.ok(!noPrevious.includes('A:'));
+const noSource = q.formatFrozenPhoneReplyThread({ sourceMessageIds: [], threadContextMessages: [
+  row('unclaimed', 'user', '不是待回复消息。', time.toISOString())
+] }, 'A');
+assert.ok(noSource.includes('(no awaiting message in frozen packet)'));
+assert.ok(noSource.indexOf('不是待回复消息。') > noSource.indexOf('[RECENT THREAD CONTEXT'));
+assert.ok(prompt.indexOf('[IMMEDIATE PHONE THREAD]') < prompt.indexOf('AUTHORIZED LONG-TERM MEMORY'));
+assert.ok(prompt.includes(packet));
+for (const contract of [
+  'REPLY turn continuing an existing private conversation',
+  'primary authority for what to answer', 'Respond specifically to the current user turn first',
+  'address direct questions and requests', 'one conversational beat forward',
+  'Treat consecutive awaiting messages as one conversational turn',
+  'Avoid a generic acknowledgement-only or paraphrase-only default',
+  'Allow natural topic endings', 'Use the existing personality and relationship context for HOW',
+  'do not require every reply to end with a question', 'One concise bubble is valid',
+  'Do not force extra bubbles or length'
+]) assert.ok(prompt.includes(contract), contract);
+assert.doesNotMatch(prompt, /12[–-]180|at least \d|minimum (?:bubble|length)|must (?:end|finish).*question/i);
+for (const authorized of ['AUTHORIZED OWN PROFILE', 'AUTHORIZED LONG-TERM MEMORY', 'AUTHORIZED KNOWLEDGE', 'PUBLIC IDENTITY']) {
+  assert.ok(prompt.includes(authorized));
+}
+for (const privateText of ['UNSAFE GLOBAL STATUS', 'OTHER PRIVATE CHAT', 'OTHER PRIVATE INNER VOICE', 'OTHER PRIVATE RELATIONSHIP']) {
+  assert.ok(!prompt.includes(privateText));
+}
+assert.ok(prompt.includes('Do not use the current Homepage Direct USER action'));
+assert.ok(prompt.includes('This task must not influence activeCat'));
+assert.match(directSource, /buildPhoneReplyGenerationTask\(claimedPhoneOpportunity,/);
+assert.match(section('const runPhoneReplyOpportunity', 'const reconcilePhoneReplyOpportunities'), /buildPhoneReplyGenerationTask\(opportunity,/);
+assert.match(section('const runPhoneReplyOpportunity', 'const reconcilePhoneReplyOpportunities'), /callAI\(prompt, CORE_ROLEPLAY_PROMPT, 500,/);
+
+// Mock outputs prove schema compatibility only: no new minimum, lexical
+// quality rejection, forced question, or forced extra bubble.
+assert.equal(q.validatePhoneChatReplyPayload(JSON.stringify({ messages: ['嗯。'], timingHint: 'normal' })), true);
+const multiBubble = { messages: ['两次？那今天确实够折腾。', '要是存档还在，我会先停一下。', '先别跟它较劲。'], timingHint: 'quick' };
+assert.equal(q.validatePhoneChatReplyPayload(JSON.stringify(multiBubble)), true);
+assert.deepEqual(Array.from(q.parsePhoneChatReplyEnvelope(JSON.stringify(multiBubble)).messages), multiBubble.messages);
+assert.equal(q.validatePhoneChatReplyPayload({ messages: ['一', '二', '三', '四'] }), true);
+assert.notEqual(q.validatePhoneChatReplyPayload({ messages: [] }), true);
+assert.notEqual(q.validatePhoneChatReplyPayload({ messages: ['一', '二', '三', '四', '五'] }), true);
+assert.notEqual(q.validatePhoneChatReplyPayload({ messages: ['长'.repeat(111)] }), true);
+assert.notEqual(q.validatePhoneChatReplyPayload({ messages: ['长'.repeat(110), '长'.repeat(110), '长'] }), true);
+assert.notEqual(q.validatePhoneChatReplyPayload({ messages: ['【转身看向你】'] }), true);
+
+}
+
 console.log(JSON.stringify({
   fixture: 'phone-reply-generation-delivery-v2',
   status: 'PASS',
@@ -657,6 +770,8 @@ console.log(JSON.stringify({
     'M1-canonical-order', 'M1-cross-day', 'M1-live-archive-dedupe', 'M1-contact-privacy',
     'M1-source-integrity', 'M1-batching-freeze', 'M1-completion-isolation', 'M1-terminal-head', 'M1-send-persistence',
     'M2-stable-timing', 'M2-zero-send-AI', 'M2-due-CAS', 'M2-reload-overdue', 'M2-sidecar-race',
-    'M2-lane-order', 'M2-no-double-delay', 'M2-waiting-states', 'M2-provider-attempts-exactly-four', 'M2-privacy'
+    'M2-lane-order', 'M2-no-double-delay', 'M2-waiting-states', 'M2-provider-attempts-exactly-four', 'M2-privacy',
+    'M3-labeled-current-turn', 'M3-previous-resident-turn', 'M3-batched-order', 'M3-thread-priority',
+    'M3-specific-one-beat-contract', 'M3-no-forced-question-length', 'M3-short-multi-schema', 'M3-frozen-privacy'
   ]
 }));

@@ -20075,14 +20075,31 @@ RULES:
                     schedulePhoneReplyReconciliation();
                     return persisted;
                 };
-                const formatFrozenPhoneReplyThread = (opportunity, contactName) => (opportunity?.threadContextMessages || [])
-                    .map(message => {
+                const formatFrozenPhoneReplyThread = (opportunity, contactName) => {
+                    const messages = opportunity?.threadContextMessages || [];
+                    const sourceIds = new Set((opportunity?.sourceMessageIds || []).map(String));
+                    const isAwaiting = message => message.role === 'user' && sourceIds.has(String(message.id));
+                    const firstSourceIndex = messages.findIndex(isAwaiting);
+                    let previousEnd = firstSourceIndex - 1;
+                    while (previousEnd >= 0 && messages[previousEnd].role !== 'assistant') previousEnd -= 1;
+                    let previousStart = previousEnd;
+                    while (previousStart > 0 && messages[previousStart - 1].role === 'assistant') previousStart -= 1;
+                    const isPrevious = index => previousEnd >= 0 && index >= previousStart && index <= previousEnd;
+                    const format = rows => rows.map(message => {
                         const role = message.role === 'assistant' ? contactName : 'USER';
                         const quote = message.quotedMsg?.content
-                            ? `（回复 ${message.quotedMsg.sender || '上一条'}：${message.quotedMsg.content}）`
-                            : '';
+                            ? `（回复 ${message.quotedMsg.sender || '上一条'}：${message.quotedMsg.content}）` : '';
                         return `${role}${quote}: ${message.content}`;
                     }).join('\n');
+                    return [
+                        '[USER MESSAGES AWAITING REPLY — ONE USER TURN]',
+                        format(messages.filter(isAwaiting)) || '(no awaiting message in frozen packet)',
+                        '[PREVIOUS RESIDENT TURN]',
+                        format(messages.filter((_, index) => isPrevious(index))) || '(no previous resident turn in frozen packet)',
+                        '[RECENT THREAD CONTEXT — BACKGROUND ONLY]',
+                        format(messages.filter((message, index) => !isAwaiting(message) && !isPrevious(index))) || '(no additional thread context)'
+                    ].join('\n');
+                };
                 const buildPhoneReplyGenerationTask = (opportunity, contactName, holidayContext = getInteractionHolidayContext()) => {
                     const residentId = getCanonicalCatId(opportunity?.contactId);
                     const conversationKnowledge = opportunity?.knowledgeScopeFrozen
@@ -20091,7 +20108,36 @@ RULES:
                             frozenSnapshots: opportunity.knowledgeFactSnapshots
                         })
                         : { prompt: '' };
-                    return `[PHONE CONVERSATION CONTINUITY]\nThis is a direct reply to USER in an existing Phone conversation.\nReply to USER's latest claimed message(s) in the exact recent thread below.\nContinue the current topic unless USER clearly changed it.\nDo not behave as though you are initiating a new proactive conversation.\nDo not introduce an unrelated greeting, check-in, or new topic merely to start another conversation.\n\n[PHONE CHANNEL AUTHORITY]\nUse only this PHONE section and its frozen Phone-authorized context for phoneReply.\nDo not use the current Homepage Direct USER action, Direct recent conversation, Direct-only episodic retrieval, Direct reply, or Direct transient scene/presence facts.\nThis task must not influence activeCat. It is a logically separate channel sharing only transport and the exact same resident.\n\n${holidayContext}\n[PHONE RESIDENT SNAPSHOT]\n${opportunity?.phoneResidentContextText || ''}\n${opportunity?.episodicMemoryContextText || ''}\n${conversationKnowledge.prompt || ''}\n${opportunity?.phoneUserContextText || ''}\n- Phone hall boundary: ${opportunity?.phoneHallName || 'Meeow House'}\n\n[RECENT PHONE THREAD]\n${formatFrozenPhoneReplyThread(opportunity, contactName) || '(no usable prior row)'}\n\n[PHONE REPLY OUTPUT]\nReturn 1–4 natural Simplified Chinese chat bubbles that directly continue this thread. No action brackets, stage directions, narration, speaker labels, roleplay explanation, cat-form secret, or unrelated opening topic. Total 12–180 Chinese characters; each bubble at most 110 characters.\nUse timingHint quick, normal, or slow. Never output a timestamp.\nShape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowledgeDisclosures":[{"factRef":"K1","bubbleIndex":0,"evidence":"含完整事实的该气泡原文片段"}]}. knowledgeDisclosures is optional and must obey the supplied exact-evidence rules.`;
+                    return `[PHONE CONVERSATION CONTINUITY]
+This is a REPLY turn continuing an existing private conversation, because USER sent the unresolved message(s) below. It is not a proactive opener, diary, status update, conversation summary, or customer-service acknowledgement.
+The USER MESSAGES AWAITING REPLY are the primary authority for what to answer. PREVIOUS RESIDENT TURN supplies adjacency; RECENT THREAD CONTEXT supplies continuity only. Character context, relationship, memory and world context support this turn; they must not replace or contradict what USER said.
+Respond specifically to the current user turn first: answer, react, clarify, disagree, comfort or tease as appropriate. Normally address direct questions and requests you can reasonably answer; express uncertainty instead of inventing unavailable facts.
+Treat consecutive awaiting messages as one conversational turn in their supplied order. Engage with materially important points holistically; do not number responses or assign one bubble per user message.
+When natural, move approximately one conversational beat forward with a related thought, small personal reaction, observation, callback, teasing or a genuinely relevant question. Do not force a new topic or a question, and do not require every reply to end with a question.
+Avoid a generic acknowledgement-only or paraphrase-only default when there is something specific to engage with. A genuinely brief response remains valid. Allow natural topic endings when USER closes the topic or the character/context calls for it; do not reopen every ending.
+Use the existing personality and relationship context for HOW to respond. Reserved residents may reveal less while still responding meaningfully; familiarity must match authorized relationship context. Do not make every resident equally chatty.
+
+[PHONE CHANNEL AUTHORITY]
+Use only this PHONE section and its frozen Phone-authorized context for phoneReply.
+Do not use the current Homepage Direct USER action, Direct recent conversation, Direct-only episodic retrieval, Direct reply, or Direct transient scene/presence facts.
+This task must not influence activeCat. It is a logically separate channel sharing only transport and the exact same resident.
+
+[IMMEDIATE PHONE THREAD]
+${formatFrozenPhoneReplyThread(opportunity, contactName)}
+
+${holidayContext}
+[PHONE RESIDENT SNAPSHOT — SUPPORTING CONTEXT]
+${opportunity?.phoneResidentContextText || ''}
+${opportunity?.episodicMemoryContextText || ''}
+${conversationKnowledge.prompt || ''}
+${opportunity?.phoneUserContextText || ''}
+- Phone hall boundary: ${opportunity?.phoneHallName || 'Meeow House'}
+
+[PHONE REPLY OUTPUT]
+Return 1–4 natural Simplified Chinese chat bubbles as one texting turn. One concise bubble is valid; use 2–3 or up to 4 only when the content naturally needs it. Do not force extra bubbles or length. Do not split every sentence mechanically, repeat an idea, greet separately in each bubble, or write several mini-essays.
+No action brackets, stage directions, narration, speaker labels, roleplay explanation, cat-form secret, or unrelated opening topic. Total at most 180 Chinese characters; each bubble at most 110 characters.
+Use timingHint quick, normal, or slow. Never output a timestamp.
+Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowledgeDisclosures":[{"factRef":"K1","bubbleIndex":0,"evidence":"含完整事实的该气泡原文片段"}]}. knowledgeDisclosures is optional and must obey the supplied exact-evidence rules.`;
                 };
                 const stablePhoneReplyNumber = value => {
                     let hash = 2166136261;
