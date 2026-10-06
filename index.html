@@ -5467,6 +5467,11 @@
                             {{ getResidentBreedDisplay(cat) || currentHall.catLabel || '馆内猫咪' }}
                         </div>
                         
+                        <!-- Status text -->
+                        <p @click.stop class="cat-status-preview text-[11px] text-gray-400 text-center w-full leading-relaxed mt-0.5 px-1 custom-scrollbar" :title="getResidentPresentationContent(cat).status">
+                            {{ getResidentPresentationContent(cat).status }}
+                        </p>
+
                         <button v-if="momentForResident(cat)" type="button" :class="['meeow-moment-button', momentForResident(cat).kind]" :aria-label="momentNames(momentForResident(cat)) + ' · ' + momentLabel(momentForResident(cat))" @click.stop="openCharacterMoment(momentForResident(cat))"><svg aria-hidden="true"><use :href="'#moment-icon-' + momentForResident(cat).kind" /></svg></button>
 
                         <div v-if="cat.isVisiting" class="w-full text-center text-[9px] text-sky-300 bg-sky-950/40 border border-sky-500/20 rounded-lg px-2 py-1 mt-1">
@@ -5602,6 +5607,7 @@
                     </div>
                     <aside v-if="mapPreviewCat" class="meeow-map-status-card" @click.stop>
                         <div class="flex items-center justify-between gap-2"><strong class="text-xs">{{ getResidentPublicName(mapPreviewCat) }}</strong><span class="text-[9px]" style="color: var(--accent);">单击查看 · 双击进入</span></div>
+                        <p>{{ getResidentPresentationContent(mapPreviewCat).status }}</p>
                         <button v-if="momentForResident(mapPreviewCat)" type="button" @click="openCharacterMoment(momentForResident(mapPreviewCat))">{{ momentLabel(momentForResident(mapPreviewCat)) }}</button>
                         <button type="button" @click="openMapCatDetail(mapPreviewCat)" class="mt-2 text-[10px] font-black" style="color: var(--accent);"><i class="fas fa-arrow-right mr-1"></i>进入小猫主页</button>
                     </aside>
@@ -5953,14 +5959,19 @@
                                     <i class="fa-solid fa-eye mr-0.5"></i> {{ getResidentEyeColorDisplay(selectedCat) || '??' }}
                                 </span>
                             </div>
-
+                            <p class="text-[10px] text-yellow-500/90 mt-1 font-mono leading-relaxed break-words">
+                                动态: {{ getResidentPresentationContent(selectedCat).status }}
+                            </p>
                             <p v-if="isResidentAway(selectedCat)" class="text-[10px] mt-1 leading-relaxed" style="color: var(--ui-text-muted);">
                                 正在外出，可能无法及时回应；这不代表它不想联系你。
                             </p>
                         </div>
                     </div>
 
-
+                    <!-- Inner Voice Monologue -->
+                    <div class="mt-3 bg-black/40 border-l-2 border-yellow-500 rounded-r-xl p-2.5 text-[11px] text-gray-300 italic font-serif leading-relaxed" v-if="getResidentPresentationContent(selectedCat).innerThought">
+                        "{{ getResidentPresentationContent(selectedCat).innerThought }}"
+                    </div>
                 </div>
 
                 <!-- Special Invite Banner -->
@@ -12704,13 +12715,29 @@ ${buildLeanForegroundContext(cat)}`;
                     },
                     progress: recordHallEpisodeProgress
                 };
-                // Canonical internal API only. Visible readers remain unchanged until T8.
-                const getResidentEpisodeContent = cat => {
+                // Default internal contract stays ACTIVE-only; T8 may read a legal paused static beat.
+                const getResidentEpisodeContent = (cat, { allowPaused = false } = {}) => {
                     if (!isHallEpisodeOwned(cat)) return null;
                     const { plan, row } = getHallEpisodeRow(cat);
                     const beat = row.beats.find(beat => beat.state === 'active' && beat.startAt <= Date.now() && beat.endAt > Date.now());
                     const runtime = spatialAmbientSnapshot.value.residents.find(runtime => runtime.id === String(cat.id));
-                    if (!beat || runtime?.episodeBeatId !== beat.id || runtime.behaviorLifecycleState !== 'ACTIVE') return null;
+                    if (!beat || runtime?.episodeBeatId !== beat.id ||
+                        !['ACTIVE', ...(allowPaused ? ['PAUSED'] : [])].includes(runtime.behaviorLifecycleState)) return null;
+                    if (allowPaused) {
+                        const marker = mapCatMarkers.value.find(marker => marker.cat === cat && marker.room === row.roomId);
+                        const domain = roomSpatialDomain.value;
+                        if (!roomSpatialReady.value || roomSpatialContextKey !== normalRoomContextKey() ||
+                            domain?.source.roomId !== row.roomId || !marker ||
+                            runtime.placementKey !== normalRoomPlacementKey(marker) ||
+                            !normalRoomCanOwn(cat.id, runtime.placementKey) || runtime.behaviorId !== beat.behaviorId ||
+                            !Number.isFinite(runtime.transitionGeneration) || !domain.legalPoint(runtime.foot) ||
+                            ['suspended', 'moving'].includes(runtime.state) ||
+                            Number.isFinite(runtime.activityExpectedEndAt) && runtime.activityExpectedEndAt <= performance.now() ||
+                            beat.requiresBeatId && row.beats.find(prior => prior.id === beat.requiresBeatId)?.state !== 'completed') return null;
+                        if (runtime.behaviorLifecycleState === 'PAUSED' && (runtime.state !== 'paused' ||
+                            !hallActivities.definitions[beat.behaviorId]?.stationary ||
+                            runtime.furniture && runtime.furniture.phase !== 'using')) return null;
+                    }
                     return plan.content.entries.find(entry => entry.residentId === String(cat.id) && entry.beatId === beat.id) || beat.fallback || null;
                 };
                 const collectHallEpisodeResidents = async hallId => {
@@ -22128,6 +22155,16 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                     return link ? {partnerId: String(partner.id), familiarity: link.familiarity,
                         warmth: link.warmth, trust: link.trust, tension: link.tension} : null;
                 };
+                // T8 read-only presentation projection. No legacy routine fallback while T6 owns the resident.
+                const getResidentPresentationContent = cat => {
+                    if (!isResidentInCuratorRoom(cat)) {
+                        const episode = getResidentEpisodeContent(cat, { allowPaused: true });
+                        if (episode) return { status: episode.status, innerThought: episode.innerThought };
+                        if (isHallEpisodeOwned(cat)) return { status: getNeutralDiegeticStatus(cat), innerThought: '' };
+                    }
+                    return { status: getResidentLiveStatus(cat), innerThought: getResidentLiveInnerVoice(cat) };
+                };
+                // End T8 presentation projection.
                 const getResidentCopyContext = cat => {
                     void mapCatVisualRevision.value;
                     if (!cat || !isResidentPresentationFormCompatible(cat) || isResidentAway(cat) || thinkingStates[cat.id]) return null;
@@ -33577,7 +33614,7 @@ ${episodicMemory}`;
                     fandomChangeAxis, fandomChangeFood, fandomChangeObject, fandomAcceptAppearance,
                     fandomOpenCreator, fandomAcceptReview, requestFandomCommit, confirmFandomAdoption,
                     cancelFandomInvite, restartFandomInvite,
-                    currentTab, contentArea, alfredMessage, holidayState, cats, halls, roomCats, currentHall, loungeView, activeHallId, lastMeeowLocation, selectedCat, user, settings, cleanText, getResidentEpisodeContent, getResidentObserverReaction, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentEyeColorDisplay, getResidentBreedDisplay, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
+                    currentTab, contentArea, alfredMessage, holidayState, cats, halls, roomCats, currentHall, loungeView, activeHallId, lastMeeowLocation, selectedCat, user, settings, cleanText, getResidentPresentationContent, getResidentEpisodeContent, getResidentObserverReaction, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentEyeColorDisplay, getResidentBreedDisplay, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
                     CURATOR_ROOM_VISUAL_SOURCE, CURATOR_ROOM_ANCHORS, curatorSceneOrder, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomCatVisual, curatorRoomMapPreviewCat, curatorFurnitureForeground, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     curatorSpatialDebugEnabled, curatorSpatialStage, curatorSpatialBounds, curatorSpatialDomain, curatorSpatialError, curatorSpatialSnapshot, curatorAmbientRow, curatorPresentationFacing, curatorAmbientDebug, curatorAmbientVisual, curatorAnimationDiagnostic, curatorAmbientMarkerStyle, curatorSpatialSurface, curatorAmbientLabel, curatorAmbientFootSource,
                     requestCuratorFurnitureInteraction, requestCuratorFurnitureExit, confirmCuratorFurnitureTransition,
