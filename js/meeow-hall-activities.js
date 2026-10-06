@@ -208,8 +208,44 @@
         }
         return seen.size === expected.size ? true : 'Incomplete episode content.';
     };
+    // T7 product policy. Reactions are presentation overlays, never activities.
+    const observerPolicy = Object.freeze({ range: 240, lifetime: 15000, cap: 2, textLimit: 180 });
+    const observerProbabilities = (axes = {}) => {
+        const axis = key => Number.isInteger(axes?.[key]) && Math.abs(axes[key]) <= 2 ? axes[key] : 0;
+        return { notice: .4 + .05 * axis('socialEngagement') / 2,
+            microGivenNotice: .25 + .05 * axis('emotionalExpression') / 2 };
+    };
+    const observerCategory = (roll, axes) => {
+        const { notice, microGivenNotice } = observerProbabilities(axes);
+        return roll < 1 - notice ? 'NOT_NOTICE' : roll < 1 - notice * microGivenNotice ? 'NOTICE_CONTINUE' : 'MICRO_REACTION';
+    };
+    const decideObserverReactions = ({ sourceInteractionId, targetId, startedAt, candidates }) =>
+        candidates.filter(candidate => String(candidate.id) !== String(targetId)).map(candidate => ({ candidate,
+            category: observerCategory(hash(`${sourceInteractionId}:${candidate.id}:observer-category`) / 0x100000000, candidate.axes)
+        })).filter(row => row.category !== 'NOT_NOTICE')
+            .sort((a, b) => b.candidate.salience - a.candidate.salience || String(a.candidate.id).localeCompare(String(b.candidate.id)))
+            .slice(0, observerPolicy.cap).map(({ candidate, category }) => ({
+                observerId: String(candidate.id), reactionId: `observer:${sourceInteractionId}:${candidate.id}`,
+                category, startedAt, expiresAt: startedAt + observerPolicy.lifetime
+            }));
+    const validateObserverContent = (payload, reactions) => {
+        if (!payload || Object.keys(payload).some(key => key !== 'entries') || !Array.isArray(payload.entries)) return 'Invalid observer content envelope.';
+        const expected = new Set(reactions.filter(row => row.category === 'MICRO_REACTION').map(row => `${row.observerId}|${row.reactionId}`));
+        const seen = new Set();
+        for (const entry of payload.entries) {
+            if (!entry || Object.keys(entry).some(key => !['observerId', 'reactionId', 'reactionText'].includes(key)) ||
+                typeof entry.observerId !== 'string' || typeof entry.reactionId !== 'string' ||
+                typeof entry.reactionText !== 'string' || !entry.reactionText.trim() || entry.reactionText.length > observerPolicy.textLimit)
+                return 'Invalid observer wording.';
+            const key = `${entry.observerId}|${entry.reactionId}`;
+            if (!expected.has(key) || seen.has(key)) return 'Unknown or duplicate observer reaction.';
+            seen.add(key);
+        }
+        return seen.size === expected.size ? true : 'Incomplete observer content.';
+    };
     Meeow.hallActivities = Object.freeze({ definitions, surfaceCapabilities, capabilityFor,
         buildCandidates, selectCandidate, initialBehavior, selectBehavior,
         selectPosture, durationFor, labelFor, placementSignature, validateSettled, makeSettled,
-        stageSettledSnapshot, episodeWindow, buildEpisodeWindow, validateEpisodeContent });
+        stageSettledSnapshot, episodeWindow, buildEpisodeWindow, validateEpisodeContent,
+        observerPolicy, observerProbabilities, observerCategory, decideObserverReactions, validateObserverContent });
 }(window));

@@ -25888,22 +25888,221 @@ ${buildStructuredPersonalityContext(participant)}`;
                     void reconcileAttentionBidOpportunities(now);
                     return operation;
                 };
-                const maybeQueueAttentionBidAfterHomepageDirect = ({ activeResident, sourceChatAt, userText, now = new Date() }) => {
-                    const hallId = String(getResidentPhysicalHallId(activeResident) || '');
-                    if (!hallId || hallId !== String(activeHallId.value || '') || !isAttentionBidCandidateEligible(activeResident, hallId)) return null;
-                    const sourceEventId = `homepage-direct:${String(activeResident.id)}:${String(sourceChatAt || '')}`;
-                    if (!sourceChatAt) return null;
-                    const explicit = extractExplicitPublicAttentionEvent({ text: userText, activeResident, hallId });
-                    if (explicit) return queueAttentionBidOpportunity({
-                        source: 'explicit-public', sourceEventId, activeResident, hallId, publicEvent: explicit, now,
-                        authorizedObject: getAttentionAuthorizedObjectSnapshot()
-                    });
-                    if (getRecentAmbientEngagementCount(activeResident, hallId, now.getTime()) < ATTENTION_AMBIENT_ENGAGEMENT_THRESHOLD) return null;
-                    return queueAttentionBidOpportunity({
-                        source: 'ambient-engagement', sourceEventId, activeResident, hallId, now,
-                        authorizedObject: getAttentionAuthorizedObjectSnapshot()
-                    });
+                // T7 observer reaction authority.
+                // The Hall batch is the only saved authority; these guards retain
+                // unsaved decisions and distinguish live requests from reload recovery.
+                const observerReactionDrafts = new Map();
+                const observerReactionInFlight = new WeakMap();
+                const observerTargetAuthority = cat => JSON.stringify([String(cat.id), getResidentPhysicalHallId(cat),
+                    getResidentForm(cat), cat.lastFormChangeAt || '', cat.mapRoom || '', cat.mapPoint || '',
+                    cat.mapSpot || '', cat.lastStatusUpdateTime || '', Boolean(cat.isOut), Boolean(cat.isVisiting)]);
+                const observerHallVisible = hallId => !statusRefreshDisposed && document.visibilityState !== 'hidden' &&
+                    isContextuallyViewingHallPresentation(hallId);
+                const observerContact = (cat, target = false, now = Date.now()) => {
+                    const domain = roomSpatialDomain.value, hallId = String(activeHallId.value);
+                    if (!cat || !observerHallVisible(hallId) || !roomSpatialReady.value ||
+                        roomSpatialContextKey !== normalRoomContextKey() || domain?.source.roomId !== activeMapRoom.value ||
+                        !isResidentInHall(cat) || isResidentAway(cat) || isResidentInCuratorRoom(cat) ||
+                        String(getResidentPhysicalHallId(cat)) !== hallId || cat.mapRoom !== activeMapRoom.value ||
+                        hasHigherHallPresentationOwner(cat.id) || (!target && thinkingStates[cat.id])) return null;
+                    const marker = mapCatMarkers.value.find(row => row.cat === cat && row.room === activeMapRoom.value);
+                    const row = spatialAmbientSnapshot.value.residents.find(row => row.id === String(cat.id));
+                    if (!marker || !row || row.placementKey !== normalRoomPlacementKey(marker) ||
+                        !Number.isFinite(row.foot?.x) || !Number.isFinite(row.foot?.y) || !domain.legalPoint(row.foot) ||
+                        !Number.isFinite(row.transitionGeneration) || ['moving', 'suspended'].includes(row.state)) return null;
+                    if (!target) {
+                        if (!normalRoomCanOwn(cat.id, row.placementKey) || row.behaviorId === 'sleep' ||
+                            !hallActivities.definitions[row.behaviorId]?.stationary ||
+                            !['ACTIVE', 'PAUSED'].includes(row.behaviorLifecycleState) ||
+                            !['activity', 'paused'].includes(row.state) ||
+                            row.furniture && row.furniture.phase !== 'using') return null;
+                        if (row.state === 'paused' || row.episodeBeatId) {
+                            const episode = getHallEpisodeRow(cat);
+                            if (episode?.row.state !== 'valid' || !episode.row.beats.some(beat =>
+                                beat.id === row.episodeBeatId && beat.state === 'active' && beat.startAt <= now && beat.endAt > now)) return null;
+                        }
+                        if (Number.isFinite(row.activityExpectedEndAt) && row.activityExpectedEndAt <= now) return null;
+                    }
+                    return { roomId: activeMapRoom.value, foot: { x: row.foot.x, y: row.foot.y },
+                        key: JSON.stringify([row.placementKey, row.transitionGeneration, row.behaviorInstanceId,
+                            row.episodeBeatId, row.foot.x, row.foot.y, domain.geometryVersion]) };
                 };
+                const captureObserverInteractionSource = cat => {
+                    const contact = observerContact(cat, true);
+                    return contact && { resident: cat, hallId: String(activeHallId.value), contact,
+                        authority: observerTargetAuthority(cat), domain: roomSpatialDomain.value };
+                };
+                const observerSalience = (candidate, target, sourceId) => {
+                    // Only the public canonical-label component of old Attention scoring.
+                    // No affinity, recent private interaction, owner status or trait prose.
+                    const label = String(getCanonicalRelationshipBaseline(candidate, target)?.label || '').toLocaleLowerCase();
+                    const score = /(?:competitive|竞争|protective|保护|affectionate|亲昵)/.test(label) ? 2 : 0;
+                    return score * 1000 + stableAttentionHash(`${sourceId}:${candidate.id}`) % 1000;
+                };
+                const observerBatchCurrent = (hall, batch, now = Date.now()) => {
+                    const target = cats.value.find(cat => String(cat.id) === batch?.targetId);
+                    return Boolean(batch?.version === 1 && halls.value.includes(hall) &&
+                        hall.currentObserverReactionBatch?.sourceInteractionId === batch.sourceInteractionId &&
+                        batch.hallId === String(hall.id) && observerHallVisible(batch.hallId) &&
+                        batch.roomId === activeMapRoom.value && now < batch.expiresAt && target &&
+                        isResidentInHall(target) && !isResidentInCuratorRoom(target) && !isResidentAway(target) &&
+                        observerTargetAuthority(target) === batch.targetAuthority &&
+                        Number(target.lastInteractionTimestamp || 0) === batch.targetInteractionAt &&
+                        target.todayInteractions?.some(record => record.id === batch.sourceInteractionId &&
+                            record.observerReactionEvaluated === true && record.interactionEpisodeId === batch.interactionEpisodeId));
+                };
+                const currentObserverReaction = (batch, reaction, now = Date.now()) => {
+                    const cat = cats.value.find(cat => String(cat.id) === reaction.observerId);
+                    const contact = cat && observerContact(cat, false, now);
+                    return Boolean(cat && contact && hallEpisodeAuthority(cat) === reaction.authority &&
+                        contact.key === reaction.contactKey && contact.roomId === batch.roomId &&
+                        hallNavigation.distance(contact.foot, batch.targetFoot) <= hallActivities.observerPolicy.range);
+                };
+                const saveObserverReactionBatch = (hall, batch, sourceRecord = null) => {
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const savedHall = snapshot.halls.find(row => String(row.id) === String(hall.id));
+                    if (!savedHall) return false;
+                    savedHall.currentObserverReactionBatch = batch;
+                    if (sourceRecord) {
+                        const record = snapshot.cats.find(cat => String(cat.id) === batch.targetId)?.todayInteractions
+                            ?.find(record => record.id === sourceRecord.id);
+                        if (!record) return false;
+                        record.observerReactionEvaluated = true;
+                    }
+                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true) return false;
+                    // Supersession changes current presentation only. The previous
+                    // source record and T6 completed history are never rewritten.
+                    hall.currentObserverReactionBatch = batch;
+                    if (sourceRecord) sourceRecord.observerReactionEvaluated = true;
+                    return true;
+                };
+                const dispatchObserverReactionContent = (hall, now = Date.now()) => {
+                    const batch = hall.currentObserverReactionBatch;
+                    if (!batch || batch.content.state !== 'unclaimed') return;
+                    const needed = batch.reactions.filter(row => row.category === 'MICRO_REACTION');
+                    const eligible = observerBatchCurrent(hall, batch, now) &&
+                        needed.every(row => currentObserverReaction(batch, row, now));
+                    const next = JSON.parse(JSON.stringify(batch));
+                    next.content = { state: needed.length && settings.apiKey && eligible ? 'claimed' : 'fallback', entries: [] };
+                    if (!saveObserverReactionBatch(hall, next) || next.content.state !== 'claimed') return;
+                    const flight = { sourceId: batch.sourceInteractionId };
+                    observerReactionInFlight.set(hall, flight);
+                    const current = () => observerReactionInFlight.get(hall) === flight &&
+                        hall.currentObserverReactionBatch?.content.state === 'claimed' &&
+                        observerBatchCurrent(hall, batch) && needed.every(row => currentObserverReaction(batch, row));
+                    // Never awaited by the target reply. Public packet construction
+                    // and dispatch share one failure/cleanup boundary.
+                    void Promise.resolve().then(() => {
+                        if (!current()) throw new Error('Stale observer content claim');
+                        const target = cats.value.find(cat => String(cat.id) === batch.targetId);
+                        const participants = [target, ...needed.map(row => cats.value.find(cat => String(cat.id) === row.observerId))];
+                        const peerLines = buildPublicSharedPeerRelationshipLines(participants);
+                        const packet = needed.map(row => {
+                            const cat = cats.value.find(cat => String(cat.id) === row.observerId);
+                            // The broader identity block includes private USER affinity.
+                            // This surface needs only canon plus shared ambient identity.
+                            return [`[PUBLIC CANON PROFILE]\n${cat.prompt || cat.personality || ''}`, buildLeanAmbientContext(cat, { status: '',
+                                publicRelationshipLines: peerLines.get(row.observerId) || [] }),
+                                JSON.stringify({ observerId: row.observerId, reactionId: row.reactionId })].join('\n');
+                        }).join('\n---\n');
+                        const prompt = `[HALL OBSERVER REACTION · CONTENT ONLY]\n${buildAuthoritativeUserIdentityContext()}\n` +
+                            `Authorized surface fact only: USER is interacting with ${getResidentPublicName(target)}.\n${packet}\n` +
+                            'Write a small original Simplified Chinese reaction to noticing that interaction while continuing the existing activity. ' +
+                            'The dialogue, reply, private thoughts and memories are unavailable. Do not infer them. No approach, speech to the target, new action, history, object result, relationship or memory consequence. ' +
+                            'Return only {"entries":[{"observerId":"...","reactionId":"...","reactionText":"..."}]}, one concise line per frozen pair, at most 180 characters. No extra keys or participants.';
+                        return requestSharedHallContent(prompt, { priority: 'background', uiMode: 'background',
+                            origin: 'world-autonomy', originSurface: 'hall-observer', maxAttempts: 1,
+                            generationEpisode: `hall-observer:${batch.hallId}:${batch.sourceInteractionId}`,
+                            generationSignature: JSON.stringify({ sourceId: batch.sourceInteractionId, packet }),
+                            isCurrentGeneration: current,
+                            validateResponse: text => current() && hallActivities.validateObserverContent(parseAIJSON(text), batch.reactions) || 'Stale observer content.',
+                            label: `HALL OBSERVER · ${hall.name}` });
+                    }).then(text => {
+                        if (!current()) return;
+                        const payload = parseAIJSON(text);
+                        if (hallActivities.validateObserverContent(payload, batch.reactions) !== true) throw new Error('Invalid observer content');
+                        const accepted = JSON.parse(JSON.stringify(hall.currentObserverReactionBatch));
+                        accepted.content = { state: 'accepted', entries: payload.entries };
+                        saveObserverReactionBatch(hall, accepted);
+                    }).catch(() => {
+                        if (!current()) return;
+                        const fallback = JSON.parse(JSON.stringify(hall.currentObserverReactionBatch));
+                        fallback.content = { state: 'fallback', entries: [] }; saveObserverReactionBatch(hall, fallback);
+                    }).finally(() => { if (observerReactionInFlight.get(hall) === flight) observerReactionInFlight.delete(hall); });
+                };
+                const queueObserverReactions = ({ activeResident, sourceRecord, sourceContext, interactionEpisodeId, now = new Date() }) => {
+                    if (!sourceContext || sourceContext.resident !== activeResident || !cats.value.includes(activeResident) ||
+                        !sourceRecord?.id || sourceRecord.type !== 'chat-reply' || sourceRecord.source !== 'detail-chat' ||
+                        sourceRecord.interactionEpisodeId !== interactionEpisodeId || sourceRecord.observerReactionEvaluated ||
+                        !observerHallVisible(sourceContext.hallId) || sourceContext.domain !== roomSpatialDomain.value ||
+                        observerTargetAuthority(activeResident) !== sourceContext.authority ||
+                        observerContact(activeResident, true)?.key !== sourceContext.contact.key) return false;
+                    const hall = halls.value.find(hall => String(hall.id) === sourceContext.hallId);
+                    if (!hall) return false;
+                    const startedAt = new Date(sourceRecord.at).getTime();
+                    if (!Number.isFinite(startedAt)) return false;
+                    let draft = observerReactionDrafts.get(hall);
+                    if (Math.max(draft?.batch.startedAt || 0, hall.currentObserverReactionBatch?.startedAt || 0) > startedAt) return false;
+                    if (draft?.batch.sourceInteractionId !== sourceRecord.id) {
+                        const candidates = cats.value.filter(cat => String(cat.id) !== String(activeResident.id)).map(cat => {
+                            const contact = observerContact(cat, false, now.getTime());
+                            if (!contact || hallNavigation.distance(contact.foot, sourceContext.contact.foot) > hallActivities.observerPolicy.range) return null;
+                            const personality = personalityRuntime.getResidentRuntimePersonality(cat.id);
+                            return { id: String(cat.id), contactKey: contact.key, authority: hallEpisodeAuthority(cat),
+                                axes: personality.state === 'profiled' ? personality.axes : {},
+                                salience: observerSalience(cat, activeResident, sourceRecord.id) };
+                        }).filter(Boolean);
+                        const reactions = hallActivities.decideObserverReactions({ sourceInteractionId: sourceRecord.id,
+                            targetId: String(activeResident.id), startedAt, candidates }).map(reaction => {
+                                const candidate = candidates.find(cat => cat.id === reaction.observerId);
+                                return { ...reaction, authority: candidate.authority, contactKey: candidate.contactKey };
+                            });
+                        draft = { sourceRecord, batch: { version: 1, hallId: String(hall.id), sourceInteractionId: sourceRecord.id,
+                            targetId: String(activeResident.id), interactionEpisodeId, targetAuthority: observerTargetAuthority(activeResident),
+                            targetInteractionAt: Number(activeResident.lastInteractionTimestamp || 0), roomId: sourceContext.contact.roomId,
+                            targetFoot: sourceContext.contact.foot, startedAt, expiresAt: startedAt + hallActivities.observerPolicy.lifetime,
+                            reactions, content: { state: 'unclaimed', entries: [] } } };
+                        observerReactionDrafts.set(hall, draft);
+                    }
+                    if (!saveObserverReactionBatch(hall, draft.batch, sourceRecord)) return false;
+                    observerReactionDrafts.delete(hall);
+                    dispatchObserverReactionContent(hall, now.getTime());
+                    return true;
+                };
+                const reconcileObserverReactions = (now = new Date()) => {
+                    const at = now.getTime();
+                    for (const [hall, draft] of observerReactionDrafts) {
+                        if (!halls.value.includes(hall)) { observerReactionDrafts.delete(hall); continue; }
+                        if (!observerHallVisible(String(hall.id))) continue;
+                        if (saveObserverReactionBatch(hall, draft.batch, draft.sourceRecord)) observerReactionDrafts.delete(hall);
+                    }
+                    for (const hall of halls.value) {
+                        const batch = hall.currentObserverReactionBatch;
+                        if (!batch) continue;
+                        if (at >= batch.expiresAt) { saveObserverReactionBatch(hall, null); continue; }
+                        if (batch.content.state === 'claimed' && !observerReactionInFlight.has(hall)) {
+                            const fallback = JSON.parse(JSON.stringify(batch));
+                            fallback.content = { state: 'fallback', entries: [] }; saveObserverReactionBatch(hall, fallback);
+                        } else dispatchObserverReactionContent(hall, at);
+                    }
+                };
+                const getResidentObserverReaction = (residentId, now = Date.now()) => {
+                    const hall = halls.value.find(hall => String(hall.id) === String(activeHallId.value));
+                    const batch = hall?.currentObserverReactionBatch, at = now instanceof Date ? now.getTime() : now;
+                    if (!batch || !observerBatchCurrent(hall, batch, at)) return null;
+                    const reaction = batch.reactions.find(row => row.observerId === String(residentId));
+                    if (!reaction || !currentObserverReaction(batch, reaction, at)) return null;
+                    const text = batch.content.state === 'accepted' && batch.content.entries.find(entry =>
+                        entry.observerId === reaction.observerId && entry.reactionId === reaction.reactionId)?.reactionText;
+                    return { sourceInteractionId: batch.sourceInteractionId, observerId: reaction.observerId,
+                        reactionId: reaction.reactionId, category: reaction.category, startedAt: reaction.startedAt,
+                        expiresAt: reaction.expiresAt, ...(text ? { reactionText: text } : {}) };
+                };
+                // End T7 observer reaction authority.
+                // Existing direct-interaction hook, now exclusively routed through T7.
+                const maybeQueueAttentionBidAfterHomepageDirect = ({ activeResident, capture = false, ...event }) =>
+                    capture ? captureObserverInteractionSource(activeResident)
+                        : queueObserverReactions({ activeResident, ...event });
                 const awayLifecycle = window.Meeow.away;
                 awayLifecycle.configure({
                     cleanText,
@@ -29355,6 +29554,8 @@ Generated interpretation only; not current public state or historical evidence.`
                     const frozenActiveForm = getResidentForm(sendingCat);
                     const directFacts = window.Meeow.residentCopy.factFor(sendingCat,
                         statusPosture.normalizeStatusActivity(sendingCat.statusActivity)?.posture, frozenActiveForm);
+                    const observerInteractionSource = !isReRoll && !isItemUse
+                        ? maybeQueueAttentionBidAfterHomepageDirect({ activeResident: sendingCat, capture: true }) : null;
                     const directEpisodeId = `${sendingCat.id}:${userChatAt}:${isReRoll ? Date.now() : 'direct'}`;
                     const directEpisode = Object.freeze({ id: directEpisodeId, invitation: !isReRoll
                         ? claimCharacterInvitation(sendingCat, isItemUse ? 'item' : 'chat', directEpisodeId) : null });
@@ -29563,12 +29764,12 @@ ${outputContract}`;
                             // This queues only a frozen, low-information public
                             // observation. It never exposes this direct prompt or
                             // response to the candidate or to Status Sync.
-                            maybeQueueAttentionBidAfterHomepageDirect({
-                                activeResident: sendingCat,
-                                sourceChatAt: userChatAt,
-                                userText: msg,
-                                now: new Date(sendingCat.lastInteractionTimestamp)
-                            });
+                            // Observer failure is local and cannot reject/retry the accepted target reply.
+                            try {
+                                maybeQueueAttentionBidAfterHomepageDirect({ activeResident: sendingCat, sourceRecord: acceptedMomentReply,
+                                    sourceContext: observerInteractionSource, interactionEpisodeId: directEpisode.id,
+                                    now: new Date(sendingCat.lastInteractionTimestamp) });
+                            } catch (_) { /* frozen local observer work only */ }
                             // Queue only orchestration metadata. The later shared Status
                             // packet receives neither this USER message nor any private
                             // foreground context.
@@ -33230,8 +33431,9 @@ ${episodicMemory}`;
                         if (['ArrowUp', 'w', 'W'].includes(e.key)) moveMerge('U');
                     }
                 };
-                const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
+                const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); reconcileObserverReactions(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
                 onMounted(() => {
+                    reconcileObserverReactions();
                     void reconcileCurrentHallEpisodeWindow();
                     window.setTimeout(() => void processPendingResidentArrivals(), 0);
                     syncAppViewport();
@@ -33266,7 +33468,7 @@ ${episodicMemory}`;
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
                     if (!localStorage.getItem('last_sync_time')) localStorage.setItem('last_sync_time', String(Date.now()));
-                    countdownTimer = setInterval(updateCountdown, 1000); worldReconciliationTimer = setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); void reconcileLocalWorldOpportunities(); currentTime.value = now; }, 30000);
+                    countdownTimer = setInterval(updateCountdown, 1000); worldReconciliationTimer = setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); reconcileObserverReactions(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); void reconcileLocalWorldOpportunities(); currentTime.value = now; }, 30000);
                     document.addEventListener('visibilitychange', reconcileVisibleWorld);
                     window.addEventListener('focus', refreshHolidayOnFocus);
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
@@ -33375,7 +33577,7 @@ ${episodicMemory}`;
                     fandomChangeAxis, fandomChangeFood, fandomChangeObject, fandomAcceptAppearance,
                     fandomOpenCreator, fandomAcceptReview, requestFandomCommit, confirmFandomAdoption,
                     cancelFandomInvite, restartFandomInvite,
-                    currentTab, contentArea, alfredMessage, holidayState, cats, halls, roomCats, currentHall, loungeView, activeHallId, lastMeeowLocation, selectedCat, user, settings, cleanText, getResidentEpisodeContent, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentEyeColorDisplay, getResidentBreedDisplay, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
+                    currentTab, contentArea, alfredMessage, holidayState, cats, halls, roomCats, currentHall, loungeView, activeHallId, lastMeeowLocation, selectedCat, user, settings, cleanText, getResidentEpisodeContent, getResidentObserverReaction, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentEyeColorDisplay, getResidentBreedDisplay, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
                     CURATOR_ROOM_VISUAL_SOURCE, CURATOR_ROOM_ANCHORS, curatorSceneOrder, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomCatVisual, curatorRoomMapPreviewCat, curatorFurnitureForeground, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     curatorSpatialDebugEnabled, curatorSpatialStage, curatorSpatialBounds, curatorSpatialDomain, curatorSpatialError, curatorSpatialSnapshot, curatorAmbientRow, curatorPresentationFacing, curatorAmbientDebug, curatorAmbientVisual, curatorAnimationDiagnostic, curatorAmbientMarkerStyle, curatorSpatialSurface, curatorAmbientLabel, curatorAmbientFootSource,
                     requestCuratorFurnitureInteraction, requestCuratorFurnitureExit, confirmCuratorFurnitureTransition,
