@@ -217,7 +217,7 @@ assert.equal(ordinaryRollCalls, 2);
 assert.match(source, /mailDecision = awayLifecycle\.createMailDecision\(rollPercent\)/, 'ordinary autonomy must use the shared helper');
 assert.match(source, /const awayMailDecisions = prepareStatusSyncAwayMailDecisions\(/, 'Status Sync must prepare frozen decisions before prompting');
 const statusPreparationAt = source.indexOf('const awayMailDecisions = prepareStatusSyncAwayMailDecisions(');
-const statusAIAt = source.indexOf('const res = await callAI(statusRequestPrompt', statusPreparationAt);
+const statusAIAt = source.indexOf('await callAI(statusRequestPrompt', statusPreparationAt);
 assert.ok(statusPreparationAt >= 0 && statusAIAt > statusPreparationAt);
 assert.match(source.slice(statusPreparationAt, statusAIAt), /if \(!awayMailDecisions\)[\s\S]*?return false;/,
     'Status Sync must stop before AI when decision persistence fails');
