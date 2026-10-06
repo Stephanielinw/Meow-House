@@ -12766,10 +12766,10 @@ ${buildLeanForegroundContext(cat)}`;
                     ? (['using', 'awaiting-exit-confirmation'].includes(curatorAmbientRow.value.furniture?.phase)
                         ? curatorAmbientRow.value.furniture.surfaceId
                         : curatorSpatialDomain.value.surfaceAt(curatorAmbientRow.value.foot)) : null);
-                const curatorCanOwnAmbient = (id, placement = '') => {
+                const curatorCanOwnResident = (id, placement = '') => {
                     const cat = cats.value.find(item => String(item.id) === String(id));
                     if (!cat || !isResidentInCuratorRoom(cat) || isResidentAway(cat) ||
-                        getResidentForm(cat) !== 'CAT' || cat.currentItemUse) return false;
+                        cat.currentItemUse) return false;
                     if (placement && hallActivities.placementSignature({ residentId: cat.id,
                         hallId: getCatHallId(cat), presence: getCuratorRoomPresence(cat) }) !== placement) return false;
                     if (getActiveSocialPresenceParticipantIds(String(cat.hallId || '')).includes(String(id))) return false;
@@ -12782,6 +12782,9 @@ ${buildLeanForegroundContext(cat)}`;
                     if (exploreState.active && String(exploreState.companion?.id || '') === String(id)) return false;
                     return true;
                 };
+                const curatorCanOwnAmbient = (id, placement = '') =>
+                    getResidentForm(cats.value.find(item => String(item.id) === String(id))) === 'CAT' &&
+                    curatorCanOwnResident(id, placement);
                 const requestCuratorFurnitureInteraction = slotId => {
                     const cat = curatorRoomResident.value;
                     return cat && curatorSpatialContext()
@@ -16697,11 +16700,78 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                 const isCuratorRoomSyncOwner = (guard) => {
                     const cat = cats.value.find(item => String(item.id) === String(guard?.residentId || ''));
                     const presence = getCuratorRoomPresence(cat);
-                    return Boolean(presence && presence.enteredAt === guard?.enteredAt);
+                    return Boolean(presence && presence.enteredAt === guard?.enteredAt &&
+                        (typeof guard.isCurrent !== 'function' || guard.isCurrent()));
                 };
-                // Legacy entry hooks are read-only. Accepted episode publications own copy.
-                const maybeRefreshCuratorRoomStatus = () => Promise.resolve(false);
-                const reconcileVisibleCuratorRoomStatus = () => Promise.resolve(false);
+                // Legacy entry hooks reuse the private Curator request boundary.
+                const CURATOR_ROOM_STATUS_STALE_MS = 30 * 60 * 1000;
+                const CURATOR_ROOM_STATUS_FAILURE_COOLDOWN_MS = 5 * 60 * 1000;
+                let curatorRoomStatusInFlight = null, curatorRoomStatusFailure = null;
+                const isCuratorRoomStatusFresh = (presence, now = Date.now(), cat = null) => {
+                    const enteredAt = Date.parse(presence?.enteredAt);
+                    const refreshedAt = Date.parse(presence?.lastStatusSyncAt);
+                    const interactionAt = Number(cat?.lastInteractionTimestamp);
+                    // A newly accepted direct turn also wins across the day boundary.
+                    if (Number.isFinite(enteredAt) && interactionAt >= enteredAt && interactionAt <= Number(now) &&
+                        Number(now) - interactionAt < CURATOR_ROOM_STATUS_STALE_MS) return true;
+                    return Number.isFinite(refreshedAt) && refreshedAt >= enteredAt && refreshedAt <= Number(now) &&
+                        Number(now) - refreshedAt < CURATOR_ROOM_STATUS_STALE_MS &&
+                        getOperationalDayKey(new Date(refreshedAt)) === getOperationalDayKey(new Date(now));
+                };
+                const maybeRefreshCuratorRoomStatus = async (now = new Date()) => {
+                    const at = Number(now), cat = curatorRoomResident.value, presence = getCuratorRoomPresence(cat);
+                    if (document.visibilityState === 'hidden' || currentTab.value !== 'lounge' ||
+                        loungeView.value !== 'curator' || !cat || !presence || !settings.apiKey ||
+                        dailyInitializationPromise || getDailyArchivePending() ||
+                        localStorage.getItem(OPERATIONAL_DAY_KEY) !== getOperationalDayKey(new Date(at)) ||
+                        !curatorCanOwnResident(cat.id) || isCuratorRoomStatusFresh(presence, at, cat)) return false;
+                    const key = getCuratorRoomSyncKey(cat, presence);
+                    if (curatorRoomStatusInFlight?.key === key) return curatorRoomStatusInFlight.promise;
+                    if (curatorRoomStatusFailure?.key === key && at < curatorRoomStatusFailure.until) return false;
+                    const frozen = { anchor: presence.anchor, form: getResidentForm(cat), formChangedAt: cat.lastFormChangeAt,
+                        interactionAt: cat.lastInteractionTimestamp, stateAt: cat.lastStatusUpdateTime,
+                        refreshedAt: presence.lastStatusSyncAt, day: getOperationalDayKey(new Date(at)),
+                        visit: activeCuratorRoomVisitId };
+                    const flight = { key, promise: null };
+                    curatorRoomStatusInFlight = flight;
+                    const isCurrent = () => curatorRoomStatusInFlight === flight &&
+                        curatorRoomResident.value === cat &&
+                        cats.value.find(item => String(item.id) === String(cat.id)) === cat &&
+                        getCuratorRoomSyncKey(cat) === key && getCuratorRoomPresence(cat)?.anchor === frozen.anchor &&
+                        getResidentForm(cat) === frozen.form && cat.lastFormChangeAt === frozen.formChangedAt &&
+                        cat.lastInteractionTimestamp === frozen.interactionAt && cat.lastStatusUpdateTime === frozen.stateAt &&
+                        getCuratorRoomPresence(cat)?.lastStatusSyncAt === frozen.refreshedAt &&
+                        getOperationalDayKey() === frozen.day && activeCuratorRoomVisitId === frozen.visit &&
+                        document.visibilityState !== 'hidden' && currentTab.value === 'lounge' &&
+                        loungeView.value === 'curator' && curatorCanOwnResident(cat.id);
+                    const completion = {};
+                    flight.promise = (async () => {
+                        try {
+                            await _refreshAllStatus(false, '', [], '', false, false, {
+                                requestHallId: getCatHallId(cat), frozenCatsToUpdate: [cat], frozenNow: new Date(at),
+                                priority: 'background', localRoutine: false, lifeThreadCaptureEnabled: false,
+                                skipHallFreshnessCommit: true, statusCompletion: completion,
+                                presenceDirectives: { [cat.id]: 'CURATOR_ROOM' },
+                                formDirectives: { [cat.id]: { currentForm: frozen.form, targetForm: frozen.form,
+                                    transitioned: false, automatic: false } },
+                                curatorRoomStatusSync: { residentId: cat.id, enteredAt: presence.enteredAt, isCurrent },
+                                isCurrentStatusRequest: isCurrent, isCurrentGeneration: isCurrent, maxAttempts: 1,
+                                generationEpisode: `curator:${key}:${at}`, generationSignature: JSON.stringify(frozen),
+                                dedupeKey: `curator:${key}:${at}`, label: `CURATOR · ${getResidentPublicName(cat)}`
+                            });
+                            if (completion.curatorAccepted) return true;
+                            if (isCurrent()) curatorRoomStatusFailure = { key, until: Date.now() + CURATOR_ROOM_STATUS_FAILURE_COOLDOWN_MS };
+                            return false;
+                        } catch (error) {
+                            if (isCurrent()) curatorRoomStatusFailure = { key, until: Date.now() + CURATOR_ROOM_STATUS_FAILURE_COOLDOWN_MS };
+                            return false;
+                        } finally {
+                            if (curatorRoomStatusInFlight === flight) curatorRoomStatusInFlight = null;
+                        }
+                    })();
+                    return flight.promise;
+                };
+                const reconcileVisibleCuratorRoomStatus = (now = new Date()) => maybeRefreshCuratorRoomStatus(now);
 
                 const openCuratorRoom = () => {
                     if (showCatVisualEditor.value) { requestCatVisualEditorClose(openCuratorRoom); return; }
@@ -16724,7 +16794,7 @@ ${buildCatMemoryContext(selectedCat.value)}`;
                     mapPreviewCat.value = null;
                     curatorRoomMapPreviewCat.value = null;
                     setContentScrollTop(0);
-                    if (!continuingCuratorVisit) void maybeRefreshCuratorRoomStatus();
+                    void maybeRefreshCuratorRoomStatus();
                 };
                 const openCurrentHall = () => {
                     openCuratorRoom();
@@ -31137,6 +31207,34 @@ ${statusOutputRules}`;
                                         staleVoiceIds.push(updateId);
                                         return;
                                     }
+                                    if (curatorRoomStatusSync) {
+                                        // Curator flavor and its freshness clock become durable together.
+                                        // Never publish a failed save or an obsolete private request.
+                                        const stagedCat = JSON.parse(JSON.stringify(cat));
+                                        if (isControlPlaneStatusText(update.status) ||
+                                            !statusPosture.prepareStatusTransition(stagedCat, update.status, update.posture).valid) {
+                                            matchedIds.delete(updateId);
+                                            return;
+                                        }
+                                        applyStatusSyncPresentation(stagedCat, update);
+                                        stagedCat.curatorRoomPresence = { ...getCuratorRoomPresence(cat),
+                                            lastStatusSyncAt: new Date().toISOString() };
+                                        const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                                        const index = snapshot.cats.findIndex(entry => String(entry.id) === updateId);
+                                        if (index < 0 || !isCuratorRoomSyncOwner(curatorRoomStatusSync)) {
+                                            matchedIds.delete(updateId);
+                                            return;
+                                        }
+                                        snapshot.cats[index] = stagedCat;
+                                        if (window.Meeow.storage.persistSnapshot(snapshot) !== true) {
+                                            matchedIds.delete(updateId);
+                                            if (statusCompletion) statusCompletion.lastError = 'Curator save failed.';
+                                            return;
+                                        }
+                                        Object.assign(cat, stagedCat);
+                                        if (statusCompletion) statusCompletion.curatorAccepted = true;
+                                        return;
+                                    }
                                     const itemDecision = frozenItemUseById.get(updateId);
                                     if (itemDecision) {
                                         const event = itemDecision.event;
@@ -32838,7 +32936,7 @@ ${episodicMemory}`;
                         if (['ArrowUp', 'w', 'W'].includes(e.key)) moveMerge('U');
                     }
                 };
-                const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
+                const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileVisibleCuratorRoomStatus(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
                 onMounted(() => {
                     window.setTimeout(() => void processPendingResidentArrivals(), 0);
                     syncAppViewport();
@@ -32873,7 +32971,7 @@ ${episodicMemory}`;
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
                     if (!localStorage.getItem('last_sync_time')) localStorage.setItem('last_sync_time', String(Date.now()));
-                    countdownTimer = setInterval(updateCountdown, 1000); worldReconciliationTimer = setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileLocalWorldOpportunities(); currentTime.value = now; }, 30000);
+                    countdownTimer = setInterval(updateCountdown, 1000); worldReconciliationTimer = setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileVisibleCuratorRoomStatus(now); void reconcileLocalWorldOpportunities(); currentTime.value = now; }, 30000);
                     document.addEventListener('visibilitychange', reconcileVisibleWorld);
                     window.addEventListener('focus', refreshHolidayOnFocus);
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
