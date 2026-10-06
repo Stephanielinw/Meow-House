@@ -12324,6 +12324,10 @@
                     groupChatState.currentInput = '';
                 });
 
+                // Transport only. Group chat retains its own prompt, messages and UI;
+                // episode content uses an independent packet, validator and save path.
+                const requestSharedHallContent = (prompt, { maxTokens = 1200, ...options } = {}) =>
+                    callAI(prompt, CORE_ROLEPLAY_PROMPT, maxTokens, ThinkingLevel.LOW, options);
                 const sendGroupMessage = async () => {
                     if (!settings.apiKey) return alert("需要API连接");
                     if (!groupChatState.currentInput.trim()) return;
@@ -12355,7 +12359,7 @@ ${residentContext}`;
                             residentContext,
                             userMessage: userMsg
                         });
-                        const res = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 1200, ThinkingLevel.LOW);
+                        const res = await requestSharedHallContent(prompt);
                         const replies = parseAIJSON(res);
                         if (Array.isArray(replies)) {
                             replies.forEach(r => {
@@ -12610,6 +12614,219 @@ ${buildLeanForegroundContext(cat)}`;
                 // position is session-only and survives ordinary Text/Map toggles.
                 const hallNavigation = window.Meeow.hallNavigation;
                 const hallActivities = window.Meeow.hallActivities;
+                // T6 current-Hall episode authority.
+                // Unsaved drafts and async guards are not another world registry:
+                // the saved Hall.currentEpisodeWindow is the sole plan authority.
+                let hallEpisodeDisposed = false;
+                const hallEpisodeDrafts = new WeakMap();
+                const hallEpisodeObjects = new WeakMap();
+                const hallEpisodeInFlight = new WeakMap();
+                const hallEpisodeAuthority = cat => JSON.stringify([String(cat.id), getCatHallId(cat),
+                    getResidentPhysicalHallId(cat), getResidentForm(cat), cat.lastFormChangeAt || '',
+                    cat.mapRoom || '', cat.mapPoint || cat.mapSpot || '', getStructuredStatusPose(cat),
+                    cat.lastStatusUpdateTime || '', cat.lastInteractionTimestamp || '', Boolean(cat.isOut), Boolean(cat.isVisiting)]);
+                const usableHallEpisodeWindow = plan => Boolean(plan && plan.version === 1 &&
+                    typeof plan.hallId === 'string' && plan.windowKey === String(plan.windowStart) &&
+                    Number.isFinite(plan.windowStart) && plan.windowEnd === plan.windowStart + 1200000 &&
+                    plan.planStart >= plan.windowStart && plan.planStart < plan.windowEnd &&
+                    Array.isArray(plan.residents) && new Set(plan.residents.map(row => row.residentId)).size === plan.residents.length &&
+                    plan.residents.every(row => typeof row.residentId === 'string' && typeof row.authority === 'string' &&
+                        ['valid', 'invalidated'].includes(row.state) && ['dining', 'living', 'dorm'].includes(row.roomId) &&
+                        Number.isFinite(row.lastFoot?.x) && Number.isFinite(row.lastFoot?.y) &&
+                        Array.isArray(row.beats) && row.beats.length > 0 && row.beats.length <= 3 &&
+                        row.beats.every((beat, n) => typeof beat.id === 'string' &&
+                            hallActivities.definitions[beat.behaviorId]?.postures.includes(beat.posture) && beat.roomId === row.roomId &&
+                            ['pending', 'active', 'completed', 'skipped', 'invalidated'].includes(beat.state) &&
+                            beat.startAt === (n ? row.beats[n - 1].endAt : plan.planStart) && beat.endAt > beat.startAt && beat.endAt <= plan.windowEnd &&
+                            Number.isFinite(beat.foot?.x) && Number.isFinite(beat.foot?.y) &&
+                            (!beat.target || beat.behaviorId === 'roam' && Number.isFinite(beat.target.x) && Number.isFinite(beat.target.y))) &&
+                        row.beats.at(-1).endAt === plan.windowEnd && hallActivities.definitions[row.beats.at(-1).behaviorId].stationary) &&
+                    plan.content && ['unclaimed', 'claimed', 'accepted', 'fallback'].includes(plan.content.state) && Array.isArray(plan.content.entries));
+                const getHallEpisodeRow = (cat, includeExpired = false) => {
+                    const hall = cat && halls.value.find(hall => String(hall.id) === String(getCatHallId(cat)));
+                    const plan = hall?.currentEpisodeWindow;
+                    if (!usableHallEpisodeWindow(plan) || plan.hallId !== String(hall.id) ||
+                        (!includeExpired && plan.windowKey !== hallActivities.episodeWindow(Date.now()).key)) return null;
+                    const row = plan.residents.find(row => row.residentId === String(cat.id));
+                    return row ? { hall, plan, row } : null;
+                };
+                const isHallEpisodeOwned = cat => {
+                    const context = getHallEpisodeRow(cat);
+                    const objects = context && hallEpisodeObjects.get(context.plan);
+                    return Boolean(context && context.row.state === 'valid' &&
+                        context.row.authority === hallEpisodeAuthority(cat) &&
+                        (!objects || objects.get(String(cat.id)) === cat) && !hasHigherHallPresentationOwner(cat.id));
+                };
+                const saveHallEpisodeWindow = (hall, plan) => {
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const staged = snapshot.halls.find(row => String(row.id) === String(hall.id));
+                    if (!staged) return false;
+                    staged.currentEpisodeWindow = plan;
+                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true) return false;
+                    const objects = hall.currentEpisodeWindow?.windowKey === plan.windowKey
+                        ? hallEpisodeObjects.get(hall.currentEpisodeWindow) : null;
+                    hall.currentEpisodeWindow = plan;
+                    hallEpisodeObjects.set(hall.currentEpisodeWindow, objects || new Map(cats.value.map(cat => [String(cat.id), cat])));
+                    return true;
+                };
+                const recordHallEpisodeProgress = (id, beatId, state, foot, reason = '') => {
+                    const cat = cats.value.find(cat => String(cat.id) === String(id));
+                    let context = getHallEpisodeRow(cat, true);
+                    if (!context?.row.beats.some(beat => beat.id === beatId)) {
+                        const hall = halls.value.find(hall => usableHallEpisodeWindow(hall.currentEpisodeWindow) &&
+                            hall.currentEpisodeWindow.residents.some(row => row.residentId === String(id) && row.beats.some(beat => beat.id === beatId)));
+                        context = hall && { hall, plan: hall.currentEpisodeWindow,
+                            row: hall.currentEpisodeWindow.residents.find(row => row.residentId === String(id)) };
+                    }
+                    if (!context || context.row.state === 'invalidated') return false;
+                    const beat = context.row.beats.find(beat => beat.id === beatId);
+                    if (!beat || (beat.state === state && !reason)) return true;
+                    const plan = JSON.parse(JSON.stringify(context.plan));
+                    const row = plan.residents.find(row => row.residentId === String(id));
+                    if (state === 'invalidated') {
+                        row.state = state; row.reason = reason;
+                        row.beats.forEach(beat => { if (!['completed', 'skipped'].includes(beat.state)) beat.state = state; });
+                    } else row.beats.find(beat => beat.id === beatId).state = state;
+                    if (foot && Number.isFinite(foot.x) && Number.isFinite(foot.y)) row.lastFoot = { x: foot.x, y: foot.y };
+                    return saveHallEpisodeWindow(context.hall, plan);
+                };
+                const hallEpisodeExecutionPolicy = {
+                    now: () => Date.now(),
+                    get: runtime => {
+                        const cat = cats.value.find(cat => String(cat.id) === runtime.id), context = getHallEpisodeRow(cat, true);
+                        if (!context) return null;
+                        if (!isHallEpisodeOwned(cat)) return { hold: true };
+                        const beat = context.row.beats.find(beat => beat.startAt <= Date.now() && beat.endAt > Date.now());
+                        if (!beat || ['skipped', 'invalidated', 'completed'].includes(beat.state)) return { hold: true, wakeAt: beat?.endAt };
+                        const dependency = beat.requiresBeatId && context.row.beats.find(prior => prior.id === beat.requiresBeatId);
+                        const skipped = context.row.beats.filter(prior => prior.endAt <= Date.now() && !['completed', 'skipped'].includes(prior.state));
+                        return { beat, skipped, invalid: dependency && dependency.state !== 'completed' ? 'missed-movement-dependency' : '' };
+                    },
+                    progress: recordHallEpisodeProgress
+                };
+                // Canonical internal API only. Visible readers remain unchanged until T8.
+                const getResidentEpisodeContent = cat => {
+                    if (!isHallEpisodeOwned(cat)) return null;
+                    const { plan, row } = getHallEpisodeRow(cat);
+                    const beat = row.beats.find(beat => beat.state === 'active' && beat.startAt <= Date.now() && beat.endAt > Date.now());
+                    const runtime = spatialAmbientSnapshot.value.residents.find(runtime => runtime.id === String(cat.id));
+                    if (!beat || runtime?.episodeBeatId !== beat.id || runtime.behaviorLifecycleState !== 'ACTIVE') return null;
+                    return plan.content.entries.find(entry => entry.residentId === String(cat.id) && entry.beatId === beat.id) || beat.fallback || null;
+                };
+                const collectHallEpisodeResidents = async hallId => {
+                    const rows = [], roomClaims = new Map();
+                    for (const cat of cats.value.filter(cat => String(getResidentPhysicalHallId(cat)) === hallId &&
+                        isResidentInHall(cat) && !hasHigherHallPresentationOwner(cat.id)).sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
+                        const marker = mapCatMarkers.value.find(marker => marker.cat === cat);
+                        if (!marker || !['dining', 'living', 'dorm'].includes(marker.room)) continue;
+                        let domain;
+                        try { domain = await hallNavigation.loadRoomDomain(marker.room); } catch (_) { continue; }
+                        const runtime = spatialAmbientSnapshot.value.residents.find(row => row.id === String(cat.id) &&
+                            marker.room === activeMapRoom.value);
+                        const claims = roomClaims.get(marker.room) || [];
+                        const proposed = runtime?.foot || hallSpatial.placementFootFromStyle(marker.position);
+                        const foot = runtime?.foot || domain.groundEntry?.(proposed, claims) || (domain.legalPoint(proposed) && proposed);
+                        if (!foot || !domain.legalPoint(foot) || claims.some(other => hallNavigation.distance(other, foot) < hallNavigation.DESTINATION_SEPARATION)) continue;
+                        claims.push(foot); roomClaims.set(marker.room, claims);
+                        rows.push({ id: String(cat.id), roomId: marker.room, foot, domain, authority: hallEpisodeAuthority(cat),
+                            posture: runtime?.localActivityPose || getStructuredStatusPose(cat),
+                            currentBehavior: runtime?.state === 'activity' ? runtime.behaviorId : hallActivities.initialBehavior(getStructuredStatusPose(cat)),
+                            canMove: hallDisplayMode.value === 'map' && marker.room === activeMapRoom.value,
+                            axes: window.Meeow.personalityRuntime?.getResidentRuntimePersonality(cat.id)?.axes });
+                    }
+                    return rows;
+                };
+                const reconcileCurrentHallEpisodeWindow = async (now = new Date()) => {
+                    const hallId = String(activeHallId.value), hall = halls.value.find(hall => String(hall.id) === hallId);
+                    if (hallEpisodeDisposed || !hall || currentTab.value !== 'lounge' || loungeView.value !== 'room' || document.visibilityState === 'hidden') return false;
+                    if (hallEpisodeInFlight.has(hall)) return hallEpisodeInFlight.get(hall);
+                    const task = (async () => {
+                        const bucket = hallActivities.episodeWindow(now.getTime());
+                        if (!bucket) return false;
+                        let plan = hall.currentEpisodeWindow;
+                        // A corrupt same-window record never earns another content request.
+                        if (plan?.windowKey === bucket.key && !usableHallEpisodeWindow(plan)) return false;
+                        if (plan?.windowKey !== bucket.key) {
+                            let draft = hallEpisodeDrafts.get(hall);
+                            if (draft?.windowKey !== bucket.key) {
+                                const residents = await collectHallEpisodeResidents(hallId);
+                                if (String(activeHallId.value) !== hallId || currentTab.value !== 'lounge' || loungeView.value !== 'room' ||
+                                    document.visibilityState === 'hidden' || hallActivities.episodeWindow(Date.now()).key !== bucket.key) return false;
+                                draft = hallActivities.buildEpisodeWindow({ hallId, now: now.getTime(), residents });
+                                for (const row of draft.residents) {
+                                    const cat = cats.value.find(cat => String(cat.id) === row.residentId);
+                                    if (!cat || row.authority !== hallEpisodeAuthority(cat) || hasHigherHallPresentationOwner(cat.id)) {
+                                        row.state = 'invalidated'; row.reason = 'resident-authority-changed';
+                                        row.beats.forEach(beat => { beat.state = 'invalidated'; }); continue;
+                                    }
+                                    for (const beat of row.beats) {
+                                        const copy = window.Meeow.residentCopy, fact = copy.factFor(cat, beat.posture, getResidentForm(cat));
+                                        const pair = copy.selectPair(copy.deriveContext(fact, { activity: beat.behaviorId,
+                                            room: row.roomId, posture: beat.posture, episodeId: beat.id }));
+                                        beat.fallback = pair && { status: pair.status, innerThought: pair.innerThought };
+                                    }
+                                }
+                                hallEpisodeDrafts.set(hall, draft);
+                            }
+                            if (!saveHallEpisodeWindow(hall, draft)) return false;
+                            hallEpisodeDrafts.delete(hall); plan = hall.currentEpisodeWindow;
+                        }
+                        if (!hallEpisodeObjects.has(plan)) hallEpisodeObjects.set(plan, new Map(cats.value.map(cat => [String(cat.id), cat])));
+                        for (const row of plan.residents) {
+                            const cat = cats.value.find(cat => String(cat.id) === row.residentId);
+                            if (row.state === 'valid' && (!cat || !isHallEpisodeOwned(cat)))
+                                recordHallEpisodeProgress(row.residentId, row.beats[0].id, 'invalidated', row.lastFoot, 'resident-authority-changed');
+                        }
+                        syncSpatialAmbient();
+                        plan = hall.currentEpisodeWindow;
+                        if (plan.content.state !== 'unclaimed' || !plan.residents.length) return true;
+                        const eligibleRows = plan.residents.filter(row => row.state === 'valid' &&
+                            cats.value.some(cat => String(cat.id) === row.residentId && isHallEpisodeOwned(cat)));
+                        const claimed = JSON.parse(JSON.stringify(plan));
+                        claimed.content.state = settings.apiKey && eligibleRows.length ? 'claimed' : 'fallback';
+                        if (!saveHallEpisodeWindow(hall, claimed) || !settings.apiKey || !eligibleRows.length) return true;
+                        const frozen = { ...hall.currentEpisodeWindow, residents: eligibleRows };
+                        const peerLines = buildPublicSharedPeerRelationshipLines(cats.value.filter(cat => frozen.residents.some(row => row.residentId === String(cat.id))));
+                        const packet = frozen.residents.map(row => {
+                            const cat = cats.value.find(cat => String(cat.id) === row.residentId);
+                            return [buildCatIdentityBlock(cat), buildLeanAmbientContext(cat, {
+                                status: '', publicRelationshipLines: peerLines.get(row.residentId) || [] }),
+                                JSON.stringify({ residentId: row.residentId, beats: row.beats.map(beat => ({
+                                    beatId: beat.id, room: beat.roomId, activity: beat.behaviorId, posture: beat.posture })) })].join('\n');
+                        }).join('\n---\n');
+                        const prompt = `[HALL EPISODE CONTENT ONLY]\n${buildAuthoritativeUserIdentityContext()}\n${buildStatusSyncUserContext()}\n${packet}\n` +
+                            'Write original Simplified Chinese status and innerThought for every frozen residentId/beatId. These are program-owned planned activities; describe only that activity, without inventing sounds, lighting, object results, history, partner reactions or new actions. Personality shapes reaction only. Return JSON {"entries":[{"residentId":"...","beatId":"...","status":"...","innerThought":"..."}]}. No extra keys, participants, coordinates, world commands or consequences. Keep each pair concise.';
+                        const current = () => !hallEpisodeDisposed && halls.value.includes(hall) && hall.currentEpisodeWindow?.windowKey === frozen.windowKey &&
+                            hallActivities.episodeWindow(Date.now()).key === frozen.windowKey;
+                        // Dispatch is fire-and-settle through the existing queue; reconciliation
+                        // is never held until provider completion and cannot dispatch a second claim.
+                        void requestSharedHallContent(prompt, { maxTokens: 3600, priority: 'background', uiMode: 'background',
+                            origin: 'world-autonomy', originSurface: 'hall-episode', maxAttempts: 1,
+                            generationEpisode: `hall-episode:${hallId}:${bucket.key}`, generationSignature: JSON.stringify({ hallId, key: bucket.key, packet }),
+                            isCurrentGeneration: current, validateResponse: text => hallActivities.validateEpisodeContent(parseAIJSON(text), frozen),
+                            label: `HALL EPISODE · ${hall.name}` }).then(text => {
+                                if (!current()) return;
+                                const payload = parseAIJSON(text);
+                                if (hallActivities.validateEpisodeContent(payload, frozen) !== true) throw new Error('Invalid episode content');
+                                const next = JSON.parse(JSON.stringify(hall.currentEpisodeWindow));
+                                next.content = { state: 'accepted', entries: payload.entries.filter(entry => {
+                                    const cat = cats.value.find(cat => String(cat.id) === entry.residentId);
+                                    const row = hall.currentEpisodeWindow.residents.find(row => row.residentId === entry.residentId);
+                                    return cat && row?.state === 'valid' && row.authority === hallEpisodeAuthority(cat) &&
+                                        hallEpisodeObjects.get(hall.currentEpisodeWindow)?.get(entry.residentId) === cat;
+                                }) };
+                                saveHallEpisodeWindow(hall, next);
+                            }).catch(() => {
+                                if (!current()) return;
+                                const next = JSON.parse(JSON.stringify(hall.currentEpisodeWindow));
+                                next.content = { state: 'fallback', entries: [] }; saveHallEpisodeWindow(hall, next);
+                            });
+                        return true;
+                    })();
+                    hallEpisodeInFlight.set(hall, task);
+                    try { return await task; } finally { if (hallEpisodeInFlight.get(hall) === task) hallEpisodeInFlight.delete(hall); }
+                };
+                // End T6 current-Hall episode authority.
                 const hallAnimation = window.Meeow.hallAnimation;
                 const curatorSpatialDebugEnabled = spatialParams.get('curatorRoomSpatialDebug') === '1';
                 const curatorBehaviorDemoEnabled = curatorSpatialDebugEnabled && spatialParams.get('curatorRoomBehaviorDemo') === '1';
@@ -13012,7 +13229,10 @@ ${buildLeanForegroundContext(cat)}`;
                     for (const marker of mapCatMarkers.value.filter(row => row.room === activeMapRoom.value).sort((a, b) => String(a.cat.id).localeCompare(String(b.cat.id)))) {
                         const id = String(marker.cat.id);
                         if (!normalRoomCanOwn(id)) continue;
-                        const foot = domain.groundEntry(hallSpatial.placementFootFromStyle(marker.position), claims);
+                        const episode = isHallEpisodeOwned(marker.cat) && getHallEpisodeRow(marker.cat);
+                        const inherited = episode && episode.row.roomId === activeMapRoom.value && episode.row.lastFoot;
+                        const foot = inherited && domain.legalPoint(inherited) && !claims.some(other => hallNavigation.distance(other, inherited) < hallNavigation.DESTINATION_SEPARATION)
+                            ? inherited : domain.groundEntry(hallSpatial.placementFootFromStyle(marker.position), claims);
                         if (!foot) continue;
                         claims.push(foot);
                         result.push({ id, foot, key: normalRoomPlacementKey(marker),
@@ -13155,6 +13375,7 @@ ${buildLeanForegroundContext(cat)}`;
                         hitchDiagnostics.instrumentDomain(domain);
                         roomSpatialDomain.value = domain;
                         spatialAmbientController = hallSpatial.createAmbientSimulation({
+                            episodePolicy: hallEpisodeExecutionPolicy,
                             navigation: { legalPoint: domain.legalPoint, lastAuthoredOnSegment: domain.lastAuthoredOnSegment,
                                 getInteraction: domain.getInteraction, getInteractions: domain.getInteractions,
                                 separation: hallNavigation.DESTINATION_SEPARATION,
@@ -24466,7 +24687,8 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                 const getAutomaticHallSocialCandidates = (hallId, protectedIds = []) => {
                     const excluded = new Set([...protectedIds, ...getActiveSocialPresenceParticipantIds(hallId),
                         ...getClaimedSocialParticipantIds()].map(id => String(id)));
-                    return cats.value.filter(cat => !excluded.has(String(cat.id)) && isSharedSceneResidentEligible(cat, hallId));
+                    return cats.value.filter(cat => !excluded.has(String(cat.id)) &&
+                        !(typeof isHallEpisodeOwned === 'function' && isHallEpisodeOwned(cat)) && isSharedSceneResidentEligible(cat, hallId));
                 };
                 const getClaimedSocialParticipantIds = () => [...socialOpportunityClaims.values()]
                     .flatMap(claim => claim.participantIds || []);
@@ -28845,7 +29067,8 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                     // Keep the existing opportunity timing, not periodic Status regeneration.
                     const lastCheck = Number(localStorage.getItem('last_sync_time') || 0);
                     if (now - lastCheck < 20 * 60 * 1000) return;
-                    const itemDue = cats.value.some(cat => isSharedSceneResidentEligible(cat, requestHallId) &&
+                    const itemDue = cats.value.some(cat => !(typeof isHallEpisodeOwned === 'function' && isHallEpisodeOwned(cat)) &&
+                        isSharedSceneResidentEligible(cat, requestHallId) &&
                         window.Meeow.residentItemUsage.getEligibleOwnedItems(user, cat.id).length &&
                         !window.Meeow.residentItemUsage.isUsageCooldownActive(user, cat.id, new Date(now)));
                     localStorage.setItem('last_sync_time', String(now));
@@ -30348,6 +30571,8 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                             form: getResidentForm(cat), formChangedAt: cat.lastFormChangeAt };
                     };
                     const isCurrentResidentAuthority = cat => {
+                        if (!requestOptions.curatorRoomStatusSync && !isFocusEnd && !isExploreEnd && !requestOptions.arrivalEvent &&
+                            requestOptions.sceneMode !== 'user-directed' && typeof isHallEpisodeOwned === 'function' && isHallEpisodeOwned(cat)) return false;
                         const prior = residentAuthorities.get(String(cat.id));
                         if (!prior || cats.value.find(entry => String(entry.id) === String(cat.id)) !== cat) return false;
                         const current = captureResidentAuthority(cat);
@@ -30478,7 +30703,9 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                     // Keep the resident visible as away context, but never let this request
                     // invent a contradictory home status or premature return.
                     let catsToUpdate = frozenCandidateCats.filter(cat =>
-                        !getActiveAwayEpisode(cat, now) && !justSettledReturnIds.has(String(cat.id))
+                        !getActiveAwayEpisode(cat, now) && !justSettledReturnIds.has(String(cat.id)) &&
+                        (curatorRoomStatusSync || isFocusEnd || isExploreEnd || requestOptions.arrivalEvent || requestOptions.sceneMode === 'user-directed' ||
+                            !(typeof isHallEpisodeOwned === 'function' && isHallEpisodeOwned(cat)))
                     );
                     if (catsToUpdate.length === 0) {
                         if (statusCompletion) statusCompletion.complete = true;
@@ -30604,7 +30831,8 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                                         getStructuredStatusPose(cat) === posture && cat.lastStatusUpdateTime === activityStamp &&
                                         cat.mapPoint === mapPoint && domain.legalPoint(foot);
                                 }) && hallNavigation.distance(placements[0].foot, placements[1].foot) >= hallNavigation.DESTINATION_SEPARATION;
-                            sharedSocialClaim = socialActivity.claimOpportunity({
+                            sharedSocialClaim = pair.some(cat => typeof isHallEpisodeOwned === 'function' && isHallEpisodeOwned(cat))
+                                ? null : socialActivity.claimOpportunity({
                                 hall: halls.value.find(hall => String(hall.id) === String(requestHallId)),
                                 hallId: requestHallId, token: statusCompletion.requestToken, claims: socialOpportunityClaims,
                                 nowMs: now.getTime(), participants: frozenPairIds, roomId, isCurrent: isCurrentPair,
@@ -30719,6 +30947,7 @@ ${curatorRoomStatusSync ? '- Curator mode is isolated: no Hall co-presence, Away
                         if (!Object.hasOwn(requestOptions, 'prevalidatedStatusUpdates')) {
                             requestedCats.forEach(cat => {
                                 if (presenceDirectives[String(cat.id)] !== 'HOME') return;
+                                if (typeof isHallEpisodeOwned === 'function' && isHallEpisodeOwned(cat)) return;
                                 if (sharedSocialClaim?.participantIds.includes(String(cat.id))) return;
                                 const decision = window.Meeow.residentItemUsage.freezeItemUseDecision({
                                     user, residents: cats.value, residentId: cat.id, now
@@ -33001,8 +33230,9 @@ ${episodicMemory}`;
                         if (['ArrowUp', 'w', 'W'].includes(e.key)) moveMerge('U');
                     }
                 };
-                const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileVisibleCuratorRoomStatus(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
+                const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
                 onMounted(() => {
+                    void reconcileCurrentHallEpisodeWindow();
                     window.setTimeout(() => void processPendingResidentArrivals(), 0);
                     syncAppViewport();
                     window.addEventListener('resize', refreshSafeAreaAndViewport, { passive: true });
@@ -33036,12 +33266,15 @@ ${episodicMemory}`;
                     if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
                     if (todayEvent.value && !alfredMessage.value.includes(todayEvent.value)) { alfredMessage.value = todayEvent.value + " " + alfredMessage.value; }
                     if (!localStorage.getItem('last_sync_time')) localStorage.setItem('last_sync_time', String(Date.now()));
-                    countdownTimer = setInterval(updateCountdown, 1000); worldReconciliationTimer = setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileVisibleCuratorRoomStatus(now); void reconcileLocalWorldOpportunities(); currentTime.value = now; }, 30000);
+                    countdownTimer = setInterval(updateCountdown, 1000); worldReconciliationTimer = setInterval(() => { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); void reconcileLocalWorldOpportunities(); currentTime.value = now; }, 30000);
                     document.addEventListener('visibilitychange', reconcileVisibleWorld);
                     window.addEventListener('focus', refreshHolidayOnFocus);
                     setTimeout(() => { if (calendarContainer.value) { const scrollY = currentTimePixels.value - 200; calendarContainer.value.scrollTop = scrollY > 0 ? scrollY : 0; } }, 100);
                     addLog("SYSTEM INITIALIZED. WELCOME TO MEEOW HOUSE v1.0", "info");
                 });
+                watch(() => [currentTab.value, loungeView.value, activeHallId.value, activeMapRoom.value, hallDisplayMode.value,
+                    cats.value.map(cat => hallEpisodeAuthority(cat)), isInteracting.value, isFocusing.value],
+                    () => { void reconcileCurrentHallEpisodeWindow(); }, { flush: 'post' });
                 watch(() => cats.value.map(cat => {
                     const context = getResidentCopyContext(cat);
                     return context ? window.Meeow.residentCopy.signature(context) : String(cat.id) + ':unavailable';
@@ -33062,6 +33295,7 @@ ${episodicMemory}`;
                     getActiveSocialPresenceParticipantIds(activeHallId.value).join('|')],
                 reconcileSharedSocialClaims, { flush: 'sync' });
                 onUnmounted(() => {
+                    hallEpisodeDisposed = true;
                     window.Meeow.residentCopy.clear();
                     statusRefreshDisposed = true;
                     for (const claim of socialOpportunityClaims.values()) socialActivity.releaseOpportunity(claim, socialOpportunityClaims);
@@ -33141,7 +33375,7 @@ ${episodicMemory}`;
                     fandomChangeAxis, fandomChangeFood, fandomChangeObject, fandomAcceptAppearance,
                     fandomOpenCreator, fandomAcceptReview, requestFandomCommit, confirmFandomAdoption,
                     cancelFandomInvite, restartFandomInvite,
-                    currentTab, contentArea, alfredMessage, holidayState, cats, halls, roomCats, currentHall, loungeView, activeHallId, lastMeeowLocation, selectedCat, user, settings, cleanText, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentEyeColorDisplay, getResidentBreedDisplay, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
+                    currentTab, contentArea, alfredMessage, holidayState, cats, halls, roomCats, currentHall, loungeView, activeHallId, lastMeeowLocation, selectedCat, user, settings, cleanText, getResidentEpisodeContent, getResidentLiveStatus, getResidentLiveInnerVoice, getResidentEyeColorDisplay, getResidentBreedDisplay, getResidentPublicName, isResidentAway, isResidentInHall, isResidentHuman, getResidentPresenceLabel,
                     CURATOR_ROOM_VISUAL_SOURCE, CURATOR_ROOM_ANCHORS, curatorSceneOrder, curatorRoomDisplayMode, setCuratorRoomDisplayMode, curatorRoomResident, curatorRoomCatVisual, curatorRoomMapPreviewCat, curatorFurnitureForeground, isResidentInCuratorRoom, getCuratorRoomPresence, getCuratorRoomAnchorLabel, getCuratorRoomMarkerStyle, ownsHallEntryPresentation, openCuratorRoom, inviteResidentToCuratorRoom, returnResidentFromCuratorRoom, openCuratorResidentDetail, handleCuratorRoomResidentTap,
                     curatorSpatialDebugEnabled, curatorSpatialStage, curatorSpatialBounds, curatorSpatialDomain, curatorSpatialError, curatorSpatialSnapshot, curatorAmbientRow, curatorPresentationFacing, curatorAmbientDebug, curatorAmbientVisual, curatorAnimationDiagnostic, curatorAmbientMarkerStyle, curatorSpatialSurface, curatorAmbientLabel, curatorAmbientFootSource,
                     requestCuratorFurnitureInteraction, requestCuratorFurnitureExit, confirmCuratorFurnitureTransition,

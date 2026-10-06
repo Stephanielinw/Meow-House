@@ -137,8 +137,79 @@
     const stageSettledSnapshot = (state, record) => ({ ...state, user: { ...state.user,
         livingHallSettledPositions: { ...(state.user?.livingHallSettledPositions || {}),
             [record.residentId]: record } } });
+    const episodeWindow = (time = Date.now()) => {
+        const now = new Date(time);
+        if (!Number.isFinite(now.getTime())) return null;
+        // Subtract elapsed local minutes rather than setHours/setMinutes: those
+        // setters can select the first occurrence of a repeated DST hour.
+        const start = now.getTime() - ((now.getMinutes() % 20) * 60000 + now.getSeconds() * 1000 + now.getMilliseconds());
+        return { key: String(start), start, end: start + 1200000 };
+    };
+    const buildEpisodeWindow = ({ hallId, now, residents }) => {
+        const window = episodeWindow(now);
+        if (!window) return null;
+        const plan = { version: 1, hallId: String(hallId), windowKey: window.key,
+            windowStart: window.start, windowEnd: window.end, planStart: Number(now),
+            residents: [], content: { state: 'unclaimed', entries: [] } };
+        for (const row of residents) {
+            if (!row.domain?.legalPoint(row.foot) || !definitions[initialBehavior(row.posture)]) continue;
+            const residentId = String(row.id), seed = `${hallId}:${window.key}:${residentId}`;
+            const record = { residentId, roomId: row.roomId, authority: row.authority,
+                state: 'valid', lastFoot: { ...row.foot }, beats: [] };
+            let foot = { ...row.foot }, cursor = Number(now), recent = [];
+            for (let i = 0; i < 3 && cursor < window.end; i++) {
+                const candidates = buildCandidates({ surfaceId: row.domain.surfaceAt(foot),
+                    capabilities: row.domain.capabilityFor(row.domain.surfaceAt(foot)), recent,
+                    navigationAvailable: row.canMove === true && i < 2,
+                    afterRoam: recent.at(-1) === 'roam', interactions: [] });
+                let behaviorId = i === 0 && candidates.some(c => c.behaviorId === row.currentBehavior && c.eligible)
+                    ? row.currentBehavior : selectCandidate(candidates, seed, i);
+                if (!behaviorId) break;
+                let target = null, duration = durationFor(seed, i, behaviorId, { hallPresence: true, axes: row.axes });
+                if (behaviorId === 'roam') {
+                    target = Meeow.hallNavigation.sampleDestination(row.domain, { from: foot, seed: `${seed}:${i}:target`,
+                        claims: residents.filter(other => other.id !== row.id && other.roomId === row.roomId).map(other => other.foot),
+                        acceptsPresentation: row.domain.groundPresentationPoint });
+                    const route = target && Meeow.hallNavigation.planRoute(row.domain, foot, target);
+                    duration = route?.valid ? Math.ceil(route.points.slice(1).reduce((sum, point, n) =>
+                        sum + Math.hypot(point.x - route.points[n].x, point.y - route.points[n].y), 0) / Meeow.hallSpatial.PROTOTYPE_SPEED * 1000) + 700 : null;
+                    if (!duration || cursor + duration + 1000 >= window.end) {
+                        behaviorId = selectCandidate(candidates.filter(c => definitions[c.behaviorId].stationary), seed, i);
+                        target = null; duration = durationFor(seed, i, behaviorId, { hallPresence: true, axes: row.axes });
+                    }
+                }
+                const posture = selectPosture({ residentId: seed, cycle: i, behaviorId, current: row.posture });
+                if (!posture || !duration) break;
+                const sustainable = definitions[behaviorId].stationary && (i === 2 || row.canMove !== true || cursor + duration >= window.end);
+                const beat = { id: `${seed}:${i}`, behaviorId, posture, roomId: row.roomId,
+                    startAt: cursor, endAt: sustainable ? window.end : Math.min(cursor + duration, window.end),
+                    foot: { ...foot }, target: target && { x: target.x, y: target.y }, state: 'pending',
+                    requiresBeatId: record.beats.at(-1)?.target ? record.beats.at(-1).id : null };
+                record.beats.push(beat); cursor = beat.endAt;
+                if (target) foot = { ...target };
+                recent.push(behaviorId);
+            }
+            if (record.beats.length && definitions[record.beats.at(-1).behaviorId].stationary) plan.residents.push(record);
+        }
+        return plan;
+    };
+    const validateEpisodeContent = (payload, plan) => {
+        if (!payload || Object.keys(payload).some(key => key !== 'entries') || !Array.isArray(payload.entries)) return 'Invalid episode content envelope.';
+        const expected = new Set(plan.residents.flatMap(row => row.beats.map(beat => `${row.residentId}|${beat.id}`)));
+        const seen = new Set();
+        for (const entry of payload.entries) {
+            if (!entry || Object.keys(entry).some(key => !['residentId', 'beatId', 'status', 'innerThought'].includes(key)) ||
+                typeof entry.residentId !== 'string' || typeof entry.beatId !== 'string' ||
+                typeof entry.status !== 'string' || !entry.status.trim() || entry.status.length > 160 ||
+                typeof entry.innerThought !== 'string' || !entry.innerThought.trim() || entry.innerThought.length > 240) return 'Invalid episode content row.';
+            const key = `${entry.residentId}|${entry.beatId}`;
+            if (!expected.has(key) || seen.has(key)) return 'Unknown or duplicate episode content row.';
+            seen.add(key);
+        }
+        return seen.size === expected.size ? true : 'Incomplete episode content.';
+    };
     Meeow.hallActivities = Object.freeze({ definitions, surfaceCapabilities, capabilityFor,
         buildCandidates, selectCandidate, initialBehavior, selectBehavior,
         selectPosture, durationFor, labelFor, placementSignature, validateSettled, makeSettled,
-        stageSettledSnapshot });
+        stageSettledSnapshot, episodeWindow, buildEpisodeWindow, validateEpisodeContent });
 }(window));

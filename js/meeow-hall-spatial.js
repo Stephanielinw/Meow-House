@@ -256,7 +256,7 @@
         return result;
     };
 
-    const createAmbientSimulation = ({ room, navigation = null, activityPolicy = null,
+    const createAmbientSimulation = ({ room, navigation = null, activityPolicy = null, episodePolicy = null,
         getAuthoritativePose = () => '',
         canOwnResident = () => true, prepareStandingVisual = () => true,
         isStandingVisualReady = () => true, isRestingVisualReady = () => true,
@@ -365,6 +365,7 @@
                 authoritativePose: runtime.authoritativePose, ambientMotionPose: runtime.ambientMotionPose,
                 localActivityPose: runtime.localActivityPose || null,
                 behaviorId: runtime.behaviorId || null, activityStartedAt: runtime.activityStartedAt ?? null,
+                episodeBeatId: runtime.episodeBeatId || null,
                 behaviorInstanceId: runtime.instance?.id || null,
                 behaviorLifecycleState: runtime.instance?.lifecycleState || null,
                 claim: runtime.claim ? { ...runtime.claim } : null,
@@ -510,7 +511,7 @@
             publish();
             schedule(runtime, idleDelay(runtime.id, runtime.decisions));
         };
-        const startStationaryActivity = (runtime, behaviorId, { settle = false, remaining = null, groundOnly = false } = {}) => {
+        const startStationaryActivity = (runtime, behaviorId, { settle = false, remaining = null, groundOnly = false, episodeBeat = null } = {}) => {
             if (!settle && !groundOnly) {
                 const candidate = activityPolicy.candidates?.(runtime, false, [])
                     ?.find(row => row.behaviorId === behaviorId && row.eligible);
@@ -535,15 +536,15 @@
             runtime.state = 'activity-pending';
             runtime.transitionPhase = 'activity-visual-pending';
             runtime.nextDecisionAt = null;
-            const preferred = continuing && instance.posture || activityPolicy.choosePosture(runtime, behaviorId);
+            const preferred = episodeBeat?.posture || continuing && instance.posture || activityPolicy.choosePosture(runtime, behaviorId);
             const choices = [];
             const add = (id, pose) => {
                 if (pose && !choices.some(choice => choice.id === id && choice.pose === pose))
                     choices.push({ id, pose });
             };
             add(behaviorId, preferred);
-            for (const pose of activityPolicy.postures(behaviorId)) add(behaviorId, pose);
-            for (const id of ['sit-idle', 'observe', 'rest', 'groom', 'sleep'])
+            if (!episodeBeat) for (const pose of activityPolicy.postures(behaviorId)) add(behaviorId, pose);
+            if (!episodeBeat) for (const id of ['sit-idle', 'observe', 'rest', 'groom', 'sleep'])
                 for (const pose of activityPolicy.postures(id)) add(id, pose);
             const tryChoice = index => {
                 if (!stillAuthorized(runtime, token)) return;
@@ -557,7 +558,8 @@
                     runtime.state = 'stationary';
                     runtime.transitionPhase = 'activity-visual-unavailable';
                     runtime.reason = 'activity-visual-unavailable';
-                    runtime.timer = setTimer(() => startStationaryActivity(runtime, behaviorId, { settle, groundOnly }), 10000);
+                    if (episodeBeat) episodePolicy.progress(runtime.id, episodeBeat.id, 'invalidated', runtime.foot, 'visual-unavailable');
+                    else runtime.timer = setTimer(() => startStationaryActivity(runtime, behaviorId, { settle, groundOnly }), 10000);
                     publish();
                     return;
                 }
@@ -577,7 +579,8 @@
                             runtime.timer = setTimer(() => { runtime.timer = null; ready(); }, VISUAL_POLL_MS);
                             return;
                         }
-                        const duration = remaining ?? activityPolicy.duration(runtime.id, runtime.decisions, choice.id);
+                        const duration = episodeBeat ? Math.max(1, episodeBeat.endAt - episodePolicy.now()) :
+                            remaining ?? activityPolicy.duration(runtime.id, runtime.decisions, choice.id);
                         runtime.behaviorId = choice.id;
                         runtime.localActivityPose = choice.pose;
                         runtime.ambientMotionPose = null;
@@ -595,6 +598,9 @@
                         activeInstance.startedAt = runtime.activityStartedAt;
                         activeInstance.expectedEndAt = runtime.activityExpectedEndAt;
                         activeInstance.lifecycleState = 'ACTIVE';
+                        if (episodeBeat && !episodePolicy.progress(runtime.id, episodeBeat.id, 'active', runtime.foot)) {
+                            cancelBehavior(runtime, 'episode-save-failed', true); runtime.state = 'stationary'; publish(); return;
+                        }
                         if (['sleep', 'rest', 'sit-idle', 'observe'].includes(choice.id))
                             activeInstance.targetContext = { kind: 'ground' };
                         note(runtime, continuing ? 'behavior-resumed' : 'behavior-started', choice.id);
@@ -610,6 +616,7 @@
                             if (!stillAuthorized(runtime, token) || runtime.instance !== activeInstance) return;
                             runtime.nextDecisionAt = null;
                             endInstance(runtime, 'COMPLETED', 'duration-complete');
+                            if (episodeBeat) episodePolicy.progress(runtime.id, episodeBeat.id, 'completed', runtime.foot);
                             chooseNextActivity(runtime, false);
                         }, duration);
                     };
@@ -620,9 +627,63 @@
             publish();
             tryChoice(0);
         };
+        // Optional frozen-plan input; all execution still uses this controller's
+        // existing visual preparation, route validation and claim handles.
+        const runEpisodeBeat = runtime => {
+            const selection = episodePolicy?.get(runtime);
+            if (!selection) return false;
+            const beat = selection.beat;
+            if (!selection.hold && !selection.invalid && beat?.id === runtime.episodeBeatId &&
+                ['activity', 'activity-pending', 'moving', 'transitioning'].includes(runtime.state)) return true;
+            cancelBehavior(runtime, 'episode-boundary', true);
+            runtime.generation += 1; runtime.state = 'stationary'; runtime.reason = 'episode-wait';
+            for (const prior of selection.skipped || [])
+                if (!episodePolicy.progress(runtime.id, prior.id, 'skipped', runtime.foot)) { publish(); return true; }
+            if (selection.invalid) {
+                episodePolicy.progress(runtime.id, beat.id, 'invalidated', runtime.foot, selection.invalid);
+                publish(); return true;
+            }
+            if (selection.hold) {
+                if (selection.wakeAt > episodePolicy.now()) runtime.timer = setTimer(() => {
+                    runtime.timer = null; if (active && !paused) runEpisodeBeat(runtime);
+                }, selection.wakeAt - episodePolicy.now());
+                publish(); return true;
+            }
+            const resumedMove = beat.behaviorId === 'roam' && beat.state === 'active' && runtime.episodeBeatId !== beat.id;
+            runtime.episodeBeatId = beat.id;
+            const fail = reason => {
+                cancelBehavior(runtime, reason, true); runtime.state = 'stationary'; runtime.reason = reason;
+                episodePolicy.progress(runtime.id, beat.id, 'invalidated', runtime.foot, reason); publish();
+            };
+            if (resumedMove || pointDistance(runtime.foot, beat.foot) > 1 ||
+                !navigation.legalPoint(runtime.foot) || nearClaim(runtime.foot, runtime.id) ||
+                !activityPolicy.postures(beat.behaviorId).includes(beat.posture)) { fail('illegal-episode-contact'); return true; }
+            if (beat.behaviorId !== 'roam') {
+                startStationaryActivity(runtime, beat.behaviorId, { groundOnly: true, episodeBeat: beat });
+                return true;
+            }
+            // A hidden/interrupted move is never replayed from an intermediate contact.
+            if (pointDistance(runtime.foot, beat.foot) > 1 || !beat.target ||
+                !navigation.legalPoint(beat.target) || nearClaim(beat.target, runtime.id)) {
+                fail('episode-target-invalid'); return true;
+            }
+            let route;
+            try { route = navigation.plan(runtime.foot, beat.target); } catch (_) { /* fail closed */ }
+            if (!route?.valid) { fail('episode-route-invalid'); return true; }
+            const instance = beginInstance(runtime, 'roam');
+            runtime.target = { ...beat.target }; runtime.route = route;
+            reserved.set(runtime.id, runtime.target);
+            runtime.claim = { kind: 'destination-reservation', key: runtime.id, ownerInstanceId: instance.id };
+            instance.targetContext = { kind: 'destination', foot: { ...beat.target } };
+            instance.claimHandles.push({ ...runtime.claim }); instance.lifecycleState = 'ACTIVE';
+            runtime.behaviorId = 'roam'; runtime.activityStartedAt = now();
+            if (!episodePolicy.progress(runtime.id, beat.id, 'active', runtime.foot)) { fail('episode-save-failed'); return true; }
+            beginTransition(runtime); return true;
+        };
         const chooseNextActivity = (runtime, afterRoam = false, settle = false,
             excluded = [], sameCycle = false) => {
             if (!activityPolicy) return;
+            if (runEpisodeBeat(runtime)) return;
             if (!sameCycle) runtime.decisions += 1;
             runtime.candidates = activityPolicy.candidates?.(runtime, afterRoam, excluded) || [];
             note(runtime, 'candidate-evaluated', runtime.candidates.map(row =>
@@ -692,6 +753,8 @@
                 fallbackFurnitureBehavior(runtime, reason);
                 return;
             }
+            if (runtime.episodeBeatId && episodePolicy?.get(runtime))
+                episodePolicy.progress(runtime.id, runtime.episodeBeatId, 'invalidated', runtime.foot, reason);
             runtime.generation += 1;
             runtime.lastPrepareFailure = { behaviorId: 'roam', reason };
             note(runtime, 'prepare-failed', reason);
@@ -706,6 +769,15 @@
             if ((navigation ? reserved.get(runtime.id) !== runtime.target :
                 reserved.get(runtime.target) !== runtime.id) || !isStandingVisualReady(runtime.id)) {
                 abortRoam(runtime, 'standing-visual-unavailable'); return;
+            }
+            if (runtime.episodeBeatId && episodePolicy) {
+                const selection = episodePolicy.get(runtime);
+                if (selection?.beat?.id !== runtime.episodeBeatId || selection.beat.endAt <= episodePolicy.now()) {
+                    abortRoam(runtime, 'episode-movement-expired'); return;
+                }
+                runtime.timer = setTimer(() => { runtime.timer = null;
+                    if (stillAuthorized(runtime, token)) abortRoam(runtime, 'episode-movement-expired');
+                }, selection.beat.endAt - episodePolicy.now());
             }
             const target = runtime.target;
             const from = navigation ? runtime.foot : room.ambientSlots[runtime.slot];
@@ -729,6 +801,7 @@
                     publish();
                 }, onArrival: () => {
                     if (!stillAuthorized(runtime, token)) return;
+                    if (runtime.episodeBeatId && runtime.timer !== null) { clearTimer(runtime.timer); runtime.timer = null; }
                     if (!isStandingVisualReady(runtime.id)) { park(runtime); return; }
                     if (furnitureDefinition(runtime)) {
                         runtime.foot = { x: to.x, y: to.y };
@@ -757,6 +830,10 @@
                     runtime.motion = null;
                     runtime.foot = { x: to.x, y: to.y };
                     runtime.cycles += 1;
+                    if (runtime.episodeBeatId && episodePolicy) {
+                        endInstance(runtime, 'COMPLETED', 'episode-arrival');
+                        episodePolicy.progress(runtime.id, runtime.episodeBeatId, 'completed', runtime.foot);
+                    }
                     runtime.state = 'settling';
                     runtime.transitionPhase = 'standing-settle';
                     publish();
@@ -856,6 +933,7 @@
                     if (navigation) occupied.set(entry.id, { ...runtime.foot });
                     else occupied.set(entry.slot, entry.id);
                     if (pose) {
+                        if (runEpisodeBeat(runtime)) continue;
                         if (activityPolicy) startStationaryActivity(runtime,
                             activityPolicy.initial(pose) || 'observe');
                         else schedule(runtime, idleDelay(entry.id, 0));
@@ -874,6 +952,7 @@
                 runtime.state = pose ? 'idle' : 'stationary';
                 runtime.reason = pose ? '' : 'missing-authoritative-pose';
                 if (pose) {
+                    if (runEpisodeBeat(runtime)) continue;
                     if (activityPolicy) startStationaryActivity(runtime,
                         activityPolicy.initial(pose) || 'observe');
                     else schedule(runtime, idleDelay(entry.id, runtime.decisions));
@@ -931,7 +1010,10 @@
                     (!interaction || navigation.getInteraction?.(interaction.slotId) === interaction) &&
                     entry.slot === runtime.entrySlot &&
                     ((activityPolicy && runtime.reason !== 'missing-authoritative-pose') ||
-                        entry.authoritativePose === runtime.authoritativePose)) continue;
+                        entry.authoritativePose === runtime.authoritativePose)) {
+                    if (!paused && episodePolicy) runEpisodeBeat(runtime);
+                    continue;
+                }
                 runtime.generation += 1;
                 clearRuntime(runtime, 'placement-or-presence-changed');
                 residents.delete(runtime.id);
@@ -966,6 +1048,7 @@
                     (!activityPolicy && normalizedAuthority(runtime.id) !== runtime.authoritativePose)) continue;
                 if (runtime.state === 'paused') {
                     runtime.reason = '';
+                    if (runEpisodeBeat(runtime)) continue;
                     if (activityPolicy) startStationaryActivity(runtime,
                         runtime.behaviorId && runtime.behaviorId !== 'roam' ? runtime.behaviorId : 'rest',
                         { groundOnly: runtime.instance?.targetContext?.kind === 'ground',
@@ -996,6 +1079,7 @@
         const requestFurnitureInteraction = (id, slotId, behaviorId = null) => {
             const runtime = residents.get(String(id));
             const interaction = navigation?.getInteraction?.(slotId);
+            if (behaviorId && runtime && episodePolicy?.get(runtime)) return null;
             if (!runtime || !active || paused || !activityPolicy?.prepareVisual ||
                 furnitureDefinition(runtime) || !interaction ||
                 !canOwnResident(runtime.id, runtime.entryKey) || !navigation.legalPoint(runtime.foot) ||
