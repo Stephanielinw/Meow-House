@@ -12,14 +12,16 @@ const section = (startMarker, endMarker) => {
 
 // The persisted lifecycle separates generation from local delivery.
 assert.match(source, /PHONE_REPLY_STATUSES = new Set\(\['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'completed', 'failed', 'integrity-mismatch'\]\)/);
-assert.match(source, /createdAt: now\.toISOString\(\), generationDueAt: '', status: 'scheduled'/);
+assert.match(source, /opportunity\.generationDueAt = computePhoneReplyGenerationDueAt\(opportunity\)/);
 assert.match(source, /generationDueAt[\s\S]*raw\.dueAt/);
 assert.match(source, /deliverAt, nextDeliveryIndex, nextDeliveryAt/);
 assert.doesNotMatch(source, /phoneReplyDueTime/);
 const reconcileSource = section('const reconcilePhoneReplyOpportunities = async', 'const claimPhoneReplyForHomepageDirect');
 assert.match(reconcileSource, /promoteGeneratedPhoneReplyDeliveries\(now\)/);
 assert.match(reconcileSource, /flushPhoneReplyDeliveries\(now\)/);
-assert.doesNotMatch(reconcileSource, /callAI\(|runPhoneReplyOpportunity\(|claimPhoneReplyGeneration\(/);
+assert.doesNotMatch(reconcileSource, /callAI\(/);
+assert.match(reconcileSource, /claimPhoneReplyGeneration\(opportunity, 'phone-dedicated'/);
+assert.match(reconcileSource, /runPhoneReplyOpportunity\(claim, \{ automatic: true \}\)/);
 
 // Queueing preserves pre-claim batching and creates a later lane item after claim.
 const queued = [];
@@ -32,6 +34,7 @@ const queueSandbox = {
   isAcceptedPhoneContact: () => true,
   getCanonicalCatId: value => String(value),
   sameCatId: (left, right) => String(left) === String(right),
+  computePhoneReplyGenerationDueAt: op => new Date(new Date(op.createdAt).getTime() + 60_000).toISOString(),
   schedulePhoneReplyReconciliation: () => {}
 };
 vm.createContext(queueSandbox);
@@ -41,7 +44,7 @@ const first = queueSandbox.queueReply('resident-a', { id: 'u1', role: 'user' }, 
 const merged = queueSandbox.queueReply('resident-a', { id: 'u2', role: 'user' }, new Date('2026-09-20T10:00:01Z'));
 assert.equal(first.id, merged.id);
 assert.deepEqual([...first.sourceMessageIds], ['u1', 'u2']);
-assert.equal(first.generationDueAt, '', 'new V2 work has no timer-owned generation deadline');
+assert.equal(first.generationDueAt, '2026-09-20T10:01:00.000Z', 'merged work retains the first due time');
 first.claimedAt = '2026-09-20T10:00:02Z';
 first.status = 'in-flight';
 const second = queueSandbox.queueReply('resident-a', { id: 'u3', role: 'user' }, new Date('2026-09-20T10:00:03Z'));
@@ -143,7 +146,7 @@ for (const [hint, [minimum, maximum]] of Object.entries(timingSandbox.PHONE_REPL
   const firstTime = new Date(timingSandbox.computeDeliverAt(opportunity, 'token', hint, generatedAt)).getTime();
   const secondTime = new Date(timingSandbox.computeDeliverAt(opportunity, 'token', hint, generatedAt)).getTime();
   assert.equal(firstTime, secondTime);
-  assert.ok(firstTime - generatedAt.getTime() >= minimum && firstTime - generatedAt.getTime() <= maximum);
+  assert.equal(firstTime, generatedAt.getTime(), 'generation success does not get another long delay');
 }
 assert.equal(timingSandbox.normalizeHint('invalid'), 'normal');
 const expired = { id: 'expired', createdAt: '2026-09-20T09:00:00Z' };
@@ -156,7 +159,7 @@ assert.match(directSource, /if \(!isReRoll && !isItemUse\) \{\s*phoneReplyPiggyb
 assert.match(source, /sameCatId\(opportunity\.contactId, canonicalResidentId\)/);
 assert.match(source, /claimPhoneReplyGeneration\(opportunity, 'homepage-direct-piggyback'/);
 assert.match(source, /claimPhoneReplyGeneration\(opportunity, 'phone-dedicated'/);
-assert.equal((source.match(/claimPhoneReplyGeneration\(opportunity,/g) || []).length, 2, 'only dedicated Phone and same-resident Direct may claim generation');
+assert.equal((source.match(/claimPhoneReplyGeneration\(opportunity,/g) || []).length, 3, 'auto and manual Phone plus same-resident Direct share the same claim');
 assert.match(directSource, /validateResponse: content => \{[\s\S]*?return validateMergedHomepageChatResponse/);
 assert.match(directSource, /settleHomepageDirectPhoneSidecar\(phoneReplyPiggybackClaim, payload\.phoneReply\)/);
 assert.match(source, /PHONE REPLY PIGGYBACK SOFT MISS/);
@@ -248,10 +251,10 @@ for (const status of ['scheduled', 'retryable', 'in-flight', 'generated', 'deliv
 }
 
 // UI states and call-site budget.
-assert.match(source, /state === 'ready'/);
-assert.match(source, /获取回复/);
-assert.match(source, /等回复/);
-assert.match(source, /\['retryable', 'in-flight', 'generated', 'delivering'\]/);
+assert.doesNotMatch(section('<!-- Reply preview bar -->', '<!-- Tool bar:'), /获取回复|requestPhoneReplyGeneration/);
+assert.match(source, /等待回复…/);
+assert.match(source, /正在回复…/);
+assert.match(source, /重新尝试回复/);
 assert.equal((source.match(/callAI\(/g) || []).length, 36);
 
 // M1: exercise the real merged storage reader, normalization, claim, commit,
@@ -266,6 +269,7 @@ const makeM1 = () => {
   const sandbox = {
     user, Date, Math, Map, Set,
     cleanText: value => String(value ?? '').replace(/\s+/g, ' ').trim(),
+    isResidentAway: cat => Boolean(cat.isOut), getResidentCopyContext: () => null,
     getCanonicalCatId: String, sameCatId: (a, b) => String(a) === String(b),
     cats: { value: [{ id: 'a', hallId: 'hall', name: 'A', innerVoice: 'A PRIVATE' },
       { id: 'b', hallId: 'hall', name: 'B', innerVoice: 'B PRIVATE SENTINEL' }] },
@@ -287,7 +291,7 @@ const makeM1 = () => {
     normalizePhoneReplyDisclosureFactIdsByBubble: rows => rows || [], makePhoneReplyKnowledgeFactRefs: () => [],
     getLifeThreadFactLocation: () => null, validatePhoneChatReplyPayload: () => true,
     parsePhoneChatReplyEnvelope: payload => payload, validatePhoneReplyKnowledgeDisclosures: () => [],
-    normalizePhoneReplyTimingHint: () => 'normal', computePhoneReplyDeliverAt: (_op, _token, _hint, now) => now.toISOString(),
+    normalizePhoneReplyTimingHint: () => 'normal',
     PHONE_REPLY_STATUSES: new Set(['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'completed', 'failed', 'integrity-mismatch']),
     PHONE_REPLY_UNRESOLVED_STATUSES: new Set(['scheduled', 'retryable', 'in-flight', 'generated', 'delivering', 'failed', 'integrity-mismatch']),
     PHONE_REPLY_RETRY_DELAYS_MS: [60_000, 180_000, 480_000], PHONE_REPLY_BUBBLE_DELAY_MS: 750,
@@ -302,6 +306,8 @@ const makeM1 = () => {
   vm.runInContext(`
     ${section('const getStoredPhoneArchiveMessages', 'const phoneMessageVisibleInContainer')}
     ${section('const getPhoneMessageTimestamp', 'const getLatestPhoneMessageTimestamp')}
+    ${section('const PHONE_REPLY_GENERATION_DELAY_RANGES_MS', 'const PHONE_REPLY_RETRY_DELAYS_MS')}
+    ${section('const stablePhoneReplyNumber', 'const commitPhoneReplyGeneration')}
     ${section('const getPhoneReplyOpportunities', 'const normalizePhoneReplyKnowledgeSnapshots')}
     ${section('const normalizePhoneReplyThreadMessages', 'const makePhoneReplyKnowledgeFactRefs')}
     ${section('const normalizePhoneReplyOpportunities', 'const hasUnresolvedPhoneReply')}
@@ -312,7 +318,7 @@ const makeM1 = () => {
     globalThis.m1 = { getAllStoredPhoneMessages, queuePhoneReplyOpportunity, getPhoneReplySourceMessages,
       freezePhoneReplyThreadContext, normalizePhoneReplyOpportunities, claimPhoneReplyGeneration,
       getPhoneReplyLaneHeadForContact, commitPhoneReplyGeneration, promoteGeneratedPhoneReplyDeliveries,
-      flushPhoneReplyDeliveries, appendPhoneMessage };
+      flushPhoneReplyDeliveries, appendPhoneMessage, computePhoneReplyGenerationDueAt };
   `, sandbox);
   return { ...sandbox.m1, user, saves, toasts, sandbox, setSaveSteps: steps => { saveSteps = [...steps]; } };
 };
@@ -344,7 +350,7 @@ const batchA = h.queuePhoneReplyOpportunity('a', u3, time);
 h.queuePhoneReplyOpportunity('a', u1, time); h.queuePhoneReplyOpportunity('a', u2, time);
 assert.equal(h.user.phoneData.replyOpportunities.length, 1);
 assert.deepEqual(Array.from(batchA.sourceMessageIds), ['u1', 'u2', 'u3']);
-assert.equal(batchA.generationDueAt, '');
+assert.ok(new Date(batchA.generationDueAt).getTime() > time.getTime());
 const claim = h.claimPhoneReplyGeneration(batchA, 'phone-dedicated', time);
 assert.ok(claim);
 assert.deepEqual(ids(batchA.threadContextMessages), ['resident-before', 'u1', 'u2', 'u3']);
@@ -441,16 +447,216 @@ assert.ok(failPending.appendPhoneMessage('a', 'user', 'text', 'durable'));
 assert.equal(live(failPending).length, 1); assert.equal(failPending.user.phoneData.replyOpportunities.length, 0);
 assert.equal(failPending.saves.length, 1); assert.ok(failPending.toasts.length);
 
+// M2: fake active-session clock/timers, actual production reconciliation,
+// claim, generator, prompt packet, commit, delivery and waiting-state helpers.
+const settle = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
+const makeM2 = () => {
+  const h = makeM1();
+  let clock = Date.parse('2026-10-05T10:00:00Z'), timerId = 0;
+  const timers = new Map(), requests = [];
+  class ClockDate extends Date {
+    constructor(...args) { super(...(args.length ? args : [clock])); }
+    static now() { return clock; }
+  }
+  Object.assign(h.sandbox, {
+    Date: ClockDate, document: { visibilityState: 'visible' }, statusRefreshDisposed: false,
+    setTimeout: (fn, delay) => { const id = ++timerId; timers.set(id, { fn, delay, at: clock + delay }); return id; },
+    clearTimeout: id => timers.delete(id), phoneReplyReconciliationTimer: null,
+    phoneIdentities: { value: { a: { name: 'A' }, b: { name: 'B' } } },
+    phoneState: { isTyping: false }, isExactPhoneConversationOpen: () => true,
+    getInteractionHolidayContext: () => '', buildResidentConversationKnowledgeContext: () => ({ prompt: '' }),
+    CORE_ROLEPLAY_PROMPT: 'TEST SYSTEM', ThinkingLevel: { LOW: 'low' },
+    AIRequestCancelledError: class extends Error {}, validatePhoneChatReply: () => true,
+    callAI: (prompt, _system, _tokens, _thinking, options) => {
+      assert.equal(options.maxAttempts, 1); assert.equal(options.uiMode, 'background');
+      return new Promise((resolve, reject) => requests.push({ prompt, options, resolve, reject }));
+    }
+  });
+  vm.runInContext(`
+    ${section('const schedulePhoneReplyReconciliation', 'const queuePhoneReplyOpportunity')}
+    ${section('const phoneReplyNeedsManualRetry', 'const insertEmoji')}
+    ${section('const formatFrozenPhoneReplyThread', 'const stablePhoneReplyNumber')}
+    ${section('const markPhoneReplyFailure', 'const sendPhoneMessage')}
+    globalThis.m2 = { reconcilePhoneReplyOpportunities, claimPhoneReplyForHomepageDirect,
+      getPhoneReplyControlState, retryPhoneReplyOpportunity, runPhoneReplyOpportunity, schedulePhoneReplyReconciliation };
+  `, h.sandbox);
+  const result = { ...h, ...h.sandbox.m2, requests, timers,
+    now: () => new ClockDate(), setClock: value => { clock = typeof value === 'number' ? value : new Date(value).getTime(); },
+    current: () => h.user.phoneData.replyOpportunities[0],
+    send: content => h.appendPhoneMessage('a', 'user', 'text', content),
+    tick: () => h.sandbox.m2.reconcilePhoneReplyOpportunities(new ClockDate()),
+    succeed: async (index = requests.length - 1, messages = ['我在呢，接着告诉我吧。']) => {
+      requests[index].resolve({ messages, timingHint: 'slow' }); await settle();
+    }
+  };
+  return result;
+};
+
+// Timing policy uses only reliable current facts, once per original batch.
+for (const kind of ['normal', 'quick', 'away', 'sleep', 'baseline-sleep']) {
+  const m = makeM2();
+  if (kind === 'quick') live(m).push(row('recent-a', 'assistant', 'hello', m.now().toISOString()));
+  if (kind === 'away') m.sandbox.cats.value[0].isOut = true;
+  if (kind === 'sleep' || kind === 'baseline-sleep') m.sandbox.getResidentCopyContext = () => ({ family: 'sleep', episodeId: kind === 'sleep' ? 'accepted-sleep' : 'baseline:hall' });
+  m.send('hello');
+  const delay = new Date(m.current().generationDueAt).getTime() - m.now().getTime();
+  const [min, max] = kind === 'quick' ? [15_000, 60_000] : ['away', 'sleep'].includes(kind) ? [300_000, 720_000] : [60_000, 300_000];
+  assert.ok(delay >= min && delay <= max, `${kind}: ${delay}`);
+  assert.equal(m.requests.length, 0);
+}
+
+// A/B/C/D/G/K/M: send is durable/zero-AI, merge retains due, one due claim,
+// same canonical packet, no duplicate reconciliation or second long delay.
+const auto = makeM2();
+archive(auto, 'a', [aTurn]); archive(auto, 'b', [row('secret-b', 'assistant', 'B PRIVATE CHAT', aTurn.at)]);
+const sent1 = auto.send('first user turn');
+const due = auto.current().generationDueAt;
+assert.equal(auto.requests.length, 0); assert.ok(new Date(due).getTime() > auto.now().getTime());
+assert.equal(auto.saves.at(-1).phoneData.replyOpportunities[0].generationDueAt, due);
+auto.setClock(auto.now().getTime() + 1000); const sent2 = auto.send('second user turn');
+auto.setClock(auto.now().getTime() + 1000); const sent3 = auto.send('third user turn');
+assert.equal(auto.current().generationDueAt, due);
+assert.equal(auto.getPhoneReplyControlState('a').state, 'pending');
+auto.setClock(new Date(due).getTime() - 1); await auto.tick(); assert.equal(auto.requests.length, 0);
+auto.setClock(due); await auto.tick();
+assert.equal(auto.requests.length, 1); assert.equal(auto.current().status, 'in-flight');
+assert.equal(auto.getPhoneReplyControlState('a').state, 'generating');
+assert.deepEqual(Array.from(auto.current().sourceMessageIds), [sent1.id, sent2.id, sent3.id]);
+assert.deepEqual(ids(auto.current().threadContextMessages), ['resident-before', sent1.id, sent2.id, sent3.id]);
+assert.ok(auto.requests[0].prompt.includes('first user turn')); assert.ok(auto.requests[0].prompt.includes('third user turn'));
+assert.ok(!auto.requests[0].prompt.includes('B PRIVATE')); assert.ok(!auto.requests[0].prompt.includes('PRIVATE OWNER'));
+for (let i = 0; i < 20; i++) await auto.tick();
+assert.equal(auto.requests.length, 1);
+await auto.succeed();
+assert.equal(auto.current().status, 'generated'); assert.equal(auto.current().deliverAt, auto.now().toISOString());
+await auto.tick(); assert.equal(auto.current().status, 'completed');
+assert.equal(auto.getPhoneReplyControlState('a').state, 'hidden');
+for (let i = 0; i < 10; i++) await auto.tick(); assert.equal(auto.requests.length, 1);
+
+// The existing single timeout itself drives generation; no manual tick needed.
+const timerDriven = makeM2(); timerDriven.send('timer-driven reply');
+const timerDue = timerDriven.current().generationDueAt;
+for (let i = 0; i < 6 && timerDriven.requests.length === 0; i++) {
+  assert.equal(timerDriven.timers.size, 1);
+  const [id, timer] = [...timerDriven.timers.entries()][0];
+  timerDriven.timers.delete(id); timerDriven.setClock(timer.at); timer.fn(); await settle();
+}
+assert.equal(timerDriven.requests.length, 1);
+assert.equal(timerDriven.now().toISOString(), timerDue);
+
+// E/F: pending survives reload; overdue work and legacy empty due don't reset wait.
+const saved = makeM2(); saved.send('durable pending');
+const savedState = JSON.parse(JSON.stringify(saved.saves.at(-1).phoneData));
+const restored = makeM2(); restored.user.phoneData = JSON.parse(JSON.stringify(savedState));
+restored.setClock(new Date(savedState.replyOpportunities[0].generationDueAt).getTime() - 1);
+await restored.tick(); assert.equal(restored.requests.length, 0);
+restored.setClock(savedState.replyOpportunities[0].generationDueAt); await restored.tick();
+assert.equal(restored.requests.length, 1);
+const overdue = makeM2(); overdue.user.phoneData = JSON.parse(JSON.stringify(savedState));
+overdue.setClock('2026-10-06T12:00:00Z'); await overdue.tick();
+assert.equal(overdue.requests.length, 1); assert.equal(overdue.current().generationDueAt, savedState.replyOpportunities[0].generationDueAt);
+const legacy = makeM2(); legacy.user.phoneData = JSON.parse(JSON.stringify(savedState));
+legacy.current().generationDueAt = ''; legacy.setClock('2026-10-06T12:00:00Z'); await legacy.tick();
+assert.equal(legacy.requests.length, 1);
+assert.ok(new Date(legacy.current().generationDueAt).getTime() <= new Date(legacy.current().createdAt).getTime() + 300_000);
+const hidden = makeM2(); hidden.user.phoneData = JSON.parse(JSON.stringify(savedState));
+hidden.setClock('2026-10-06T12:00:00Z'); hidden.sandbox.document.visibilityState = 'hidden'; await hidden.tick();
+assert.equal(hidden.requests.length, 0); hidden.sandbox.document.visibilityState = 'visible'; await hidden.tick();
+assert.equal(hidden.requests.length, 1);
+
+const legacyMissingCreation = makeM2(); legacyMissingCreation.user.phoneData = JSON.parse(JSON.stringify(savedState));
+legacyMissingCreation.current().createdAt = ''; legacyMissingCreation.current().generationDueAt = '';
+legacyMissingCreation.setClock('2026-10-06T12:00:00Z'); await legacyMissingCreation.tick();
+assert.equal(legacyMissingCreation.requests.length, 1, 'canonical first-send time prevents a fresh wait for old data');
+
+// H/lane order: second batch becomes overdue but cannot overtake active A.
+const lanes = makeM2(); lanes.send('batch A'); lanes.setClock(lanes.current().generationDueAt); await lanes.tick();
+const aSources = JSON.stringify(lanes.current().sourceMessageIds), frozenA = JSON.stringify(lanes.current().threadContextMessages);
+lanes.send('batch B'); const batchBDue = lanes.user.phoneData.replyOpportunities[1].generationDueAt;
+assert.equal(JSON.stringify(lanes.current().sourceMessageIds), aSources); assert.equal(JSON.stringify(lanes.current().threadContextMessages), frozenA);
+lanes.setClock(batchBDue); await lanes.tick(); assert.equal(lanes.requests.length, 1);
+assert.ok([...lanes.timers.values()].every(timer => timer.delay > 0), 'blocked overdue B never starts a zero-delay timer loop');
+await lanes.succeed(0, ['第一条回复到了。', '接着是第二条回复。']); await lanes.tick();
+assert.equal(lanes.requests.length, 1); assert.equal(lanes.current().status, 'delivering');
+assert.equal(new Date(lanes.current().nextDeliveryAt).getTime() - lanes.now().getTime(), 750);
+lanes.setClock(lanes.now().getTime() + 750); await lanes.tick();
+assert.equal(lanes.current().status, 'completed'); assert.equal(lanes.requests.length, 2);
+assert.equal(lanes.user.phoneData.replyOpportunities[1].status, 'in-flight');
+
+// I/J: both orderings of exact-resident, exact-opportunity atomic claim.
+const sidecar = makeM2(); sidecar.send('early sidecar');
+assert.equal(sidecar.claimPhoneReplyForHomepageDirect('b'), null);
+const sideClaim = sidecar.claimPhoneReplyForHomepageDirect('a'); assert.ok(sideClaim);
+assert.equal(sidecar.current().id, sideClaim.opportunityId);
+sidecar.setClock(sidecar.current().generationDueAt); await sidecar.tick(); assert.equal(sidecar.requests.length, 0);
+assert.equal(sidecar.commitPhoneReplyGeneration(sideClaim, { messages: ['同一条待回复消息已回应。'] }, sidecar.now()).committed, true);
+await sidecar.tick(); assert.equal(sidecar.current().status, 'completed'); assert.equal(sidecar.requests.length, 0);
+const earlySidecar = makeM2(); earlySidecar.send('sidecar completes early');
+const earlyClaim = earlySidecar.claimPhoneReplyForHomepageDirect('a');
+assert.ok(earlySidecar.now().getTime() < new Date(earlySidecar.current().generationDueAt).getTime());
+assert.equal(earlySidecar.commitPhoneReplyGeneration(earlyClaim, { messages: ['提前搭便车完成。'] }, earlySidecar.now()).committed, true);
+assert.equal(earlySidecar.current().deliverAt, earlySidecar.now().toISOString());
+await earlySidecar.tick(); assert.equal(earlySidecar.current().status, 'completed');
+earlySidecar.setClock(earlySidecar.current().generationDueAt); await earlySidecar.tick(); assert.equal(earlySidecar.requests.length, 0);
+
+const dueWins = makeM2(); dueWins.send('due wins'); dueWins.setClock(dueWins.current().generationDueAt); await dueWins.tick();
+assert.equal(dueWins.requests.length, 1); assert.equal(dueWins.claimPhoneReplyForHomepageDirect('a'), null);
+
+// L: use the actual existing AI queue/transport with a fake failing fetch.
+// This counts provider attempts, not merely calls to a stubbed generator.
+const retry = makeM2();
+let providerAttempts = 0;
+const aiSandbox = {
+  window: { setTimeout, clearTimeout }, URL, AbortController, TextEncoder, TextDecoder, setTimeout, clearTimeout, Date: retry.sandbox.Date,
+  console: { warn: () => {} }, fetch: async () => { providerAttempts++; throw new Error('Synthetic provider failure'); }
+};
+vm.createContext(aiSandbox);
+vm.runInContext(fs.readFileSync(new URL('../js/meeow-ai.js', import.meta.url), 'utf8'), aiSandbox);
+const ai = aiSandbox.window.Meeow.ai;
+ai.configure({ getSettings: () => ({ apiKey: 'fixture-only', baseUrl: 'https://mock.invalid', model: 'mock' }),
+  ThinkingLevel: { LOW: 'low' }, activeAIRequestId: { value: null }, apiRetryModal: {}, addLog: () => {}, showToast: () => {} });
+retry.sandbox.callAI = ai.callAI; retry.sandbox.AIRequestCancelledError = ai.AIRequestCancelledError;
+retry.send('retry lifecycle'); retry.setClock(retry.current().generationDueAt);
+for (const [index, delay] of [60_000, 180_000, 480_000].entries()) {
+  const attemptAt = retry.now().getTime(); await retry.tick(); await settle();
+  assert.equal(providerAttempts, index + 1, retry.current().lastError); assert.equal(retry.current().attemptCount, index + 1);
+  assert.equal(retry.current().status, 'retryable'); assert.equal(retry.getPhoneReplyControlState('a').state, 'retry');
+  assert.equal(new Date(retry.current().retryAt).getTime() - attemptAt, delay);
+  for (let i = 0; i < 10; i++) await retry.tick(); assert.equal(providerAttempts, index + 1);
+  retry.setClock(new Date(retry.current().retryAt).getTime() - 1); await retry.tick(); assert.equal(providerAttempts, index + 1);
+  retry.setClock(retry.current().retryAt);
+}
+await retry.tick(); await settle();
+assert.equal(providerAttempts, 4); assert.equal(retry.current().attemptCount, 4); assert.equal(retry.current().status, 'failed');
+assert.equal(retry.getPhoneReplyControlState('a').state, 'failed');
+for (let i = 0; i < 20; i++) { retry.setClock(retry.now().getTime() + 60_000); await retry.tick(); }
+assert.equal(providerAttempts, 4, 'terminal failure is never automatically requested again');
+assert.equal(aiSandbox.window.Meeow.ai !== undefined, true);
+retry.send('later valid work'); retry.setClock(retry.user.phoneData.replyOpportunities[1].generationDueAt);
+retry.sandbox.callAI = () => Promise.resolve({ messages: ['后续批次仍然可以回复。'] });
+await retry.tick(); await settle(); await retry.tick();
+assert.equal(retry.user.phoneData.replyOpportunities[1].status, 'completed'); assert.equal(retry.current().status, 'failed');
+
+// Persistence failure and disposal cannot dispatch or create a tight timer loop.
+const claimSaveFail = makeM2(); claimSaveFail.send('claim save fails'); claimSaveFail.setClock(claimSaveFail.current().generationDueAt);
+claimSaveFail.setSaveSteps([false]); await claimSaveFail.tick();
+assert.equal(claimSaveFail.requests.length, 0); assert.equal(claimSaveFail.current().status, 'scheduled');
+assert.ok([...claimSaveFail.timers.values()].every(timer => timer.delay >= 30_000));
+const disposed = makeM2(); disposed.send('disposed'); disposed.setClock(disposed.current().generationDueAt);
+disposed.sandbox.statusRefreshDisposed = true; await disposed.tick(); assert.equal(disposed.requests.length, 0);
+
 console.log(JSON.stringify({
   fixture: 'phone-reply-generation-delivery-v2',
   status: 'PASS',
   checks: [
-    'pending-generation', 'no-timer-generation', 'preclaim-batching', 'postclaim-lane',
+    'pending-generation', 'due-time-generation', 'preclaim-batching', 'postclaim-lane',
     'thread-freeze', 'single-winner-claim', 'claim-persistence', 'same-resident-only',
     'logical-channel-isolation', 'soft-sidecar', 'token-guard', 'program-delivery-timing',
     'generated-before-delivery', 'rollback-quarantine', 'local-exact-once-delivery',
     'phone-presence-exclusion', 'manual-ui', 'callAI-budget',
     'M1-canonical-order', 'M1-cross-day', 'M1-live-archive-dedupe', 'M1-contact-privacy',
-    'M1-source-integrity', 'M1-batching-freeze', 'M1-completion-isolation', 'M1-terminal-head', 'M1-send-persistence'
+    'M1-source-integrity', 'M1-batching-freeze', 'M1-completion-isolation', 'M1-terminal-head', 'M1-send-persistence',
+    'M2-stable-timing', 'M2-zero-send-AI', 'M2-due-CAS', 'M2-reload-overdue', 'M2-sidecar-race',
+    'M2-lane-order', 'M2-no-double-delay', 'M2-waiting-states', 'M2-provider-attempts-exactly-four', 'M2-privacy'
   ]
 }));

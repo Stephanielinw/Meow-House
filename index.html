@@ -7058,15 +7058,14 @@
 
                                             <div v-if="getPhoneReplyControlState(phoneState.selectedContactId).state !== 'hidden'"
                                                 class="px-3 pt-2 flex justify-end">
-                                                <button v-if="getPhoneReplyControlState(phoneState.selectedContactId).state === 'ready'"
-                                                    type="button" @click="requestPhoneReplyGeneration(phoneState.selectedContactId)"
-                                                    class="phone-chat-reply-trigger px-3 py-1.5 rounded-xl text-[11px] font-bold">
-                                                    <i class="fas fa-bolt mr-1"></i>获取回复
-                                                </button>
-                                                <button v-else type="button" disabled
-                                                    class="phone-chat-reply-trigger px-3 py-1.5 rounded-xl text-[11px] font-bold">
-                                                    <i class="fas fa-hourglass-half mr-1"></i>等回复
-                                                </button>
+                                                <div class="flex items-center gap-2" role="status" aria-live="polite">
+                                                    <span class="text-[11px] text-gray-600">{{ getPhoneReplyControlState(phoneState.selectedContactId).label }}</span>
+                                                    <button v-if="getPhoneReplyControlState(phoneState.selectedContactId).state === 'failed' && phoneReplyNeedsManualRetry(phoneState.selectedContactId)"
+                                                        type="button" @click="retryPhoneReplyOpportunity(phoneState.selectedContactId)"
+                                                        class="phone-chat-reply-trigger px-3 py-1.5 rounded-xl text-[11px] font-bold focus-visible:outline focus-visible:outline-2">
+                                                        <i class="fas fa-rotate mr-1"></i>重新尝试回复
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             <!-- Tool bar: short labels make every action discoverable on touch screens. -->
@@ -19429,8 +19428,7 @@ RULES:
                         }
                     })();
                 };
-                const PHONE_REPLY_TOTAL_LIFETIME_MS = 12 * 60 * 1000;
-                const PHONE_REPLY_DELIVERY_DELAY_RANGES_MS = Object.freeze({
+                const PHONE_REPLY_GENERATION_DELAY_RANGES_MS = Object.freeze({
                     quick: Object.freeze([15 * 1000, 60 * 1000]),
                     normal: Object.freeze([60 * 1000, 5 * 60 * 1000]),
                     slow: Object.freeze([5 * 60 * 1000, 12 * 60 * 1000])
@@ -19729,6 +19727,12 @@ RULES:
                     const candidates = getPhoneReplyOpportunities().map(opportunity => {
                         if (opportunity.status === 'generated' && opportunity.deliverAt) return new Date(opportunity.deliverAt).getTime();
                         if (opportunity.status === 'delivering' && opportunity.nextDeliveryAt) return new Date(opportunity.nextDeliveryAt).getTime();
+                        if (!statusRefreshDisposed && document.visibilityState === 'visible' && isPhoneReplyLaneHead(opportunity)) {
+                            const dueAt = getPhoneReplyGenerationTime(opportunity);
+                            // An overdue blocked claim waits for the existing 30s pass,
+                            // rather than repeatedly waking a zero-delay UI timeout.
+                            if (dueAt !== null) return dueAt <= now ? now + 30000 : dueAt;
+                        }
                         return null;
                     }).filter(Number.isFinite);
                     if (!candidates.length) { phoneReplyReconciliationTimer = null; return; }
@@ -19772,6 +19776,7 @@ RULES:
                         generatedAt: '', timingHint: '', deliverAt: '',
                         nextDeliveryIndex: 0, nextDeliveryAt: '', completedAt: '', lastError: ''
                     };
+                    opportunity.generationDueAt = computePhoneReplyGenerationDueAt(opportunity);
                     opportunities.push(opportunity);
                     schedulePhoneReplyReconciliation();
                     return opportunity;
@@ -19789,17 +19794,15 @@ RULES:
                     schedulePhoneReplyReconciliation();
                 };
                 const phoneReplyNeedsManualRetry = contactId => getPhoneReplyLaneHeadForContact(contactId)?.status === 'failed';
-                const getPhoneReplyControlState = (contactId, now = new Date()) => {
-                    const opportunity = getPhoneReplyLaneHeadForContact(contactId);
+                const getPhoneReplyControlState = contactId => {
+                    const opportunity = getPhoneReplyLaneHeadForContact(contactId) || getPhoneReplyOpportunities()
+                        .filter(item => sameCatId(item.contactId, contactId) && item.status === 'integrity-mismatch')
+                        .sort((left, right) => getPhoneReplyLaneOrder(right) - getPhoneReplyLaneOrder(left))[0];
                     if (!opportunity) return { state: 'hidden', opportunity: null };
-                    if (opportunity.status === 'scheduled' ||
-                        (opportunity.status === 'retryable' && isPhoneReplyRetryEligible(opportunity, now))) {
-                        return { state: 'ready', opportunity };
-                    }
-                    if (['retryable', 'in-flight', 'generated', 'delivering'].includes(opportunity.status)) {
-                        return { state: 'waiting', opportunity };
-                    }
-                    return { state: 'hidden', opportunity };
+                    if (opportunity.status === 'in-flight') return { state: 'generating', label: '正在回复…', opportunity };
+                    if (['failed', 'integrity-mismatch'].includes(opportunity.status)) return { state: 'failed', label: '这轮回复暂时未能完成。', opportunity };
+                    if (opportunity.status === 'retryable') return { state: 'retry', label: '暂未收到回复，会稍后再试。', opportunity };
+                    return { state: 'pending', label: ['generated', 'delivering'].includes(opportunity.status) ? '回复即将送达…' : '等待回复…', opportunity };
                 };
                 const requestPhoneReplyGeneration = (contactId) => {
                     const opportunity = getPhoneReplyLaneHeadForContact(contactId);
@@ -20099,15 +20102,30 @@ RULES:
                     return hash >>> 0;
                 };
                 const normalizePhoneReplyTimingHint = value => ['quick', 'normal', 'slow'].includes(value) ? value : 'normal';
-                const computePhoneReplyDeliverAt = (opportunity, generationToken, timingHint, generatedAt = new Date()) => {
-                    const normalizedHint = normalizePhoneReplyTimingHint(timingHint);
-                    const [minimum, maximum] = PHONE_REPLY_DELIVERY_DELAY_RANGES_MS[normalizedHint];
-                    const range = maximum - minimum + 1;
-                    const delay = minimum + (stablePhoneReplyNumber(`${opportunity.id}:${generationToken}:${normalizedHint}`) % range);
-                    const createdAtMs = new Date(opportunity.createdAt || generatedAt).getTime();
-                    const cap = (Number.isFinite(createdAtMs) ? createdAtMs : generatedAt.getTime()) + PHONE_REPLY_TOTAL_LIFETIME_MS;
-                    return new Date(Math.max(generatedAt.getTime(), Math.min(generatedAt.getTime() + delay, cap))).toISOString();
+                const computePhoneReplyGenerationDueAt = (opportunity, { legacy = false } = {}) => {
+                    const batchCreatedAt = new Date(opportunity.createdAt).getTime();
+                    const createdAt = legacy ? Math.min(batchCreatedAt, getPhoneMessageTimestamp(getPhoneReplySourceMessages(opportunity)[0])) : batchCreatedAt;
+                    const cat = cats.value.find(item => sameCatId(item.id, opportunity.contactId));
+                    const context = !legacy && cat && !isResidentAway(cat) ? getResidentCopyContext(cat) : null;
+                    const busy = !legacy && cat && (isResidentAway(cat) ||
+                        (context?.family === 'sleep' && context.episodeId && !context.episodeId.startsWith('baseline:')));
+                    const recentReply = !legacy && getAllStoredPhoneMessages(opportunity.contactId).some(message => {
+                        const at = getPhoneMessageTimestamp(message);
+                        return message.role === 'assistant' && message.type !== 'system' && !message.recalled &&
+                            at <= createdAt && at >= createdAt - 10 * 60 * 1000;
+                    });
+                    const timingClass = busy ? 'slow' : recentReply ? 'quick' : 'normal';
+                    const [minimum, maximum] = PHONE_REPLY_GENERATION_DELAY_RANGES_MS[timingClass];
+                    const delay = minimum + stablePhoneReplyNumber(`${opportunity.id}:generation:${timingClass}`) % (maximum - minimum + 1);
+                    return new Date(createdAt + delay).toISOString();
                 };
+                const getPhoneReplyGenerationTime = opportunity => {
+                    if (!['scheduled', 'retryable'].includes(opportunity.status) || !isValidPhoneReplyTime(opportunity.generationDueAt)) return null;
+                    return Math.max(new Date(opportunity.generationDueAt).getTime(),
+                        isValidPhoneReplyTime(opportunity.retryAt) ? new Date(opportunity.retryAt).getTime() : 0);
+                };
+                const computePhoneReplyDeliverAt = (_opportunity, _generationToken, _timingHint, generatedAt = new Date()) =>
+                    generatedAt.toISOString();
                 const commitPhoneReplyGeneration = (claim, rawPayload, now = new Date()) => {
                     const opportunity = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim?.opportunityId));
                     if (!opportunity || opportunity.status !== 'in-flight' ||
@@ -20317,7 +20335,7 @@ RULES:
                     // dependent on a later deep-watch save after a request fails.
                     persistNow();
                 };
-                const runPhoneReplyOpportunity = async claim => {
+                const runPhoneReplyOpportunity = async (claim, { automatic = false } = {}) => {
                     const opportunity = getPhoneReplyOpportunities().find(item => String(item.id) === String(claim?.opportunityId));
                     const catId = getCanonicalCatId(claim?.contactId);
                     const cat = cats.value.find(item => sameCatId(item.id, catId));
@@ -20337,7 +20355,8 @@ RULES:
                         const reply = await callAI(prompt, CORE_ROLEPLAY_PROMPT, 500, ThinkingLevel.LOW, {
                             label: `PHONE CHAT · ${contact.name}`,
                             priority: wasOpen ? 'foreground' : 'background',
-                            uiMode: wasOpen ? 'foreground' : 'background',
+                            uiMode: automatic ? 'background' : wasOpen ? 'foreground' : 'background',
+                            maxAttempts: automatic ? 1 : undefined,
                             origin: 'user-action',
                             originSurface: 'phone',
                             validateResponse: validatePhoneChatReply
@@ -20371,9 +20390,28 @@ RULES:
                     }
                 };
                 const reconcilePhoneReplyOpportunities = async (now = new Date()) => {
-                    normalizePhoneReplyOpportunities({ now });
+                    if (statusRefreshDisposed) return false;
+                    const opportunities = normalizePhoneReplyOpportunities({ now });
+                    const unscheduled = opportunities.filter(opportunity =>
+                        ['scheduled', 'retryable'].includes(opportunity.status) && !isValidPhoneReplyTime(opportunity.generationDueAt));
+                    unscheduled.forEach(opportunity => {
+                        opportunity.generationDueAt = computePhoneReplyGenerationDueAt(opportunity, { legacy: true });
+                    });
+                    if (unscheduled.length && !persistNow()) {
+                        unscheduled.forEach(opportunity => { opportunity.generationDueAt = ''; });
+                        schedulePhoneReplyReconciliation();
+                        return false;
+                    }
                     promoteGeneratedPhoneReplyDeliveries(now);
                     flushPhoneReplyDeliveries(now);
+                    if (document.visibilityState === 'visible') {
+                        opportunities.forEach(opportunity => {
+                            const dueAt = getPhoneReplyGenerationTime(opportunity);
+                            if (dueAt === null || dueAt > now.getTime() || !isPhoneReplyLaneHead(opportunity)) return;
+                            const claim = claimPhoneReplyGeneration(opportunity, 'phone-dedicated', now, { countAttempt: true });
+                            if (claim) void runPhoneReplyOpportunity(claim, { automatic: true });
+                        });
+                    }
                     schedulePhoneReplyReconciliation();
                     return true;
                 };
@@ -31976,7 +32014,6 @@ ${statusOutputRules}`;
                             normalizeCustomHallPresentation();
                             normalizePhoneReplyOpportunities({ recoverInFlight: true });
                             reconcilePhoneObservedMessageKnowledge();
-                            void reconcilePhoneReplyOpportunities(new Date());
                             void reconcileNewsProjections(new Date());
                             reconcileAttentionBidOpportunities(new Date());
                             if (data.settings) Object.assign(settings, data.settings);
@@ -31988,6 +32025,7 @@ ${statusOutputRules}`;
                             customFontInput.value = settings.customFontUrl || '';
                             applyUISettings();
                             if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
+                            void reconcilePhoneReplyOpportunities(new Date());
                             showToast('喵喵馆存档已导入', 'success');
                             window.setTimeout(() => void processPendingResidentArrivals(), 0);
                         } catch (error) {
@@ -32746,6 +32784,8 @@ ${episodicMemory}`;
                     window.clearInterval(arrivalRetryTimer);
                     window.clearInterval(countdownTimer);
                     window.clearInterval(worldReconciliationTimer);
+                    if (phoneReplyReconciliationTimer !== null) window.clearTimeout(phoneReplyReconciliationTimer);
+                    phoneReplyReconciliationTimer = null;
                     window.removeEventListener('resize', refreshSafeAreaAndViewport);
                     window.removeEventListener('orientationchange', refreshSafeAreaAndViewport);
                     window.removeEventListener('pageshow', refreshSafeAreaAndViewport);
