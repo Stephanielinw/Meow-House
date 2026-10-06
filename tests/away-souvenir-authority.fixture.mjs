@@ -221,7 +221,7 @@ const statusAIAt = source.indexOf('await callAI(statusRequestPrompt', statusPrep
 assert.ok(statusPreparationAt >= 0 && statusAIAt > statusPreparationAt);
 assert.match(source.slice(statusPreparationAt, statusAIAt), /if \(!awayMailDecisions\)[\s\S]*?return false;/,
     'Status Sync must stop before AI when decision persistence fails');
-assert.match(source, /validateStatusSyncEnvelope\(content, requestedIds, presenceDirectives,[\s\S]*?curatorAnchorsById, awayMailDecisions\)/, 'Status Sync provider validation must use frozen decisions');
+assert.match(source, /validateStatusSyncEnvelope\s*\(\s*content\s*,\s*requestedIds\s*,\s*presenceDirectives\s*,[^;]*?\bcuratorAnchorsById\s*,\s*awayMailDecisions\s*(?:,|\))/, 'Status Sync provider validation must use frozen decisions');
 
 const cat = { id: 'bruce', name: 'Bruce', hallId: 'gotham', isOut: true };
 const hall = { id: 'gotham', name: 'Gotham' };
@@ -294,7 +294,8 @@ assert.equal(away.completeMailDecisionAtExecution(frozen, () => { throw new Erro
 const departedAt = new Date('2026-08-31T08:00:00.000Z');
 const episode = away.createEpisode(cat, accepted.plan, departedAt, frozen);
 const frozenAttachment = JSON.parse(JSON.stringify(episode.mailPlan[0].attachment));
-assert.deepEqual({ name: frozenAttachment.name, icon: frozenAttachment.icon, desc: frozenAttachment.desc, visualHint: frozenAttachment.visualHint }, attachment);
+assert.deepEqual({ name: frozenAttachment.name, icon: frozenAttachment.icon, desc: frozenAttachment.desc, visualHint: frozenAttachment.visual.visualHint }, attachment);
+assert.equal(Object.hasOwn(frozenAttachment, 'visualHint'), false);
 assert.equal(frozenAttachment.visual.mode, 'auto-sprite');
 assert.equal(frozenAttachment.visual.spriteId, 'baseitem:bank-card');
 assert.equal(episode.mailDecision.souvenirDecision.shouldInclude, true);
@@ -328,7 +329,8 @@ assert.equal(user.mailbox[0].plannedMailId, reloadedEpisode.mailPlan[0].id);
 assert.equal(user.mailbox[0].item.type, 'collectible');
 assert.deepEqual(JSON.parse(JSON.stringify(user.mailbox[0].item.provenance.originOwner)),
     { kind: 'resident', residentId: String(cat.id) });
-assert.deepEqual({ name: user.mailbox[0].item.name, icon: user.mailbox[0].item.icon, desc: user.mailbox[0].item.desc, visualHint: user.mailbox[0].item.visualHint }, attachment);
+assert.deepEqual({ name: user.mailbox[0].item.name, icon: user.mailbox[0].item.icon, desc: user.mailbox[0].item.desc, visualHint: user.mailbox[0].item.visual.visualHint }, attachment);
+assert.equal(Object.hasOwn(user.mailbox[0].item, 'visualHint'), false);
 assert.deepEqual(user.mailbox[0].item.visual, frozenAttachment.visual);
 const visualDescriptor = awayContext.window.Meeow.itemVisuals.getItemVisualDescriptor;
 assert.deepEqual(JSON.parse(JSON.stringify(visualDescriptor(user.mailbox[0].item))), {
@@ -350,7 +352,8 @@ assert.equal(user.inventory.length, 1);
 assert.equal(user.inventory[0].type, 'collectible');
 assert.deepEqual(JSON.parse(JSON.stringify(user.inventory[0].provenance.originOwner)),
     { kind: 'resident', residentId: String(cat.id) });
-assert.deepEqual(user.inventory[0].visualHint, attachment.visualHint);
+assert.deepEqual(user.inventory[0].visual.visualHint, attachment.visualHint);
+assert.equal(Object.hasOwn(user.inventory[0], 'visualHint'), false);
 assert.deepEqual(user.inventory[0].visual, frozenAttachment.visual);
 assert.equal(visualDescriptor(user.inventory[0]).spriteId, visualDescriptor(user.mailbox[0].item).spriteId);
 assert.equal(user.mailbox[0].claimed, true);
