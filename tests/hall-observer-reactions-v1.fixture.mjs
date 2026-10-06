@@ -48,7 +48,8 @@ const start = html.indexOf('// T7 observer reaction authority.'), end = html.ind
 assert.ok(start > 0 && end > start, 'T7 must live in the existing Hall/direct orchestration scope');
 const block = html.slice(start, end);
 function harness({ source = microSource, enabled = true, extra = [], delayed = false, fail = false, invalid = false } = {}) {
-    let time = 100000, saves = 0, requests = 0, resolves = [], packets = [];
+    let time = Date.parse('2026-10-06T12:00:00Z'), monotonicTime = 1000,
+        saves = 0, requests = 0, resolves = [], packets = [];
     class MockDate extends Date { constructor(value = time) { super(value); } static now() { return time; } }
     const cat = (id, x) => ({ id, mapRoom: 'living', mapPoint: id, form: 'CAT', authority: id + ':current',
         todayInteractions: [], x, lastInteractionTimestamp: 0, chatHistory: ['PRIVATE_CHAT_SENTINEL'],
@@ -59,7 +60,7 @@ function harness({ source = microSource, enabled = true, extra = [], delayed = f
     const halls = { value: [hall] };
     const rows = cats.value.map(c => ({ id: c.id, placementKey: 'place:' + c.id, foot: { x: c.x, y: 100 },
         behaviorId: 'observe', state: 'activity', behaviorLifecycleState: 'ACTIVE', behaviorInstanceId: 'instance:' + c.id,
-        episodeBeatId: 'beat:' + c.id, transitionGeneration: 1, activityExpectedEndAt: time + 120000 }));
+        episodeBeatId: 'beat:' + c.id, transitionGeneration: 1, activityExpectedEndAt: monotonicTime + 120000 }));
     const record = { id: source, type: 'chat-reply', source: 'detail-chat', interactionEpisodeId: 'direct:' + source,
         at: new MockDate().toISOString(), content: 'PRIVATE_REPLY_SENTINEL' };
     target.todayInteractions.push(record);
@@ -67,7 +68,7 @@ function harness({ source = microSource, enabled = true, extra = [], delayed = f
     const ref = value => ({ value });
     const domain = { source: { roomId: 'living' }, geometryVersion: 1, legalPoint: p => !!p && p.x >= 0 && p.x <= 1024 && p.y >= 0 && p.y <= 1024 };
     const markers = cats.value.map(c => ({ cat: c, room: 'living', spot: c.id }));
-    const env = { console, Date: MockDate, Math, JSON, Map, Set, WeakMap, Promise,
+    const env = { console, Date: MockDate, performance: { now: () => monotonicTime }, Math, JSON, Map, Set, WeakMap, Promise,
         hallActivities: policy, cats, halls, activeHallId: ref('hall'), activeMapRoom: ref('living'),
         currentTab: ref('detail'), loungeView: ref('room'), detailReturnOrigin: ref(''), hallSceneActive: ref(true),
         selectedCat: ref(target), document: { visibilityState: 'visible' }, settings: { apiKey: enabled ? 'mock' : '' },
@@ -80,7 +81,7 @@ function harness({ source = microSource, enabled = true, extra = [], delayed = f
         getResidentPhysicalHallId: c => c.hall || 'hall', getResidentForm: c => c.form,
         isResidentInHall: c => !c.away, isResidentAway: c => !!c.away, isResidentInCuratorRoom: c => !!c.curator,
         hallEpisodeAuthority: c => c.authority,
-        getHallEpisodeRow: c => ({ row: { state: 'valid', beats: [{ id: 'beat:' + c.id, state: 'active', startAt: 0, endAt: 500000 }] } }),
+        getHallEpisodeRow: c => ({ row: { state: 'valid', beats: [{ id: 'beat:' + c.id, state: 'active', startAt: time - 120000, endAt: time + 120000 }] } }),
         getResidentPublicName: c => c.id, hallNavigation: { distance: (a, b) => Math.hypot(a.x - b.x, a.y - b.y) },
         isContextuallyViewingHallPresentation: id => env.activeHallId.value === id &&
             (env.currentTab.value === 'lounge' && env.loungeView.value === 'room' ||
@@ -123,11 +124,46 @@ function harness({ source = microSource, enabled = true, extra = [], delayed = f
     const queue = () => t7.queueObserverReactions({ activeResident: target, sourceRecord: record,
         sourceContext, interactionEpisodeId: record.interactionEpisodeId, now: new MockDate() });
     return { env, t7, state, hall, cats, target, observer, rows, record, domain, capture, queue,
-        advance: ms => { time += ms; }, requests: () => requests, saves: () => saves, packets,
+        advance: ms => { time += ms; monotonicTime += ms; }, requests: () => requests, saves: () => saves, packets,
         flush: async () => { for (let i = 0; i < 25; i++) await Promise.resolve(); },
         resolve: () => resolves.splice(0).forEach(fn => fn())
     };
 }
+
+// Use the real executor's default performance clock to produce the contact;
+// persisted episode/reaction times remain epoch timestamps across reload.
+for (const paused of [false, true]) {
+    const h = harness(), runtime = vm.createContext({ console, performance: h.env.performance });
+    runtime.window = runtime;
+    vm.runInContext(read('js/meeow-hall-spatial.js'), runtime);
+    const beat = { id: 'beat:observer', behaviorId: 'observe', posture: 'sitting',
+        foot: { x: 120, y: 100 }, endAt: h.env.Date.now() + 120000 };
+    const controller = runtime.Meeow.hallSpatial.createAmbientSimulation({
+        navigation: { legalPoint: () => true, choose: () => null, plan: () => null },
+        activityPolicy: { postures: () => ['sitting'], prepareVisual: () => true, visualReady: () => true },
+        episodePolicy: { now: h.env.Date.now, get: () => ({ beat }), progress: () => true },
+        getAuthoritativePose: () => 'sitting', setTimer: () => 1, clearTimer: () => {}
+    });
+    controller.reconcile([{ id: 'observer', key: 'place:observer', foot: beat.foot }], true);
+    await h.flush();
+    if (paused) controller.pause('detail');
+    Object.assign(h.rows[1], plain(controller.snapshot().residents[0]));
+    assert.equal(h.rows[1].activityExpectedEndAt, 121000, 'executor contact deadline is monotonic');
+    assert.ok(h.env.Date.now() > h.rows[1].activityExpectedEndAt, 'epoch and session clocks must differ realistically');
+    h.queue(); await h.flush();
+    assert.equal(h.requests(), 1, `${paused ? 'PAUSED' : 'ACTIVE'} static contact is current`);
+    const reaction = h.t7.getResidentObserverReaction('observer');
+    assert.equal(reaction.startedAt, h.env.Date.now());
+    assert.equal(reaction.expiresAt - reaction.startedAt, 15000);
+    h.advance(14999); assert.ok(h.t7.getResidentObserverReaction('observer'));
+    h.advance(1); assert.equal(h.t7.getResidentObserverReaction('observer'), null);
+    assert.equal(h.requests(), 1, 'reaction expiry cannot request content');
+    controller.stop();
+}
+const expiredContact = harness();
+expiredContact.rows[1].activityExpectedEndAt = expiredContact.env.performance.now();
+expiredContact.queue(); await expiredContact.flush();
+assert.equal(expiredContact.requests(), 0, 'expired monotonic contact is rejected even inside a valid epoch beat');
 
 for (const source of [noticeSource, emptySource]) {
     const h = harness({ source }); h.queue(); await h.flush();

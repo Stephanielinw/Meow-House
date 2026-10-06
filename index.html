@@ -26084,7 +26084,8 @@ ${buildStructuredPersonalityContext(participant)}`;
                             if (episode?.row.state !== 'valid' || !episode.row.beats.some(beat =>
                                 beat.id === row.episodeBeatId && beat.state === 'active' && beat.startAt <= now && beat.endAt > now)) return null;
                         }
-                        if (Number.isFinite(row.activityExpectedEndAt) && row.activityExpectedEndAt <= now) return null;
+                        // Executor deadlines use the session clock; persisted beat/reaction times use epoch time.
+                        if (Number.isFinite(row.activityExpectedEndAt) && row.activityExpectedEndAt <= performance.now()) return null;
                     }
                     return { roomId: activeMapRoom.value, foot: { x: row.foot.x, y: row.foot.y },
                         key: JSON.stringify([row.placementKey, row.transitionGeneration, row.behaviorInstanceId,
