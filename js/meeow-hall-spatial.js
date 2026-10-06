@@ -215,6 +215,24 @@
             return String(a.id).localeCompare(String(b.id)) || a.index - b.index;
         }).map((entity, rank) => ({ ...entity, zIndex: rank + 1 }));
 
+    // Pointer-only: sample the already prepared RGBA frame in the same SVG
+    // coordinates and painter order. Transparent button bounds confer no hit.
+    const resolveResidentPixelHit = (orderedEntities, point) => {
+        if (!finitePoint(point)) return null;
+        for (let i = orderedEntities.length - 1; i >= 0; i--) {
+            const entity = orderedEntities[i];
+            if (entity.kind !== 'resident') continue;
+            const frame = entity.marker?.catVisual?.clearanceFrame;
+            if (!frame?.data || !(frame.width > 0 && frame.height > 0 && entity.width > 0 && entity.height > 0)) continue;
+            const x = entity.facing === 'right' ? 2 * entity.footX - point.x : point.x;
+            const sx = Math.floor((x - entity.x) * frame.width / entity.width);
+            const sy = Math.floor((point.y - entity.y) * frame.height / entity.height);
+            if (sx >= 0 && sy >= 0 && sx < frame.width && sy < frame.height &&
+                frame.data[(sy * frame.width + sx) * 4 + 3] > 0) return entity;
+        }
+        return null;
+    };
+
     // All authority here is transient. The caller supplies current production
     // placement, keyed by stable resident ID, whenever authoritative placement changes.
     // Bounded presentation reuse only. The caller supplies current authority identity
@@ -1356,7 +1374,7 @@
     Meeow.hallSpatial = Object.freeze({
         CANONICAL_SIZE, PROTOTYPE_SPEED, PROTOTYPE_IDLE_MS, ROOMS, getRoom,
         pointInRect, pointInObstacle, pointIsWalkable, segmentIsWalkable,
-        projectFoot, measureStageContent, statusAcceptanceAdvanced,
+        projectFoot, measureStageContent, statusAcceptanceAdvanced, resolveResidentPixelHit,
         newlyAcceptedResidentScene, createRouteMovement, createOneShotMovement, placementFootFromStyle,
         ambientEntrySlot, validateAmbientGraph, resolvePresentationFoot, createAmbientSimulation, orderSceneEntities
     });

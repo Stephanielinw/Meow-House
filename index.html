@@ -5528,7 +5528,7 @@
                             <i :class="room.icon" class="block mb-1"></i>{{ room.name }}
                         </button>
                     </div>
-                    <div ref="spatialStage" class="meeow-map-stage" :class="'meeow-map-room-' + activeMapRoom">
+                    <div ref="spatialStage" class="meeow-map-stage" :class="'meeow-map-room-' + activeMapRoom" @click="handleMapResidentPointer($event)" @dblclick.prevent="handleMapResidentPointer($event, null, true)">
                         <template v-if="roomSpatialReady">
                             <template v-for="entity in roomSceneEntities" :key="'world-' + entity.id">
                                 <img v-if="entity.kind !== 'resident'" class="meeow-map-layer" :src="entity.src" :style="{zIndex: entity.zIndex}" alt="">
@@ -5556,7 +5556,7 @@
                                             </g>
                                         </g>
                                     </svg>
-                                    <button type="button" class="meeow-map-cat" :class="{'has-cat-visual': !!entity.marker.catVisual}" :data-ambient-id="entity.id" :style="[entity.marker.catVisual?.style || {}, {left: entity.style.x + 'px', top: entity.style.y + 'px', zIndex: entity.zIndex + 0.1}]" :title="getResidentPublicName(entity.marker.cat)" @click.stop="handleMapCatTap(entity.marker.cat)" @dblclick.stop.prevent="openMapCatDetail(entity.marker.cat)">
+                                    <button type="button" class="meeow-map-cat" :class="{'has-cat-visual': !!entity.marker.catVisual}" :data-ambient-id="entity.id" :style="[entity.marker.catVisual?.style || {}, {left: entity.style.x + 'px', top: entity.style.y + 'px', zIndex: entity.zIndex + 0.1}]" :title="getResidentPublicName(entity.marker.cat)" @click.stop="handleMapResidentPointer($event, entity.marker.cat)" @dblclick.stop.prevent="handleMapResidentPointer($event, entity.marker.cat, true)">
                                         <img v-if="entity.marker.catVisual" class="meeow-map-cat-sprite" style="opacity:0" :src="entity.marker.catVisual.src" :alt="getResidentPublicName(entity.marker.cat)">
                                         <span v-else class="meeow-map-cat-avatar"><img :src="getMapCatAvatarSource(entity.marker.cat)" :alt="getResidentPublicName(entity.marker.cat)"></span>
                                     </button>
@@ -5599,7 +5599,7 @@
 
 
                         <div class="meeow-moment-overlay">
-                            <button v-for="entry in characterMomentMapRows" :key="entry.moment.id + ':' + entry.residentId" :data-moment-id="entry.moment.id" :data-resident-id="entry.residentId" type="button" :style="entry.style" :class="['meeow-moment-button', entry.moment.kind, {'is-open': characterMomentPopup?.moment.id === entry.moment.id}]" :aria-label="momentNames(entry.moment) + ' · ' + momentLabel(entry.moment)" @click.stop="openCharacterMoment(entry.moment)"><svg aria-hidden="true"><use :href="'#moment-icon-' + entry.moment.kind" /></svg></button>
+                            <button v-for="entry in characterMomentMapRows" :key="entry.moment.id + ':' + entry.residentId" :data-moment-id="entry.moment.id" :data-resident-id="entry.residentId" type="button" :style="entry.style" :class="['meeow-moment-button', entry.moment.kind, {'is-open': characterMomentPopup?.moment.id === entry.moment.id}]" :aria-label="momentNames(entry.moment) + ' · ' + momentLabel(entry.moment)" @click.stop="openMapSocialMoment(entry.moment)"><svg aria-hidden="true"><use :href="'#moment-icon-' + entry.moment.kind" /></svg></button>
                         </div>
                         <div v-if="!activeMapCatMarkers.length" class="absolute inset-0 grid place-items-center text-center px-8" style="color: var(--ui-text-muted);">
                             <div><i class="fas fa-cat text-3xl mb-3" style="color: var(--accent);"></i><p class="text-sm font-bold" style="color: var(--ui-text);">这间房暂时没有猫咪</p><p class="mt-1 text-[10px]">它们可能在别的房间，或暂时外出。</p></div>
@@ -13241,7 +13241,12 @@ ${buildLeanForegroundContext(cat)}`;
                 const roomSpatialError = ref('');
                 let roomSpatialContextKey = '', roomSpatialLoading = '';
                 const normalRoomContextKey = () => `${activeHallId.value}|${activeMapRoom.value}`;
-                const normalRoomPlacementKey = marker => `${activeHallId.value}|${marker.room}|${marker.spot}|${marker.position.left}|${marker.position.top}|${marker.cat.mapPoint || ''}`;
+                const normalRoomGroundEntryMemo = new Map(); // Cached accepted entries, not another resident owner.
+                const normalRoomPlacementKey = marker => {
+                    const base = `${activeHallId.value}|${marker.room}|${marker.spot}|${marker.position.left}|${marker.position.top}|${marker.cat.mapPoint || ''}`;
+                    const prior = normalRoomGroundEntryMemo.get(String(marker.cat.id));
+                    return base + (prior?.base === base ? prior.correction : '');
+                };
                 const normalRoomCanOwn = (id, key = '') => {
                     const marker = mapCatMarkers.value.find(row => row.room === activeMapRoom.value && String(row.cat.id) === String(id));
                     return !spatialPrototypeEnabled && marker?.room === activeMapRoom.value &&
@@ -13258,9 +13263,49 @@ ${buildLeanForegroundContext(cat)}`;
                         if (!normalRoomCanOwn(id)) continue;
                         const episode = isHallEpisodeOwned(marker.cat) && getHallEpisodeRow(marker.cat);
                         const inherited = episode && episode.row.roomId === activeMapRoom.value && episode.row.lastFoot;
-                        const foot = inherited && domain.legalPoint(inherited) && !claims.some(other => hallNavigation.distance(other, inherited) < hallNavigation.DESTINATION_SEPARATION)
-                            ? inherited : domain.groundEntry(hallSpatial.placementFootFromStyle(marker.position), claims);
+                        const previousRuntime = spatialAmbientSnapshot.value.residents.find(row => row.id === id);
+                        const runtime = previousRuntime?.placementKey === normalRoomPlacementKey(marker) ? previousRuntime : null;
+                        const beat = episode && episode.row.beats.find(beat => beat.startAt <= Date.now() && beat.endAt > Date.now());
+                        const pose = beat?.posture || runtime?.localActivityPose || getStructuredStatusPose(marker.cat);
+                        const visual = hallAmbientStandingVisuals.get(`${id}:${pose}`);
+                        const prior = normalRoomGroundEntryMemo.get(id);
+                        const base = [activeHallId.value, marker.room, marker.spot, marker.position.left,
+                            marker.position.top, marker.cat.mapPoint || ''].join('|');
+                        // Moving and explicit furniture instances retain their existing route/slot
+                        // authority. Discovery is checked only when accepting ordinary static ground.
+                        if (runtime && (runtime.state === 'moving' || runtime.furniture)) {
+                            const foot = prior?.domain === domain && prior.base === base ? prior.foot :
+                                domain.groundEntry(hallSpatial.placementFootFromStyle(marker.position), claims);
+                            if (foot) { claims.push(foot); result.push({id, foot, key: normalRoomPlacementKey(marker),
+                                authoritativePose: getStructuredStatusPose(marker.cat)}); }
+                            continue;
+                        }
+                        if (!visual || visual.key !== getHallAmbientStandingKey(marker.cat, pose)) {
+                            void prepareHallAmbientStandingVisual(id, pose).then(ready => { if (ready) syncSpatialAmbient(); });
+                            continue;
+                        }
+                        const hint = runtime?.foot || inherited || hallSpatial.placementFootFromStyle(marker.position);
+                        // Publication retains facing across placement changes; validate that same silhouette.
+                        const facing = previousRuntime?.presentationFacing || (hallNavigation.hash(id) % 2 ? 'right' : 'left');
+                        const identity = [activeHallId.value, marker.room, marker.spot, marker.position.left, marker.position.top,
+                            marker.cat.mapPoint, visual.key, runtime?.behaviorInstanceId, runtime?.transitionGeneration, beat?.id].join('|');
+                        const separated = foot => !claims.some(other => hallNavigation.distance(other, foot) < hallNavigation.DESTINATION_SEPARATION);
+                        const accepts = foot => domain.legalPoint(foot) && domain.presentationFits(visual.clearanceFrame, foot,
+                            MAP_CAT_INTERACTION_WIDTH / visual.nativeWidth, null, facing === 'right', null, true) &&
+                            domain.groundPlacementDiscoverable(visual.clearanceFrame, foot,
+                                MAP_CAT_DISPLAY_WIDTH / visual.nativeWidth, facing === 'right', identity);
+                        const foot = prior?.domain === domain && prior.geometryVersion === domain.geometryVersion &&
+                            prior.frame === visual.clearanceFrame && prior.identity === identity &&
+                            prior.hint.x === hint.x && prior.hint.y === hint.y && prior.facing === facing && separated(prior.foot)
+                            ? prior.foot : separated(hint) && accepts(hint) ? hint : domain.groundEntry(hint, claims, accepts);
                         if (!foot) continue;
+                        const corrected = (runtime || inherited) && (foot.x !== hint.x || foot.y !== hint.y);
+                        if (corrected && episode && !recordHallEpisodeProgress(id, beat?.id || episode.row.beats[0].id,
+                            'invalidated', hint, 'ground-placement-occluded')) continue;
+                        const revision = (prior?.base === base ? prior.revision : 0) || 0;
+                        normalRoomGroundEntryMemo.set(id, {domain, geometryVersion: domain.geometryVersion, base, frame: visual.clearanceFrame, identity, hint: {...hint}, facing,
+                            foot: {...foot}, revision: revision + (corrected ? 1 : 0),
+                            correction: corrected ? `|ground:${foot.x},${foot.y}:${revision + 1}` : prior?.base === base ? prior.correction : ''});
                         claims.push(foot);
                         result.push({ id, foot, key: normalRoomPlacementKey(marker),
                             authoritativePose: getStructuredStatusPose(marker.cat) });
@@ -13350,10 +13395,13 @@ ${buildLeanForegroundContext(cat)}`;
                     const foot = entering ? interaction?.slotPoint : furniture?.phase === 'awaiting-exit-confirmation'
                         ? furniture.exitPresentationFoot || furniture.presentationSolution?.exitPoints?.at(-1) || interaction?.exitPoint : row.foot;
                     const visual = hallAmbientStandingVisuals.get(`${id}:${pose}`);
-                    return domain.presentationFits(visual?.clearanceFrame, foot,
+                    const physicallyReady = domain.presentationFits(visual?.clearanceFrame, foot,
                         MAP_CAT_INTERACTION_WIDTH * 1024 / (visual.nativeWidth * spatialStageBounds.value.width),
                         entering ? {slotId: interaction?.slotId, stage: 'using', pose} : null,
-                        (entering ? furniture?.presentationSolution?.facings.using : furniture?.presentationFacing) === 'right');
+                        (entering ? furniture?.presentationSolution?.facings.using : furniture ? furniture.presentationFacing : row.presentationFacing) === 'right', null, !furniture);
+                    return physicallyReady && (Boolean(furniture) || domain.groundPlacementDiscoverable(visual.clearanceFrame, foot,
+                        MAP_CAT_DISPLAY_WIDTH / visual.nativeWidth, row.presentationFacing === 'right',
+                        [row.placementKey, row.behaviorInstanceId, row.transitionGeneration, visual.key].join('|')));
                 };
                 // Presentation supplies confirmation; the simulation never guesses completion.
                 const syncNormalRoomFurniturePresentation = async (snapshot, controller, context) => {
@@ -13393,6 +13441,7 @@ ${buildLeanForegroundContext(cat)}`;
                     roomSpatialDomain.value = null;
                     roomSpatialContextKey = '';
                     roomGroundFootMemo.clear();
+                    normalRoomGroundEntryMemo.clear();
                     spatialAmbientSnapshot.value = { residents: [], occupied: {}, reserved: {} };
                     roomSpatialError.value = '';
                     try {
@@ -16795,6 +16844,25 @@ HUMAN: ordinary human speech is available. When an immediate social moment is na
                         mapTapTimer = null;
                         mapTapCatId = null;
                     }, 260);
+                };
+
+                const handleMapResidentPointer = (event, buttonCat = null, openDetail = false) => {
+                    if (!roomSpatialReady.value) return;
+                    if (!buttonCat && event.target?.closest('button')) return; // Separate map controls keep their own clicks.
+                    let cat = event?.detail === 0 ? buttonCat : null; // Focused keyboard/assistive activation.
+                    if (event?.detail !== 0) {
+                        const rect = spatialStage.value?.querySelector('svg.meeow-map-layer')?.getBoundingClientRect();
+                        if (rect?.width > 0 && rect?.height > 0) {
+                            const size = Math.min(rect.width, rect.height);
+                            const point = { x: (event.clientX - rect.left - (rect.width - size) / 2) * 1024 / size,
+                                y: (event.clientY - rect.top - (rect.height - size) / 2) * 1024 / size };
+                            cat = hallSpatial.resolveResidentPixelHit(roomSceneEntities.value, point)?.marker.cat || null;
+                        }
+                        // Non-sprite avatars retain their existing DOM hit area, after real sprite pixels.
+                        if (!cat && buttonCat && roomSceneEntities.value.some(entity =>
+                            entity.kind === 'resident' && entity.marker.cat === buttonCat && !entity.marker.catVisual)) cat = buttonCat;
+                    }
+                    if (cat) (openDetail ? openMapCatDetail : handleMapCatTap)(cat);
                 };
 
                 const triggerEasterEgg = async () => {
@@ -22611,6 +22679,10 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                 }));
                 const findCharacterMomentRecord = id => [...currentMomentHistory(), ...archivedMomentHistory()]
                     .find(record => record.momentId === id);
+                const hasReadSocialMoment = id => hallSceneRecords.value.some(record =>
+                    isAuthoritativeHallSceneRecord(record) && record.participantIds.length === 2 &&
+                    record.socialMomentRead?.momentId === id && id === `moment:social:${record.hallId}:${record.id}` &&
+                    typeof record.socialMomentRead.readAt === 'string' && Number.isFinite(Date.parse(record.socialMomentRead.readAt)));
                 const saveOpenedCharacterMoment = (moment, result) => {
                     if (!result || moment.kind === 'userInteractionMoment') return null;
                     const recordId = 'moment-record:' + moment.id;
@@ -22691,7 +22763,7 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                 characterMoments.configure({ generate: (...args) => settings.apiKey
                         ? momentNarrativeRequest(...args) : Promise.reject(new Error('Provider disabled.')),
                     buildContext: buildCharacterMomentContext,
-                    hasHistoryRecord: id => Boolean(findCharacterMomentRecord(id)),
+                    hasHistoryRecord: id => Boolean(findCharacterMomentRecord(id)) || hasReadSocialMoment(id),
                     isIndividualCurrent: moment => momentMemberCurrent(moment.residentIds[0], moment) &&
                         getResidentCopyContext(cats.value.find(cat => String(cat.id) === moment.residentIds[0]))?.episodeId === moment.episodeId,
                     isSocialCurrent: moment => moment.residentIds.every(id => momentMemberCurrent(id, moment) &&
@@ -22748,15 +22820,22 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                     moment.hallId === activeHallId.value && (moment.kind !== 'socialMoment' || socialMomentAnchors(moment).length === 2));
                 const characterMomentMapRows = computed(() => {
                     if (!roomSpatialReady.value || !spatialStageBounds.value) return [];
-                    return characterMomentRows.value.filter(moment => moment.hallId === activeHallId.value && moment.roomId === activeMapRoom.value)
-                        .flatMap(moment => socialMomentAnchors(moment).map(({residentId, entity}) => {
-                            const bounds = spatialStageBounds.value;
-                            const center = entity.x + entity.width / 2;
-                            const renderedCenter = entity.facing === 'right' ? 2 * entity.footX - center : center;
-                            const x = Math.max(20, Math.min(bounds.width - 20, renderedCenter * bounds.width / 1024));
-                            const y = Math.max(20, entity.y * bounds.height / 1024 - 12);
-                            return {moment, residentId, style: {left: x + 'px', top: y + 'px'}};
-                        }));
+                    return characterMomentRows.value.filter(moment => moment.kind === 'socialMoment' &&
+                        moment.residentIds.length === 2 && new Set(moment.residentIds).size === 2 &&
+                        moment.hallId === activeHallId.value && moment.roomId === activeMapRoom.value && characterMoments.isCurrent(moment))
+                        .flatMap(moment => {
+                            const anchors = socialMomentAnchors(moment);
+                            if (anchors.length !== 2 || anchors.some(({entity}) =>
+                                ![entity.x, entity.y, entity.width, entity.height].every(Number.isFinite) || entity.height <= 0)) return [];
+                            return anchors.map(({residentId, entity}) => {
+                                const bounds = spatialStageBounds.value;
+                                const center = entity.x + entity.width / 2;
+                                const renderedCenter = entity.facing === 'right' ? 2 * entity.footX - center : center;
+                                const x = Math.max(20, Math.min(bounds.width - 20, renderedCenter * bounds.width / 1024));
+                                const y = Math.max(20, entity.y * bounds.height / 1024 - 12);
+                                return {moment, residentId, style: {left: x + 'px', top: y + 'px'}};
+                            });
+                        });
                 });
                 let characterMomentReturnFocus = null;
                 const closeCharacterMoment = () => { characterMomentPopup.value = null; characterMomentReturnFocus?.focus?.(); };
@@ -22772,6 +22851,48 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                     const results = moment.facts.world.consequences;
                     return results.some(result => (result.changes?.tension || 0) > 0) ? '这次相处留下了一点别扭。' :
                         results.some(result => (result.changes?.familiarity || 0) > 0) ? '彼此更熟悉了一点。' : '这次相处影响了它们的关系。';
+                };
+                const findMapSocialMomentRecord = moment => {
+                    if (moment?.kind !== 'socialMoment' || moment.residentIds.length !== 2 ||
+                        new Set(moment.residentIds).size !== 2 || moment.id !== `moment:social:${moment.hallId}:${moment.sceneId}`) return null;
+                    const records = hallSceneRecords.value.filter(record => record.id === moment.sceneId && record.hallId === moment.hallId);
+                    const record = records.length === 1 && records[0];
+                    return record && isAuthoritativeHallSceneRecord(record) && record.participantIds.length === 2 &&
+                        new Set(record.participantIds).size === 2 && moment.residentIds.every(id => record.participantIds.includes(id)) ? record : null;
+                };
+                const markMapSocialMomentRead = moment => {
+                    const record = findMapSocialMomentRecord(moment);
+                    if (!record) return null;
+                    if (hasReadSocialMoment(moment.id)) {
+                        characterMoments.consume(moment.id, record.socialMomentRead);
+                        return record;
+                    }
+                    if (!characterMoments.isCurrent(moment)) return null;
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const saved = snapshot.hallSceneRecords.find(row => row.id === record.id && row.hallId === record.hallId);
+                    if (!saved) return null;
+                    saved.socialMomentRead = {momentId: moment.id, readAt: new Date().toISOString()};
+                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true) {
+                        showToast('片段已显示，但没有保存成功；请检查存储空间。', 'error'); return null;
+                    }
+                    hallSceneRecords.value = snapshot.hallSceneRecords;
+                    characterMoments.consume(moment.id, saved.socialMomentRead);
+                    return saved;
+                };
+                const openMapSocialMoment = async moment => {
+                    if (moment?.kind !== 'socialMoment' || !characterMoments.isCurrent(moment) ||
+                        !characterMomentMapRows.value.some(row => row.moment === moment) || !findMapSocialMomentRecord(moment)) return;
+                    const stored = findCharacterMomentRecord(moment.id);
+                    const hasStoredNarrative = stored && characterMoments.validate(moment, stored.narrative) === true;
+                    const narrative = hasStoredNarrative ? stored.narrative : moment.fallback;
+                    if (characterMoments.validate(moment, narrative) !== true) return;
+                    characterMomentReturnFocus = document.activeElement;
+                    const ready = {moment, loading: false,
+                        result: {...momentDisplayNarrative(narrative), source: hasStoredNarrative ? stored.source : 'local'}};
+                    characterMomentPopup.value = ready;
+                    await nextTick(() => document.querySelector('.meeow-moment-panel button')?.focus());
+                    if (characterMomentPopup.value === ready && characterMoments.isCurrent(moment) &&
+                        characterMomentMapRows.value.some(row => row.moment === moment)) markMapSocialMomentRead(moment);
                 };
                 const openCharacterMoment = async moment => {
                     characterMomentReturnFocus = document.activeElement;
@@ -24377,6 +24498,11 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                             reactions,
                             participantForms: Object.fromEntries(participantIds.map(id => [String(id), normalizeFormValue(record.participantForms?.[String(id)]) || 'CAT'])),
                             relationshipConsequenceReceipts: normalizeHallSceneRelationshipConsequenceReceipts(record.relationshipConsequenceReceipts),
+                            ...(type !== 'attention-bid' && participantIds.length === 2 &&
+                                record.socialMomentRead?.momentId === `moment:social:${record.hallId}:${record.id}` &&
+                                typeof record.socialMomentRead.readAt === 'string' && Number.isFinite(Date.parse(record.socialMomentRead.readAt))
+                                ? {socialMomentRead: {momentId: record.socialMomentRead.momentId, readAt: record.socialMomentRead.readAt}}
+                                : {}),
                             ...(type !== 'attention-bid' && Array.isArray(record.relationshipCue?.pairIds) &&
                                 record.relationshipCue.pairIds.length === 2 &&
                                 record.relationshipCue.pairIds.every(id => participantIds.includes(String(id))) &&
@@ -33622,14 +33748,14 @@ ${episodicMemory}`;
                     sharedSceneComposer, sharedSceneEligibleResidents, sharedSceneSelectedResidents, getSharedSceneResidentDisplayName,
                     isSharedSceneResidentSelected, addSharedSceneResident, removeSharedSceneResident, toggleSharedScenePicker,
                     fridgeNoteComposer, showArchivedFridgeNotes, visibleFridgeNotes, createFridgeNote, archiveFridgeNote, formatFridgeNoteTime, showFridgeNotesModal, openFridgeNotes, closeFridgeNotes,
-                    hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail,
+                    hallDisplayMode, setHallDisplayMode, MAP_ROOM_DEFINITIONS, activeMapRoom, activeMapRoomDefinition, activeMapCatMarkers, mapOutCats, setActiveMapRoom, mapCatMarkers, mapPreviewCat, getMapZoneStyle, getMapAssetPath, handleMapCatTap, openMapCatDetail, handleMapResidentPointer,
                     hallHitchState, reportHallHitch, exportHallHitch,
                     spatialRoom, spatialStage, spatialStageBounds, spatialFoot, spatialNormalMarkers, spatialPrototypeMarker, spatialPrototypeStyle, spatialDebugVisible,
                     spatialPrototypeEnabled, spatialAmbientEnabled, spatialDebugEnabled, spatialRequestedResidentId, spatialSelectedResidentId, spatialControllerState, spatialCancelReason, spatialRejectionReason, spatialEligibilityRows,
                     characterMomentRows, characterMomentPopup, characterMomentMapRows, momentForResident, momentLabel, momentNames,
                     characterMomentType, characterMomentTitle, currentCharacterMomentRecords, characterMomentArchive,
                     getArchivedCharacterMoments, openCharacterMomentArchive, closeCharacterMomentArchive,
-                    openCharacterMoment, respondToCharacterMoment, closeCharacterMoment, trapCharacterMomentFocus, characterMomentConsequence,
+                    openCharacterMoment, openMapSocialMoment, respondToCharacterMoment, closeCharacterMoment, trapCharacterMomentFocus, characterMomentConsequence,
                     spatialAmbientSnapshot, spatialAmbientDiagnostics, spatialAmbientPresentations, spatialAmbientEdges, spatialDiagnosticNow, roomSpatialReady, roomSceneEntities, roomSpatialError, normalRoomPresentationPending,
                     chatInput, thinkingStates, itemInteractionInFlight, isInteracting, isUpdatingStatus, showBag, showDiaryModal, showReportModal, showMissionSettlementModal, showMailModal,
                     showShopModal, showLogModal, showAwayRecordModal, awayRecordCat, openAwayRecordViewer, getAwayTraceRecords, closeAwayRecordViewer, showCatArchiveModal, catArchiveCat, catArchiveTab, catArchiveDateKey, catArchiveRelationshipTarget, openCatArchive, closeCatArchive, selectCatArchiveTab, selectCatArchiveDate, getCatArchiveRecords, getCatArchiveRecordsForDate, getCatArchiveDateKeys, getExploreArchiveRecords, getCompletedAwayEpisodes, getUsablePlannedArchiveNarrative, getAwayArchiveDestination, getAwayArchiveTimeline, formatAwayArchiveTime, formatAwayArchiveDuration, getActiveAwayEpisode, getCatArchiveRelationshipEntries, getCatArchiveRelationshipDirections, openCatArchiveRelationship, backToCatArchiveRelationships, getRelationshipTagLabels, formatRelationshipCurrentState, getRelationshipMetricRows, getRelationshipMetricPips, formatRelationshipArchiveDate, getRelationshipHistoryGroups, formatRelationshipEventChanges, showEditCatModal, showPixelAvatarModal, pixelAvatarDraft, pixelAvatarWorkshopEnabled, currentShopCategory, isReleasing,

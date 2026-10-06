@@ -27,7 +27,7 @@
     "kitchen-island.png": 711,
     "foodshelf.png": 479,
     "chair-a.png": 799,
-    "chair-b.png": 832,
+    "chair-b.png": 829,
     "table.png": 830,
     "water-bowl.png": 815,
     "food-bowl.png": 959
@@ -3528,6 +3528,11 @@
     "y": 822
   },
   "presentationClearance": {
+    "groundSolidLayers": [
+      "water-bowl.png",
+      "food-bowl.png",
+      "fridge.png"
+    ],
     "solidMasks": {
       "fridge.png": "spatial/fridge-solid.png",
       "wash-basin.png": "spatial/wash-basin-solid.png",

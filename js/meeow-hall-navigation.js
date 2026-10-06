@@ -4,6 +4,7 @@
     const Meeow = global.Meeow = global.Meeow || {};
     const GRID_STEP = 4;
     const DESTINATION_SEPARATION = 48; // Endpoint reservation only; never mask clearance.
+    const GROUND_OCCLUSION_LIMIT = 0.90; // Placement policy: severe burial only; ordinary partial occlusion remains legal.
     const CURATOR_SOURCE = 'assets/meeow-map/curator/spatial/curator-room-spatial-source.json';
     const finitePoint = point => Number.isFinite(point?.x) && Number.isFinite(point?.y);
     const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -395,6 +396,11 @@
             source.interactiveWalkableSurfaces.some(row =>
                 !masks[clearance.surfaceAllowanceMasks?.[row.surfaceId]?.replace('spatial/', '')])))
             throw new Error('presentation-clearance-source-invalid');
+        const groundSolidLayers = clearance?.groundSolidLayers ?? [];
+        if (!Array.isArray(groundSolidLayers) || new Set(groundSolidLayers).size !== groundSolidLayers.length ||
+            groundSolidLayers.some(owner => !solidMasks.some(([layer]) => layer === owner)))
+            throw new Error('ground-solid-source-invalid');
+        const groundSolids = new Set(groundSolidLayers);
         domain.groundPresentationPoint = point => !clearance || Boolean(finitePoint(point) &&
             point.x >= 0 && point.y >= 0 && point.x < 1024 && point.y < 1024 &&
             masks[clearance.groundEntryMask.replace('spatial/', '')]?.[Math.floor(point.y) * 1024 + Math.floor(point.x)]);
@@ -415,7 +421,9 @@
                 (same(segment.from,authored.from) && groundAdjustment(segment.to,authored.to)) ||
                 (same(segment.to,authored.from) && groundAdjustment(segment.from,authored.to));
         }) || [];
-        domain.presentationFits = (frame, foot, scale, slotId = null, mirrored = false, diagnostic = null) => {
+        // Ground-solid semantics are opt-in at program placement acceptance;
+        // rendering, movement clearance and explicit slot/traversal contracts stay unchanged.
+        domain.presentationFits = (frame, foot, scale, slotId = null, mirrored = false, diagnostic = null, groundPlacement = false) => {
             if (!clearance) return true;
             if (!frame?.data || !finitePoint(foot) || !(scale > 0) || !Number.isFinite(scale)) return false;
             let rejected = false;
@@ -436,6 +444,11 @@
             const interaction = slotId && domain.getInteraction(context ? context.slotId : slotId);
             if (slotId && (!interaction || (!traversal && (foot.x !== interaction.slotPoint.x || foot.y !== interaction.slotPoint.y))))
                 return reject('interaction-context-invalid');
+            const blocksGround = owner => groundPlacement && !interaction && groundSolids.has(owner);
+            const footIndex = Math.floor(foot.y) * 1024 + Math.floor(foot.x);
+            if (groundPlacement && !interaction && foot.x >= 0 && foot.x < 1024 && foot.y >= 0 && foot.y < 1024 &&
+                solidMasks.some(([owner, mask]) => groundSolids.has(owner) && mask[footIndex]))
+                return reject('ground-solid-occupancy');
             const segments = traversal ? accessSegments(interaction, foot, context.segment) : [];
             const segment = segments[0];
             if (traversal && !segment && !domain.legalPoint(foot)) return reject('authored-access-required');
@@ -452,14 +465,14 @@
             const top = foot.y - frame.groundAnchor[1] * scale;
             const right = left + frame.width * scale, bottom = top + frame.height * scale;
             if (left >= 0 && top >= 0 && right <= 1024 && bottom <= 1024 &&
-                solidBounds.every(bounds => foot.y >= bounds.frontEdge ||
+                solidBounds.every((bounds, index) => (!blocksGround(solidMasks[index][0]) && foot.y >= bounds.frontEdge) ||
                     right <= bounds.left || left >= bounds.right ||
                     bottom <= bounds.top || top >= bounds.bottom)) return true;
-            // Same collision loop, bounded to solids intersecting this sprite's
-            // complete bounds. Alpha/column front-edge tests remain unchanged.
+            // Same collision loop, bounded to intersecting solids. Legacy queries
+            // retain column front-edge allowances; ground placement honors semantic occupancy.
             const nearbySolids = solidMasks.filter((_, n) => {
                 const bounds = solidBounds[n];
-                return foot.y < bounds.frontEdge && right > bounds.left && left < bounds.right &&
+                return (foot.y < bounds.frontEdge || blocksGround(solidMasks[n][0])) && right > bounds.left && left < bounds.right &&
                     bottom > bounds.top && top < bounds.bottom;
             });
             for (let i = 0; i < frame.width * frame.height; i++) {
@@ -475,7 +488,7 @@
                 }
                 const index = py * 1024 + px;
                 for (const [owner, mask] of nearbySolids) if (mask[index] &&
-                    foot.y < clearance.solidFrontEdges[owner][px] &&
+                    (foot.y < clearance.solidFrontEdges[owner][px] || blocksGround(owner)) &&
                     !(owner === interaction?.presentation.aboveLayer && ownerAllows(index, px, py))) {
                     if (!diagnostic) return false;
                     reject('solid-geometry', owner, px, py);
@@ -495,6 +508,60 @@
             return { fits, hits: diagnostic.hits };
         };
         domain.geometryVersion = hash(JSON.stringify(source));
+        // Placement acceptance only. The existing 80-unit physical clearance and
+        // scene painter remain unchanged; never call this from a render reader.
+        const silhouettes = new WeakMap(), groundAcceptance = new WeakMap();
+        domain.groundPlacementDiscoverable = (frame, foot, scale, mirrored = false, identity = '') => {
+            if (!clearance) return true;
+            if (!frame || !(frame.width > 0 && frame.height > 0) || !finitePoint({x: frame.groundAnchor?.[0], y: frame.groundAnchor?.[1]}) ||
+                !finitePoint(foot) || !Number.isFinite(scale) || scale <= 0) return false;
+            let accepted = groundAcceptance.get(frame);
+            if (!accepted) groundAcceptance.set(frame, accepted = new Map());
+            const signature = [domain.geometryVersion, identity, foot.x, foot.y, scale, mirrored].join('|');
+            if (accepted.has(signature)) return accepted.get(signature);
+            const remember = value => {
+                accepted.set(signature, value);
+                while (accepted.size > 128) accepted.delete(accepted.keys().next().value);
+                return value;
+            };
+            const left = (mirrored ? frame.groundAnchor[0] - frame.width : -frame.groundAnchor[0]) * scale;
+            const top = -frame.groundAnchor[1] * scale;
+            const x0 = Math.floor(foot.x), y0 = Math.floor(foot.y);
+            const fx = foot.x - x0, fy = foot.y - y0;
+            const near = solidMasks.filter(([owner], index) => {
+                const bounds = solidBounds[index];
+                return source.layerDepth[owner] > foot.y && foot.x + left < bounds.right &&
+                    foot.x + left + frame.width * scale > bounds.left && foot.y + top < bounds.bottom &&
+                    foot.y + top + frame.height * scale > bounds.top;
+            });
+            if (!near.length) return remember(true);
+            let shapes = silhouettes.get(frame);
+            if (!shapes) silhouettes.set(frame, shapes = new Map());
+            const shapeKey = [scale, mirrored, fx, fy].join('|');
+            let pixels = shapes.get(shapeKey);
+            if (!pixels) {
+                if (!frame.data) return remember(false);
+                pixels = [];
+                for (let y = Math.floor(top + fy); y < Math.ceil(top + fy + frame.height * scale); y++)
+                    for (let x = Math.floor(left + fx); x < Math.ceil(left + fx + frame.width * scale); x++) {
+                        const sx = Math.floor((x + 0.5 - fx - left) / scale);
+                        const sy = Math.floor((y + 0.5 - fy - top) / scale);
+                        if (sx >= 0 && sy >= 0 && sx < frame.width && sy < frame.height &&
+                            frame.data[(sy * frame.width + (mirrored ? frame.width - sx - 1 : sx)) * 4 + 3]) pixels.push([x, y]);
+                    }
+                shapes.set(shapeKey, pixels);
+                while (shapes.size > 16) shapes.delete(shapes.keys().next().value);
+            }
+            if (!pixels.length) return remember(false);
+            const limit = Math.ceil(pixels.length * GROUND_OCCLUSION_LIMIT);
+            let hidden = 0;
+            for (const [dx, dy] of pixels) {
+                const x = x0 + dx, y = y0 + dy;
+                if (x >= 0 && y >= 0 && x < domain.width && y < domain.height &&
+                    near.some(([, mask]) => mask[y * domain.width + x]) && ++hidden >= limit) return remember(false);
+            }
+            return remember(true);
+        };
         // Keep the existing cache-miss counter; no production route discovery remains.
         domain.solutionSearches = 0;
         domain.routeValidations = 0;
@@ -724,7 +791,7 @@
         return roomDomainTasks.get(roomId);
     };
 
-    Meeow.hallNavigation = Object.freeze({ GRID_STEP, DESTINATION_SEPARATION, CURATOR_SOURCE,
+    Meeow.hallNavigation = Object.freeze({ GRID_STEP, DESTINATION_SEPARATION, GROUND_OCCLUSION_LIMIT, CURATOR_SOURCE,
         buildDirectFloorSeam, createRasterDomain, planRoute, sampleDestination, loadCuratorDomain,
         loadRoomDomain, validateFurnitureInteractions, hash, distance });
 }(window));

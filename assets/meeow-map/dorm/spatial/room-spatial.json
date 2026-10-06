@@ -3953,6 +3953,12 @@
     "y": 850
   },
   "presentationClearance": {
+    "groundSolidLayers": [
+      "cushion-a.png",
+      "cushion-b.png",
+      "cat-climber.png",
+      "cat-house.png"
+    ],
     "solidMasks": {
       "cushion-a.png": "spatial/cushion-a-solid.png",
       "cushion-b.png": "spatial/cushion-b-solid.png",

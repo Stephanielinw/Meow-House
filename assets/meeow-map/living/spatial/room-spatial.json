@@ -698,6 +698,13 @@
   ],
   "groundForeground": [],
   "presentationClearance": {
+    "groundSolidLayers": [
+      "sofa.png",
+      "shelf.png",
+      "cat-toys.png",
+      "scratching-board-a.png",
+      "scratching-board-b.png"
+    ],
     "solidMasks": {
       "sofa.png": "spatial/sofa-solid.png",
       "shelf.png": "spatial/shelf-solid.png",
