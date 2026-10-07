@@ -123,7 +123,7 @@ assert.match(focusTickSource, /buildSharedFocusSessionEvidence\(currentFocusLog\
 assert.doesNotMatch(focusTickSource, /buildCatMemoryContext\(/);
 assert.ok(focusTickSource.indexOf('const sharedMoment') < focusTickSource.indexOf('participants.forEach(cat =>'), 'an invalid optional sidecar is evaluated before, but cannot block, resident updates');
 assert.doesNotMatch(focusTickSource, /sharedMoment\.(?:status|innerVoice|affinity|form|hallId|isOut)/, 'shared prose cannot supply authoritative resident fields');
-assert.equal((appSource.match(/callAI\s*\(/g) || []).length, 40, 'Focus Shared Moments must add no callAI site');
+assert.equal((appSource.match(/callAI\s*\(/g) || []).length, 36, 'Focus Shared Moments must add no callAI site');
 
 console.log(JSON.stringify({
     fixture: 'focus-shared-moments',

@@ -8396,6 +8396,7 @@
                         <h3 class="font-bold text-sm mb-1">{{ report.missionName }}</h3>
                         <div class="text-[10px] font-mono mb-2" style="color: var(--ui-text-muted)">记录人: {{ (report.executor === 'Raccoon S' || report.executor === '浣熊S') ? '奈恩' : report.executor }} | 耗时: {{ Math.floor(report.duration/60) }}m</div>
                         <div class="archive-summary p-2.5 rounded-xl text-xs italic font-serif">“{{ report.summary }}”</div>
+                        <button v-if="canContinueFocusReport(report)" @click.stop="continueFocusReport(report.id)" class="sully-btn mt-2 px-3 py-1 text-xs">继续整理报告</button>
                         <details v-if="report.logs && report.logs.length" class="mt-2 text-[10px]" style="color: var(--ui-text-muted)">
                             <summary class="archive-live-log cursor-pointer select-none font-mono">LIVE LOG · 本次记录</summary>
                             <div class="mt-2 max-h-28 overflow-y-auto custom-scrollbar space-y-1 pr-1">
@@ -11853,9 +11854,11 @@
                 const calendarContainer = ref(null);
 
                 // Focus Refs
-                const isFocusing = ref(false);
-                const focusCats = ref([]);
-                const focusSessionForms = reactive({});
+                user.focusSession = normalizeFocusSession(user.focusSession);
+                const isFocusing = ref(user.focusSession?.state === 'active');
+                const focusCats = ref(isFocusing.value ? user.focusSession.participantIds.map(id =>
+                    cats.value.find(cat => String(cat.id) === id)).filter(Boolean) : []);
+                const focusSessionForms = reactive(isFocusing.value ? { ...user.focusSession.participantForms } : {});
                 const focusAction = ref('');
                 const focusTime = ref(0);
                 const focusTotalTime = ref(0);
@@ -11946,6 +11949,7 @@
                 const canStartFocus = computed(() => focusSetupData.action.trim() && focusSetupData.minutes > 0 && focusSetupData.selectedCatIds.length > 0);
 
                 const openFocusSetupModal = () => {
+                    focusStartDraft = null;
                     focusSetupData.action = '调查档案';
                     focusSetupData.minutes = 25;
                     focusSetupData.selectedCatIds = [];
@@ -12605,7 +12609,7 @@ ${buildLeanForegroundContext(cat)}`;
                         event.audienceResidentIds?.some(residentId => String(residentId) === String(id)))) return true;
                     if (getValidHallSceneFocusIds(hallId).some(residentId => String(residentId) === String(id))) return true;
                     if (isInteracting.value && String(selectedCat.value?.id) === String(id)) return true;
-                    if (isFocusing.value && focusCats.value.some(item => String(item?.id) === String(id))) return true;
+                    if (getActiveFocusSession()?.participantIds.includes(String(id))) return true;
                     if (exploreState.active && String(exploreState.companion?.id) === String(id)) return true;
                     return false;
                 };
@@ -30066,8 +30070,11 @@ Task: Write one 200-300 Chinese-character first-person diary entry about only th
                 // Owner status is shareable only with explicit, matching public provenance.
                 const setUserCurrentStatus = (value, source, visibility = 'private') => {
                     user.currentStatus = value;
-                    user.currentStatusProvenance = { source, visibility, value };
+                    user.currentStatusProvenance = buildUserStatusFields(value, source, visibility).currentStatusProvenance;
                 };
+                const buildUserStatusFields = (value, source, visibility = 'private') => ({
+                    currentStatus: value, currentStatusProvenance: { source, visibility, value }
+                });
                 const getSharedUserCurrentStatus = () => {
                     const provenance = user.currentStatusProvenance;
                     return typeof user.currentStatus === 'string' && provenance?.visibility === 'public' &&
@@ -30588,11 +30595,119 @@ ${outputContract}`;
                     } catch (e) { alert("API Error"); } finally { isReleasing.value = false; }
                 };
 
+                // Canonical Focus session authority.
+                function normalizeFocusSession(raw) {
+                    if (!raw || typeof raw.id !== 'string' || !raw.id ||
+                        !['active', 'ended'].includes(raw.state) || typeof raw.hallId !== 'string' || !raw.hallId ||
+                        !Array.isArray(raw.participantIds) || !raw.participantIds.length ||
+                        raw.participantIds.some(id => typeof id !== 'string' || !id) ||
+                        new Set(raw.participantIds).size !== raw.participantIds.length ||
+                        raw.participantIds.some(id => !['CAT', 'HUMAN'].includes(raw.participantForms?.[id])) ||
+                        typeof raw.action !== 'string' || !raw.action.trim() ||
+                        !Number.isFinite(raw.plannedDuration) || raw.plannedDuration <= 0 ||
+                        !Number.isFinite(Date.parse(raw.startedAt)) ||
+                        (raw.state === 'ended' && (!Number.isFinite(Date.parse(raw.endedAt)) ||
+                            Date.parse(raw.endedAt) < Date.parse(raw.startedAt) || typeof raw.reportId !== 'string' || !raw.reportId))) return null;
+                    return { id: raw.id, state: raw.state, hallId: raw.hallId,
+                        participantIds: [...raw.participantIds],
+                        participantForms: Object.fromEntries(raw.participantIds.map(id => [id, raw.participantForms[id]])),
+                        action: raw.action, plannedDuration: raw.plannedDuration, startedAt: raw.startedAt,
+                        endedAt: raw.state === 'ended' ? raw.endedAt : '', reportId: raw.state === 'ended' ? raw.reportId : '' };
+                }
+                function getActiveFocusSession() {
+                    return normalizeFocusSession(user.focusSession)?.state === 'active' ? user.focusSession : null;
+                }
+                let focusStartDraft = null, focusFinishDraft = null, focusRuntimeSession = null;
+                // Only live claims/results: reload recovery lives on the existing report.
+                const focusReportInFlight = new Map();
+                const focusParticipantEligible = (cat, hallId) => cat && String(cat.hallId) === String(hallId) &&
+                    isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
+                    !getActiveAwayEpisode(cat) &&
+                    !(exploreState.active && String(exploreState.companion?.id) === String(cat.id));
+                const focusRemainingSeconds = session => Math.max(0, Math.min(session.plannedDuration,
+                    Math.ceil((Date.parse(session.startedAt) + session.plannedDuration * 1000 - Date.now()) / 1000)));
+                const bindFocusRuntime = session => {
+                    focusRuntimeSession = session;
+                    focusSessionGeneration.value += 1;
+                    focusCats.value = session.participantIds.map(id => cats.value.find(cat => String(cat.id) === id)).filter(Boolean);
+                    Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
+                    Object.assign(focusSessionForms, session.participantForms);
+                    focusAction.value = session.action;
+                    focusTotalTime.value = session.plannedDuration;
+                    focusTime.value = focusRemainingSeconds(session);
+                    isFocusing.value = true;
+                    currentFocusLog.value = [];
+                    focusMomentSequence.value = 0;
+                    focusVisibleUserActionEvidence.value = [];
+                    focusVoiceEntries.value = [];
+                    focusVoiceIndex.value = 0;
+                    isProcessingFocusTick.value = false;
+                    focusWakeLockMessage.value = '';
+                    void requestFocusWakeLock();
+                };
+                const runFocusTick = () => {
+                    if (isProcessingFocusTick.value) return;
+                    isProcessingFocusTick.value = true;
+                    const generation = focusSessionGeneration.value;
+                    void focusTickBehavior().catch(() => addLog('FOCUS TICK SKIPPED: reason=unknown', 'warn'))
+                        .finally(() => { if (focusSessionGeneration.value === generation) isProcessingFocusTick.value = false; });
+                };
+                const startFocusTimer = session => {
+                    if (focusTimer.value) clearInterval(focusTimer.value);
+                    nextRandomEventTime.value = Date.now() + (Math.random() * 420000 + 180000);
+                    focusTimer.value = setInterval(() => {
+                        if (getActiveFocusSession()?.id !== session.id || !isFocusing.value || focusFinishDraft) return;
+                        focusTime.value = focusRemainingSeconds(session);
+                        if (focusTime.value <= 0) {
+                            void finishFocus(session.plannedDuration / 60, true, { sessionId: session.id });
+                        } else if (Date.now() > nextRandomEventTime.value && settings.apiKey && !isProcessingFocusTick.value) {
+                            nextRandomEventTime.value = Date.now() + (Math.random() * 420000 + 180000);
+                            runFocusTick();
+                        }
+                    }, 1000);
+                };
+                const recoverFocusSession = async () => {
+                    // A saved claim is ownership, not proof the provider received it.
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    let recoveredReports = false;
+                    for (const report of snapshot.user.missionReports || []) {
+                        if (report.focusSessionId && report.generation?.state === 'in-flight' && !focusReportInFlight.has(report.id)) {
+                            report.generation = { ...report.generation, state: 'pending', token: '', recoveryPending: true };
+                            recoveredReports = true;
+                        }
+                    }
+                    if (recoveredReports && window.Meeow.storage.persistSnapshot(snapshot) === true) {
+                        for (const saved of snapshot.user.missionReports) {
+                            const live = user.missionReports.find(report => report.id === saved.id);
+                            if (live && saved.generation) live.generation = saved.generation;
+                        }
+                    }
+                    const session = getActiveFocusSession();
+                    if (!session || focusRuntimeSession !== session || focusCats.value.some(cat => !cats.value.includes(cat))) {
+                        if (focusTimer.value) clearInterval(focusTimer.value);
+                        focusTimer.value = null; focusFinishDraft = null;
+                        if (!session) {
+                            if (focusRuntimeSession || isFocusing.value) focusSessionGeneration.value += 1;
+                            focusRuntimeSession = null; isFocusing.value = false;
+                            return false;
+                        }
+                        bindFocusRuntime(session);
+                    }
+                    focusTime.value = focusRemainingSeconds(session);
+                    if (!focusTime.value)
+                        return finishFocus(session.plannedDuration / 60, true, { sessionId: session.id, recovery: true });
+                    if (!focusTimer.value) startFocusTimer(session);
+                    return true;
+                };
+                // End canonical Focus session authority.
+
                 const focusTickBehavior = async () => {
+                    const session = getActiveFocusSession();
                     const sessionGeneration = focusSessionGeneration.value;
-                    if (!isFocusing.value) return false;
+                    if (statusRefreshDisposed || !session || focusRuntimeSession !== session || !isFocusing.value || focusFinishDraft) return false;
                     const participants = focusCats.value.filter(cat => cat &&
-                        String(cat.hallId || '') === String(activeHallId.value || '') &&
+                        session.participantIds.includes(String(cat.id)) &&
+                        String(cat.hallId || '') === String(session.hallId) &&
                         isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
                         !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
                         !getActiveAwayEpisode(cat));
@@ -30600,10 +30715,10 @@ ${outputContract}`;
                         addLog('FOCUS TICK SKIPPED: reason=resident-unavailable', 'info');
                         return false;
                     }
-                    const isCurrentFocusTick = () => isFocusing.value &&
+                    const isCurrentFocusTick = () => !statusRefreshDisposed && getActiveFocusSession() === session && isFocusing.value && !focusFinishDraft &&
                         focusSessionGeneration.value === sessionGeneration &&
                         participants.every(cat => focusCats.value.some(active => String(active?.id) === String(cat.id)) &&
-                            String(cat.hallId || '') === String(activeHallId.value || '') &&
+                            session.participantIds.includes(String(cat.id)) && String(cat.hallId || '') === String(session.hallId) &&
                             isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
                             !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
                             !getActiveAwayEpisode(cat));
@@ -30624,7 +30739,7 @@ ${buildLeanAmbientContext(cat, {
                         ? `There are ${participants.length} cats supervising together: ${participants.map(cat => getResidentPublicName(cat)).join(', ')}.
                         Every cat MUST receive one distinct update in this batch. Include one or two natural peer interactions only when they fit canon personality, source-supported relationships, or established same-hall history: keeping watch together, wary proximity, grooming, a quarrel, playful obstruction, silent observation, or briefly curling up nearby. Never force affection, romance, reconciliation, hostility, or matching "cute" behavior. If a relationship is unclear, prefer parallel activity, cautious observation, or avoidance. If one cat interacts with another, their two status lines must describe the same moment coherently.`
                         : `There is one supervising cat. Write only this cat's independent, in-character action.`;
-                    const prompt = `[MEEOW HOUSE FOCUS · ${currentHall.value.name}]
+                    const prompt = `[MEEOW HOUSE FOCUS · ${halls.value.find(hall => String(hall.id) === String(session.hallId))?.name || session.hallId}]
                     User (${user.nickname}) is focusing on: ${focusAction.value}.
                     USER is physically present and focusing here. Do not invent USER dialogue, work content, feelings, productivity, touch, gestures, object use, or intentional actions. Residents may visibly approach, lean against, climb onto, or settle near the passive USER.
                     ${buildAuthoritativeUserIdentityContext()}
@@ -30717,201 +30832,245 @@ ${buildLeanAmbientContext(cat, {
                     }
                 };
 
+
                 const startFocus = () => {
-                    if (!canStartFocus.value) return;
-                    focusSessionGeneration.value += 1;
-                    focusCats.value = roomCats.value.filter(c => focusSetupData.selectedCatIds.includes(c.id));
-                    focusCats.value.forEach(cat => terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority'));
-                    Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
-                    focusCats.value.forEach(cat => { focusSessionForms[String(cat.id)] = getResidentForm(cat); });
-                    focusAction.value = focusSetupData.action;
-                    focusCats.value.forEach(cat => {
+                    if (!canStartFocus.value || getActiveFocusSession() || isFinishingFocus.value) return false;
+                    const participants = roomCats.value.filter(cat => focusSetupData.selectedCatIds.includes(cat.id) &&
+                        focusParticipantEligible(cat, activeHallId.value));
+                    if (!participants.length) return false;
+                    const participantIds = participants.map(cat => String(cat.id));
+                    const forms = Object.fromEntries(participants.map(cat => [String(cat.id), getResidentForm(cat)]));
+                    const key = JSON.stringify([activeHallId.value, focusSetupData.action.trim(), focusSetupData.minutes, participantIds, forms]);
+                    if (!focusStartDraft || focusStartDraft.key !== key) {
+                        focusStartDraft = { key, session: { id: 'focus-session-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+                            state: 'active', hallId: String(activeHallId.value), participantIds, participantForms: forms,
+                            action: focusSetupData.action.trim(), plannedDuration: focusSetupData.minutes * 60,
+                            startedAt: new Date().toISOString(), endedAt: '', reportId: '' } };
+                    }
+                    // The intent ID survives failure; activity starts only on this save attempt.
+                    const session = { ...focusStartDraft.session, startedAt: new Date().toISOString() };
+                    if (!normalizeFocusSession(session)) return false;
+                    const current = () => !getActiveFocusSession() && activeHallId.value === session.hallId &&
+                        participants.every(cat => cats.value.includes(cat) && focusParticipantEligible(cat, session.hallId) &&
+                            getResidentForm(cat) === session.participantForms[String(cat.id)]);
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    snapshot.user.focusSession = session;
+                    for (const id of session.participantIds) {
+                        const cat = snapshot.cats.find(cat => String(cat.id) === id);
+                        if (!cat) return false;
+                        if (!cat.todayInteractions?.some(event => event.type === 'focus-start' && event.focusSessionId === session.id))
+                            appendInteractionEvent(cat, 'focus-start', '与馆长共同执行专注任务：' + session.action,
+                                { source: 'focus', focusSessionId: session.id, id: session.id + ':start:' + id });
+                    }
+                    if (!current() || window.Meeow.storage.persistSnapshot(snapshot) !== true || !current()) {
+                        showToast('专注任务尚未保存，稍后可重试。', 'error'); return false;
+                    }
+                    user.focusSession = session;
+                    for (const cat of participants) {
                         const firstInteraction = !(cat.todayInteractions || []).length;
-                        appendInteractionEvent(cat, 'focus-start', `与馆长共同执行专注任务：${focusAction.value}`, { source: 'focus' });
-                        if (firstInteraction) {
-                            // Friend requests are persisted immediately, just like
-                            // first homepage/explore interactions. A slow focus-log
-                            // response must never make a first contact disappear.
-                            void sendFriendRequest(cat.id);
-                        }
-                    });
-                    isFocusing.value = true;
-                    focusTotalTime.value = focusSetupData.minutes * 60;
-                    focusTime.value = focusSetupData.minutes * 60;
-                    currentFocusLog.value = [];
-                    focusMomentSequence.value = 0;
-                    focusVisibleUserActionEvidence.value = [];
-                    focusVoiceEntries.value = [];
-                    focusVoiceIndex.value = 0;
-                    isProcessingFocusTick.value = false;
-                    focusWakeLockMessage.value = '';
+                        const saved = snapshot.cats.find(row => String(row.id) === String(cat.id));
+                        cat.todayInteractions = saved.todayInteractions;
+                        if (firstInteraction) void sendFriendRequest(cat.id);
+                    }
+                    focusStartDraft = null; focusFinishDraft = null;
+                    bindFocusRuntime(getActiveFocusSession());
+                    participants.forEach(cat => terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority'));
                     showFocusSetupModal.value = false;
-                    void requestFocusWakeLock();
-
-                    if (focusTimer.value) clearInterval(focusTimer.value);
-                    currentFocusLog.value = [`${getCurrentTimeStr()} [系统] 目标已进入专注状态。监督程序启动。`];
-                    
-                    if (settings.apiKey) {
-                        isProcessingFocusTick.value = true;
-                        const tickGeneration = focusSessionGeneration.value;
-                        void focusTickBehavior().catch(() => {
-                            addLog('FOCUS TICK SKIPPED: reason=unknown', 'warn');
-                        }).finally(() => {
-                            if (focusSessionGeneration.value === tickGeneration) isProcessingFocusTick.value = false;
-                        });
-                    }
-                    
-                    // Set random event timer between 3 and 10 minutes (180000ms - 600000ms)
-                    nextRandomEventTime.value = Date.now() + (Math.random() * 420000 + 180000);
-                    focusTimer.value = setInterval(async () => {
-                        if (!isFocusing.value) return;
-                        focusTime.value--;
-                        if (Date.now() > nextRandomEventTime.value && settings.apiKey && !isProcessingFocusTick.value) {
-                            isProcessingFocusTick.value = true;
-                            const tickGeneration = focusSessionGeneration.value;
-                            nextRandomEventTime.value = Date.now() + (Math.random() * 420000 + 180000);
-                            try { await focusTickBehavior(); }
-                            catch (_) { addLog('FOCUS TICK SKIPPED: reason=unknown', 'warn'); }
-                            finally { if (focusSessionGeneration.value === tickGeneration) isProcessingFocusTick.value = false; }
-                        }
-                        if (focusTime.value <= 0) { await finishFocus(focusSetupData.minutes, true); }
-                    }, 1000);
-                    if (currentNoise.value !== 'none') {
-                        nextTick(() => { playNoise(); });
-                    }
+                    currentFocusLog.value = [getCurrentTimeStr() + ' [系统] 目标已进入专注状态。监督程序启动。'];
+                    startFocusTimer(session);
+                    if (settings.apiKey) runFocusTick();
+                    if (currentNoise.value !== 'none') nextTick(() => { playNoise(); });
+                    return true;
                 };
 
-                const archiveFocusReport = (participants, success, minutes, affinityDelta) => {
-                    if (currentSettlement.settlementApplied) return;
-                    const coinsDelta = success ? minutes * 10 : 0;
-                    const archivedAt = new Date().toISOString();
-
-                    participants.forEach(cat => {
-                        cat.affinity = Math.max(0, cat.affinity + affinityDelta);
-                        appendInteractionEvent(cat, 'focus-end', `${success ? '完成' : '中止'}专注任务：${currentSettlement.missionName}`, { source: 'focus' });
-                    });
-                    if (coinsDelta > 0) user.coins += coinsDelta;
-
-                    currentSettlement.coinsDelta = coinsDelta;
-                    currentSettlement.archivedAt = archivedAt;
-                    currentSettlement.settlementApplied = true;
-
-                    user.missionReports.push({
-                        id: currentSettlement.id,
-                        date: new Date().toLocaleString(),
-                        archivedAt,
-                        hallId: currentSettlement.hallId,
-                        hallName: currentSettlement.hallName,
-                        missionName: currentSettlement.missionName,
-                        executor: `${user.nickname} & ${participants.map(cat => cat.name).join(', ')}`,
-                        participants: participants.map(cat => ({ id: cat.id, name: cat.name })),
-                        duration: currentSettlement.duration,
-                        plannedDuration: minutes * 60,
-                        plannedMinutes: minutes,
-                        logs: [...currentSettlement.logs],
-                        summary: currentSettlement.summary,
-                        status: success ? 'COMPLETED' : 'FAILED',
-                        affinityDelta,
-                        coinsDelta
-                    });
-
-                    // Form eligibility is deliberately claimed only by a successful
-                    // direct in-person interaction, never by Focus settlement.
+                const archiveFocusReport = (snapshot, session, report) => {
+                    if (snapshot.user.missionReports.some(saved => saved.id === report.id)) return false;
+                    for (const id of session.participantIds) {
+                        const cat = snapshot.cats.find(cat => String(cat.id) === id);
+                        if (!cat) continue;
+                        cat.affinity = Math.max(0, cat.affinity + report.affinityDelta);
+                        if (!cat.todayInteractions?.some(event => event.type === 'focus-end' && event.focusSessionId === session.id))
+                            appendInteractionEvent(cat, 'focus-end', (report.status === 'COMPLETED' ? '完成' : '中止') + '专注任务：' + report.missionName,
+                                { source: 'focus', focusSessionId: session.id, id: session.id + ':end:' + id });
+                    }
+                    snapshot.user.coins += report.coinsDelta;
+                    snapshot.user.missionReports.push(report);
+                    return true;
                 };
 
-                const finishFocus = async (minutes, success) => {
-                    if (isFinishingFocus.value) return;
+                const finishFocus = async (minutes, success, { sessionId = getActiveFocusSession()?.id, recovery = false } = {}) => {
+                    const session = getActiveFocusSession();
+                    if (!session || session.id !== sessionId || isFinishingFocus.value) return false;
                     isFinishingFocus.value = true;
+                    Object.assign(focusSettlementLoading, { message: '正在保存专注结算…',
+                        phase: '步骤 1/3 · 归档现场记录', progress: 12, indeterminate: false });
                     focusSessionGeneration.value += 1;
-                    Object.assign(focusSettlementLoading, {
-                        message: '正在冻结本次 Live Log 与参与者记录…',
-                        phase: '步骤 1/3 · 读取本次专注记录',
-                        progress: 12,
-                        indeterminate: false
-                    });
-                    clearInterval(focusTimer.value);
-                    if (audioPlayer.value) audioPlayer.value.pause();
-                    isFocusing.value = false;
-                    focusMusic.modalOpen = false;
-                    focusMusic.addPanel = false;
-                    void releaseFocusWakeLock();
+                    if (focusTimer.value) clearInterval(focusTimer.value);
+                    focusTimer.value = null;
+                    try {
+                        if (!focusFinishDraft || focusFinishDraft.sessionId !== session.id) {
+                            const plannedMinutes = session.plannedDuration / 60;
+                            const endedAt = new Date().toISOString();
+                            const participants = session.participantIds.map(id => {
+                                const cat = cats.value.find(cat => String(cat.id) === id);
+                                return { id, name: cat?.name || id };
+                            });
+                            const names = participants.map(cat => cat.name).join(', ');
+                            focusFinishDraft = { sessionId: session.id, report: {
+                                id: 'focus-report-' + session.id, focusSessionId: session.id,
+                                date: new Date(endedAt).toLocaleString(), archivedAt: endedAt, hallId: session.hallId,
+                                hallName: halls.value.find(hall => String(hall.id) === session.hallId)?.name || session.hallId,
+                                missionName: session.action, executor: user.nickname + ' & ' + names,
+                                participants, participantForms: { ...session.participantForms },
+                                duration: success ? session.plannedDuration : Math.max(0, session.plannedDuration - focusRemainingSeconds(session)),
+                                plannedDuration: session.plannedDuration, plannedMinutes,
+                                logs: [...currentFocusLog.value].reverse(),
+                                summary: success ? names + '陪馆长完成了「' + session.action + '」。本次记录已归档。' :
+                                    '「' + session.action + '」在本次专注中止后归档；' + names + '已保留现场记录。',
+                                status: success ? 'COMPLETED' : 'FAILED',
+                                affinityDelta: success ? Math.floor(plannedMinutes / 10) : -Math.floor(Math.random() * 6),
+                                coinsDelta: success ? plannedMinutes * 10 : 0,
+                                generation: { state: !recovery && settings.apiKey && participants.length ? 'pending' : 'fallback-only',
+                                    token: '', claimedAt: '', recoveryPending: false }
+                            } };
+                        }
+                        const report = focusFinishDraft.report;
+                        const current = () => getActiveFocusSession()?.id === session.id && user.focusSession === session;
+                        const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                        if (!archiveFocusReport(snapshot, session, report)) return false;
+                        snapshot.user.focusSession = { ...session, state: 'ended', endedAt: report.archivedAt, reportId: report.id };
+                        const endedFocusStatus = '刚刚结束「' + cleanText(session.action) + '」专注任务';
+                        Object.assign(snapshot.user, buildUserStatusFields(endedFocusStatus, 'focus-completion', 'private'));
+                        if (!current() || window.Meeow.storage.persistSnapshot(snapshot) !== true || !current()) {
+                            showToast('结算尚未保存，专注权威仍保留；请重试结束。', 'error'); return false;
+                        }
+                        user.focusSession = snapshot.user.focusSession;
+                        user.coins = snapshot.user.coins;
+                        user.missionReports.push(report);
+                        for (const id of session.participantIds) {
+                            const cat = cats.value.find(cat => String(cat.id) === id), saved = snapshot.cats.find(cat => String(cat.id) === id);
+                            if (cat && saved) { cat.affinity = saved.affinity; cat.todayInteractions = saved.todayInteractions; }
+                        }
+                        setUserCurrentStatus(endedFocusStatus, 'focus-completion', 'private');
+                        tempUserStatus.value = endedFocusStatus;
+                        isFocusing.value = false; focusRuntimeSession = null; focusFinishDraft = null;
+                        if (audioPlayer.value) audioPlayer.value.pause();
+                        focusMusic.modalOpen = false; focusMusic.addPanel = false; void releaseFocusWakeLock();
+                        Object.assign(currentSettlement, report, { status: report.status === 'COMPLETED' ? 'success' : 'failed',
+                            isSuccess: report.status === 'COMPLETED', settlementApplied: true, statusRefreshTriggered: false });
+                        affinityChangeValue.value = report.affinityDelta;
+                        Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
+                        focusVisibleUserActionEvidence.value = [];
+                        showMissionSettlementModal.value = true;
+                        if (report.generation.state === 'pending') {
+                            Object.assign(focusSettlementLoading, { message: '正在生成角色任务小结…',
+                                phase: '步骤 2/3 · 等待模型整理角色视角', progress: 35, indeterminate: true });
+                            await continueFocusReport(report.id);
+                        }
+                        return true;
+                    } finally { isFinishingFocus.value = false; }
+                };
 
-                    const participants = [...focusCats.value];
-                    const affinityDelta = success ? Math.floor(minutes / 10) : -Math.floor(Math.random() * 6);
-                    const duration = success ? minutes * 60 : Math.max(0, minutes * 60 - focusTime.value);
-                    const catNames = participants.map(c => c.name).join(', ');
-                    const chronologicalLogs = [...currentFocusLog.value].reverse();
-                    const endedFocusStatus = `刚刚结束「${cleanText(focusAction.value)}」专注任务`;
-                    setUserCurrentStatus(endedFocusStatus, 'focus-completion', 'private');
-                    tempUserStatus.value = endedFocusStatus;
-                    const fallbackSummary = success
-                        ? `${catNames || '参与猫咪'}陪馆长完成了「${focusAction.value}」。本次记录已归档。`
-                        : `「${focusAction.value}」在本次专注中止后归档；${catNames || '参与猫咪'}已保留现场记录。`;
-
-                    Object.assign(currentSettlement, {
-                        id: `focus-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                        missionName: focusAction.value,
-                        duration,
-                        plannedMinutes: minutes,
-                        status: success ? 'success' : 'failed',
-                        isSuccess: success,
-                        affinityDelta,
-                        coinsDelta: 0,
-                        logs: chronologicalLogs,
-                        participants: participants.map(cat => ({ id: cat.id, name: cat.name })),
-                        hallId: currentHall.value?.id || activeHallId.value,
-                        hallName: currentHall.value?.name || 'Meeow House',
-                        archivedAt: '',
-                        settlementApplied: false,
-                        statusRefreshTriggered: false,
-                        summary: fallbackSummary
-                    });
-                    affinityChangeValue.value = affinityDelta;
-
-                    if (settings.apiKey && participants.length) {
-                        focusSettlementLoading.message = '正在生成角色任务小结…';
-                        focusSettlementLoading.phase = '步骤 2/3 · 等待模型整理角色视角';
-                        focusSettlementLoading.progress = 35;
+                const findFocusReport = id => user.missionReports.find(report => report.id === id &&
+                    typeof report.focusSessionId === 'string' && report.focusSessionId &&
+                    ['COMPLETED', 'FAILED'].includes(report.status) && Array.isArray(report.logs) &&
+                    Array.isArray(report.participants) && report.participants.length &&
+                    report.participants.every(member => typeof member.id === 'string' &&
+                        ['CAT', 'HUMAN'].includes(report.participantForms?.[member.id])));
+                const canContinueFocusReport = report => Boolean(report && findFocusReport(report.id) === report &&
+                    (report.generation?.state === 'pending' ||
+                        report.generation?.state === 'in-flight' && (!focusReportInFlight.has(report.id) || focusReportInFlight.get(report.id).result)));
+                const claimFocusReportGeneration = id => {
+                    const report = findFocusReport(id);
+                    if (!settings.apiKey || !canContinueFocusReport(report) || focusReportInFlight.has(id)) return null;
+                    const token = 'focus-report-claim:' + id + ':' + Date.now() + ':' + Math.random().toString(36).slice(2, 8);
+                    const generation = { state: 'in-flight', token, claimedAt: new Date().toISOString(), recoveryPending: false };
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const saved = snapshot.user.missionReports.find(row => row.id === id && row.focusSessionId === report.focusSessionId);
+                    if (!saved) return null;
+                    saved.generation = generation;
+                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true ||
+                        findFocusReport(id) !== report || !canContinueFocusReport(report)) return null;
+                    report.generation = generation;
+                    focusReportInFlight.set(id, { token, started: false, result: null });
+                    return { reportId: id, sessionId: report.focusSessionId, token };
+                };
+                const focusReportClaimCurrent = claim => {
+                    const report = findFocusReport(claim?.reportId);
+                    return !statusRefreshDisposed && report?.focusSessionId === claim?.sessionId && report.generation?.state === 'in-flight' &&
+                        report.generation.token === claim?.token && focusReportInFlight.get(report.id)?.token === claim.token;
+                };
+                const saveFocusReportResult = claim => {
+                    const entry = focusReportInFlight.get(claim.reportId), report = findFocusReport(claim.reportId);
+                    if (!entry?.result || entry.token !== claim.token || !focusReportClaimCurrent(claim)) return false;
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const saved = snapshot.user.missionReports.find(row => row.id === report.id && row.focusSessionId === claim.sessionId);
+                    if (!saved) return false;
+                    if (entry.result.body) saved.summary = entry.result.body;
+                    saved.generation = { ...saved.generation, state: entry.result.body ? 'complete' : 'failed', token: '',
+                        lastError: entry.result.error || '' };
+                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true || !focusReportClaimCurrent(claim)) return false;
+                    report.summary = saved.summary; report.generation = saved.generation;
+                    if (currentSettlement.id === report.id) currentSettlement.summary = report.summary;
+                    focusReportInFlight.delete(report.id);
+                    return true;
+                };
+                const runFocusReportGeneration = async claim => {
+                    const entry = focusReportInFlight.get(claim?.reportId), report = findFocusReport(claim?.reportId);
+                    if (!focusReportClaimCurrent(claim) || entry?.token !== claim.token || entry.started) return false;
+                    entry.started = true;
+                    const participants = report.participants.map(member => cats.value.find(cat => String(cat.id) === String(member.id))).filter(Boolean);
+                    if (!participants.length) { entry.result = { error: '参与居民已不可用' }; return saveFocusReportResult(claim); }
+                    const chronologicalLogs = report.logs, duration = report.duration, success = report.status === 'COMPLETED';
+                    const catNames = participants.map(cat => cat.name).join(', ');
+                    try {
                         const sharedSessionEvidence = buildSharedFocusSessionEvidence([...chronologicalLogs].reverse(), 6, 900);
                         const peerLines = buildPublicSharedPeerRelationshipLines(participants);
                         const residentContext = participants.map(cat => buildLeanAmbientContext(cat, {
-                            form: focusSessionForms[String(cat.id)] || getResidentForm(cat),
+                            form: report.participantForms[String(cat.id)] || getResidentForm(cat),
                             publicRelationshipLines: peerLines.get(String(cat.id)) || []
                         })).join('\n---\n');
                         const prompt = success
-                            ? `${buildAuthoritativeUserIdentityContext()}\n${getInteractionHolidayContext()}\nIdentities: ${catNames}. User (${user.nickname}) completed the focus task "${focusAction.value}" in ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n[COMPLETED SESSION · SHARED EVIDENCE]\n${sharedSessionEvidence || 'No additional shared log evidence.'}\n${residentContext}`
-                            : `${buildAuthoritativeUserIdentityContext()}\n${getInteractionHolidayContext()}\nIdentities: ${catNames}. User (${user.nickname}) stopped the focus task "${focusAction.value}" after ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Be honest about the interruption, never cruel or generic. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n[COMPLETED SESSION · SHARED EVIDENCE]\n${sharedSessionEvidence || 'No additional shared log evidence.'}\n${residentContext}`;
-                        try {
-                            const focusSettlementSystemPrompt = "Write only the mission report content in Simplified Chinese. Keep every character strictly in canon. Never add DC, superhero, or Gotham assumptions outside the relevant hall.";
-                            logPromptBudget(`FOCUS SETTLEMENT · ${participants.length} RESIDENTS`, prompt, focusSettlementSystemPrompt, {
-                                residentContext,
-                                sessionEvidence: sharedSessionEvidence,
-                                taskPayload: focusAction.value
-                            });
-                            const generated = cleanText(await callAI(prompt, focusSettlementSystemPrompt, 1000, ThinkingLevel.LOW, {
-                                label: 'FOCUS · MISSION REPORT',
-                                onProgress: (event) => {
-                                    focusSettlementLoading.indeterminate = event.stage === 'waiting' || event.stage === 'retrying';
-                                    focusSettlementLoading.progress = event.stage === 'complete' ? 76 : Math.max(focusSettlementLoading.progress, event.stage === 'received' ? 68 : 42);
-                                    focusSettlementLoading.phase = event.stage === 'waiting' ? '步骤 2/3 · 正在等待模型响应…' : '步骤 2/3 · 正在生成角色任务小结';
-                                }
-                            }));
-                            if (generated) currentSettlement.summary = generated;
-                        } catch (error) {
-                            addLog(`FOCUS REPORT FALLBACK: ${error.message || 'AI unavailable'}`, 'warn');
-                        }
-                    }
+                        ? `${buildAuthoritativeUserIdentityContext()}\n${getInteractionHolidayContext()}\nIdentities: ${catNames}. User (${user.nickname}) completed the focus task "${report.missionName}" in ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n[COMPLETED SESSION · SHARED EVIDENCE]\n${sharedSessionEvidence || 'No additional shared log evidence.'}\n${residentContext}`
+                        : `${buildAuthoritativeUserIdentityContext()}\n${getInteractionHolidayContext()}\nIdentities: ${catNames}. User (${user.nickname}) stopped the focus task "${report.missionName}" after ${Math.floor(duration / 60)} minutes. Each participating cat must write a concise, distinct first-person mission report in their original canon voice. Be honest about the interruption, never cruel or generic. Include a heading [Cat Name]: for each cat. Language: Simplified Chinese.\n[COMPLETED SESSION · SHARED EVIDENCE]\n${sharedSessionEvidence || 'No additional shared log evidence.'}\n${residentContext}`;
+                        const focusSettlementSystemPrompt = "Write only the mission report content in Simplified Chinese. Keep every character strictly in canon. Never add DC, superhero, or Gotham assumptions outside the relevant hall.";
+                        logPromptBudget(`FOCUS SETTLEMENT · ${participants.length} RESIDENTS`, prompt, focusSettlementSystemPrompt, {
+                            residentContext,
+                            sessionEvidence: sharedSessionEvidence,
+                            taskPayload: report.missionName
+                        });
+                        const generated = cleanText(await callAI(prompt, focusSettlementSystemPrompt, 1000, ThinkingLevel.LOW, {
+                            label: 'FOCUS · MISSION REPORT',
+                            onProgress: (event) => {
+                                if (!focusReportClaimCurrent(claim) || currentSettlement.id !== report.id) return;
+                                focusSettlementLoading.indeterminate = event.stage === 'waiting' || event.stage === 'retrying';
+                                focusSettlementLoading.progress = event.stage === 'complete' ? 76 : Math.max(focusSettlementLoading.progress, event.stage === 'received' ? 68 : 42);
+                                focusSettlementLoading.phase = event.stage === 'waiting' ? '步骤 2/3 · 正在等待模型响应…' : '步骤 2/3 · 正在生成角色任务小结';
+                            }
+                        }));
 
-                    focusSettlementLoading.message = '正在写入档案；报告随后即可查看。';
-                    focusSettlementLoading.phase = '步骤 3/3 · 归档报告与完整 Live Log';
-                    focusSettlementLoading.indeterminate = false;
-                    focusSettlementLoading.progress = 88;
-                    archiveFocusReport(participants, success, minutes, affinityDelta);
-                    Object.keys(focusSessionForms).forEach(id => delete focusSessionForms[id]);
-                    focusVisibleUserActionEvidence.value = [];
-                    focusSettlementLoading.progress = 100;
-                    showMissionSettlementModal.value = true;
-                    isFinishingFocus.value = false;
+                        if (!focusReportClaimCurrent(claim)) {
+                            if (focusReportInFlight.get(claim.reportId) === entry) focusReportInFlight.delete(claim.reportId);
+                            return false;
+                        }
+                        if (!generated) throw new Error('Focus report was empty');
+                        entry.result = { body: generated };
+                        return saveFocusReportResult(claim);
+                    } catch (error) {
+                        if (!focusReportClaimCurrent(claim)) {
+                            if (focusReportInFlight.get(claim.reportId) === entry) focusReportInFlight.delete(claim.reportId);
+                            return false;
+                        }
+                        entry.result = { error: cleanText(error.message || 'AI unavailable') };
+                        addLog('FOCUS REPORT FALLBACK: ' + entry.result.error, 'warn');
+                        return saveFocusReportResult(claim);
+                    }
+                };
+                const continueFocusReport = async id => {
+                    const report = findFocusReport(id), entry = focusReportInFlight.get(id);
+                    if (entry?.result && report) return saveFocusReportResult({ reportId: id, sessionId: report.focusSessionId, token: entry.token });
+                    const claim = claimFocusReportGeneration(id);
+                    return claim ? runFocusReportGeneration(claim) : false;
                 };
 
                 const confirmSettlement = () => {
@@ -33302,6 +33461,7 @@ ${statusOutputRules}`;
                                 user.residentSourceRelationships = data.user.residentSourceRelationships || {};
                                 user.residentArrivalEvents = window.Meeow.residentGeneration.normalizeArrivalEvents(data.user.residentArrivalEvents);
                                 // Importing an older save must not retain this session's resident-owned items.
+                                user.focusSession = normalizeFocusSession(data.user.focusSession);
                                 if (!Object.hasOwn(data.user, 'residentItems')) user.residentItems = {};
                                 if (!Object.hasOwn(data.user, 'residentItemBonds')) user.residentItemBonds = {};
                                 if (!Object.hasOwn(data.user, 'residentSpecialSocialEvents')) user.residentSpecialSocialEvents = [];
@@ -33374,6 +33534,7 @@ ${statusOutputRules}`;
                             customFontInput.value = settings.customFontUrl || '';
                             applyUISettings();
                             if (settings.customFontEnabled && settings.customFontUrl) applyCustomFont(true);
+                            void recoverFocusSession();
                             void reconcilePhoneReplyOpportunities(new Date());
                             showToast('喵喵馆存档已导入', 'success');
                             window.setTimeout(() => void processPendingResidentArrivals(), 0);
@@ -34066,6 +34227,7 @@ ${episodicMemory}`;
                 };
                 const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); reconcileObserverReactions(now); void reconcileAffectedHallResidents(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
                 onMounted(() => {
+                    void recoverFocusSession();
                     reconcileObserverReactions();
                     void reconcileCurrentHallEpisodeWindow();
                     window.setTimeout(() => void processPendingResidentArrivals(), 0);
@@ -34131,6 +34293,10 @@ ${episodicMemory}`;
                 reconcileSharedSocialClaims, { flush: 'sync' });
                 onUnmounted(() => {
                     hallEpisodeDisposed = true;
+                    focusSessionGeneration.value += 1;
+                    if (focusTimer.value) clearInterval(focusTimer.value);
+                    focusTimer.value = null;
+                    focusReportInFlight.clear();
                     window.Meeow.residentCopy.clear();
                     statusRefreshDisposed = true;
                     for (const claim of socialOpportunityClaims.values()) socialActivity.releaseOpportunity(claim, socialOpportunityClaims);
@@ -34258,7 +34424,7 @@ ${episodicMemory}`;
                     isUsingPixelAvatar, makePixelCatAvatar, openPixelAvatarWorkshop, closePixelAvatarWorkshop, savePixelAvatar, useOriginalAvatar, resetPixelAvatarDraft, randomizePixelAvatarDraft,
                     showFocusSetupModal, focusSetupData, availableCatsForFocus, canStartFocus, openFocusSetupModal, toggleFocusCat, startFocus,
                     currentFocusVoice, currentFocusVoiceCat, focusVoiceEntries, focusVoiceIndex, cycleFocusVoice, focusWakeLockMessage,
-                    currentSettlement, unreadMailCount, openMailbox, claimMailItem, formatMailboxDate, todayEvent,
+                    currentSettlement, canContinueFocusReport, continueFocusReport, unreadMailCount, openMailbox, claimMailItem, formatMailboxDate, todayEvent,
                     addTodo, newTodo, addDDL, newDDL, ddlCountdownStr, sortedDDLs, nearestDDL, isGeneratingReport,
                     newItem, isSubmittingItem, submitShopItem, lastShopVisualResult,
                     showShopPixelEditor, shopPixelEditorDraftItem, shopDraftPreviewItem, authoredShopItems, hasShopAuthoringDraft,
