@@ -194,11 +194,11 @@
         }
         return plan;
     };
-    const buildEpisodeContinuation = ({ plan, row, resident, now, sourceId, claims }) => {
-        if (!plan || !row || !resident || episodeWindow(now)?.key !== plan.windowKey) return null;
-        const past = row.beats.filter(beat => ['completed', 'skipped'].includes(beat.state) && beat.endAt <= now);
+    const buildEpisodeContinuation = ({ plan, row, resident, now, sourceId, claims, seedSuffix = sourceId }) => {
+        if (!plan || !resident || episodeWindow(now)?.key !== plan.windowKey) return null;
+        const past = (row?.beats || []).filter(beat => ['completed', 'skipped'].includes(beat.state) && beat.endAt <= now);
         const continuation = buildEpisodeWindow({ hallId: plan.hallId, now, residents: [resident],
-            seedSuffix: sourceId, beatLimit: episodeBeatLimit - past.length, claims }).residents[0];
+            seedSuffix, beatLimit: episodeBeatLimit - past.length, claims }).residents[0];
         return continuation ? { ...continuation, beats: [...past, ...continuation.beats],
             continuation: { sourceId, startedAt: Number(now), pastCount: past.length } } : null;
     };

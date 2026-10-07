@@ -542,8 +542,14 @@
         const returnPosture = plannedReturnStatus
             ? (normalizePosture(episode.plannedReturnPosture) || Meeow.statusPosture.getLegacyStatusPose(plannedReturnStatus))
             : (settledPromptly ? 'standing' : 'lying');
-        cat.isOut = false;
-        if (hooks.onSettleReturn?.({ cat, episode, logicalReturnAt, reconciledAt: now, returnStatus, returnPosture }) === false) return false;
+        const liveCat = cat, liveEpisode = episode;
+        const staged = typeof hooks.commitReturn === 'function';
+        if (staged) {
+            episode = JSON.parse(JSON.stringify(episode));
+        }
+        const returnCat = staged ? JSON.parse(JSON.stringify(cat)) : cat;
+        returnCat.isOut = false;
+        if (hooks.onSettleReturn?.({ cat: returnCat, episode, logicalReturnAt, reconciledAt: now, returnStatus, returnPosture }) === false) return false;
         // A frozen positive mail decision describes actual production, not a
         // best-effort slot reservation. Keep that one planned letter alive if
         // it has been deferred beyond the resident's return.
@@ -554,13 +560,15 @@
         episode.status = 'completed';
         episode.returnedAt = logicalReturnAt.toISOString();
         episode.settledAt = now.toISOString();
-        schedulePostReturnAwayOpportunity(cat, logicalReturnAt);
+        schedulePostReturnAwayOpportunity(returnCat, logicalReturnAt);
+        if (staged && hooks.commitReturn({ cat: returnCat, episode, liveCat, liveEpisode,
+            episodes: hooks.episodes, logicalReturnAt, reconciledAt: now }) !== true) return false;
         hooks.onDiaryReady?.(episode);
         addLog(`AWAY EPISODE RETURN SETTLED: episode=${episode.id}; resident=${episode.residentId}; returnedAt=${episode.returnedAt}`, 'sent');
         return true;
     };
 
-    const reconcileEpisodes = ({ episodes, cats, reconciliationTime = new Date(), onMaterializeActivity, onDeliverMail, onSettleReturn, onDiaryReady } = {}) => {
+    const reconcileEpisodes = ({ episodes, cats, reconciliationTime = new Date(), onMaterializeActivity, onDeliverMail, onSettleReturn, onDiaryReady, commitReturn } = {}) => {
         const now = parseLogicalDate(reconciliationTime) || new Date();
         const normalizedEpisodes = normalizeEpisodes(episodes);
         const dueEvents = [];
@@ -589,7 +597,7 @@
         const rank = { activity: 0, mail: 1, return: 2 };
         dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type] ||
             (a.type === 'mail' && b.type === 'mail' ? String(a.mail.id).localeCompare(String(b.mail.id)) : 0));
-        const hooks = { cats: Array.isArray(cats) ? cats : [], onMaterializeActivity, onSettleReturn, onDiaryReady };
+        const hooks = { cats: Array.isArray(cats) ? cats : [], episodes: normalizedEpisodes, onMaterializeActivity, onSettleReturn, onDiaryReady, commitReturn };
         dueEvents.forEach(event => {
             if (event.type === 'activity') materializeActivity(event, now, hooks);
             else if (event.type === 'mail') onDeliverMail?.(event.episode, event.mail, event.at, now);

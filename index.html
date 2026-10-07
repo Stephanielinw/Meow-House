@@ -12664,8 +12664,10 @@ ${buildLeanForegroundContext(cat)}`;
                         new Set(plan.partialReconciliations.map(receipt => receipt?.sourceId)).size === plan.partialReconciliations.length &&
                         plan.partialReconciliations.every(receipt => receipt && typeof receipt.sourceId === 'string' && receipt.sourceId &&
                             typeof receipt.targetId === 'string' && typeof receipt.targetAuthority === 'string' &&
-                            typeof receipt.interactionEpisodeId === 'string' && Number.isFinite(receipt.at) &&
-                            Number.isFinite(receipt.targetInteractionAt) && ['pending', 'claimed', 'accepted', 'fallback', 'superseded'].includes(receipt.state) &&
+                            (receipt.awaySource ? typeof receipt.awaySource.episodeId === 'string' &&
+                                ['departure', 'return'].includes(receipt.awaySource.phase) &&
+                                receipt.sourceId === `away:${receipt.awaySource.episodeId}:${receipt.awaySource.phase}`
+                                : typeof receipt.interactionEpisodeId === 'string' && Number.isFinite(receipt.targetInteractionAt)) && Number.isFinite(receipt.at) && ['pending', 'claimed', 'accepted', 'fallback', 'superseded'].includes(receipt.state) &&
                             Array.isArray(receipt.affectedIds) && receipt.affectedIds.every(id => typeof id === 'string') &&
                             new Set(receipt.affectedIds).size === receipt.affectedIds.length &&
                             Array.isArray(receipt.waitingIds) && receipt.waitingIds.every(id => receipt.affectedIds.includes(id)) &&
@@ -12689,7 +12691,8 @@ ${buildLeanForegroundContext(cat)}`;
                         context.row.authority === hallEpisodeAuthority(cat) &&
                         (!objects || objects.get(String(cat.id)) === cat) && !hasHigherHallPresentationOwner(cat.id));
                 };
-                const saveHallEpisodeWindow = (hall, plan, observerDraft = null) => {
+                const saveHallEpisodeWindow = (hall, plan, observerDraft = null, isCurrent = null) => {
+                    if (isCurrent && !isCurrent()) return false;
                     const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
                     const staged = snapshot.halls.find(row => String(row.id) === String(hall.id));
                     if (!staged) return false;
@@ -12701,7 +12704,7 @@ ${buildLeanForegroundContext(cat)}`;
                         if (!record) return false;
                         record.observerReactionEvaluated = true;
                     }
-                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true) return false;
+                    if (window.Meeow.storage.persistSnapshot(snapshot) !== true || isCurrent && !isCurrent()) return false;
                     const objects = hall.currentEpisodeWindow?.windowKey === plan.windowKey
                         ? hallEpisodeObjects.get(hall.currentEpisodeWindow) : null;
                     hall.currentEpisodeWindow = plan;
@@ -12740,7 +12743,8 @@ ${buildLeanForegroundContext(cat)}`;
                     now: () => Date.now(),
                     get: runtime => {
                         const cat = cats.value.find(cat => String(cat.id) === runtime.id), context = getHallEpisodeRow(cat, true);
-                        if (!context) return null;
+                        if (!context) return cat && halls.value.some(hall => hall.currentEpisodeWindow?.partialReconciliations?.some(receipt =>
+                            receipt.awaySource?.phase === 'return' && receipt.waitingIds.includes(String(cat.id)))) ? { hold: true } : null;
                         if (!isHallEpisodeOwned(cat)) return { hold: true };
                         const beat = context.row.beats.find(beat => beat.startAt <= Date.now() && beat.endAt > Date.now());
                         if (!beat || ['skipped', 'invalidated', 'completed'].includes(beat.state)) return { hold: true, wakeAt: beat?.endAt };
@@ -12775,7 +12779,7 @@ ${buildLeanForegroundContext(cat)}`;
                     }
                     return plan.content.entries.find(entry => entry.residentId === String(cat.id) && entry.beatId === beat.id) || beat.fallback || null;
                 };
-                const collectHallEpisodeResidents = async (hallId, residentIds = null) => {
+                const collectHallEpisodeResidents = async (hallId, residentIds = null, returning = false) => {
                     const rows = [], roomClaims = new Map();
                     for (const cat of cats.value.filter(cat => String(getResidentPhysicalHallId(cat)) === hallId &&
                         isResidentInHall(cat) && !hasHigherHallPresentationOwner(cat.id) && (!residentIds || residentIds.includes(String(cat.id)))).sort((a, b) => String(a.id).localeCompare(String(b.id)))) {
@@ -12787,7 +12791,7 @@ ${buildLeanForegroundContext(cat)}`;
                             marker.room === activeMapRoom.value && (!residentIds ||
                                 row.placementKey === normalRoomPlacementKey(marker) && Number.isFinite(row.transitionGeneration)));
                         const claims = roomClaims.get(marker.room) || [];
-                        const prior = residentIds && getHallEpisodeRow(cat)?.row;
+                        const prior = !returning && residentIds && getHallEpisodeRow(cat)?.row;
                         // Partial continuation inherits real contact, never a fresh entry
                         // fallback that would move a resident while accepting its new plan.
                         let samePlacement = false;
@@ -12795,11 +12799,17 @@ ${buildLeanForegroundContext(cat)}`;
                             JSON.parse(prior.authority).slice(0, 7).join('|') === JSON.parse(hallEpisodeAuthority(cat)).slice(0, 7).join('|');
                         } catch (_) { /* malformed saved authority has no reliable contact */ }
                         const proposed = runtime?.foot || (samePlacement && prior.lastFoot) || hallSpatial.placementFootFromStyle(marker.position);
-                        const foot = residentIds ? runtime?.foot || (samePlacement && prior.lastFoot) :
+                        const contact = returning && runtime && !['moving', 'suspended'].includes(runtime.state) && !runtime.furniture
+                            ? Object.freeze({ ...runtime.foot }) : null;
+                        const foot = residentIds ? (returning ? contact : runtime?.foot || (samePlacement && prior.lastFoot)) :
                             runtime?.foot || domain.groundEntry?.(proposed, claims) || (domain.legalPoint(proposed) && proposed);
                         if (!foot || !domain.legalPoint(foot) || claims.some(other => hallNavigation.distance(other, foot) < hallNavigation.DESTINATION_SEPARATION)) continue;
                         claims.push(foot); roomClaims.set(marker.room, claims);
-                        rows.push({ id: String(cat.id), roomId: marker.room, foot, domain, authority: hallEpisodeAuthority(cat),
+                        const authority = hallEpisodeAuthority(cat);
+                        const returnAttempt = returning && Object.freeze({ attemptStartAt: Date.now(), hallId,
+                            windowKey: halls.value.find(hall => String(hall.id) === hallId)?.currentEpisodeWindow?.windowKey,
+                            authority, placementKey: runtime.placementKey, generation: runtime.transitionGeneration, contact: foot });
+                        rows.push({ id: String(cat.id), roomId: marker.room, foot, domain, authority, returnAttempt,
                             posture: runtime?.localActivityPose || getStructuredStatusPose(cat),
                             currentBehavior: runtime?.state === 'activity' ? runtime.behaviorId : hallActivities.initialBehavior(getStructuredStatusPose(cat)),
                             canMove: hallDisplayMode.value === 'map' && marker.room === activeMapRoom.value,
@@ -12848,6 +12858,7 @@ ${buildLeanForegroundContext(cat)}`;
                             if (row.state === 'valid' && (!cat || !isHallEpisodeOwned(cat)))
                                 recordHallEpisodeProgress(row.residentId, row.beats[0].id, 'invalidated', row.lastFoot, 'resident-authority-changed');
                         }
+                        syncSpatialAmbient();
                         await reconcileAffectedHallResidents(now);
                         syncSpatialAmbient();
                         plan = hall.currentEpisodeWindow;
@@ -12906,6 +12917,47 @@ ${buildLeanForegroundContext(cat)}`;
                 // unsaved frozen drafts and running work, never observer decisions.
                 const hallAffectedDrafts = new WeakMap();
                 const hallAffectedInFlight = new WeakMap();
+                const awayHallSourceCurrent = (receipt, hall) => {
+                    const source = receipt.awaySource;
+                    const episode = awayEpisodes.value.find(episode => episode.id === source?.episodeId);
+                    const target = cats.value.find(cat => String(cat.id) === receipt.targetId);
+                    if (!episode || !target || episode.residentId !== receipt.targetId || episode.hallId !== String(hall.id)) return false;
+                    if (source.phase === 'departure') return ['active', 'completed'].includes(episode.status);
+                    return episode.status === 'completed' && !target.isOut && getResidentPhysicalHallId(target) === String(hall.id) &&
+                        hallEpisodeAuthority(target) === receipt.targetAuthority && !hasHigherHallPresentationOwner(target.id) &&
+                        !awayEpisodes.value.some(other => other.residentId === receipt.targetId && other.id !== episode.id &&
+                            Date.parse(other.departedAt) >= Date.parse(episode.settledAt));
+                };
+                const captureAwayHallDependency = cat => {
+                    const hallId = String(getCatHallId(cat)), claim = socialOpportunityClaims.get(hallId);
+                    return claim?.shared?.phase === 'shared-active' && claim.participantIds.includes(String(cat.id)) &&
+                        socialActivity.ownsOpportunity(claim, socialOpportunityClaims) && claim.isCurrent()
+                        ? { claim, targetAuthority: hallEpisodeAuthority(cat), partners: claim.participantIds.filter(id => id !== String(cat.id))
+                            .map(id => ({ id, cat: cats.value.find(cat => String(cat.id) === id), authority:
+                                hallEpisodeAuthority(cats.value.find(cat => String(cat.id) === id)) })) } : null;
+                };
+                const stageAwayHallReceipt = (hall, cat, episode, phase, dependency = null, now = new Date()) => {
+                    const plan = hall?.currentEpisodeWindow, sourceId = `away:${episode.id}:${phase}`;
+                    if (!usableHallEpisodeWindow(plan) || plan.windowKey !== hallActivities.episodeWindow(now.getTime()).key ||
+                        plan.partialReconciliations?.some(receipt => receipt.sourceId === sourceId)) return null;
+                    const partners = phase === 'departure' && dependency &&
+                        (dependency.claim.shared.phase === 'shared-active' &&
+                            socialOpportunityClaims.get(String(hall.id)) === dependency.claim && dependency.claim.isCurrent() ||
+                            dependency.claim.shared.phase === 'cancelled' && !socialOpportunityClaims.has(String(hall.id)) &&
+                            dependency.targetAuthority !== hallEpisodeAuthority(cats.value.find(row => String(row.id) === String(cat.id))))
+                        ? dependency.partners.filter(partner => partner.cat && cats.value.includes(partner.cat) &&
+                            hallEpisodeAuthority(partner.cat) === partner.authority && isResidentInHall(partner.cat) &&
+                            getResidentPhysicalHallId(partner.cat) === String(hall.id)).map(partner => partner.id) : [];
+                    const affectedIds = [...new Set([String(cat.id), ...partners])].sort();
+                    const receipt = { sourceId, awaySource: { episodeId: episode.id, phase }, targetId: String(cat.id),
+                        targetAuthority: hallEpisodeAuthority(cat), at: now.getTime(), affectedIds,
+                        reasons: Object.fromEntries(affectedIds.map(id => [id, [id === String(cat.id) ? 'direct' : 'shared_dependency']])),
+                        waitingIds: phase === 'departure' ? partners : [String(cat.id)], state: 'pending', rows: [] };
+                    const residents = plan.residents.map(row => phase === 'departure' && affectedIds.includes(row.residentId)
+                        ? { ...row, state: 'invalidated', reason: sourceId, beats: row.beats.map(beat =>
+                            ['completed', 'skipped'].includes(beat.state) ? beat : { ...beat, state: 'invalidated' }) } : row);
+                    return { ...plan, residents, partialReconciliations: [...(plan.partialReconciliations || []), receipt] };
+                };
                 const captureHallContinuitySource = cat => {
                     const hallId = String(getResidentPhysicalHallId(cat)), hall = halls.value.find(row => String(row.id) === hallId);
                     if (!hall || hallId !== String(activeHallId.value) || !isContextuallyViewingHallPresentation(hallId) ||
@@ -12983,10 +13035,11 @@ ${buildLeanForegroundContext(cat)}`;
                             const current = () => !hallEpisodeDisposed && hall.currentEpisodeWindow?.windowKey === bucket.key &&
                                 hallActivities.episodeWindow(Date.now()).key === bucket.key && String(activeHallId.value) === String(hall.id) &&
                                 isContextuallyViewingHallPresentation(String(hall.id)) && target && cats.value.includes(target) &&
-                                getResidentPhysicalHallId(target) === String(hall.id) && hallEpisodeAuthority(target) === receipt.targetAuthority &&
-                                target.todayInteractions?.some(record => record.id === sourceId && record.interactionEpisodeId === receipt.interactionEpisodeId);
+                                (receipt.awaySource ? awayHallSourceCurrent(receipt, hall) :
+                                    getResidentPhysicalHallId(target) === String(hall.id) && hallEpisodeAuthority(target) === receipt.targetAuthority &&
+                                    target.todayInteractions?.some(record => record.id === sourceId && record.interactionEpisodeId === receipt.interactionEpisodeId));
                             if (!current()) { drafts.delete(sourceId); continue; }
-                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds);
+                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds, receipt.awaySource?.phase === 'return');
                             if (!current()) { drafts.delete(sourceId); continue; }
                             currentPlan = hall.currentEpisodeWindow;
                             const claims = currentPlan.residents.flatMap(row => {
@@ -12994,20 +13047,24 @@ ${buildLeanForegroundContext(cat)}`;
                                 return [{ id: row.residentId, roomId: row.roomId, foot: runtime?.foot || row.lastFoot },
                                     ...(runtime?.target ? [{ id: row.residentId, roomId: row.roomId, foot: runtime.target }] : [])];
                             });
-                            const waiting = [], replacements = new Map();
+                            const waiting = [], replacements = new Map(), returnAttempts = new Map();
                             for (const id of receipt.waitingIds) {
                                 const cat = cats.value.find(cat => String(cat.id) === id);
                                 const row = currentPlan.residents.find(row => row.residentId === id);
-                                if (!row || !cat || !isResidentInHall(cat) || String(getResidentPhysicalHallId(cat)) !== String(hall.id)) continue;
-                                if (row.state === 'valid' && row.authority === hallEpisodeAuthority(cat)) continue;
+                                if ((!row && receipt.awaySource?.phase !== 'return') || !cat || !isResidentInHall(cat) || String(getResidentPhysicalHallId(cat)) !== String(hall.id)) continue;
+                                if (row?.state === 'valid' && row.authority === hallEpisodeAuthority(cat)) continue;
                                 if (hasHigherHallPresentationOwner(id)) { waiting.push(id); continue; }
                                 const resident = residents.find(resident => resident.id === id);
                                 if (!resident) { waiting.push(id); continue; }
-                                let replacement = draft.rows.get(id);
+                                const attempt = resident.returnAttempt && Object.freeze({ ...resident.returnAttempt, sourceId });
+                                // An unsaved return projection is rebuilt from this retry's frozen
+                                // contact/time. A saved valid row took the early continue above.
+                                let replacement = attempt ? null : draft.rows.get(id);
                                 if (replacement && replacement.authority !== resident.authority) { waiting.push(id); continue; }
                                 if (!replacement) {
                                     replacement = hallActivities.buildEpisodeContinuation({ plan: currentPlan, row, resident,
-                                        now: now.getTime(), sourceId, claims });
+                                        now: attempt ? attempt.attemptStartAt : now.getTime(), sourceId, claims,
+                                        seedSuffix: attempt ? JSON.stringify([sourceId, attempt.attemptStartAt, attempt.placementKey, attempt.generation]) : sourceId });
                                     if (!replacement) { waiting.push(id); continue; }
                                     for (const beat of replacement.beats.filter(beat => !['completed', 'skipped'].includes(beat.state))) {
                                         const copy = window.Meeow.residentCopy, pair = copy.selectPair(copy.deriveContext(
@@ -13015,8 +13072,9 @@ ${buildLeanForegroundContext(cat)}`;
                                                 room: replacement.roomId, posture: beat.posture, episodeId: beat.id }));
                                         beat.fallback = pair && { status: pair.status, innerThought: pair.innerThought };
                                     }
-                                    draft.rows.set(id, replacement);
+                                    if (!attempt) draft.rows.set(id, replacement);
                                 }
+                                if (attempt) returnAttempts.set(id, attempt);
                                 replacements.set(id, replacement);
                             }
                             const nextReceipt = { ...receipt, waitingIds: waiting, rows: [...receipt.rows] };
@@ -13024,12 +13082,27 @@ ${buildLeanForegroundContext(cat)}`;
                                 nextReceipt.rows.push({ residentId: id, authority: row.authority,
                                     beatIds: row.beats.filter(beat => !['completed', 'skipped'].includes(beat.state)).map(beat => beat.id) });
                             const receipts = [...(currentPlan.partialReconciliations || []).filter(row => row.sourceId !== sourceId), nextReceipt];
-                            const next = { ...currentPlan, residents: currentPlan.residents.map(row => replacements.get(row.residentId) || row),
+                            const next = { ...currentPlan, residents: [...currentPlan.residents.map(row => replacements.get(row.residentId) || row),
+                                    ...[...replacements.values()].filter(row => !currentPlan.residents.some(prior => prior.residentId === row.residentId))],
                                 partialReconciliations: receipts };
+                            const applicationCurrent = () => current() && [...replacements].every(([id, row]) => {
+                                const cat = cats.value.find(cat => String(cat.id) === id), resident = residents.find(resident => resident.id === id);
+                                const runtime = spatialAmbientSnapshot.value.residents.find(runtime => runtime.id === id);
+                                const attempt = returnAttempts.get(id), first = row.beats[row.continuation.pastCount];
+                                return cat && !hasHigherHallPresentationOwner(id) && isResidentInHall(cat) &&
+                                    hallEpisodeAuthority(cat) === row.authority && (receipt.awaySource?.phase !== 'return' ||
+                                        attempt && attempt.hallId === String(hall.id) && attempt.windowKey === hall.currentEpisodeWindow.windowKey &&
+                                        attempt.authority === row.authority && attempt.attemptStartAt === row.continuation.startedAt &&
+                                        first.foot.x === attempt.contact.x && first.foot.y === attempt.contact.y &&
+                                        runtime && runtime.placementKey === attempt.placementKey && runtime.transitionGeneration === attempt.generation &&
+                                        normalRoomCanOwn(id, runtime.placementKey) && !runtime.furniture &&
+                                        !['moving', 'suspended'].includes(runtime.state) && resident.domain.legalPoint(runtime.foot) &&
+                                        runtime.foot.x === attempt.contact.x && runtime.foot.y === attempt.contact.y);
+                            });
                             const observerDraft = draft.observerDraft && observerReactionDrafts.get(hall) === draft.observerDraft &&
                                 (hall.currentObserverReactionBatch?.startedAt || 0) <= draft.observerDraft.batch.startedAt ? draft.observerDraft : null;
                             if (!saved || replacements.size || JSON.stringify(waiting) !== JSON.stringify(receipt.waitingIds)) {
-                                if (!saveHallEpisodeWindow(hall, next, observerDraft)) continue;
+                                if (!saveHallEpisodeWindow(hall, next, observerDraft, receipt.awaySource ? applicationCurrent : null)) continue;
                                 if (observerDraft) dispatchObserverReactionContent(hall);
                                 if (replacements.size) syncSpatialAmbient();
                                 addLog(`HALL AFFECTED: source=${sourceId}; hall=${hall.id}; window=${bucket.key}; reasons=${JSON.stringify(nextReceipt.reasons)}; replaced=[${[...replacements.keys()]}]`, 'info');
@@ -13044,13 +13117,13 @@ ${buildLeanForegroundContext(cat)}`;
                                     beats: row.beats.filter(beat => canonical.rows.find(claim => claim.residentId === row.residentId).beatIds.includes(beat.id)) })) };
                                 const claimed = { ...canonical, state: settings.apiKey && frozen.residents.length ? 'claimed' : 'fallback' };
                                 const claimPlan = { ...currentPlan, partialReconciliations: currentPlan.partialReconciliations.map(row => row.sourceId === sourceId ? claimed : row) };
-                                if (!saveHallEpisodeWindow(hall, claimPlan)) continue;
+                                if (!saveHallEpisodeWindow(hall, claimPlan, null, receipt.awaySource ? applicationCurrent : null)) continue;
                                 if (claimed.state === 'claimed') {
                                     const peerLines = buildPublicSharedPeerRelationshipLines(cats.value.filter(cat => frozen.residents.some(row => row.residentId === String(cat.id))));
                                     const packet = frozen.residents.map(row => {
                                         const cat = cats.value.find(cat => String(cat.id) === row.residentId);
                                         return [`[PUBLIC CANON PROFILE]\n${cat.prompt || cat.personality || ''}`, buildLeanAmbientContext(cat, { status: '', publicRelationshipLines: peerLines.get(row.residentId) || [] }),
-                                            JSON.stringify({ residentId: row.residentId, knownEvent: row.residentId === canonical.targetId
+                                            JSON.stringify({ residentId: row.residentId, knownEvent: canonical.awaySource ? (row.residentId === canonical.targetId ? '已回到馆内，从当前合法状态重新安顿。' : '共同活动因另一参与者离馆而中断。') : row.residentId === canonical.targetId
                                                 ? '完成了与 USER 的互动。' : canonical.reasons[row.residentId]?.includes('observer')
                                                     ? `USER 正在与 ${getResidentPublicName(target)} 互动。` : '共同活动的另一参与者已被合法打断。',
                                                 beats: row.beats.map(beat => ({ beatId: beat.id, room: beat.roomId, activity: beat.behaviorId, posture: beat.posture })) })].join('\n');
@@ -13064,13 +13137,15 @@ ${buildLeanForegroundContext(cat)}`;
                                             const cat = cats.value.find(cat => String(cat.id) === entry.residentId), row = live.residents.find(row => row.residentId === entry.residentId);
                                             const expected = frozen.residents.find(row => row.residentId === entry.residentId);
                                             return cat && isHallEpisodeOwned(cat) && row?.authority === expected?.authority &&
-                                                row.continuation?.sourceId === sourceId && row.beats.some(beat => beat.id === entry.beatId);
+                                                row.continuation?.sourceId === sourceId && (!canonical.awaySource ||
+                                                    row.continuation.startedAt === expected?.continuation?.startedAt) &&
+                                                row.beats.some(beat => beat.id === entry.beatId);
                                         });
                                         const keys = new Set(accepted.map(entry => `${entry.residentId}|${entry.beatId}`));
                                         const update = { ...live, content: { ...live.content, entries: [...live.content.entries.filter(entry =>
                                             !keys.has(`${entry.residentId}|${entry.beatId}`)), ...accepted] },
                                             partialReconciliations: live.partialReconciliations.map(row => row.sourceId === sourceId ? { ...row, state } : row) };
-                                        saveHallEpisodeWindow(hall, update);
+                                        saveHallEpisodeWindow(hall, update, null, receipt.awaySource ? current : null);
                                     };
                                     void requestSharedHallContent(prompt, { maxTokens: 3600, priority: 'background', uiMode: 'background',
                                         origin: 'world-autonomy', originSurface: 'hall-affected', maxAttempts: 1,
@@ -27774,31 +27849,108 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                 const indexAwayPlans = awayLifecycle.indexPlans;
                 const classifyAwayPlanDiagnostic = awayLifecycle.classifyPlan;
                 const isLifeThreadAwayEpisode = episode => episode?.provenance?.origin === 'life-thread' && episode.provenance.visibility === 'thread-private';
+                // C1 uses existing Away records and Hall-window receipts only.
+                const awayDepartureDrafts = new WeakMap();
+                const publishAwayHallPlan = (hall, plan) => {
+                    if (!hall || !plan) return;
+                    const objects = hallEpisodeObjects.get(hall.currentEpisodeWindow);
+                    hall.currentEpisodeWindow = plan;
+                    hallEpisodeObjects.set(hall.currentEpisodeWindow, objects || new Map(cats.value.map(cat => [String(cat.id), cat])));
+                };
+                const commitAwayDeparture = (cat, episode, dependency = null) => {
+                    if (!cats.value.includes(cat) || isResidentInCuratorRoom(cat)) return false;
+                    if (awayEpisodes.value.some(existing => existing.id === episode.id)) return true;
+                    if (getActiveAwayEpisode(cat, new Date())) return false;
+                    const frozen = awayDepartureDrafts.get(cat);
+                    if (frozen?.episode === episode && frozen.authority !== hallEpisodeAuthority(cat)) return false;
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const stagedCat = snapshot.cats.find(row => String(row.id) === String(cat.id));
+                    const hall = halls.value.find(row => String(row.id) === episode.hallId);
+                    const stagedHall = snapshot.halls.find(row => String(row.id) === episode.hallId);
+                    if (!stagedCat || !stagedHall) return false;
+                    const now = new Date(), wasOut = Boolean(cat.isOut), authority = hallEpisodeAuthority(cat);
+                    stagedCat.isOut = true; stagedCat.nextAwayOpportunityAt = null;
+                    if (!wasOut) {
+                        const source = episode.provenance?.origin === 'life-thread' ? 'life-thread-excursion' :
+                            episode.ordinaryAwayOperationId ? 'ordinary-away-autonomy' : 'status-sync';
+                        appendMonitorEvent(stagedCat, episode.provenance?.origin === 'life-thread'
+                            ? '离开馆舍，开始处理一段未公开的行程。' : '离开馆舍，开始处理自己的行程。', source, { episodeId: episode.id }, now);
+                        appendAwayTransitionTravelogue(stagedCat, true, now, { episodeId: episode.id });
+                    }
+                    stagedCat.ordinaryAwayOperation = null; stagedCat.deferredOrdinaryAwayDeparture = null;
+                    const draft = awayDepartureDrafts.get(cat);
+                    stagedHall.nextIndependentDepartureAt = draft?.gate || stagedHall.nextIndependentDepartureAt;
+                    if (episode.provenance?.origin === 'life-thread') {
+                        const thread = snapshot.lifeThreads?.find(row => row.id === episode.provenance.threadId);
+                        const intent = thread && getLifeThreadExcursionIntent(thread);
+                        if (!intent || intent.id !== episode.provenance.threadExcursionId) return false;
+                        intent.status = 'active'; intent.awayEpisodeId = episode.id; intent.departureOperation = null;
+                    }
+                    const plan = stageAwayHallReceipt(hall, stagedCat, episode, 'departure', dependency, now);
+                    if (plan) stagedHall.currentEpisodeWindow = plan;
+                    snapshot.awayEpisodes.push(episode);
+                    if (authority !== hallEpisodeAuthority(cat) || window.Meeow.storage.persistSnapshot(snapshot) !== true ||
+                        authority !== hallEpisodeAuthority(cat) || getActiveAwayEpisode(cat, new Date())) return false;
+                    publishAwayHallPlan(hall, plan);
+                    awayEpisodes.value.push(episode);
+                    Object.assign(cat, stagedCat);
+                    hall.nextIndependentDepartureAt = stagedHall.nextIndependentDepartureAt;
+                    if (episode.provenance?.origin === 'life-thread') {
+                        const thread = lifeThreads.value.find(row => row.id === episode.provenance.threadId);
+                        const intent = thread && getLifeThreadExcursionIntent(thread);
+                        if (intent) { intent.status = 'active'; intent.awayEpisodeId = episode.id; intent.departureOperation = null; }
+                    }
+                    awayDepartureDrafts.delete(cat);
+                    spatialAmbientController?.cancel(String(cat.id), 'away-departure');
+                    if (dependency && socialOpportunityClaims.get(episode.hallId) === dependency.claim)
+                        socialActivity.releaseOpportunity(dependency.claim, socialOpportunityClaims);
+                    syncSpatialAmbient();
+                    void reconcileAffectedHallResidents(now);
+                    return true;
+                };
                 const createAwayEpisode = (cat, plan, departedAt = new Date(), mailDecision = null, provenance = null, options = {}) => {
                     if (!cat || isResidentInCuratorRoom(cat) || getActiveAwayEpisode(cat, departedAt)) return null;
                     const operationId = String(options?.ordinaryAwayOperationId || '').trim();
-                    if (operationId) {
-                        const existing = normalizeAwayEpisodes(awayEpisodes.value).find(episode =>
-                            String(episode?.ordinaryAwayOperationId || '') === operationId
-                        );
-                        if (existing) return existing;
+                    const existing = operationId && awayEpisodes.value.find(episode => episode.ordinaryAwayOperationId === operationId);
+                    if (existing) return existing;
+                    let draft = awayDepartureDrafts.get(cat);
+                    const key = operationId || provenance?.operationToken || JSON.stringify(plan);
+                    if (!draft || draft.key !== key || draft.authority !== hallEpisodeAuthority(cat)) {
+                        const episode = awayLifecycle.createEpisode(cat, plan, departedAt, mailDecision, provenance, { ordinaryAwayOperationId: operationId });
+                        const gateHall = { ...halls.value.find(hall => String(hall.id) === episode.hallId) };
+                        scheduleIndependentAwayDepartureGate(gateHall, departedAt);
+                        draft = { key, authority: hallEpisodeAuthority(cat), episode, gate: gateHall.nextIndependentDepartureAt,
+                            dependency: Object.hasOwn(options, 'hallDependency') ? options.hallDependency : captureAwayHallDependency(cat) };
+                        awayDepartureDrafts.set(cat, draft);
                     }
-                    const episode = awayLifecycle.createEpisode(cat, plan, departedAt, mailDecision, provenance, { ordinaryAwayOperationId: operationId });
-                    // sendAt is the authoritative original due time from the
-                    // validated plan. Physical mailbox capacity is deliberately
-                    // enforced only when delivery is committed, so an overdue
-                    // backlog remains stably ordered and no letter is rewritten
-                    // merely because today's four slots are already full.
-                    awayEpisodes.value.push(episode);
-                    if (episode.mailDecision?.souvenirDecision) {
-                        const intended = episode.mailDecision.souvenirDecision.shouldInclude;
-                        const attachment = episode.mailPlan[0]?.attachment;
-                        const attachmentValidated = intended
-                            ? Boolean(attachment?.name && attachment?.icon && attachment?.desc)
-                            : attachment === null;
-                        addLog(`AWAY SOUVENIR RECEIPT: episode=${episode.id}; letterIntended=true; souvenirIntended=${intended}; attachmentValidated=${attachmentValidated}`, attachmentValidated ? 'info' : 'warn');
-                    }
-                    return episode;
+                    return commitAwayDeparture(cat, draft.episode, draft.dependency) ? draft.episode : null;
+                };
+                const commitAwayReturn = ({ cat, episode, liveCat, liveEpisode, episodes, reconciledAt }) => {
+                    const canonical = awayEpisodes.value.find(row => row.id === episode.id);
+                    if (!canonical || canonical.status !== 'active' || !cats.value.includes(liveCat) || !liveCat.isOut ||
+                        awayEpisodes.value.some(row => row.residentId === episode.residentId && row.id !== episode.id && row.status === 'active')) return false;
+                    const authority = hallEpisodeAuthority(liveCat), snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const index = snapshot.cats.findIndex(row => String(row.id) === episode.residentId);
+                    if (index < 0) return false;
+                    snapshot.cats[index] = cat;
+                    snapshot.awayEpisodes = episodes.map(row => row.id === episode.id ? episode : row);
+                    const hall = halls.value.find(row => String(row.id) === getResidentPhysicalHallId(cat));
+                    const plan = hall && stageAwayHallReceipt(hall, cat, episode, 'return', null, reconciledAt);
+                    if (plan) snapshot.halls.find(row => String(row.id) === String(hall.id)).currentEpisodeWindow = plan;
+                    const pending = snapshot.user?.pendingAwayDiaryDays?.find(row => String(row.residentId) === episode.residentId &&
+                        row.dateKey === getEpisodeDepartureDayKey(episode));
+                    if (pending) { pending.state = 'ready'; pending.episodeIds = [...new Set([...(pending.episodeIds || []), episode.id])]; }
+                    const current = () => cats.value.includes(liveCat) && hallEpisodeAuthority(liveCat) === authority &&
+                        canonical.status === 'active' && !awayEpisodes.value.some(row => row.residentId === episode.residentId && row.id !== episode.id && row.status === 'active');
+                    if (!current() || window.Meeow.storage.persistSnapshot(snapshot) !== true || !current()) return false;
+                    publishAwayHallPlan(hall, plan);
+                    Object.assign(liveEpisode, episode);
+                    awayEpisodes.value = episodes;
+                    Object.assign(liveCat, cat);
+                    if (pending) user.pendingAwayDiaryDays = snapshot.user.pendingAwayDiaryDays;
+                    syncSpatialAmbient();
+                    void reconcileCurrentHallEpisodeWindow(reconciledAt);
+                    return true;
                 };
                 // T5 product policy: new ordinary letter grants, not departure/delivery cadence.
                 const ORDINARY_AWAY_LETTER_CHANCE_PERCENT = 20;
@@ -27927,6 +28079,11 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     const operation = normalizeOrdinaryAwayOperation(cat);
                     if (!cat || !operation || operation.id !== operationId) return;
                     try {
+                        const draft = awayDepartureDrafts.get(cat);
+                        if (draft?.episode.ordinaryAwayOperationId === operationId) {
+                            if (!commitAwayDeparture(cat, draft.episode, draft.dependency)) throw new Error('Away save failed');
+                            return;
+                        }
                         const raw = await requestStructuredEngine(operation.promptText, {
                             systemPrompt: 'You are a source-world-consistent Away planner. Return one valid JSON object only. Program-owned identity, form, physical presence, mail decision, and operation authority are final.',
                             maxTokens: 1400, thinkingLevel: ThinkingLevel.LOW,
@@ -27958,14 +28115,6 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                         const hall = halls.value.find(item => String(item?.id || '') === latest.hallId);
                         const episode = createAwayEpisode(latestCat, diagnostic.plan, new Date(), latest.mailDecision, null, { ordinaryAwayOperationId: latest.id });
                         if (!episode) throw new Error('Away episode could not be created');
-                        latest.episodeId = episode.id;
-                        latestCat.isOut = true;
-                        latestCat.nextAwayOpportunityAt = null;
-                        scheduleIndependentAwayDepartureGate(hall, new Date());
-                        appendMonitorEvent(latestCat, '离开馆舍，开始处理自己的行程。', 'ordinary-away-autonomy', { episodeId: episode.id }, new Date());
-                        appendAwayTransitionTravelogue(latestCat, true, new Date(), { episodeId: episode.id });
-                        latestCat.ordinaryAwayOperation = null;
-                        latestCat.deferredOrdinaryAwayDeparture = null;
                         addLog(`AWAY AUTONOMY: resident=${String(latestCat.id)}; hall=${latest.hallId}; result=departed; episode=${episode.id}`, 'sent');
                     } catch (error) {
                         const latestCat = cats.value.find(item => String(item?.id || '') === String(catId));
@@ -28239,6 +28388,11 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     }
                     const scope = availability.scope;
                     try {
+                        const draft = awayDepartureDrafts.get(scope.actor);
+                        if (draft?.episode.provenance?.threadExcursionId === intent.id) {
+                            if (!commitAwayDeparture(scope.actor, draft.episode, draft.dependency)) throw new Error('Away save failed');
+                            return;
+                        }
                         const raw = await requestStructuredEngine(buildThreadExcursionAwayPlanPrompt(thread, intent, scope), {
                             systemPrompt: 'You are a private Meeow House excursion planner. Return one valid JSON object only. Never narrate to USER or create physical state directly.',
                             maxTokens: 1400, thinkingLevel: ThinkingLevel.LOW, label: `LIFE THREAD EXCURSION PLAN · ${scope.actorId}`,
@@ -28277,15 +28431,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                             visibility: 'thread-private'
                         };
                         const episode = createAwayEpisode(finalAvailability.scope.actor, finalizedPlan, new Date(), finalIntent.mailDecision, provenance);
-                        if (!episode) {
-                            finalIntent.status = 'pending'; finalIntent.departureOperation = null; scheduleThreadExcursionCheck(finalIntent, new Date()); return;
-                        }
-                        finalAvailability.scope.actor.isOut = true;
-                        finalAvailability.scope.actor.nextAwayOpportunityAt = null;
-                        scheduleIndependentAwayDepartureGate(finalAvailability.scope.hall, new Date());
-                        finalIntent.status = 'active'; finalIntent.awayEpisodeId = episode.id; finalIntent.departureOperation = null;
-                        appendMonitorEvent(finalAvailability.scope.actor, '离开馆舍，开始处理一段未公开的行程。', 'life-thread-excursion', { episodeId: episode.id }, new Date());
-                        appendAwayTransitionTravelogue(finalAvailability.scope.actor, true, new Date(), { episodeId: episode.id });
+                        if (!episode) throw new Error('Away save failed');
                         addLog(`LIFE THREAD EXCURSION DEPARTED: thread=${finalThread.id}; actor=${finalIntent.actorId}; episode=${episode.id}`, 'sent');
                     } catch (error) {
                         markThreadExcursionDepartureFailure(thread, intent, operation, error, new Date());
@@ -28622,6 +28768,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                             appendAwayTransitionTravelogue(cat, false, logicalReturnAt, { episodeId: episode.id });
                             return true;
                         },
+                        commitReturn: commitAwayReturn,
                         onDiaryReady: (episode) => markAwayEpisodeDiaryReady(episode)
                     });
                     awayEpisodes.value = result.episodes;
@@ -32099,6 +32246,8 @@ ${statusOutputRules}`;
 
                             addLog(`STATUS SYNC RESPONSE: expected=${requestedIds.length}; received=${responseEntries.length}; ids=[${receivedIds.join(', ')}]`, "info");
 
+                            const awayHallDependencies = new Map(catsToUpdate.filter(cat => getLocalPresenceDirective(String(cat.id)) === 'DEPARTING_NOW')
+                                .map(cat => [String(cat.id), captureAwayHallDependency(cat)]));
                             responseEntries.forEach(update => {
                                 const updateId = String(update.id ?? '');
                                 if (!requestedIdSet.has(updateId) || matchedIds.has(updateId)) return;
@@ -32311,17 +32460,10 @@ ${statusOutputRules}`;
                                     if (diagnostic.mailResult === 'accepted') {
                                         addLog(`AWAY PLANNED MAIL: resident=${catId}; result=accepted`, 'info');
                                     }
-                                    const episode = createAwayEpisode(cat, plan, now, awayMailDecisions[catId] || null);
+                                    const episode = createAwayEpisode(cat, plan, now, awayMailDecisions[catId] || null, null, { hallDependency: awayHallDependencies.get(catId) });
                                     if (!episode) return;
-                                    cat.deferredOrdinaryAwayDeparture = null;
-                                    cat.isOut = true;
-                                    cat.nextAwayOpportunityAt = null;
-                                    const establishedHall = halls.value.find(hall => hall.id === requestHallId);
-                                    scheduleIndependentAwayDepartureGate(establishedHall, now);
                                     awayDecisionDiagnostics.departed++;
                                     addLog(`AWAY EPISODE CREATED: resident=${catId}; episode=${episode.id}; destination=${truncateMemoryText(episode.destination || '未留下地点记录', 60)}`, 'sent');
-                                    appendMonitorEvent(cat, '离开馆舍，开始处理自己的行程。', 'status-sync', { episodeId: episode.id }, now);
-                                    appendAwayTransitionTravelogue(cat, true, now, { episodeId: episode.id });
                                     return;
                                 }
                                 if (wasOut === isOut) return;
