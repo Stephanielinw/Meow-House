@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "roomId": "dining",
+  "canonicalSize": {
+    "width": 1024,
+    "height": 1024
+  },
+  "assetBase": "assets/meeow-map/dining",
+  "layerOrder": [
+    "background.png",
+    "fridge.png",
+    "wash-basin.png",
+    "hearth.png",
+    "kitchen-island.png",
+    "foodshelf.png",
+    "chair-a.png",
+    "chair-b.png",
+    "table.png",
+    "water-bowl.png",
+    "food-bowl.png"
+  ],
+  "annotation": {
+    "reference": "authoring/reference.png",
+    "baseline": "authoring/annotation-baseline.png",
+    "import": "approved-color-regions-only",
+    "palette": {
+      "black": [
+        0,
+        0,
+        0
+      ],
+      "red": [
+        255,
+        0,
+        0
+      ],
+      "darkRed": [
+        184,
+        0,
+        0
+      ]
+    }
+  },
+  "supportContact": {
+    "displayWidth": 72,
+    "viewportWidths": [
+      1024,
+      512,
+      320
+    ],
+    "poses": [
+      "sitting",
+      "lying"
+    ],
+    "policy": "canonical-paw-and-belly-bottom-contact",
+    "oneExclusiveSlotPerSurface": true
+  },
+  "assetHashes": {
+    "background.png": "90bca0b7865025cc5a76bf3d2b44f91a53beefeffc76e56ada5e8596f7dcc3d5",
+    "fridge.png": "5e81732d2b9acbdd898d075bf29b5f4a35e7764c23c50078ffe1339e1c1e30bf",
+    "wash-basin.png": "e91c2c8cda4e910c1fbe843c6e0f1336a70a40a30fcb8bcac583cd5da67376d2",
+    "hearth.png": "74e49c92a86a9cf0a9481645f9bb8eeab30caad9dc9f9c7223102c3e99a366b6",
+    "kitchen-island.png": "6a49616a8eb11b8c5c1268f47f9c584f8cf3866bfd8ad7b94c084d3aa092a7ed",
+    "foodshelf.png": "5b7011b5de4e24f43a4781564bfb93625419fddd52e32d9cf943c50d0fff0dfa",
+    "chair-a.png": "213a574a4556dfc6b1a8995bc08793154fc203e4e6368150ecd69a227254353f",
+    "chair-b.png": "0a922ca170697c68c687bac5c36e66bd4df27c34d4d9314a8308c3e72b28a96e",
+    "table.png": "80a12954398d5b692b88a7689b6e10c54446f87ffa227db1dd3fc94cf49f7964",
+    "water-bowl.png": "bc7ab3e97e5bd56af9a5ef8a40190bb94a55705c426a63525781ce2122ec51c8",
+    "food-bowl.png": "2a41c965d0a4524acb3d82f63dee0126330f8e220885e155096db79fb029acc4"
+  },
+  "cleanFurnitureImports": [
+    {
+      "inputFilename": "ChairA.png",
+      "inputSha256": "8e678dd5af4b17184fd1d48f4ae726fe25be372af1a47f4bc16e138b8b4b947a",
+      "inputSize": [
+        120,
+        216
+      ],
+      "offset": [
+        321,
+        583
+      ],
+      "productionAsset": "chair-a.png",
+      "normalizedSha256": "213a574a4556dfc6b1a8995bc08793154fc203e4e6368150ecd69a227254353f"
+    },
+    {
+      "inputFilename": "ChairB.png",
+      "inputSha256": "fcc6a7098e5cd0e0aa2d6658ba6c78abc01d7c77429f5e8633cbb56f56f08e19",
+      "inputSize": [
+        143,
+        253
+      ],
+      "offset": [
+        0,
+        579
+      ],
+      "productionAsset": "chair-b.png",
+      "normalizedSha256": "0a922ca170697c68c687bac5c36e66bd4df27c34d4d9314a8308c3e72b28a96e"
+    },
+    {
+      "inputFilename": "FoodBowl.png",
+      "inputSha256": "171ebddf2edf1290d0d89fc6bfd2f9ed8df48f2da967b3501fcc4cc790e62f8c",
+      "inputSize": [
+        479,
+        138
+      ],
+      "offset": [
+        512,
+        821
+      ],
+      "productionAsset": "food-bowl.png",
+      "normalizedSha256": "2a41c965d0a4524acb3d82f63dee0126330f8e220885e155096db79fb029acc4"
+    },
+    {
+      "inputFilename": "Foodshelf.png",
+      "inputSha256": "5b7011b5de4e24f43a4781564bfb93625419fddd52e32d9cf943c50d0fff0dfa",
+      "inputSize": [
+        1024,
+        1024
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "productionAsset": "foodshelf.png",
+      "normalizedSha256": "5b7011b5de4e24f43a4781564bfb93625419fddd52e32d9cf943c50d0fff0dfa"
+    },
+    {
+      "inputFilename": "fridge.png",
+      "inputSha256": "67ce06d930ae6d6a79b2d9cc67a602545dc14f9833337bffd4645700f33a993f",
+      "inputSize": [
+        240,
+        485
+      ],
+      "offset": [
+        18,
+        57
+      ],
+      "productionAsset": "fridge.png",
+      "normalizedSha256": "5e81732d2b9acbdd898d075bf29b5f4a35e7764c23c50078ffe1339e1c1e30bf"
+    },
+    {
+      "inputFilename": "hearth.png",
+      "inputSha256": "74e49c92a86a9cf0a9481645f9bb8eeab30caad9dc9f9c7223102c3e99a366b6",
+      "inputSize": [
+        1024,
+        1024
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "productionAsset": "hearth.png",
+      "normalizedSha256": "74e49c92a86a9cf0a9481645f9bb8eeab30caad9dc9f9c7223102c3e99a366b6"
+    },
+    {
+      "inputFilename": "KitchenIsland.png",
+      "inputSha256": "6a49616a8eb11b8c5c1268f47f9c584f8cf3866bfd8ad7b94c084d3aa092a7ed",
+      "inputSize": [
+        1024,
+        1024
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "productionAsset": "kitchen-island.png",
+      "normalizedSha256": "6a49616a8eb11b8c5c1268f47f9c584f8cf3866bfd8ad7b94c084d3aa092a7ed"
+    },
+    {
+      "inputFilename": "Table.png",
+      "inputSha256": "80a12954398d5b692b88a7689b6e10c54446f87ffa227db1dd3fc94cf49f7964",
+      "inputSize": [
+        1024,
+        1024
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "productionAsset": "table.png",
+      "normalizedSha256": "80a12954398d5b692b88a7689b6e10c54446f87ffa227db1dd3fc94cf49f7964"
+    },
+    {
+      "inputFilename": "wash_basin.png",
+      "inputSha256": "e91c2c8cda4e910c1fbe843c6e0f1336a70a40a30fcb8bcac583cd5da67376d2",
+      "inputSize": [
+        1024,
+        1024
+      ],
+      "offset": [
+        0,
+        0
+      ],
+      "productionAsset": "wash-basin.png",
+      "normalizedSha256": "e91c2c8cda4e910c1fbe843c6e0f1336a70a40a30fcb8bcac583cd5da67376d2"
+    },
+    {
+      "inputFilename": "WaterBowl.png",
+      "inputSha256": "4b20cc5ce951b9b8f813e5121d4a0764718df12345ede7555be3df9c20194b39",
+      "inputSize": [
+        450,
+        104
+      ],
+      "offset": [
+        533,
+        711
+      ],
+      "productionAsset": "water-bowl.png",
+      "normalizedSha256": "bc7ab3e97e5bd56af9a5ef8a40190bb94a55705c426a63525781ce2122ec51c8"
+    }
+  ],
+  "furnitureForeground": [
+    {
+      "surfaceClass": "darkRed",
+      "surfaceOwnerLayer": "chair-a.png",
+      "foregroundClass": "red",
+      "foregroundOwnerLayer": "table.png"
+    },
+    {
+      "surfaceClass": "darkRed",
+      "surfaceOwnerLayer": "chair-b.png",
+      "foregroundClass": "red",
+      "foregroundOwnerLayer": "table.png"
+    }
+  ]
+}

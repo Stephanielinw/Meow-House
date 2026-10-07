@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "roomId": "dorm",
+  "canonicalSize": {
+    "width": 1024,
+    "height": 1024
+  },
+  "assetBase": "assets/meeow-map/dorm",
+  "layerOrder": [
+    "background.png",
+    "carpet.png",
+    "cushion-a.png",
+    "cushion-b.png",
+    "window.png",
+    "cat-climber.png",
+    "shelf.png",
+    "cat-house.png"
+  ],
+  "annotation": {
+    "reference": "authoring/reference.png",
+    "baseline": "authoring/annotation-baseline.png",
+    "import": "approved-color-regions-only",
+    "palette": {
+      "black": [
+        0,
+        0,
+        0
+      ],
+      "red": [
+        255,
+        0,
+        0
+      ],
+      "purple": [
+        186,
+        0,
+        255
+      ]
+    }
+  },
+  "supportContact": {
+    "displayWidth": 72,
+    "viewportWidths": [
+      1024,
+      512,
+      320
+    ],
+    "poses": [
+      "sitting",
+      "lying"
+    ],
+    "policy": "canonical-paw-and-belly-bottom-contact",
+    "oneExclusiveSlotPerSurface": true
+  },
+  "groundForeground": [],
+  "assetHashes": {
+    "background.png": "7b813fd36b1761f8e45685cb5fdb030c7a79d4ecb9e673034188ac97bc3eb7c6",
+    "carpet.png": "c971adc97bbeb9536de18763bf4380f3d9f9c0f833dba6e8d0d8a05a2065c587",
+    "cushion-a.png": "13577fa2ceefe713a239ac293505a7037397498888b80feec1e07cc0f2b3d9e4",
+    "cushion-b.png": "8fbdd968bd0e46d6a396e93abb106bdd3d5285084e5ec5344b04e8d8d839417e",
+    "window.png": "59cd6414cd8761a2deb26f05423930c4b746211ea14cadd60d92f14d46b44ad6",
+    "cat-climber.png": "9a9f1afb54d6512e013cfc57a2b03109dca8958a71a98fc6155ad28adcbcddeb",
+    "shelf.png": "b1ee0dcc0070a6df4ca86db9d0ff00aff53dc868db7ab768bcc65dec769475bf",
+    "cat-house.png": "68b8da31ec205cdb44308f56e7bf34f13524d9a426205333d4169ea9e53689e8"
+  }
+}
