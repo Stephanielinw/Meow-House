@@ -1,9 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — save, reload and suspension
-
-Evidence: current save is a localStorage JSON snapshot via js/meeow-storage.js:18-81; resident logical map fields are set in index.html:20419-20467; Hall entry and tab visibility reconciliation at index.html:15600-15630, 30474-30475. Motion x/y does not currently persist.
-
-Compare: continuous x/y persistence creates save spam, stale mid-path reloads and viewport/art migration problems; POI-only persistence is cheap but loses exact arrival position; no motion persistence respawns safely but may appear discontinuous; hybrid logical target/settled foot at discrete boundaries plus ephemeral frame state best matches this architecture.
-
-Recommendation: keep interpolation, velocity, frame index and reservations session-only. At a future explicit settled destination/accepted event boundary, persist only room/POI slot and optionally one validated canonical foot coordinate with map version, never each animation frame. Existing mapPoint remains the compatibility field. For the first prototype, keep all new x/y in memory and start from a safe point derived from existing mapPoint; no save schema is needed. Later save design must preserve old resident records and fail closed on unknown map versions.
-
-Hidden tab: pause render and local behavior. Reopen after minutes/hours: reconcile actual Away/Curator/Hall/form and accepted statuses first, then choose the last valid settled POI or safe spawn. Do not simulate all missed walking steps, generate scenes, items or relationship events offline. If the prior POI is blocked or no longer in the map sidecar, use an authored safe spawn. Saves are never written by requestAnimationFrame.

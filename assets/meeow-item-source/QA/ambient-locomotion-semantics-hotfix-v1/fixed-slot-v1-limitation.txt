@@ -1,5 +1,0 @@
-Ambient Locomotion Semantics Hotfix V1 — fixed-slot limitation
-
-V1 ambient movement uses a small authored discrete graph: five rug slots and three sofa slots. Each ordinary destination is chosen from the current slot's authored neighbors. Repeated visible routes such as left → middle → right → middle are expected for this transitional scheduler and route-validation model.
-
-The rug and sofa components remain disconnected. There is no floor-to-sofa teleport, jump, or climb edge. The graph continues to validate scheduler timing, occupancy, reservations, and legal route segments; it is not the final free-roaming product model. This hotfix does not change its nodes or edges.

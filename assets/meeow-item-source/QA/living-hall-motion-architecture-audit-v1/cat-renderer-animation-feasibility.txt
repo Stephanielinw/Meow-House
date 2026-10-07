@@ -1,9 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — Cat Renderer feasibility
-
-Evidence: js/meeow-cat-renderer.mjs:1-82, 126-280, 518-557; index.html:14125-14265; js/meeow-resident-visual.js:292-445. Browser production uses packed runtime banks in js/meeow-cat-bank-{sitting,standing,crouching,lying}.js with lazy pose registration, not a DOM layer for each body component.
-
-Pipeline: saved/derived resident visual identity -> validated identityConfig -> body/chassis and pose definition -> tail/head/ear/bib/marking/coat/eye ownership composition -> synchronous 112×104 RGBA frame with groundAnchor -> temporary canvas PNG data URL -> cached resident/pose/size presentation -> DOM image. Bank loading/registration is async; each render once loaded is sync pixel work. Distinct eyeLeft/eyeRight and leg-region fields are real identity authority. Saved visual revision, source/config/asset versions, identity hash and pose are already in the static image cache key.
-
-Master motion is feasible as shared timing/pose contract plus reusable identity mappings, not one fully universal chassis. The existing renderer already proves per-body assets and identity overlay composition for static poses. It does not provide walk, blink, ear-twitch, per-frame timing, side facing, or route-facing geometry. A true walk cycle needs authored per-frame body/leg/tail ownership and validated transfer of marks, bib, ears, eyes and ground anchors. A static standing image translated across the map is a valid path proof but is not a finished walk animation.
-
-Risk: some derived built-in visuals are seeded from legacy text rather than saved config; future frame cache must use the resolved canonical identity and revision, not name/breed prose. Human-form residents have no equivalent cat motion frame and should retain current presentation.

@@ -1,3 +1,0 @@
-STATUS NONMUTATION PROOF — V1
-ambientMotionPose exists only in js/meeow-hall-spatial.js runtime snapshots and Hall presentation selection. The controller has no save, localStorage, Status write, history, AI, relationship, or Item Usage call. getMapCatPose and statusPosture.resolveMapPose remain canonical and unchanged.
-Fixture holds a structured sitting/crouching/lying value across two complete roam cycles. Live Dick retained structured sitting and Status timestamp 1790560107748 throughout the observed transition samples.

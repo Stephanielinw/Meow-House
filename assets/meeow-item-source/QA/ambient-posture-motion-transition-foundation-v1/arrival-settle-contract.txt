@@ -1,3 +1,0 @@
-ARRIVAL AND SETTLE CONTRACT — V1
-On arrival, the old slot is released, the reserved target becomes occupied, movement stops, and the foot is the exact target coordinate. Standing remains displayed for 350 ms in settling/standing-settle.
-The runtime then clears ambientMotionPose. The active Hall map immediately resolves the latest accepted structured Status baseline through the existing resolver. It never restores a captured old pose value. The resident receives a fresh bounded idle timer and may roam again.

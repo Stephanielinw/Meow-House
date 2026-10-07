@@ -1,7 +1,0 @@
-Free-Floor Roaming / Navigation V1 — follow-up architecture debt
-
-Future ordinary floor and rug roaming should select varied legal destinations within a connected walkable region instead of only a short list of fixed slots. It will need an explicit navigation and clearance design before implementation.
-
-Exact authored slots remain appropriate for sofa seats, cushions, window observation points, cat house entrances, cat climber platforms, food spots, and other interaction locations. Transfers between disconnected surfaces require authored motion/transition semantics.
-
-This hotfix implements no random x/y choice, destination generator, A*, navmesh, obstacle routing, dynamic clearance radius, or continuous destination sampling. A separate future PROGRAM-owned Motion layer must handle stand-up, walking, arrival, and sit-down transitions without moving Status posture authority.

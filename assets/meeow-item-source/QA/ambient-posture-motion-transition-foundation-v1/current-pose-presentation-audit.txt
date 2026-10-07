@@ -1,5 +1,0 @@
-CURRENT POSE PRESENTATION AUDIT — V1
-Canonical stored field: resident.statusActivity.posture. statusPosture.normalizeStatusActivity validates standing, sitting, crouching, lying. statusPosture.resolveMapPose(cat) supplies the visible baseline and may infer a pose from legacy Status text only for presentation.
-Production path: getMapCatPose -> mapCatMarkers.pose -> resolveMapCatVisual -> getMapCatVisualPresentation -> Hall marker image. The Cat Renderer receives visual.config and pose. No canonical resolver was changed.
-The active Hall map now passes the controller's ambientMotionPose to getHallMapCatVisualPresentation at activeMapCatMarkers. Other resident presentation paths continue using the baseline resolver.
-The renderer's makeGroundAnchorPlacement(frame, 72) supplies pose-specific CSS size and anchor percentages; the ambient wrapper's projected world foot remains independent of sprite dimensions.

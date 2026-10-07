@@ -1,3 +1,0 @@
-IDENTITY NONCHANGE PROOF — V1
-Standing preparation calls residentVisual.resolveResidentVisual(cat, { allowDerived: true }) and renders the existing visual.config. Its cache key includes the same resident ID and visual identity. The Hall marker retains the same resident object, wrapper, badge, label, name, click and double-click targets.
-No coat, markings, eyes, ears, body type, or visual config regeneration is introduced. Only pose-specific output dimensions and anchor vary.

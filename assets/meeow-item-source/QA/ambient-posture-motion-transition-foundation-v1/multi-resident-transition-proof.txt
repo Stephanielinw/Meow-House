@@ -1,3 +1,0 @@
-MULTI-RESIDENT TRANSITION PROOF — V1
-Each resident has its own timer, generation, transition phase, motion pose, target reservation, and movement controller. The shared occupancy/reservation maps enforce single ownership.
-Fixture runs rug and sofa residents independently, cancels the rug resident, and verifies the sofa runtime continues to arrival. A resident already occupying a slot blocks another resident from settling there. No-free-target retry remains active. Rug and sofa components remain disconnected.

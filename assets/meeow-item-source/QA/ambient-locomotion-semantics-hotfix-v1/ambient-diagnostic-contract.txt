@@ -1,7 +1,0 @@
-Ambient Locomotion Semantics Hotfix V1 — diagnostic contract
-
-Each visible Hall resident row reports spatialSupported, currentPose (visible presentation), authoritativePose (normalized structured Status or none), locomotionCapable, ambientState, suspensionReason, currentSlot, targetSlot, and moves. Foot and next-decision timing remain visible.
-
-spatialSupported comes from the authored entry slot independent of posture. locomotionCapable requires a supported slot, CAT form, Hall availability, correct room, and authoritativePose === standing. A visually Standing legacy fallback with no structured posture therefore reports locomotionCapable false.
-
-The one-shot prototype's eligibility rows are displayed only when that prototype flag is enabled. Ambient diagnostics do not label spatial support as movement eligibility. Live Dick reports spatialSupported true, currentPose sitting, authoritativePose sitting, locomotionCapable false, ambientState stationary, suspensionReason stationary-pose, currentSlot rug-a, targetSlot none, moves 0.

@@ -1,3 +1,0 @@
-MOVEMENT START CONTRACT — V1
-startMovement requires the current resident runtime and generation, unchanged accepted structured posture, no higher-authority owner, a target reserved by that resident, and isStandingVisualReady(id). Production readiness confirms a Standing image with the expected sprite source is actually displayed in that resident's Hall wrapper.
-Resting poses therefore cannot slide. Movement uses the existing static Standing sprite and existing one-shot foot interpolation; walking art is future work.

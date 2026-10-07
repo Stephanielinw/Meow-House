@@ -1,9 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — facing safety
-
-Evidence: js/meeow-cat-renderer.mjs:33, 126-137, 226-275 has independent eyeLeft/eyeRight and front/rear side marking regions. Current four pose banks are front/three-quarter static compositions; no explicit left/right locomotion bank or facing metadata is loaded at index.html:14125-14183.
-
-Whole-final-frame horizontal mirroring cannot be the default identity-safe facing system. It also does not turn a frontal standing cat into a real side-view walker. With heterochromia, an asymmetric face patch, mismatched socks, or directional tail shape, the visible pixels flip; whether the result represents the same anatomical side depends on an explicit view/facing convention that does not yet exist. UI labels or other directional meaning must never be mirrored with the cat.
-
-Recommendation: author a side-view master gait and define anatomical left/right ownership separately from screen-facing left/right. Generate/cross-check both facings from directional layer masks; allow mirrored frames only after tests prove asymmetric identity remains attached to the same physical side and occlusion order is correct. Symmetric proof cats may use a temporary mirror during the first prototype, labelled as a limitation. Heterochromia and asymmetric-marking fixtures should be the acceptance gate before production-wide mirroring.
-
-Answer: horizontal mirroring CONDITIONAL, not universally safe.

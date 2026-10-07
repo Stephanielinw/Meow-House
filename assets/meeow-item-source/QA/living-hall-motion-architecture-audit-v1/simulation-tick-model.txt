@@ -1,9 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — clocks and scheduling
-
-Evidence: current Hall uses a 20-minute autoUpdateLogic interval and a separate 30-second global reconciliation interval (index.html:30474-30475); existing requestAnimationFrame usage is for viewport/game UI, not resident Hall locomotion.
-
-Recommended clocks: (1) render interpolation via requestAnimationFrame only while active map is visible; (2) motion integration from elapsed monotonic time, clamped after tab suspension, targeting a light 10–20 updates/sec or direct interpolation; (3) behavior decisions every several seconds/minutes after idle dwell, with one bounded candidate choice; (4) unchanged low-frequency/on-demand AI Status Sync. Do not bind local movement to either the 20-minute Status timer or the 30-second global housekeeping tick.
-
-One active Hall/room simulation controller owns scheduling. Pause animation on hidden tab, map-to-text switch, Hall switch, Away/form/Curator transition and app background; do not leave one timer per cat. On resume, clamp elapsed time and reconstruct from a logical safe point instead of fast-forwarding hours of animation. A behavior decision never initiates an AI request. Same resident should have one current motion token; stale callbacks cannot move it after preemption. Reduce motion to static pose/point when OS reduced-motion preference requests it.
-
-Proposed cadences are design targets, not measured production timing or committed constants. Mobile profiling must decide final frame and motion rates.

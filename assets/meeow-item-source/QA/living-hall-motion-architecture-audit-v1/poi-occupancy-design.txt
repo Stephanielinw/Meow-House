@@ -1,9 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — POI and occupancy contract
-
-Evidence: js/meeow-map.js makeMapPoint already supplies id/name/furnitureId/description/anchors, optional region/depth/occlusionProfile. These are useful authored presentation inputs, but no capacity, footprint, route, pose, approach direction or reservation exists. index.html:11419-11450 uses cyclic offsets and can overlap cats.
-
-Future minimal POI sidecar fields: stable id and surface/room; destination foot anchors in canonical coordinates; approach anchor/route connection; allowed postures/actions; optional facing; capacity; footprint or per-slot separation; depth zone/occluder IDs. Keep existing mapPoint IDs as semantic linkage. A bookshelf-top point is an elevated surface and needs an explicit route or remains static-only; a rug point can support walking.
-
-V1 occupancy recommendation: one reservation per exact destination slot, held only during travel plus a brief arrival grace interval; multi-cat areas expose multiple slots or a bounded capacity. Selection chooses only open reachable slots. If blocked, try a different legal slot/destination on the next low-frequency behavior decision, not a spontaneous teleport or forced displacement. Social interaction uses a pair of authored nearby slots, not the same foot coordinate. Current 8-offset rendering is a display spread and must not become collision authority.
-
-First slice needs one resident and two legal rug slots, so occupancy can be a one-entry session reservation. No persistent reservation history or planner is warranted. Status/scene authority may override and release an ambient reservation.

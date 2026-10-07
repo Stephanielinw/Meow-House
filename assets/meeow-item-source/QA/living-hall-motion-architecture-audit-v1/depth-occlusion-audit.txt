@@ -1,9 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — depth
-
-Evidence: index.html:4188-4195, 4267-4278, 4340-4385, 5530-5543; js/meeow-map.js point.depth/occlusionProfile; index.html:11406-11473.
-
-Today all visible cats receive z=4 whether classed is-behind or is-surface. Foreground furniture is z=3. Four point-specific clipped re-renders at z=5 (table-front, sink-rim, cabinet-front, wardrobe-front) provide isolated occlusion, not continuous occluder geometry. There is no inter-cat Y-sort; DOM order follows resident order. Whole sofa/shelf PNGs are unsplit, so placing a moving cat behind an arbitrary part cannot be made correct with one static z-index.
-
-Recommendation: Y-sort resident feet within a declared floor depth zone; use explicit zone order for elevated/top/behind surfaces, and separately authored foreground occluder regions or split furniture layers where crossing matters. Sort cat and furniture anchors by foot Y only when they share one floor plane. A sofa needs front rail occluder plus rear/seat surface semantics; a shelf needs distinct elevated slots. Keep current point clip profiles as compatibility until proper masks exist. Simple Y-sort alone is insufficient for furniture with both front and back surfaces.
-
-Living rug prototype can avoid furniture crossing and prove resident-to-resident Y sorting without new occluder art. Full-room roaming requires sidecar obstacle/occlusion shapes or split art. This is 2D painter order, not a 3D scene.

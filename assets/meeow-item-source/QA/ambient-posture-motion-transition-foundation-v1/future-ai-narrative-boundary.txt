@@ -1,4 +1,0 @@
-FUTURE PROGRAM-TO-AI NARRATIVE BOUNDARY
-Example future PROGRAM event: { residentId, behavior: "observe", target: "window", posture: "sitting", context: {...} }.
-PROGRAM has already selected the legal target and physical consequence. AI may add character-specific detail, thought, dialogue, or scene prose; it must not overwrite the selected target or become the world clock.
-This is documentation only. No new AI call, prompt/context field, Status cadence, or runtime integration was added.

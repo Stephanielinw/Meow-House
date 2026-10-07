@@ -1,7 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — body geometry
-
-Evidence: Cat Creator/renderer body IDs are standard, chubby, fluffy, slim (js/meeow-cat-renderer.mjs:5-18). Pose manifests exist for all four standing/crouching, but lying has only Standard and aliases it for all bodies (js/meeow-cat-renderer.mjs:373-380). Sitting has body-specific chassis in the base bank.
-
-Identical walk pixels or geometric scaling across four bodies is not supported by current asset evidence. Different torso mass, fur extent, paw placement, tail attachment and occlusion would make one stretched gait noticeably wrong. Recommend one shared gait state machine/durations/landmarks and four independently reviewed body chassis with compatible identity mask interfaces. Standard is the first art/prototype body. Later body banks can implement the same timing contract without resident-by-resident redraws. Lying's current Standard alias is an explicit static-pose compromise; it must not be generalized as proof that one walking chassis fits every body.
-
-Runtime should reject or statically fall back for missing pose capability without changing saved identity. No hidden bodyType-to-breed mapping or pose-based personality behavior. A first prototype may pick one Standard-config resident and leave other bodies on existing static map rendering.

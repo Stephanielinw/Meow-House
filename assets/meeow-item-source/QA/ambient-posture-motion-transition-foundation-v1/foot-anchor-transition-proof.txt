@@ -1,3 +1,0 @@
-FOOT ANCHOR TRANSITION PROOF — V1
-The ambient wrapper owns projected world foot coordinates. A pose switch changes only the child image and its renderer-derived anchor CSS. makeGroundAnchorPlacement(frame, 72) is used for both baseline and transient Standing sprites.
-Fixture checks identical foot before/after Sitting-to-Standing and after Standing-to-rest restoration. Live Dick's foot was 515,716 while transitioning to Standing, then moved through legal rug coordinates and settled at 560,690. The foot did not change solely because of pose.

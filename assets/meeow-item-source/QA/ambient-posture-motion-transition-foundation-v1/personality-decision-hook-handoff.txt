@@ -1,4 +1,0 @@
-PERSONALITY DECISION HOOK HANDOFF — FUTURE
-The exact hook is the bounded idle timer callback in createAmbientSimulation, immediately before runtime.decisions increments and the free-neighbor list is selected. V1 simply attempts a roam and hashes legal fixed-slot targets.
-A future deterministic PROGRAM behavior selector can choose whether and where to act using existing personality axes, including socialEngagement, initiative, noveltySeeking, riskTolerance, structurePreference, emotionalExpression, assertiveness, competitiveness, ruleOrientation, and inquiryDrive.
-No profile, utility formula, weight, or social autonomy was changed in this pass.

@@ -1,9 +1,0 @@
-Living Hall spatial/motion architecture audit V1 — walkability/navigation
-
-Evidence: js/meeow-map.js has named anchors/regions but no wall, obstacle, path or collision records; index.html:11419-11473 only positions markers. The authored living rug lies below the sofa and away from the outer scratching/toy furniture in the current layered art.
-
-Grid/tile map: cheap validation and A*, easy to version, but hand-drawing all cells is noisy. Polygon zones: exact open floor boundaries, small sidecar, but routing around concave obstacles needs graph links. Pixel alpha mask: precise if specifically authored, but existing visual PNG alpha is not a walkability contract and can be misleading. Navigation graph: minimal for POI-to-POI moves but does not represent safe free roam/footprint. Hybrid: a coarse authored blocked-cell grid with exact pixel POI anchors, optional waypoints/explicit height transitions.
-
-Recommendation: start with an explicitly authored conservative traversable polygon or small cell set in 1024 coordinates for living, plus blocked furniture polygons, clearances, and connected-waypoint links. For V1's two destinations, one unobstructed corridor is sufficient; add coarse A* only when detours are needed. Never infer traversability from nontransparent furniture art or a semantic POI region. Separate ground floor from elevated shelf/sofa surfaces; reaching the latter requires an authored transition edge, not a straight-line walk. Expand collision footprints by a resident foot radius (initial authoring target 32 world px) before path validation.
-
-Validation for later implementation: legal spawn/destination/segment, no wall or sofa crossing, narrow-passage clearance, same-component reachability, and safe fallback to spawn if map metadata is invalid. No new navigation code exists in this audit.

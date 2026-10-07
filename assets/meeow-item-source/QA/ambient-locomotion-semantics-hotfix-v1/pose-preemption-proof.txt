@@ -1,7 +1,0 @@
-Ambient Locomotion Semantics Hotfix V1 — pose preemption proof
-
-The accepted Status watcher reconciles current entries rather than cancelling on every timestamp change. Reconcile compares each resident's placement key, entry slot, and structured authoritative pose. A real pose change invalidates that resident runtime, increments its generation, cancels its timer/motion, releases occupancy and target reservation, then claims the current authoritative entry. Other residents and same-pose text refreshes retain their runtime.
-
-Movement callbacks check resident identity and generation before publishing. They also check current structured posture. If posture has ceased to be Standing before a callback runs, the route is cancelled and the resident is reclaimed from the authored entry. A captured old frame in the fixture cannot publish after accepted Standing-to-Sitting preemption.
-
-The fixture confirms that a later Sitting-to-Standing reconciliation has no old target and begins with a new bounded idle delay. The old route is never restored. Accepted Hall scene cancellation and room/page lifecycle cancellation remain present.
