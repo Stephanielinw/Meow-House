@@ -12610,7 +12610,7 @@ ${buildLeanForegroundContext(cat)}`;
                     if (getValidHallSceneFocusIds(hallId).some(residentId => String(residentId) === String(id))) return true;
                     if (isInteracting.value && String(selectedCat.value?.id) === String(id)) return true;
                     if (getActiveFocusSession()?.participantIds.includes(String(id))) return true;
-                    if (exploreState.active && String(exploreState.companion?.id) === String(id)) return true;
+                    if (getActiveExploreExternalSegment(id)) return true;
                     return false;
                 };
                 let spatialAmbientController = hallSpatial.createAmbientSimulation({
@@ -12668,7 +12668,14 @@ ${buildLeanForegroundContext(cat)}`;
                         new Set(plan.partialReconciliations.map(receipt => receipt?.sourceId)).size === plan.partialReconciliations.length &&
                         plan.partialReconciliations.every(receipt => receipt && typeof receipt.sourceId === 'string' && receipt.sourceId &&
                             typeof receipt.targetId === 'string' && typeof receipt.targetAuthority === 'string' &&
-                            (receipt.focusSource ? typeof receipt.focusSource.sessionId === 'string' && receipt.focusSource.sessionId &&
+                            (receipt.externalSource ? typeof receipt.externalSource.caseId === 'string' && receipt.externalSource.caseId &&
+                                typeof receipt.externalSource.segmentId === 'string' && receipt.externalSource.segmentId &&
+                                ['start', 'return'].includes(receipt.externalSource.phase) &&
+                                receipt.sourceId === `explore:${receipt.externalSource.segmentId}:${receipt.externalSource.phase}` &&
+                                Array.isArray(receipt.externalSource.participantIds) && receipt.externalSource.participantIds.length === 1 &&
+                                receipt.externalSource.participantIds.every(id => typeof id === 'string' && receipt.affectedIds.includes(id)) &&
+                                receipt.affectedIds.every(id => typeof receipt.externalSource.authorities?.[id] === 'string')
+                                : receipt.focusSource ? typeof receipt.focusSource.sessionId === 'string' && receipt.focusSource.sessionId &&
                                 ['start', 'end'].includes(receipt.focusSource.phase) &&
                                 receipt.sourceId === `focus:${receipt.focusSource.sessionId}:${receipt.focusSource.phase}` &&
                                 Array.isArray(receipt.affectedIds) &&
@@ -12770,7 +12777,7 @@ ${buildLeanForegroundContext(cat)}`;
                     get: runtime => {
                         const cat = cats.value.find(cat => String(cat.id) === runtime.id), context = getHallEpisodeRow(cat, true);
                         if (!context) return cat && halls.value.some(hall => hall.currentEpisodeWindow?.partialReconciliations?.some(receipt =>
-                            (receipt.awaySource?.phase === 'return' || receipt.focusSource?.phase === 'end') && receipt.waitingIds.includes(String(cat.id)))) ? { hold: true } : null;
+                            (receipt.awaySource?.phase === 'return' || receipt.focusSource?.phase === 'end' || receipt.externalSource?.phase === 'return') && receipt.waitingIds.includes(String(cat.id)))) ? { hold: true } : null;
                         if (!isHallEpisodeOwned(cat)) return { hold: true };
                         const beat = context.row.beats.find(beat => beat.startAt <= Date.now() && beat.endAt > Date.now());
                         if (!beat || ['skipped', 'invalidated', 'completed'].includes(beat.state)) return { hold: true, wakeAt: beat?.endAt };
@@ -12879,6 +12886,7 @@ ${buildLeanForegroundContext(cat)}`;
                             hallEpisodeDrafts.delete(hall); plan = hall.currentEpisodeWindow;
                         }
                         reconcileFocusHallReceipt(hall);
+                        reconcileExternalHallReceipt(hall);
                         plan = hall.currentEpisodeWindow;
                         if (!hallEpisodeObjects.has(plan)) hallEpisodeObjects.set(plan, new Map(cats.value.map(cat => [String(cat.id), cat])));
                         for (const row of plan.residents) {
@@ -12994,10 +13002,10 @@ ${buildLeanForegroundContext(cat)}`;
                 // C3b is downstream bookkeeping; canonical Focus owns the lifecycle.
                 const captureFocusHallDependencies = session => session.participantIds.map(id =>
                     cats.value.find(cat => String(cat.id) === id)).filter(Boolean).map(captureAwayHallDependency).filter(Boolean);
-                const stageFocusHallReceipt = (snapshot, session, phase, dependencies = []) => {
+                const stageFocusHallReceipt = (snapshot, session, phase, dependencies = [], externalSource = null) => {
                     const hall = halls.value.find(hall => String(hall.id) === session.hallId), plan = hall?.currentEpisodeWindow;
                     const at = Date.parse(phase === 'start' ? session.startedAt : session.endedAt);
-                    const sourceId = `focus:${session.id}:${phase}`;
+                    const sourceId = externalSource ? `explore:${session.id}:${externalSource.phase}` : `focus:${session.id}:${phase}`;
                     if (!usableHallEpisodeWindow(plan) || plan.windowKey !== hallActivities.episodeWindow(Date.now()).key ||
                         at < plan.windowStart || at >= plan.windowEnd || plan.partialReconciliations?.some(row => row.sourceId === sourceId)) return null;
                     const participantIds = [...session.participantIds];
@@ -13013,7 +13021,8 @@ ${buildLeanForegroundContext(cat)}`;
                         return [id, cat ? hallEpisodeAuthority(cat) : ''];
                     }));
                     const waitingIds = phase === 'start' ? affectedIds.filter(id => !participantIds.includes(id)) : participantIds;
-                    const receipt = { sourceId, focusSource: { sessionId: session.id, phase, participantIds, authorities },
+                    const receipt = { sourceId, ...(externalSource ? { externalSource: { ...externalSource, segmentId: session.id, participantIds, authorities } }
+                        : { focusSource: { sessionId: session.id, phase, participantIds, authorities } }),
                         targetId: participantIds[0], targetAuthority: authorities[participantIds[0]], at, affectedIds,
                         reasons: Object.fromEntries(affectedIds.map(id => [id, [participantIds.includes(id) ? 'direct' : 'shared_dependency']])),
                         waitingIds, state: waitingIds.length ? 'pending' : 'fallback', rows: [] };
@@ -13064,6 +13073,57 @@ ${buildLeanForegroundContext(cat)}`;
                     const staged = stageFocusHallReceipt(snapshot, session, phase);
                     if (staged && saveHallEpisodeWindow(hall, staged.plan, null, () => user.focusSession === session))
                         publishFocusHallHandoff(session, phase, null, false);
+                };
+                // Explore consumes the same higher-activity receipt/rejoin path; Case owns presence.
+                const externalHallSourceCurrent = (receipt, hall) => {
+                    const source = receipt.externalSource;
+                    const record = (user.exploreCases || []).find(record => record.id === source?.caseId);
+                    const segment = record?.externalSegment;
+                    return Boolean(segment && segment.id === source.segmentId && segment.hallId === String(hall.id) &&
+                        segment.state === (source.phase === 'start' ? 'active' : 'returned'));
+                };
+                const higherActivityHallSource = receipt => receipt.externalSource || receipt.focusSource;
+                const higherActivityHallSourceCurrent = (receipt, hall) => receipt.externalSource
+                    ? externalHallSourceCurrent(receipt, hall) : focusHallSourceCurrent(receipt, hall);
+                const higherActivityHallMemberCurrent = (receipt, cat, hall) => receipt.externalSource ? Boolean(cat && cats.value.includes(cat) &&
+                    isResidentInHall(cat) && String(getResidentPhysicalHallId(cat)) === String(hall.id) &&
+                    hallEpisodeAuthority(cat) === receipt.externalSource.authorities[String(cat.id)] &&
+                    !cat.todayInteractions?.some(event => event.type === 'focus-start' && Date.parse(event.at) >= receipt.at))
+                    : focusHallMemberCurrent(receipt, cat, hall);
+                const stageExternalHallReceipt = (snapshot, record, phase, dependencies = []) => {
+                    const segment = record.externalSegment;
+                    return segment && stageFocusHallReceipt(snapshot, { ...segment, participantIds: [String(record.state.companionId)] },
+                        phase === 'start' ? 'start' : 'end', dependencies, { caseId: record.id, phase });
+                };
+                const publishExternalHallHandoff = (record, phase, staged = null, wake = true) => {
+                    const segment = record.externalSegment, live = (user.exploreCases || []).find(row => row.id === record.id);
+                    if (!segment || live?.externalSegment !== segment || segment.state !== (phase === 'start' ? 'active' : 'returned')) return false;
+                    if (staged && staged.hall.currentEpisodeWindow?.windowKey === staged.plan.windowKey) {
+                        const objects = hallEpisodeObjects.get(staged.hall.currentEpisodeWindow);
+                        staged.hall.currentEpisodeWindow = staged.plan;
+                        hallEpisodeObjects.set(staged.plan, objects || new Map(cats.value.map(cat => [String(cat.id), cat])));
+                    }
+                    if (phase === 'start') {
+                        spatialAmbientController?.cancel(String(record.state.companionId), 'explore-start');
+                        reconcileSharedSocialClaims();
+                    }
+                    syncSpatialAmbient();
+                    if (wake && String(activeHallId.value) === segment.hallId && isContextuallyViewingHallPresentation(segment.hallId) && document.visibilityState !== 'hidden')
+                        void reconcileCurrentHallEpisodeWindow();
+                    return true;
+                };
+                const reconcileExternalHallReceipt = hall => {
+                    if (!hall) return;
+                    for (const record of (typeof user === 'undefined' ? [] : user.exploreCases || [])) {
+                        const segment = record.externalSegment;
+                        if (!segment || segment.hallId !== String(hall.id)) continue;
+                        const phase = segment.state === 'active' ? 'start' : 'return';
+                        if (hall.currentEpisodeWindow?.partialReconciliations?.some(receipt => receipt.sourceId === `explore:${segment.id}:${phase}`)) continue;
+                        const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                        const staged = stageExternalHallReceipt(snapshot, record, phase);
+                        if (staged && saveHallEpisodeWindow(hall, staged.plan, null, () => record.externalSegment === segment))
+                            publishExternalHallHandoff(record, phase, null, false);
+                    }
                 };
                 // C2 consumes existing durable Food history, never inventory/preference authority.
                 const captureFoodHallContinuitySource = cat => {
@@ -13173,13 +13233,13 @@ ${buildLeanForegroundContext(cat)}`;
                     const hall = halls.value.find(hall => String(hall.id) === String(activeHallId.value));
                     if (!hall || hallEpisodeDisposed) return false;
                     const plan = hall.currentEpisodeWindow, drafts = hallAffectedDrafts.get(hall) || new Map();
-                    if (!drafts.size && !plan?.partialReconciliations?.some(receipt => receipt.waitingIds.length || (receipt.foodSource || receipt.focusSource) && receipt.state === 'pending' && receipt.rows.length)) return true;
+                    if (!drafts.size && !plan?.partialReconciliations?.some(receipt => receipt.waitingIds.length || (receipt.foodSource || higherActivityHallSource(receipt)) && receipt.state === 'pending' && receipt.rows.length)) return true;
                     if (!isContextuallyViewingHallPresentation(String(hall.id)) || document.visibilityState === 'hidden') return false;
                     if (hallAffectedInFlight.has(hall)) return hallAffectedInFlight.get(hall);
                     const task = (async () => {
                         const bucket = hallActivities.episodeWindow(now.getTime());
                         if (!usableHallEpisodeWindow(plan) || plan.windowKey !== bucket.key) { drafts.clear(); return false; }
-                        for (const receipt of plan.partialReconciliations || []) if ((receipt.waitingIds.length || (receipt.foodSource || receipt.focusSource) && receipt.state === 'pending' && receipt.rows.length) && !drafts.has(receipt.sourceId))
+                        for (const receipt of plan.partialReconciliations || []) if ((receipt.waitingIds.length || (receipt.foodSource || higherActivityHallSource(receipt)) && receipt.state === 'pending' && receipt.rows.length) && !drafts.has(receipt.sourceId))
                             drafts.set(receipt.sourceId, { receipt, rows: new Map() });
                         hallAffectedDrafts.set(hall, drafts);
                         for (const [sourceId, draft] of drafts) {
@@ -13189,12 +13249,12 @@ ${buildLeanForegroundContext(cat)}`;
                             const target = cats.value.find(cat => String(cat.id) === receipt.targetId);
                             const current = () => !hallEpisodeDisposed && hall.currentEpisodeWindow?.windowKey === bucket.key &&
                                 hallActivities.episodeWindow(Date.now()).key === bucket.key && String(activeHallId.value) === String(hall.id) &&
-                                isContextuallyViewingHallPresentation(String(hall.id)) && (receipt.focusSource ? focusHallSourceCurrent(receipt, hall) :
+                                isContextuallyViewingHallPresentation(String(hall.id)) && (higherActivityHallSource(receipt) ? higherActivityHallSourceCurrent(receipt, hall) :
                                     target && cats.value.includes(target) && (receipt.foodSource ? foodHallSourceCurrent(receipt, hall) : receipt.awaySource ? awayHallSourceCurrent(receipt, hall) :
                                         getResidentPhysicalHallId(target) === String(hall.id) && hallEpisodeAuthority(target) === receipt.targetAuthority &&
                                         target.todayInteractions?.some(record => record.id === sourceId && record.interactionEpisodeId === receipt.interactionEpisodeId)));
                             if (!current()) { drafts.delete(sourceId); continue; }
-                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds, Boolean(receipt.foodSource) || receipt.awaySource?.phase === 'return' || receipt.focusSource?.phase === 'end');
+                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds, Boolean(receipt.foodSource) || receipt.awaySource?.phase === 'return' || (receipt.focusSource?.phase === 'end' || receipt.externalSource?.phase === 'return'));
                             if (!current()) { drafts.delete(sourceId); continue; }
                             currentPlan = hall.currentEpisodeWindow;
                             const claims = currentPlan.residents.flatMap(row => {
@@ -13206,8 +13266,8 @@ ${buildLeanForegroundContext(cat)}`;
                             for (const id of receipt.waitingIds) {
                                 const cat = cats.value.find(cat => String(cat.id) === id);
                                 const row = currentPlan.residents.find(row => row.residentId === id);
-                                if ((!row && receipt.awaySource?.phase !== 'return' && receipt.focusSource?.phase !== 'end') || !cat || !isResidentInHall(cat) || String(getResidentPhysicalHallId(cat)) !== String(hall.id)) continue;
-                                if (receipt.focusSource && !focusHallMemberCurrent(receipt, cat, hall)) continue;
+                                if ((!row && receipt.awaySource?.phase !== 'return' && receipt.focusSource?.phase !== 'end' && receipt.externalSource?.phase !== 'return') || !cat || !isResidentInHall(cat) || String(getResidentPhysicalHallId(cat)) !== String(hall.id)) continue;
+                                if (higherActivityHallSource(receipt) && !higherActivityHallMemberCurrent(receipt, cat, hall)) continue;
                                 if (row?.state === 'valid' && (row.authority === hallEpisodeAuthority(cat) || receipt.foodSource?.preservedAuthority === row.authority ||
                                     hallEpisodeRowAuthorityCurrent(row, cat, currentPlan)) && !(receipt.foodSource && receipt.reasons[id]?.includes('shared_dependency'))) continue;
                                 if (hasHigherHallPresentationOwner(id)) { waiting.push(id); continue; }
@@ -13246,8 +13306,8 @@ ${buildLeanForegroundContext(cat)}`;
                                 const cat = cats.value.find(cat => String(cat.id) === id), resident = residents.find(resident => resident.id === id);
                                 const runtime = spatialAmbientSnapshot.value.residents.find(runtime => runtime.id === id);
                                 const attempt = returnAttempts.get(id), first = row.beats[row.continuation.pastCount];
-                                return cat && (!receipt.focusSource || focusHallMemberCurrent(receipt, cat, hall)) && !hasHigherHallPresentationOwner(id) && isResidentInHall(cat) &&
-                                    hallEpisodeAuthority(cat) === row.authority && (!receipt.foodSource && receipt.awaySource?.phase !== 'return' && receipt.focusSource?.phase !== 'end' ||
+                                return cat && (!higherActivityHallSource(receipt) || higherActivityHallMemberCurrent(receipt, cat, hall)) && !hasHigherHallPresentationOwner(id) && isResidentInHall(cat) &&
+                                    hallEpisodeAuthority(cat) === row.authority && (!receipt.foodSource && receipt.awaySource?.phase !== 'return' && receipt.focusSource?.phase !== 'end' && receipt.externalSource?.phase !== 'return' ||
                                         attempt && attempt.hallId === String(hall.id) && attempt.windowKey === hall.currentEpisodeWindow.windowKey &&
                                         attempt.authority === row.authority && attempt.attemptStartAt === row.continuation.startedAt &&
                                         first.foot.x === attempt.contact.x && first.foot.y === attempt.contact.y &&
@@ -13259,7 +13319,7 @@ ${buildLeanForegroundContext(cat)}`;
                             const applicationCurrent = () => current() && [...replacements].every(replacementCurrent);
                             const observerDraft = draft.observerDraft && observerReactionDrafts.get(hall) === draft.observerDraft &&
                                 (hall.currentObserverReactionBatch?.startedAt || 0) <= draft.observerDraft.batch.startedAt ? draft.observerDraft : null;
-                            if (receipt.focusSource) {
+                            if (higherActivityHallSource(receipt)) {
                                 // One source/claim, but no participant is another participant's publish guard.
                                 const pending = new Set([...waiting, ...replacements.keys()]);
                                 for (const [id, row] of replacements) {
@@ -13296,15 +13356,15 @@ ${buildLeanForegroundContext(cat)}`;
                                     beats: row.beats.filter(beat => canonical.rows.find(claim => claim.residentId === row.residentId).beatIds.includes(beat.id)) })) };
                                 const claimed = { ...canonical, state: settings.apiKey && frozen.residents.length ? 'claimed' : 'fallback' };
                                 const claimPlan = { ...currentPlan, partialReconciliations: currentPlan.partialReconciliations.map(row => row.sourceId === sourceId ? claimed : row) };
-                                if (!saveHallEpisodeWindow(hall, claimPlan, null, receipt.focusSource ? () => current() && eligibleRows.every(row =>
-                                    focusHallMemberCurrent(canonical, cats.value.find(cat => String(cat.id) === row.residentId), hall) && isHallEpisodeOwned(cats.value.find(cat => String(cat.id) === row.residentId))) :
+                                if (!saveHallEpisodeWindow(hall, claimPlan, null, higherActivityHallSource(receipt) ? () => current() && eligibleRows.every(row =>
+                                    higherActivityHallMemberCurrent(canonical, cats.value.find(cat => String(cat.id) === row.residentId), hall) && isHallEpisodeOwned(cats.value.find(cat => String(cat.id) === row.residentId))) :
                                     receipt.awaySource || receipt.foodSource ? applicationCurrent : null)) continue;
                                 if (claimed.state === 'claimed') {
                                     const peerLines = buildPublicSharedPeerRelationshipLines(cats.value.filter(cat => frozen.residents.some(row => row.residentId === String(cat.id))));
                                     const packet = frozen.residents.map(row => {
                                         const cat = cats.value.find(cat => String(cat.id) === row.residentId);
                                         return [`[PUBLIC CANON PROFILE]\n${cat.prompt || cat.personality || ''}`, buildLeanAmbientContext(cat, { status: '', publicRelationshipLines: peerLines.get(row.residentId) || [] }),
-                                            JSON.stringify({ residentId: row.residentId, knownEvent: canonical.focusSource ? (canonical.focusSource.participantIds.includes(row.residentId) ? '专注活动已结束，从当前合法状态重新安顿。' : '共同活动因参与者进入专注活动而中断。') : canonical.foodSource ? (row.residentId === canonical.targetId ? `已完成与 USER 的食物互动：${canonical.foodSource.itemName}。` : '共同活动因另一参与者当前活动改变而中断。') : canonical.awaySource ? (row.residentId === canonical.targetId ? '已回到馆内，从当前合法状态重新安顿。' : '共同活动因另一参与者离馆而中断。') : row.residentId === canonical.targetId
+                                            JSON.stringify({ residentId: row.residentId, knownEvent: canonical.externalSource ? (canonical.externalSource.participantIds.includes(row.residentId) ? '外出活动已结束，从当前合法状态重新安顿。' : '共同活动因参与者外出而中断。') : canonical.focusSource ? (canonical.focusSource.participantIds.includes(row.residentId) ? '专注活动已结束，从当前合法状态重新安顿。' : '共同活动因参与者进入专注活动而中断。') : canonical.foodSource ? (row.residentId === canonical.targetId ? `已完成与 USER 的食物互动：${canonical.foodSource.itemName}。` : '共同活动因另一参与者当前活动改变而中断。') : canonical.awaySource ? (row.residentId === canonical.targetId ? '已回到馆内，从当前合法状态重新安顿。' : '共同活动因另一参与者离馆而中断。') : row.residentId === canonical.targetId
                                                 ? '完成了与 USER 的互动。' : canonical.reasons[row.residentId]?.includes('observer')
                                                     ? `USER 正在与 ${getResidentPublicName(target)} 互动。` : '共同活动的另一参与者已被合法打断。',
                                                 beats: row.beats.map(beat => ({ beatId: beat.id, room: beat.roomId, activity: beat.behaviorId, posture: beat.posture })) })].join('\n');
@@ -13317,13 +13377,13 @@ ${buildLeanForegroundContext(cat)}`;
                                         const entryCurrent = entry => {
                                             const cat = cats.value.find(cat => String(cat.id) === entry.residentId), row = hall.currentEpisodeWindow.residents.find(row => row.residentId === entry.residentId);
                                             const expected = frozen.residents.find(row => row.residentId === entry.residentId);
-                                            return cat && (!canonical.focusSource || focusHallMemberCurrent(canonical, cat, hall)) && isHallEpisodeOwned(cat) && row?.authority === expected?.authority &&
-                                                row.continuation?.sourceId === sourceId && (!canonical.awaySource && !canonical.foodSource && !canonical.focusSource ||
+                                            return cat && (!higherActivityHallSource(canonical) || higherActivityHallMemberCurrent(canonical, cat, hall)) && isHallEpisodeOwned(cat) && row?.authority === expected?.authority &&
+                                                row.continuation?.sourceId === sourceId && (!canonical.awaySource && !canonical.foodSource && !higherActivityHallSource(canonical) ||
                                                     row.continuation.startedAt === expected?.continuation?.startedAt) &&
                                                 row.beats.some(beat => beat.id === entry.beatId);
                                         };
                                         const accepted = entries.filter(entryCurrent);
-                                        if (canonical.focusSource) {
+                                        if (higherActivityHallSource(canonical)) {
                                             for (const id of new Set(accepted.map(entry => entry.residentId))) {
                                                 const memberEntries = accepted.filter(entry => entry.residentId === id), live = hall.currentEpisodeWindow;
                                                 const keys = new Set(memberEntries.map(entry => `${entry.residentId}|${entry.beatId}`));
@@ -13340,7 +13400,7 @@ ${buildLeanForegroundContext(cat)}`;
                                         const update = { ...live, content: { ...live.content, entries: [...live.content.entries.filter(entry =>
                                             !keys.has(`${entry.residentId}|${entry.beatId}`)), ...accepted] },
                                             partialReconciliations: live.partialReconciliations.map(row => row.sourceId === sourceId ? { ...row, state } : row) };
-                                        saveHallEpisodeWindow(hall, update, null, receipt.awaySource || receipt.foodSource || receipt.focusSource ? current : null);
+                                        saveHallEpisodeWindow(hall, update, null, receipt.awaySource || receipt.foodSource || higherActivityHallSource(receipt) ? current : null);
                                     };
                                     void requestSharedHallContent(prompt, { maxTokens: 3600, priority: 'background', uiMode: 'background',
                                         origin: 'world-autonomy', originSurface: 'hall-affected', maxAttempts: 1,
@@ -13536,7 +13596,7 @@ ${buildLeanForegroundContext(cat)}`;
                         event.audienceResidentIds?.some(residentId => String(residentId) === String(id)))) return false;
                     if (isInteracting.value && String(selectedCat.value?.id || '') === String(id)) return false;
                     if (isFocusing.value && focusCats.value.some(item => String(item?.id) === String(id))) return false;
-                    if (exploreState.active && String(exploreState.companion?.id || '') === String(id)) return false;
+                    if (getActiveExploreExternalSegment(id)) return false;
                     return true;
                 };
                 const curatorCanOwnAmbient = (id, placement = '') =>
@@ -18314,15 +18374,91 @@ personalityAxes 必须恰好包含 ${JSON.stringify(axisKeys)}，各值整数 -2
                         return { id, status, createdAt, startedAt: validExploreDate(raw?.startedAt) ? raw.startedAt : createdAt, updatedAt: validExploreDate(raw?.updatedAt) ? raw.updatedAt : createdAt,
                             locationId: location.id, destinationHallId: String(raw?.destinationHallId || location.hallId || ''),
                             source, blueprint: presentExploreEvidenceNow(blueprint, source), state,
+                            externalSegment: normalizeExploreExternalSegment(raw, id, status, companionId),
                             publicTranscript: normalizeExplorePublicTranscript(raw?.publicTranscript, state.history, createdAt),
                             settlementState, settlementOperation: normalizeExploreSettlementOperation(raw?.settlementOperation, id, settlementState) };
                     }).filter(Boolean).slice(-24);
                     const wanted = String(user.activeExploreCaseId || '');
-                    let active = normalized.find(item => item.status === 'open' && item.id === wanted) || normalized.find(item => item.status === 'open') || null;
-                    normalized.forEach(item => { if (item.status === 'open' && item !== active) item.status = 'paused'; });
+                    let active = normalized.find(item => item.externalSegment?.state === 'active' && item.id === wanted) || normalized.find(item => item.externalSegment?.state === 'active') || null;
+                    normalized.forEach(item => {
+                        if (item.status === 'open' && item !== active && (!item.externalSegment ||
+                            item.externalSegment.id === `explore-segment:${item.id}:legacy`)) {
+                            item.status = 'paused'; item.externalSegment = null;
+                        }
+                    });
                     user.exploreCases = normalized;
                     user.activeExploreCaseId = active?.id || '';
                     return active;
+                };
+                // Canonical external presence is a Case segment, separate from settlement and UI.
+                const normalizeExploreExternalSegment = (raw, caseId, status, companionId) => {
+                    const segment = raw?.externalSegment;
+                    if (segment && typeof segment.id === 'string' && segment.id && ['active', 'returned'].includes(segment.state) &&
+                        typeof segment.hallId === 'string' && segment.hallId && validExploreDate(segment.startedAt) &&
+                        (segment.state === 'active' || validExploreDate(segment.endedAt)))
+                        return { id: segment.id, state: segment.state, hallId: segment.hallId, startedAt: segment.startedAt,
+                            endedAt: segment.state === 'returned' ? segment.endedAt : null,
+                            reason: ['paused', 'abandoned', 'completed'].includes(segment.reason) ? segment.reason : null };
+                    if (segment || status !== 'open') return null;
+                    const companion = cats.value.find(cat => String(cat.id) === companionId);
+                    const hallId = companion && String(getCatHallId(companion));
+                    // Derived from the saved Case, never from reload time or a session counter.
+                    return hallId ? { id: `explore-segment:${caseId}:legacy`, state: 'active', hallId,
+                        startedAt: validExploreDate(raw.startedAt) ? raw.startedAt : raw.createdAt, endedAt: null, reason: null } : null;
+                };
+                const exploreExternalDrafts = new WeakMap();
+                const commitExploreExternalTransition = (caseRecord, phase, reason = 'paused') => {
+                    if (!caseRecord?.id || !['start', 'return'].includes(phase)) return false;
+                    const companion = getExploreCompanion(caseRecord), previous = caseRecord.externalSegment;
+                    if (!companion) return false;
+                    if (phase === 'start' && previous?.state === 'active' || phase === 'return' && previous?.state === 'returned' &&
+                        (reason !== 'abandoned' || caseRecord.status === 'abandoned')) return true;
+                    if (phase === 'return' && !previous && reason !== 'abandoned') return false;
+                    if (phase === 'start' && (caseRecord.status === 'abandoned' || (user.exploreCases || []).some(row =>
+                        row !== caseRecord && row.externalSegment?.state === 'active'))) return false;
+                    if (phase === 'start' && (!isResidentInHall(companion) || companion.isVisiting || isResidentInCuratorRoom(companion) ||
+                        getActiveAwayEpisode(companion) || getActiveFocusSession()?.participantIds.includes(String(companion.id)))) return false;
+                    let draft = exploreExternalDrafts.get(caseRecord);
+                    if (!draft || draft.phase !== phase || draft.previous !== previous) {
+                        const at = new Date().toISOString();
+                        draft = { phase, previous, reason, at, segment: phase === 'start'
+                            ? { id: `explore-segment:${crypto.randomUUID()}`, state: 'active', hallId: String(getResidentPhysicalHallId(companion)), startedAt: at, endedAt: null, reason: null }
+                            : previous ? { ...previous, state: 'returned', endedAt: previous.endedAt || at, reason } : null,
+                            dependencies: phase === 'start' ? [captureAwayHallDependency(companion)].filter(Boolean) : [] };
+                        exploreExternalDrafts.set(caseRecord, draft);
+                    }
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    if (!Array.isArray(snapshot.user.exploreCases)) snapshot.user.exploreCases = [];
+                    const saved = JSON.parse(JSON.stringify(caseRecord)); saved.externalSegment = draft.segment && { ...draft.segment };
+                    saved.status = phase === 'start' ? (caseRecord.status === 'solved' ? 'solved' : 'open')
+                        : draft.reason === 'completed' ? 'solved' : draft.reason === 'abandoned' ? 'abandoned' : 'paused';
+                    saved.updatedAt = new Date().toISOString();
+                    if (phase === 'return' && draft.reason !== 'completed') saved[draft.reason === 'abandoned' ? 'abandonedAt' : 'pausedAt'] = draft.segment?.endedAt || draft.at;
+                    const index = snapshot.user.exploreCases.findIndex(row => row.id === saved.id);
+                    if (index < 0) snapshot.user.exploreCases.push(saved); else snapshot.user.exploreCases[index] = saved;
+                    snapshot.user.activeExploreCaseId = phase === 'start' ? saved.id :
+                        snapshot.user.activeExploreCaseId === saved.id ? '' : snapshot.user.activeExploreCaseId;
+                    const staged = stageExternalHallReceipt(snapshot, saved, phase, draft.dependencies);
+                    if (caseRecord.externalSegment !== previous || phase === 'start' &&
+                        (!isResidentInHall(companion) || getActiveFocusSession()?.participantIds.includes(String(companion.id))) ||
+                        window.Meeow.storage.persistSnapshot(snapshot) !== true) return false;
+                    Object.assign(caseRecord, saved);
+                    if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
+                    if (!user.exploreCases.includes(caseRecord)) user.exploreCases.push(caseRecord);
+                    user.activeExploreCaseId = snapshot.user.activeExploreCaseId;
+                    exploreExternalDrafts.delete(caseRecord);
+                    if (phase === 'start') terminateActiveSocialPresenceForResident(companion.id, 'stronger-authority');
+                    publishExternalHallHandoff(caseRecord, phase, staged);
+                    return true;
+                };
+                const recoverExploreExternalActivity = () => {
+                    const record = (user.exploreCases || []).find(record => record.externalSegment?.state === 'active');
+                    if (!record) return false;
+                    // Saving the derived legacy segment also makes future recovery explicit.
+                    if (!persistExploreCase(record)) return false;
+                    syncExploreStateFromCase(record);
+                    reconcileExternalHallReceipt(halls.value.find(hall => String(hall.id) === record.externalSegment.hallId));
+                    return true;
                 };
                 const touchExploreCase = caseRecord => { if (caseRecord) { caseRecord.updatedAt = new Date().toISOString(); caseRecord.state.updatedAt = caseRecord.updatedAt; } };
                 const getEligibleExploreClues = caseRecord => {
@@ -18477,7 +18613,7 @@ personalityAxes 必须恰好包含 ${JSON.stringify(axisKeys)}，各值整数 -2
                     exploreState.rounds = caseRecord.state.history.filter(item => item.role === 'user').length;
                     exploreState.currentCheck = caseRecord.state.pendingCheck?.skill || null;
                     exploreState.waitingForDice = caseRecord.state.pendingCheck?.status === 'awaiting-roll';
-                    exploreState.active = true; return true;
+                    exploreState.active = caseRecord.externalSegment?.state === 'active'; return true;
                 };
                 const buildExploreSourceEvidence = () => ({ kind: 'fresh', publicFactIds: [], sourceEvidence: [] });
 
@@ -18634,6 +18770,7 @@ ${formatExploreTemporalContext(temporal || getExploreTemporalSnapshot(caseRecord
                 const freezeExploreNarrationAuthority = (caseRecord, pendingCheck = null) => {
                     const node = getExploreNode(caseRecord);
                     return {
+                        segmentId: caseRecord.externalSegment?.id || null,
                         eligibleClueIds: pendingCheck ? [...(pendingCheck.eligibleClueIds || [])] : getEligibleExploreClues(caseRecord).map(clue => clue.id),
                         eligibleNodeIds: pendingCheck ? [...(pendingCheck.eligibleNodeIds || [])] : [...(node?.exits || [])],
                         eligibleThreatEventIds: pendingCheck ? [...(pendingCheck.eligibleThreatEventIds || [])] : (caseRecord?.blueprint?.threatEvents || [])
@@ -18641,7 +18778,8 @@ ${formatExploreTemporalContext(temporal || getExploreTemporalSnapshot(caseRecord
                     };
                 };
                 const applyExploreNarration = (caseRecord, narration, { userAction = '', pendingCheck = null, authority = null } = {}) => {
-                    if (!caseRecord || caseRecord.status !== 'open' && caseRecord.status !== 'solved') return { applied: false };
+                    if (!caseRecord || caseRecord.status !== 'open' && caseRecord.status !== 'solved' ||
+                        authority?.segmentId && (caseRecord.externalSegment?.id !== authority.segmentId || caseRecord.externalSegment.state !== 'active')) return { applied: false };
                     const state = caseRecord.state;
                     const currentNode = getExploreNode(caseRecord);
                     if (!currentNode || !narration.content) return { applied: false };
@@ -18796,6 +18934,8 @@ ${buildExploreNarrationContext({ caseRecord, phase, userAction, dice, authority,
                 };
                 const applyExploreReturnPresentation = async (caseRecord, companion, operation) => {
                     if (hasExploreSettlementReceipt(operation, 'returnPresentation')) return true;
+                    if (caseRecord.externalSegment && (caseRecord.externalSegment.state !== 'returned' || hasHigherHallPresentationOwner(companion.id)))
+                        return writeExploreSettlementReceipt(caseRecord, operation, 'returnPresentation');
                     let applied = false;
                     const statusCompletion = {};
                     try {
@@ -18865,7 +19005,7 @@ ${buildExploreNarrationContext({ caseRecord, phase, userAction, dice, authority,
                         }
                     });
                 };
-                const settleSolvedExploreCase = async caseRecord => {
+                const settleSolvedExploreCase = caseRecord => coalesceExploreOperation(exploreSettlementFlavorInFlight, `settle:${caseRecord?.id}`, async () => {
                     if (!caseRecord || caseRecord.status !== 'solved') return false;
                     const companion = getExploreCompanion(caseRecord);
                     if (!companion) return false;
@@ -18914,11 +19054,13 @@ ${buildExploreNarrationContext({ caseRecord, phase, userAction, dice, authority,
                     }
                     showExploreSettlement.value = true;
                     return true;
-                };
+                });
                 const leaveSolvedExploreCase = async () => {
                     const caseRecord = getExploreCase();
                     if (!caseRecord || caseRecord.status !== 'solved') return;
-                    await settleSolvedExploreCase(caseRecord);
+                    if (!commitExploreExternalTransition(caseRecord, 'return', 'completed')) return false;
+                    exploreState.active = false;
+                    return settleSolvedExploreCase(caseRecord);
                 };
                 let exploreSettlementRecoveryInFlight = false;
                 const reconcileIncompleteExploreSettlements = async (nowInput = new Date()) => {
@@ -19485,8 +19627,20 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     return data && typeof data === 'object' && ['publicHook', 'coreQuestion', 'hiddenTruth', 'nodes', 'clues', 'revelations', 'solution'].every(key => data[key] !== undefined) &&
                         Array.isArray(data.nodes) && data.nodes.length >= 2 && Array.isArray(data.clues) && data.clues.length >= 3 && Array.isArray(data.revelations) && data.revelations.length ? true : '调查蓝图缺少所需结构。';
                 };
+                const commitExploreOpening = caseRecord => runExplorePublicFirstCommit({
+                    caseRecord, event: { id: `explore-opening:${caseRecord.id}`, role: 'narrator', type: 'opening', public: true,
+                        content: `外出调查开始：${caseRecord.blueprint.publicHook}` },
+                    appendPublicEvent: appendExploreCaseHistory,
+                    persist: () => commitExploreExternalTransition(caseRecord, 'start')
+                });
+                let explorePreparedCase = null;
                 const generateModule = async () => {
                     if (!exploreState.location || !exploreState.companion || !exploreState.goal) return;
+                    if (explorePreparedCase && explorePreparedCase.record.locationId === exploreState.location.id &&
+                        explorePreparedCase.record.state.companionId === String(exploreState.companion.id) && explorePreparedCase.goal === exploreState.goal) {
+                        if (commitExploreOpening(explorePreparedCase.record)) { syncExploreStateFromCase(explorePreparedCase.record); explorePreparedCase = null; await startExploration(); }
+                        return;
+                    }
                     exploreState.isGeneratingModule = true;
                     const frozenSource = freezeExploreSource(exploreState.source || buildExploreSourceEvidence());
                     const prompt = `[EXPLORE INVESTIGATION BLUEPRINT]\n${buildExploreModuleBrief(frozenSource)}\n设计一次紧凑、来源世界一致的调查。publicHook/coreQuestion 只能基于上面的用户可见证据；hiddenTruth 仅 Case 内部。标作“尚未观察”的证据若采用，必须把完整原文作为今天首次注意到的公开钩子，绝不能写成馆长已经记得、读过或知道。每条 clue 可提供简短、公开、无剧透的 title。CAT 不能说人话；HUMAN 可以。不要默认现代/Gotham。\n严格 JSON：{"publicHook":"","coreQuestion":"","hiddenTruth":"","nodes":[{"name":"","visibleDescription":"","exitIndexes":[1]}],"clues":[{"title":"线索名称","nodeIndexes":[0],"revealText":"完整可见证据句","discoveryModes":["observe"],"check":"侦查"}],"revelations":[{"text":"","minEvidence":2,"evidencePaths":[[0,1],[2,3]],"decisiveClueIndexes":[]}],"threatEvents":[{"nodeIndex":0,"trigger":"","delta":1,"visibleEffect":""}],"companionPlan":"","solution":{"requiredRevelationIndexes":[0]},"endings":{"solved":"","paused":"","abandoned":""}}。核心结论正常至少需要两条证据；只有明确 decisiveClueIndexes 才可由单条决定性证据确认。`;
@@ -19495,29 +19649,21 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         const now = new Date().toISOString(), caseId = makeExploreCaseId();
                         const blueprint = presentExploreEvidenceNow(normalizeExploreCaseBlueprint(parseAIJSON(raw), caseId, exploreState.location), frozenSource);
                         if (!blueprint) throw new Error('调查蓝图未通过本地验证。');
-                        if (!Array.isArray(user.exploreCases)) user.exploreCases = [];
-                        user.exploreCases.forEach(item => { if (item.status === 'open') item.status = 'paused'; });
+
                         const caseRecord = { id: caseId, status: 'open', createdAt: now, startedAt: now, updatedAt: now, locationId: exploreState.location.id, destinationHallId: exploreState.destinationHallId,
                             // Store only the already visible text snapshot. refId is provenance
                             // only; no Explore prompt later dereferences it into Away or Thread state.
                             source: frozenSource, blueprint,
                             state: normalizeExploreCaseState({ companionId: String(exploreState.companion.id), sessionForm: getResidentForm(exploreState.companion), visitedNodeIds: [blueprint.nodes[0].id] }, blueprint, String(exploreState.companion.id), now),
                             publicTranscript: [], settlementState: 'none' };
-                        user.exploreCases.push(caseRecord); user.activeExploreCaseId = caseId;
-                        const openingPersisted = runExplorePublicFirstCommit({
-                            caseRecord,
-                            event: { id: `explore-opening:${caseId}`, role: 'narrator', type: 'opening', public: true, content: `外出调查开始：${blueprint.publicHook}` },
-                            appendPublicEvent: appendExploreCaseHistory,
-                            persist: persistExploreCase
-                        });
+                        explorePreparedCase = { record: caseRecord, goal: exploreState.goal };
+                        const openingPersisted = commitExploreOpening(caseRecord);
                         if (!openingPersisted) {
-                            caseRecord.status = 'paused';
-                            if (user.activeExploreCaseId === caseId) user.activeExploreCaseId = '';
-                            touchExploreCase(caseRecord);
-                            showToast('外出开场未能保存，调查已保留为可恢复状态。', 'error');
+                            // The prepared Case remains detached and retryable; no authority published.
+                            showToast('外出开场未能保存，尚未开始外出；请重试。', 'error');
                             return;
                         }
-                        syncExploreStateFromCase(caseRecord); await startExploration();
+                        explorePreparedCase = null; syncExploreStateFromCase(caseRecord); await startExploration();
                     } catch (error) { addLog(`EXPLORE CASE FAILED: ${getReadableAPIError(error)}`, 'error'); showToast(`调查设计失败：${getReadableAPIError(error)}`, 'error'); }
                     finally { exploreState.isGeneratingModule = false; }
                 };
@@ -19528,15 +19674,16 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                         entry.role === 'narrator' && String(entry.id || '') !== openingEventId
                     );
                     if (!caseRecord || caseRecord.status !== 'open' || hasOpeningNarration) return;
-                    terminateActiveSocialPresenceForResident(caseRecord.state?.companionId, 'stronger-authority');
+
                     exploreState.isProcessing = true;
                     try {
                         const narration = await requestExploreCaseNarration(caseRecord, { phase: 'opening' });
-                        applyExploreNarration(caseRecord, narration, { authority: narration._authority }); syncExploreStateFromCase(caseRecord); exploreState.showGoalModal = false;
+                        if (!applyExploreNarration(caseRecord, narration, { authority: narration._authority }).applied) return;
+                        syncExploreStateFromCase(caseRecord); exploreState.showGoalModal = false;
                         const companion = getExploreCompanion(caseRecord);
-                        appendInteractionEvent(companion, 'explore-start', `与馆长前往 ${caseRecord.blueprint.locationName} 调查。`, { source: 'explore', caseId: caseRecord.id });
+                        appendInteractionEvent(companion, 'explore-start', `与馆长前往 ${caseRecord.blueprint.locationName} 调查。`, { source: 'explore', caseId: caseRecord.id, segmentId: caseRecord.externalSegment.id });
                         appendMonitorEvent(companion, `与馆长一同前往${caseRecord.blueprint.locationName}展开调查。`, 'explore', { caseId: caseRecord.id });
-                    } catch (error) { caseRecord.status = 'paused'; user.activeExploreCaseId = ''; touchExploreCase(caseRecord); showToast('开场失败，调查已保存为可继续状态。', 'error'); }
+                    } catch (error) { commitExploreExternalTransition(caseRecord, 'return', 'paused'); showToast('开场失败，调查已保存为可继续状态。', 'error'); }
                     finally { exploreState.isProcessing = false; }
                 };
                 const advanceExploration = async () => {
@@ -19547,12 +19694,12 @@ ${buildExploreKPContext({ phase: `round-${round}`, userAction })}`;
                     catch (error) { addLog(`EXPLORE SCENE FAILED: ${getReadableAPIError(error)}`, 'warn'); showToast('行动已保留；场景连接异常，可稍后继续。', 'error'); }
                     finally { exploreState.isProcessing = false; nextTick(() => { if (exploreChatRef.value) exploreChatRef.value.scrollTop = exploreChatRef.value.scrollHeight; }); }
                 };
-                const pauseExploreCase = () => { const caseRecord = getExploreCase(); if (!caseRecord || caseRecord.status !== 'open') return; caseRecord.status = 'paused'; caseRecord.pausedAt = new Date().toISOString(); user.activeExploreCaseId = ''; touchExploreCase(caseRecord); persistNow(); closeExplore(); };
-                const abandonExploreCase = () => { const caseRecord = getExploreCase(); if (!caseRecord || !['open', 'paused'].includes(caseRecord.status) || !confirm('确定放弃这次调查吗？未发现的真相不会公开。')) return; caseRecord.status = 'abandoned'; caseRecord.abandonedAt = new Date().toISOString(); user.activeExploreCaseId = ''; touchExploreCase(caseRecord); persistNow(); closeExplore(); };
+                const pauseExploreCase = () => { const caseRecord = getExploreCase(); if (!caseRecord || caseRecord.status !== 'open') return; if (commitExploreExternalTransition(caseRecord, 'return', 'paused')) closeExplore(); };
+                const abandonExploreCase = () => { const caseRecord = getExploreCase(); if (!caseRecord || !['open', 'paused'].includes(caseRecord.status) || !confirm('确定放弃这次调查吗？未发现的真相不会公开。')) return; if (commitExploreExternalTransition(caseRecord, 'return', 'abandoned')) closeExplore(); };
                 const resumeExploreCase = caseId => {
                     const caseRecord = getExploreCase(caseId), companion = getExploreCompanion(caseRecord);
                     if (!caseRecord || !companion || isResidentAway(companion) || companion.isVisiting || isResidentInCuratorRoom(companion)) { showToast('同行居民目前无法继续这次调查。', 'info'); return; }
-                    if (caseRecord.status === 'paused') { user.exploreCases.forEach(item => { if (item.status === 'open') item.status = 'paused'; }); caseRecord.status = 'open'; user.activeExploreCaseId = caseRecord.id; touchExploreCase(caseRecord); persistNow(); }
+                    if (caseRecord.externalSegment?.state !== 'active' && !commitExploreExternalTransition(caseRecord, 'start')) return;
                     syncExploreStateFromCase(caseRecord); if (caseRecord.state.pendingCheck?.status === 'retryable') void processDiceResult(caseRecord.id);
                 };
                 const getExploreDiscoveredClues = caseRecord => (caseRecord?.state?.discoveredClueIds || [])
@@ -25360,7 +25507,7 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                 const getSharedSceneResidentDisplayName = (cat) => getResidentPublicName(cat);
                 const isSharedSceneResidentEligible = (cat, hallId = activeHallId.value) => {
                     if (!cat || getCatHallId(cat) !== hallId || !isResidentInHall(cat) || isResidentInCuratorRoom(cat) || cat.isVisiting || getActiveAwayEpisode(cat)) return false;
-                    if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
+                    if (getActiveExploreExternalSegment(cat.id)) return false;
                     if (isFocusing.value && focusCats.value.some(item => String(item?.id) === String(cat.id))) return false;
                     if (isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id)) return false;
                     return true;
@@ -25922,7 +26069,7 @@ Shape: {"messages":["第一条消息"],"timingHint":"quick|normal|slow","knowled
                     if (!cat || isResidentAway(cat) || isResidentInCuratorRoom(cat) || !isResidentInHall(cat)) return false;
                     if (String(getResidentPhysicalHallId(cat) || '') !== String(hallId || '')) return false;
                     if (isFocusing.value && focusCats.value.some(item => String(item?.id || '') === String(cat.id))) return false;
-                    if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
+                    if (getActiveExploreExternalSegment(cat.id)) return false;
                     return true;
                 };
                 const getAttentionAuthorizedObjectSnapshot = () => null;
@@ -26362,7 +26509,7 @@ ${buildStructuredPersonalityContext(participant)}`;
                             String(getResidentPhysicalHallId(participant) || '') !== String(record.hallId) ||
                             getResidentForm(participant) !== record.participantForm ||
                             (isFocusing.value && focusCats.value.some(cat => String(cat?.id) === String(participant.id))) ||
-                            (exploreState.active && String(exploreState.companion?.id || '') === String(participant.id))) {
+                            (getActiveExploreExternalSegment(participant.id))) {
                             terminateActiveSocialPresence(record, 'participant-invalid');
                             return;
                         }
@@ -27618,7 +27765,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     if (!cat || !thread || thread.status !== 'open' || !thread.participantIds.includes(String(cat.id))) return false;
                     if (isResidentAway(cat) || getActiveAwayEpisode(cat, now) || cat.isVisiting || isResidentInCuratorRoom(cat) || !isResidentInHall(cat)) return false;
                     if (!thread.hallIds.includes(getResidentPhysicalHallId(cat))) return false;
-                    if (exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) return false;
+                    if (getActiveExploreExternalSegment(cat.id)) return false;
                     if (isFocusing.value && focusCats.value.some(item => String(item?.id || '') === String(cat.id))) return false;
                     if (isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id)) return false;
                     return getKnownLifeThreadFactsForResident(String(cat.id), thread.id).length > 0;
@@ -28236,7 +28383,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     !getActiveAwayEpisode(cat, now) && !hasLifeThreadExcursionDepartureClaim(cat.id) &&
                     !hasFrozenOrdinaryAwayDepartureClaim(cat.id) &&
                     !(isFocusing.value && focusCats.value.some(item => String(item.id) === String(cat.id))) &&
-                    !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
+                    !(getActiveExploreExternalSegment(cat.id)) &&
                     !(isInteracting.value && String(selectedCat.value?.id || '') === String(cat.id));
                 const buildOrdinaryAwayMailPlanExample = decision => {
                     if (!decision?.shouldWrite) return '[]';
@@ -28442,7 +28589,7 @@ ${snapshots.map((snapshot, index) => `- K${index + 1}: ${snapshot.text}`).join('
                     if (isResidentAway(actor) || getActiveAwayEpisode(actor, now)) return { scope: null, reason: 'active-away' };
                     if (actor.isVisiting || isResidentInCuratorRoom(actor) || !isResidentInHall(actor)) return { scope: null, reason: 'physical-state' };
                     if (!thread.hallIds.includes(getResidentPhysicalHallId(actor))) return { scope: null, reason: 'wrong-hall' };
-                    if (exploreState.active && String(exploreState.companion?.id || '') === String(actor.id)) return { scope: null, reason: 'explore' };
+                    if (getActiveExploreExternalSegment(actor.id)) return { scope: null, reason: 'explore' };
                     if (isFocusing.value && focusCats.value.some(cat => String(cat?.id || '') === String(actor.id))) return { scope: null, reason: 'focus' };
                     if (isInteracting.value && String(selectedCat.value?.id || '') === String(actor.id)) return { scope: null, reason: 'interaction' };
                     if (getRecentAwayReturn(actor, now)) return { scope: null, reason: 'recent-return' };
@@ -30739,13 +30886,18 @@ ${outputContract}`;
                 function getActiveFocusSession() {
                     return normalizeFocusSession(user.focusSession)?.state === 'active' ? user.focusSession : null;
                 }
+                // Canonical higher-activity lookup is hoisted like getActiveFocusSession.
+                function getActiveExploreExternalSegment(id) {
+                    return (typeof user === 'undefined' ? [] : user.exploreCases || [])
+                        .find(record => record.externalSegment?.state === 'active' && String(record.state?.companionId) === String(id))?.externalSegment || null;
+                }
                 let focusStartDraft = null, focusFinishDraft = null, focusRuntimeSession = null;
                 // Only live claims/results: reload recovery lives on the existing report.
                 const focusReportInFlight = new Map();
                 const focusParticipantEligible = (cat, hallId) => cat && String(cat.hallId) === String(hallId) &&
                     isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
                     !getActiveAwayEpisode(cat) &&
-                    !(exploreState.active && String(exploreState.companion?.id) === String(cat.id));
+                    !(getActiveExploreExternalSegment(cat.id));
                 const focusRemainingSeconds = session => Math.max(0, Math.min(session.plannedDuration,
                     Math.ceil((Date.parse(session.startedAt) + session.plannedDuration * 1000 - Date.now()) / 1000)));
                 const bindFocusRuntime = session => {
@@ -30832,7 +30984,7 @@ ${outputContract}`;
                         session.participantIds.includes(String(cat.id)) &&
                         String(cat.hallId || '') === String(session.hallId) &&
                         isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
-                        !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
+                        !(getActiveExploreExternalSegment(cat.id)) &&
                         !getActiveAwayEpisode(cat));
                     if (!participants.length) {
                         addLog('FOCUS TICK SKIPPED: reason=resident-unavailable', 'info');
@@ -30843,7 +30995,7 @@ ${outputContract}`;
                         participants.every(cat => focusCats.value.some(active => String(active?.id) === String(cat.id)) &&
                             session.participantIds.includes(String(cat.id)) && String(cat.hallId || '') === String(session.hallId) &&
                             isResidentInHall(cat) && !isResidentAway(cat) && !isResidentInCuratorRoom(cat) &&
-                            !(exploreState.active && String(exploreState.companion?.id || '') === String(cat.id)) &&
+                            !(getActiveExploreExternalSegment(cat.id)) &&
                             !getActiveAwayEpisode(cat));
                     const focusTickError = reason => Object.assign(new Error(`Focus tick ${reason}`), { focusReason: reason });
 
@@ -33644,6 +33796,7 @@ ${statusOutputRules}`;
                             normalizeActiveSocialPresences();
                             reconcileActiveSocialPresences(new Date(), { recovering: true, allowProgression: false });
                             normalizeExploreCases();
+                            recoverExploreExternalActivity();
                             lifeThreads.value = normalizeLifeThreads(data.lifeThreads);
                             knowledgeLedger.value = normalizeKnowledgeLedger(data.knowledgeLedger);
                             newsProjections.value = normalizeNewsProjections(data.newsProjections, { recoverGenerating: true });
@@ -34356,6 +34509,7 @@ ${episodicMemory}`;
                 const reconcileVisibleWorld = () => { if (document.visibilityState === 'visible') { const now = new Date(); reconcileAwayEpisodes(now); void reconcilePhoneReplyOpportunities(now); void reconcileLifeThreadContinuations(now); void reconcileNewsProjections(now); void reconcileIncompleteExploreSettlements(now); reconcileAttentionBidOpportunities(now); reconcileActiveSocialPresences(now); reconcileHomepageHallAmbientRefreshes(now); reconcileObserverReactions(now); void reconcileAffectedHallResidents(now); void reconcileCurrentHallEpisodeWindow(now); void reconcileVisibleCuratorRoomStatus(now); checkDailyInitialization(); refreshHolidayState(now); scheduleHolidayMidnightRefresh(now); currentTime.value = now; } };
                 onMounted(() => {
                     void recoverFocusSession();
+                    recoverExploreExternalActivity();
                     reconcileObserverReactions();
                     void reconcileCurrentHallEpisodeWindow();
                     window.setTimeout(() => void processPendingResidentArrivals(), 0);

@@ -163,7 +163,7 @@ assert.equal(freshness({ skipHallFreshnessCommit: true }), false);
 assert.equal(freshness({ curatorRoomStatusSync: { residentId: 'c1' } }), false);
 assert.equal(freshness({}), true);
 
-assert.equal((source.match(/callAI\s*\(/g) || []).length, 40, 'Explore durability work adds no callAI site');
+assert.equal((source.match(/callAI\s*\(/g) || []).length, 36, 'Explore durability work adds no callAI site');
 
 console.log(JSON.stringify({
     fixture: 'explore-lifecycle-integrity',
