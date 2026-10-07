@@ -400,7 +400,7 @@ assert.doesNotMatch(hallSceneApplySource, /receivedType=/, 'soft-invalid diagnos
 
 const refreshImplementationStart = source.indexOf('const _refreshAllStatus = async');
 const localReconciliationIndex = source.indexOf('reconcileAwayEpisodes(now)', refreshImplementationStart);
-const providerRequestIndex = source.indexOf('const res = await callAI(', refreshImplementationStart);
+const providerRequestIndex = source.indexOf('await callAI(statusRequestPrompt', refreshImplementationStart);
 const defensiveSceneValidationIndex = source.indexOf('sceneValidation = validateOptionalHallScene({', providerRequestIndex);
 const firstResponseMutationIndex = source.indexOf('const formCompatibility = classifyFormDirectiveCompatibility', defensiveSceneValidationIndex);
 assert.ok(localReconciliationIndex > refreshImplementationStart && localReconciliationIndex < providerRequestIndex, 'independent local Away reconciliation stays before the provider request');
@@ -444,58 +444,130 @@ unrelatedRefresh.resolve('unrelated-status-result');
 assert.equal(await queuedComposer, 'composer-result');
 assert.equal(composerStarts, 1, 'the composer starts exactly once after the prior task settles');
 
-const laneStarts = [];
-const laneDeferred = new Map();
-let activeLaneEntry = null;
-const runLaneRequest = (name, composer = false) => {
-  if (activeLaneEntry) {
-    if (composer) return queueComposerAfter(activeLaneEntry.task, () => runLaneRequest(name, true));
-    return activeLaneEntry.task;
-  }
-  const pending = deferred();
-  const entry = { name, task: pending.task };
-  activeLaneEntry = entry;
-  laneDeferred.set(name, pending);
-  laneStarts.push(name);
-  pending.task.then(
-    () => { if (activeLaneEntry === entry) activeLaneEntry = null; },
-    () => { if (activeLaneEntry === entry) activeLaneEntry = null; }
-  );
-  return pending.task;
-};
-const unrelatedLaneTask = runLaneRequest('ordinary-status');
-const firstComposerTask = runLaneRequest('composer-one', true);
-const secondComposerTask = runLaneRequest('composer-two', true);
-laneDeferred.get('ordinary-status').resolve('ordinary-complete');
-await unrelatedLaneTask;
-for (let index = 0; index < 5; index += 1) await Promise.resolve();
-assert.deepEqual(laneStarts, ['ordinary-status', 'composer-one'], 'only the first queued composer may start after the unrelated refresh');
-laneDeferred.get('composer-one').resolve('first-scene-complete');
-assert.equal(await firstComposerTask, 'first-scene-complete');
-for (let index = 0; index < 5; index += 1) await Promise.resolve();
-assert.deepEqual(laneStarts, ['ordinary-status', 'composer-one', 'composer-two'], 'a second composer serializes behind the first');
-laneDeferred.get('composer-two').resolve('second-scene-complete');
-assert.equal(await secondComposerTask, 'second-scene-complete');
-
+// Execute the real lane wrapper, rather than copying its orchestration.
 const refreshWrapperStart = source.indexOf('const refreshAllStatus = (...args) =>');
-const refreshWrapperEnd = source.indexOf('// Homepage Direct is intentionally foreground-only.', refreshWrapperStart);
-const refreshWrapperSource = source.slice(refreshWrapperStart, refreshWrapperEnd);
-assert.match(refreshWrapperSource, /requestOptions\.sceneMode === 'user-directed' && !replacesBackground/);
-assert.match(refreshWrapperSource, /HALL SCENE QUEUED: hall=/);
-assert.match(refreshWrapperSource, /queueUserDirectedHallSceneRefresh\(existing\.task, \(\) => refreshAllStatus\(\.\.\.queuedArgs\)\)/);
-assert.match(refreshWrapperSource, /STATUS SYNC JOINED: Reusing the active status refresh/);
-assert.match(refreshWrapperSource, /STATUS SYNC FOREGROUND REPLACING BACKGROUND/);
-for (const frozenField of ['frozenNow', 'protectedSceneParticipantIds', 'explicitMentionIds', 'previousFocusIds', 'candidateIds', 'requiredParticipantIds', 'participantForms']) {
-  assert.ok(refreshWrapperSource.includes(frozenField), `queued composer preserves ${frozenField}`);
-}
+const refreshWrapperEnd = source.indexOf('const pendingArrivalTasks =', refreshWrapperStart);
+assert.ok(refreshWrapperStart >= 0 && refreshWrapperEnd > refreshWrapperStart);
+const laneStarts = [], laneDeferred = new Map(), laneCalls = new Map();
+const laneSandbox = {
+  Date, Promise, Map, Set,
+  statusRefreshDisposed: false,
+  activeHallId: { value: 'hall' }, halls: { value: [{ id: 'hall' }] }, currentHall: { value: { id: 'hall' } },
+  statusRefreshInFlight: new Map(), statusRefreshTaskSequence: 0, socialOpportunityClaims: new Map(),
+  socialActivity: { releaseOpportunity() {} },
+  window: { Meeow: { specialDates: { evaluate: () => null } } },
+  isQualifyingHallWidePresentationStatusRequest: () => false,
+  addLog() {}, settleHallStatusRefresh() {},
+  _refreshAllStatus: (...args) => {
+    const name = args[1];
+    const pending = deferred();
+    laneStarts.push(name); laneDeferred.set(name, pending); laneCalls.set(name, args);
+    return pending.task;
+  }
+};
+vm.createContext(laneSandbox);
+vm.runInContext(`${source.slice(queueHelperStart, queueHelperEnd)}\n${source.slice(refreshWrapperStart, refreshWrapperEnd)}
+  globalThis.runRefresh = refreshAllStatus;`, laneSandbox);
+const runLaneRequest = (name, options = {}) => laneSandbox.runRefresh(true, name, [], '', false, false, options);
+const flushLane = async () => { for (let index = 0; index < 8; index++) await Promise.resolve(); };
+const unrelatedLaneTask = runLaneRequest('ordinary-status');
+assert.strictEqual(runLaneRequest('ordinary-join'), unrelatedLaneTask, 'ordinary requests reuse the active task');
+const sceneContext = { requiredParticipantIds: ['one'], participantForms: { one: 'CAT' } };
+const firstComposerTask = runLaneRequest('composer-one', { sceneMode: 'user-directed', sceneContext });
+const secondComposerTask = runLaneRequest('composer-two', { sceneMode: 'user-directed' });
+sceneContext.requiredParticipantIds.push('later'); sceneContext.participantForms.one = 'HUMAN';
+assert.deepEqual(laneStarts, ['ordinary-status']);
+laneDeferred.get('ordinary-status').resolve('ordinary-complete');
+await unrelatedLaneTask; await flushLane();
+assert.deepEqual(laneStarts, ['ordinary-status', 'composer-one']);
+assert.deepEqual([...laneCalls.get('composer-one')[6].sceneContext.requiredParticipantIds], ['one']);
+assert.equal(laneCalls.get('composer-one')[6].sceneContext.participantForms.one, 'CAT');
+laneDeferred.get('composer-one').resolve('first-scene-complete');
+assert.equal(await firstComposerTask, 'first-scene-complete'); await flushLane();
+assert.deepEqual(laneStarts, ['ordinary-status', 'composer-one', 'composer-two']);
+laneDeferred.get('composer-two').resolve('second-scene-complete');
+assert.equal(await secondComposerTask, 'second-scene-complete'); await flushLane();
+const priorArrivalTask = runLaneRequest('before-arrival');
+const arrivalTask = runLaneRequest('arrival', { arrivalEvent: { id: 'event', audienceResidentIds: ['one'] } });
+assert.equal(laneDeferred.has('arrival'), false, 'arrival cannot join an unrelated response');
+laneDeferred.get('before-arrival').resolve(true); await priorArrivalTask; await flushLane();
+assert.equal(laneCalls.get('arrival')[6].arrivalEvent.id, 'event');
+laneDeferred.get('arrival').resolve(true); assert.equal(await arrivalTask, true); await flushLane();
+const backgroundTask = runLaneRequest('background', { priority: 'background' });
+assert.equal(laneCalls.get('background')[6].isCurrentStatusRequest(), true);
+const foregroundTask = runLaneRequest('foreground', { priority: 'foreground' });
+assert.equal(laneCalls.get('background')[6].isCurrentStatusRequest(), false);
+assert.equal(laneCalls.get('foreground')[6].isCurrentStatusRequest(), true);
+laneDeferred.get('background').resolve(false); await backgroundTask; await flushLane();
+assert.equal(laneCalls.get('foreground')[6].isCurrentStatusRequest(), true, 'old settlement cannot remove replacement');
+laneDeferred.get('foreground').resolve(true); assert.equal(await foregroundTask, true); await flushLane();
+assert.equal(laneSandbox.statusRefreshInFlight.size, 0);
+const dispatchesBeforeDisposed = laneStarts.length;
+laneSandbox.statusRefreshDisposed = true;
+assert.equal(await runLaneRequest('disposed'), false);
+assert.equal(laneStarts.length, dispatchesBeforeDisposed, 'disposed guard prevents provider lane dispatch');
+assert.equal(laneDeferred.has('disposed'), false);
+assert.equal(laneCalls.has('disposed'), false);
 
 const phoneReconcileStart = source.indexOf('const reconcilePhoneReplyOpportunities = async');
 const phoneReconcileEnd = source.indexOf('const claimPhoneReplyForHomepageDirect', phoneReconcileStart);
 const phoneReconcileSource = source.slice(phoneReconcileStart, phoneReconcileEnd);
 assert.match(phoneReconcileSource, /promoteGeneratedPhoneReplyDeliveries\(now\)/);
 assert.match(phoneReconcileSource, /flushPhoneReplyDeliveries\(now\)/);
-assert.doesNotMatch(phoneReconcileSource, /callAI\(|runPhoneReplyOpportunity\(|claimPhoneReplyGeneration\(/,
-  'time reconciliation must never start reply generation');
+assert.doesNotMatch(phoneReconcileSource, /callAI\(/,
+  'time reconciliation must not directly invoke the provider');
+
+// Exercise orchestration only; the dedicated Phone fixture owns real claim,
+// persistence, retry, response-currentness and delivery behavior.
+const checkPhoneReconcileDispatch = async ({ due = true, visible = true, laneHead = true, claimSaved = true } = {}) => {
+  const now = new Date('2026-10-06T12:00:00Z');
+  const opportunity = { id: 'phone-opportunity', status: 'scheduled', generationDueAt: now.toISOString() };
+  const claim = { opportunityId: opportunity.id, token: 'canonical-claim', channel: 'phone-dedicated' };
+  const claims = [], dispatches = [];
+  const sandbox = {
+    Date, statusRefreshDisposed: false,
+    document: { visibilityState: visible ? 'visible' : 'hidden' },
+    normalizePhoneReplyOpportunities: () => [opportunity],
+    isValidPhoneReplyTime: value => Number.isFinite(new Date(value).getTime()),
+    promoteGeneratedPhoneReplyDeliveries() {}, flushPhoneReplyDeliveries() {},
+    schedulePhoneReplyReconciliation() {},
+    getPhoneReplyGenerationTime: item => item.status === 'scheduled' ? now.getTime() + (due ? 0 : 1000) : null,
+    isPhoneReplyLaneHead: () => laneHead,
+    claimPhoneReplyGeneration: (item, channel, at, options) => {
+      assert.strictEqual(item, opportunity);
+      assert.equal(channel, 'phone-dedicated');
+      assert.equal(at.getTime(), now.getTime());
+      assert.equal(options.countAttempt, true);
+      claims.push(item.id);
+      if (!claimSaved) return null;
+      opportunity.status = 'in-flight';
+      return claim;
+    },
+    runPhoneReplyOpportunity: (receivedClaim, options) => {
+      assert.strictEqual(receivedClaim, claim, 'dispatch must receive the successful canonical claim');
+      assert.equal(claimSaved, true, 'failed claim must not dispatch');
+      assert.equal(claims.length, 1, 'dispatch must follow exactly one canonical claim');
+      assert.equal(dispatches.length, 0, 'the current attempt must not dispatch twice');
+      assert.equal(options.automatic, true);
+      dispatches.push(receivedClaim);
+    },
+    callAI: () => { assert.fail('reconciliation must leave provider invocation to the dedicated worker'); }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(`${phoneReconcileSource}\nglobalThis.reconcile = reconcilePhoneReplyOpportunities;`, sandbox);
+  await sandbox.reconcile(now);
+  const eligible = due && visible && laneHead;
+  assert.equal(claims.length, eligible ? 1 : 0);
+  assert.equal(dispatches.length, eligible && claimSaved ? 1 : 0);
+  if (eligible && claimSaved) {
+    for (let index = 0; index < 10; index++) await sandbox.reconcile(now);
+    assert.equal(claims.length, 1, 'already-claimed attempt must not be claimed again');
+    assert.equal(dispatches.length, 1, 'repeated reconciliation must not repeat current dispatch');
+  }
+};
+for (const scenario of [{ due: false }, { visible: false }, { laneHead: false }, { claimSaved: false }, {}]) {
+  await checkPhoneReconcileDispatch(scenario);
+}
 assert.match(source, /hasActivePhoneReplyLane/);
 assert.match(source, /isPhoneReplyLaneHead/);
 assert.match(source, /claimPhoneReplyGeneration/);
@@ -505,8 +577,98 @@ assert.match(source, /deliverAt = computePhoneReplyDeliverAt/);
 assert.match(source, /homepage-direct-piggyback/);
 assert.match(source, /PHONE REPLY PIGGYBACK SOFT MISS/);
 assert.match(source, /getPhoneReplyControlState/);
-assert.match(source, /获取回复/);
-assert.match(source, /等回复/);
+// Check the retry control and its canonical handoff, not its translated copy.
+const phoneReplyControls = source.slice(source.indexOf('<!-- Reply preview bar -->'), source.indexOf('<!-- Tool bar:'));
+const phoneRetryButton = [...phoneReplyControls.matchAll(/<button\b([^>]*?)>/g)]
+  .map(([, attributes]) => ({
+    gate: attributes.match(/\bv-if\s*=\s*(["'])(.*?)\1/s)?.[2],
+    handler: attributes.match(/@click\s*=\s*(["'])(.*?)\1/s)?.[2]
+  }))
+  .find(button => /\bretryPhoneReplyOpportunity\s*\(/.test(button.handler || ''));
+assert.ok(phoneRetryButton?.gate, 'Phone retry control must remain gated and connected to canonical retry');
+const phoneRetryHelpers = source.slice(source.indexOf('const phoneReplyNeedsManualRetry ='), source.indexOf('const insertEmoji ='));
+assert.doesNotMatch(phoneRetryHelpers, /\bcallAI\s*\(/, 'manual retry must not embed a second provider lane');
+for (const scenario of [
+  { status: 'scheduled' }, { status: 'retryable' }, { status: 'in-flight' },
+  { status: 'failed' }, { status: 'failed', accepted: false },
+  { status: 'failed', saved: false }, { status: 'failed', claimed: false }
+]) {
+  const { status, accepted = true, saved = true, claimed = true } = scenario;
+  const opportunity = { id: 'retry-opportunity', contactId: 'resident', status };
+  const claim = { opportunityId: opportunity.id, token: 'retry-claim', channel: 'phone-dedicated' };
+  const calls = [];
+  const sandbox = {
+    Date, phoneState: { selectedContactId: opportunity.contactId },
+    getPhoneReplyLaneHeadForContact: contactId => {
+      assert.equal(contactId, opportunity.contactId);
+      return opportunity;
+    },
+    getPhoneReplyOpportunities: () => [opportunity],
+    isAcceptedPhoneContact: () => accepted,
+    isPhoneReplyRetryEligible: () => true,
+    showToast() {},
+    persistNow: () => { calls.push('save'); return saved; },
+    claimPhoneReplyGeneration: (item, channel, _now, options) => {
+      assert.strictEqual(item, opportunity);
+      assert.equal(channel, 'phone-dedicated');
+      assert.equal(options.countAttempt, true);
+      assert.deepEqual(calls, ['save'], 'manual retry must save before canonical claim');
+      calls.push('claim');
+      return claimed ? claim : null;
+    },
+    runPhoneReplyOpportunity: receivedClaim => {
+      assert.strictEqual(receivedClaim, claim);
+      assert.equal(claimed, true, 'manual retry must not dispatch without a successful claim');
+      assert.deepEqual(calls, ['save', 'claim']);
+      calls.push('worker');
+    },
+    callAI: () => { assert.fail('manual retry must delegate provider invocation to the canonical worker'); }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(phoneRetryHelpers, sandbox);
+  const visible = vm.runInContext(phoneRetryButton.gate, sandbox);
+  assert.equal(visible, status === 'failed', 'manual retry is available only for terminal failure');
+  if (visible) vm.runInContext(phoneRetryButton.handler, sandbox);
+  assert.deepEqual(calls, status !== 'failed' || !accepted ? [] : !saved ? ['save'] : !claimed ? ['save', 'claim'] : ['save', 'claim', 'worker']);
+}
+// Ordinary reply presentation reads canonical state, not retired button copy.
+const phoneControlVisibility = [...phoneReplyControls.matchAll(/<div\b([^>]*?)>/gs)]
+  .map(([, attributes]) => attributes.match(/\bv-if\s*=\s*(["'])(.*?)\1/s)?.[2])
+  .find(expression => /\bgetPhoneReplyControlState\s*\(/.test(expression || ''));
+const phoneControlLabel = [...phoneReplyControls.matchAll(/\{\{([\s\S]*?)\}\}/g)]
+  .map(([, expression]) => expression.trim())
+  .find(expression => /\bgetPhoneReplyControlState\s*\(/.test(expression));
+assert.ok(phoneControlVisibility, 'ordinary reply visibility must read canonical control state');
+assert.ok(phoneControlLabel, 'ordinary reply presentation must display canonical control-state content');
+for (const [status, expectedState] of [
+  [null, 'hidden'], ['scheduled', 'pending'], ['in-flight', 'generating'],
+  ['generated', 'pending'], ['delivering', 'pending'], ['retryable', 'retry'], ['failed', 'failed']
+]) {
+  const opportunity = status && { id: 'presentation-opportunity', contactId: 'resident', status };
+  const before = opportunity && { ...opportunity };
+  const sandbox = {
+    phoneState: { selectedContactId: 'resident' },
+    getPhoneReplyLaneHeadForContact: contactId => {
+      assert.equal(contactId, 'resident');
+      return opportunity;
+    },
+    getPhoneReplyOpportunities: () => [],
+    callAI: () => { assert.fail('presentation read must not invoke the provider'); },
+    persistNow: () => { assert.fail('presentation read must not persist state'); }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(phoneRetryHelpers, sandbox);
+  const control = vm.runInContext('getPhoneReplyControlState(phoneState.selectedContactId)', sandbox);
+  assert.equal(control.state, expectedState);
+  assert.strictEqual(control.opportunity, opportunity);
+  assert.equal(vm.runInContext(phoneControlVisibility, sandbox), status !== null);
+  if (status !== null) {
+    assert.equal(typeof control.label, 'string');
+    assert.ok(control.label.trim());
+    assert.equal(vm.runInContext(phoneControlLabel, sandbox), control.label);
+  }
+  assert.deepEqual(opportunity, before, 'reading reply presentation must not mutate its opportunity');
+}
 assert.match(source, /PHONE REPLY DURABLE:/);
 assert.match(source, /PHONE REPLY INTEGRITY MISMATCH:/);
 assert.match(source, /generatedBubbleIds/);
