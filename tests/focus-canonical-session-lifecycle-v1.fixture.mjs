@@ -73,6 +73,7 @@ function world(saved = null, reactiveSession = false) {
             const pending = deferred(); requests.push({ ...pending, prompt, options }); return pending.promise;
         },
         reconcileResidentEpisodeCopy: () => {},
+        captureFocusHallDependencies: () => [], stageFocusHallReceipt: () => null, publishFocusHallHandoff: () => false,
         reconcileAffectedHallResidents: () => { hallCalls.push('partial'); throw new Error('C3b is forbidden'); },
         activateHallEpisodeWindow: () => { hallCalls.push('entry'); throw new Error('Hall activation is forbidden'); },
         requestSharedHallContent: () => { hallCalls.push('transport'); throw new Error('Hall transport is forbidden'); },

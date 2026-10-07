@@ -12668,7 +12668,14 @@ ${buildLeanForegroundContext(cat)}`;
                         new Set(plan.partialReconciliations.map(receipt => receipt?.sourceId)).size === plan.partialReconciliations.length &&
                         plan.partialReconciliations.every(receipt => receipt && typeof receipt.sourceId === 'string' && receipt.sourceId &&
                             typeof receipt.targetId === 'string' && typeof receipt.targetAuthority === 'string' &&
-                            (receipt.foodSource ? receipt.sourceId === receipt.foodSource.eventId &&
+                            (receipt.focusSource ? typeof receipt.focusSource.sessionId === 'string' && receipt.focusSource.sessionId &&
+                                ['start', 'end'].includes(receipt.focusSource.phase) &&
+                                receipt.sourceId === `focus:${receipt.focusSource.sessionId}:${receipt.focusSource.phase}` &&
+                                Array.isArray(receipt.affectedIds) &&
+                                Array.isArray(receipt.focusSource.participantIds) && receipt.focusSource.participantIds.length > 0 &&
+                                receipt.focusSource.participantIds.every(id => typeof id === 'string' && receipt.affectedIds.includes(id)) &&
+                                receipt.affectedIds.every(id => typeof receipt.focusSource.authorities?.[id] === 'string')
+                                : receipt.foodSource ? receipt.sourceId === receipt.foodSource.eventId &&
                                 typeof receipt.foodSource.itemName === 'string' && typeof receipt.foodSource.recordId === 'string' &&
                                 (!receipt.foodSource.preservedAuthority || typeof receipt.foodSource.preservedAuthority === 'string')
                                 : receipt.awaySource ? typeof receipt.awaySource.episodeId === 'string' &&
@@ -12763,7 +12770,7 @@ ${buildLeanForegroundContext(cat)}`;
                     get: runtime => {
                         const cat = cats.value.find(cat => String(cat.id) === runtime.id), context = getHallEpisodeRow(cat, true);
                         if (!context) return cat && halls.value.some(hall => hall.currentEpisodeWindow?.partialReconciliations?.some(receipt =>
-                            receipt.awaySource?.phase === 'return' && receipt.waitingIds.includes(String(cat.id)))) ? { hold: true } : null;
+                            (receipt.awaySource?.phase === 'return' || receipt.focusSource?.phase === 'end') && receipt.waitingIds.includes(String(cat.id)))) ? { hold: true } : null;
                         if (!isHallEpisodeOwned(cat)) return { hold: true };
                         const beat = context.row.beats.find(beat => beat.startAt <= Date.now() && beat.endAt > Date.now());
                         if (!beat || ['skipped', 'invalidated', 'completed'].includes(beat.state)) return { hold: true, wakeAt: beat?.endAt };
@@ -12871,6 +12878,8 @@ ${buildLeanForegroundContext(cat)}`;
                             if (!saveHallEpisodeWindow(hall, draft)) return false;
                             hallEpisodeDrafts.delete(hall); plan = hall.currentEpisodeWindow;
                         }
+                        reconcileFocusHallReceipt(hall);
+                        plan = hall.currentEpisodeWindow;
                         if (!hallEpisodeObjects.has(plan)) hallEpisodeObjects.set(plan, new Map(cats.value.map(cat => [String(cat.id), cat])));
                         for (const row of plan.residents) {
                             const cat = cats.value.find(cat => String(cat.id) === row.residentId);
@@ -12918,7 +12927,7 @@ ${buildLeanForegroundContext(cat)}`;
                                 const entries = payload.entries.filter(entry => {
                                     const cat = cats.value.find(cat => String(cat.id) === entry.residentId);
                                     const row = hall.currentEpisodeWindow.residents.find(row => row.residentId === entry.residentId);
-                                    return cat && row?.state === 'valid' && row.authority === hallEpisodeAuthority(cat) &&
+                                    return cat && !hasHigherHallPresentationOwner(cat.id) && row?.state === 'valid' && row.authority === hallEpisodeAuthority(cat) &&
                                         row.beats.some(beat => beat.id === entry.beatId) &&
                                         hallEpisodeObjects.get(hall.currentEpisodeWindow)?.get(entry.residentId) === cat;
                                 });
@@ -12981,6 +12990,80 @@ ${buildLeanForegroundContext(cat)}`;
                         ? { ...row, state: 'invalidated', reason: sourceId, beats: row.beats.map(beat =>
                             ['completed', 'skipped'].includes(beat.state) ? beat : { ...beat, state: 'invalidated' }) } : row);
                     return { ...plan, residents, partialReconciliations: [...(plan.partialReconciliations || []), receipt] };
+                };
+                // C3b is downstream bookkeeping; canonical Focus owns the lifecycle.
+                const captureFocusHallDependencies = session => session.participantIds.map(id =>
+                    cats.value.find(cat => String(cat.id) === id)).filter(Boolean).map(captureAwayHallDependency).filter(Boolean);
+                const stageFocusHallReceipt = (snapshot, session, phase, dependencies = []) => {
+                    const hall = halls.value.find(hall => String(hall.id) === session.hallId), plan = hall?.currentEpisodeWindow;
+                    const at = Date.parse(phase === 'start' ? session.startedAt : session.endedAt);
+                    const sourceId = `focus:${session.id}:${phase}`;
+                    if (!usableHallEpisodeWindow(plan) || plan.windowKey !== hallActivities.episodeWindow(Date.now()).key ||
+                        at < plan.windowStart || at >= plan.windowEnd || plan.partialReconciliations?.some(row => row.sourceId === sourceId)) return null;
+                    const participantIds = [...session.participantIds];
+                    const partners = phase === 'start' ? dependencies.flatMap(dependency =>
+                        dependency.claim.shared.phase === 'shared-active' && dependency.claim.isCurrent() &&
+                        socialActivity.ownsOpportunity(dependency.claim, socialOpportunityClaims)
+                            ? dependency.partners.filter(partner => partner.cat && cats.value.includes(partner.cat) &&
+                                hallEpisodeAuthority(partner.cat) === partner.authority && isResidentInHall(partner.cat) &&
+                                getResidentPhysicalHallId(partner.cat) === session.hallId).map(partner => partner.id) : []) : [];
+                    const affectedIds = [...new Set([...participantIds, ...partners])].sort();
+                    const authorities = Object.fromEntries(affectedIds.map(id => {
+                        const cat = snapshot.cats.find(cat => String(cat.id) === id);
+                        return [id, cat ? hallEpisodeAuthority(cat) : ''];
+                    }));
+                    const waitingIds = phase === 'start' ? affectedIds.filter(id => !participantIds.includes(id)) : participantIds;
+                    const receipt = { sourceId, focusSource: { sessionId: session.id, phase, participantIds, authorities },
+                        targetId: participantIds[0], targetAuthority: authorities[participantIds[0]], at, affectedIds,
+                        reasons: Object.fromEntries(affectedIds.map(id => [id, [participantIds.includes(id) ? 'direct' : 'shared_dependency']])),
+                        waitingIds, state: waitingIds.length ? 'pending' : 'fallback', rows: [] };
+                    const residents = plan.residents.map(row => affectedIds.includes(row.residentId) &&
+                        (phase === 'start' || row.state !== 'valid' || (row.continuation?.startedAt || row.beats[0].startAt) < at)
+                            ? { ...row, state: 'invalidated', reason: sourceId, beats: row.beats.map(beat =>
+                                ['completed', 'skipped'].includes(beat.state) ? beat : { ...beat, state: 'invalidated' }) } : row);
+                    const next = { ...plan, residents, partialReconciliations: [...(plan.partialReconciliations || []), receipt] };
+                    const savedHall = snapshot.halls.find(row => String(row.id) === session.hallId);
+                    if (!savedHall) return null;
+                    savedHall.currentEpisodeWindow = next;
+                    return { hall, plan: next };
+                };
+                const focusHallSourceCurrent = (receipt, hall) => {
+                    const source = receipt.focusSource, session = user.focusSession;
+                    return Boolean(source && (session?.id === source.sessionId && session.hallId === String(hall.id) &&
+                        (source.phase === 'start' || session.state === 'ended') ||
+                        user.missionReports?.some(report => report.focusSessionId === source.sessionId && report.hallId === String(hall.id) &&
+                            source.participantIds.every(id => report.participants?.some(member => String(member.id) === id)))));
+                };
+                const focusHallMemberCurrent = (receipt, cat, hall) => Boolean(cat && cats.value.includes(cat) &&
+                    isResidentInHall(cat) && String(getResidentPhysicalHallId(cat)) === String(hall.id) &&
+                    hallEpisodeAuthority(cat) === receipt.focusSource.authorities[String(cat.id)] &&
+                    !cat.todayInteractions?.some(event => event.type === 'focus-start' && event.focusSessionId !== receipt.focusSource.sessionId &&
+                        Date.parse(event.at) >= receipt.at));
+                const publishFocusHallHandoff = (session, phase, staged = null, wake = true) => {
+                    if (user.focusSession?.id !== session?.id || user.focusSession.state !== (phase === 'start' ? 'active' : 'ended')) return false;
+                    if (staged && staged.hall.currentEpisodeWindow?.windowKey === staged.plan.windowKey) {
+                        const objects = hallEpisodeObjects.get(staged.hall.currentEpisodeWindow);
+                        staged.hall.currentEpisodeWindow = staged.plan;
+                        hallEpisodeObjects.set(staged.hall.currentEpisodeWindow, objects || new Map(cats.value.map(cat => [String(cat.id), cat])));
+                    }
+                    if (phase === 'start') for (const id of session.participantIds) {
+                        const cat = cats.value.find(cat => String(cat.id) === id);
+                        if (cat && String(getResidentPhysicalHallId(cat)) === session.hallId) spatialAmbientController?.cancel(id, 'focus-start');
+                    }
+                    syncSpatialAmbient();
+                    if (wake && String(activeHallId.value) === session.hallId && isContextuallyViewingHallPresentation(session.hallId) && document.visibilityState !== 'hidden')
+                        void reconcileCurrentHallEpisodeWindow();
+                    return true;
+                };
+                const reconcileFocusHallReceipt = hall => {
+                    const session = typeof user === 'undefined' ? null : user.focusSession;
+                    if (!session || session.hallId !== String(hall.id)) return;
+                    const phase = session.state === 'active' ? 'start' : 'end';
+                    if (hall.currentEpisodeWindow?.partialReconciliations?.some(receipt => receipt.sourceId === `focus:${session.id}:${phase}`)) return;
+                    const snapshot = JSON.parse(JSON.stringify(buildSaveData()));
+                    const staged = stageFocusHallReceipt(snapshot, session, phase);
+                    if (staged && saveHallEpisodeWindow(hall, staged.plan, null, () => user.focusSession === session))
+                        publishFocusHallHandoff(session, phase, null, false);
                 };
                 // C2 consumes existing durable Food history, never inventory/preference authority.
                 const captureFoodHallContinuitySource = cat => {
@@ -13090,13 +13173,13 @@ ${buildLeanForegroundContext(cat)}`;
                     const hall = halls.value.find(hall => String(hall.id) === String(activeHallId.value));
                     if (!hall || hallEpisodeDisposed) return false;
                     const plan = hall.currentEpisodeWindow, drafts = hallAffectedDrafts.get(hall) || new Map();
-                    if (!drafts.size && !plan?.partialReconciliations?.some(receipt => receipt.waitingIds.length || receipt.foodSource && receipt.state === 'pending' && receipt.rows.length)) return true;
+                    if (!drafts.size && !plan?.partialReconciliations?.some(receipt => receipt.waitingIds.length || (receipt.foodSource || receipt.focusSource) && receipt.state === 'pending' && receipt.rows.length)) return true;
                     if (!isContextuallyViewingHallPresentation(String(hall.id)) || document.visibilityState === 'hidden') return false;
                     if (hallAffectedInFlight.has(hall)) return hallAffectedInFlight.get(hall);
                     const task = (async () => {
                         const bucket = hallActivities.episodeWindow(now.getTime());
                         if (!usableHallEpisodeWindow(plan) || plan.windowKey !== bucket.key) { drafts.clear(); return false; }
-                        for (const receipt of plan.partialReconciliations || []) if ((receipt.waitingIds.length || receipt.foodSource && receipt.state === 'pending' && receipt.rows.length) && !drafts.has(receipt.sourceId))
+                        for (const receipt of plan.partialReconciliations || []) if ((receipt.waitingIds.length || (receipt.foodSource || receipt.focusSource) && receipt.state === 'pending' && receipt.rows.length) && !drafts.has(receipt.sourceId))
                             drafts.set(receipt.sourceId, { receipt, rows: new Map() });
                         hallAffectedDrafts.set(hall, drafts);
                         for (const [sourceId, draft] of drafts) {
@@ -13106,12 +13189,12 @@ ${buildLeanForegroundContext(cat)}`;
                             const target = cats.value.find(cat => String(cat.id) === receipt.targetId);
                             const current = () => !hallEpisodeDisposed && hall.currentEpisodeWindow?.windowKey === bucket.key &&
                                 hallActivities.episodeWindow(Date.now()).key === bucket.key && String(activeHallId.value) === String(hall.id) &&
-                                isContextuallyViewingHallPresentation(String(hall.id)) && target && cats.value.includes(target) &&
-                                (receipt.foodSource ? foodHallSourceCurrent(receipt, hall) : receipt.awaySource ? awayHallSourceCurrent(receipt, hall) :
-                                    getResidentPhysicalHallId(target) === String(hall.id) && hallEpisodeAuthority(target) === receipt.targetAuthority &&
-                                    target.todayInteractions?.some(record => record.id === sourceId && record.interactionEpisodeId === receipt.interactionEpisodeId));
+                                isContextuallyViewingHallPresentation(String(hall.id)) && (receipt.focusSource ? focusHallSourceCurrent(receipt, hall) :
+                                    target && cats.value.includes(target) && (receipt.foodSource ? foodHallSourceCurrent(receipt, hall) : receipt.awaySource ? awayHallSourceCurrent(receipt, hall) :
+                                        getResidentPhysicalHallId(target) === String(hall.id) && hallEpisodeAuthority(target) === receipt.targetAuthority &&
+                                        target.todayInteractions?.some(record => record.id === sourceId && record.interactionEpisodeId === receipt.interactionEpisodeId)));
                             if (!current()) { drafts.delete(sourceId); continue; }
-                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds, Boolean(receipt.foodSource) || receipt.awaySource?.phase === 'return');
+                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds, Boolean(receipt.foodSource) || receipt.awaySource?.phase === 'return' || receipt.focusSource?.phase === 'end');
                             if (!current()) { drafts.delete(sourceId); continue; }
                             currentPlan = hall.currentEpisodeWindow;
                             const claims = currentPlan.residents.flatMap(row => {
@@ -13123,7 +13206,8 @@ ${buildLeanForegroundContext(cat)}`;
                             for (const id of receipt.waitingIds) {
                                 const cat = cats.value.find(cat => String(cat.id) === id);
                                 const row = currentPlan.residents.find(row => row.residentId === id);
-                                if ((!row && receipt.awaySource?.phase !== 'return') || !cat || !isResidentInHall(cat) || String(getResidentPhysicalHallId(cat)) !== String(hall.id)) continue;
+                                if ((!row && receipt.awaySource?.phase !== 'return' && receipt.focusSource?.phase !== 'end') || !cat || !isResidentInHall(cat) || String(getResidentPhysicalHallId(cat)) !== String(hall.id)) continue;
+                                if (receipt.focusSource && !focusHallMemberCurrent(receipt, cat, hall)) continue;
                                 if (row?.state === 'valid' && (row.authority === hallEpisodeAuthority(cat) || receipt.foodSource?.preservedAuthority === row.authority ||
                                     hallEpisodeRowAuthorityCurrent(row, cat, currentPlan)) && !(receipt.foodSource && receipt.reasons[id]?.includes('shared_dependency'))) continue;
                                 if (hasHigherHallPresentationOwner(id)) { waiting.push(id); continue; }
@@ -13158,12 +13242,12 @@ ${buildLeanForegroundContext(cat)}`;
                             const next = { ...currentPlan, residents: [...currentPlan.residents.map(row => replacements.get(row.residentId) || row),
                                     ...[...replacements.values()].filter(row => !currentPlan.residents.some(prior => prior.residentId === row.residentId))],
                                 partialReconciliations: receipts };
-                            const applicationCurrent = () => current() && [...replacements].every(([id, row]) => {
+                            const replacementCurrent = ([id, row]) => {
                                 const cat = cats.value.find(cat => String(cat.id) === id), resident = residents.find(resident => resident.id === id);
                                 const runtime = spatialAmbientSnapshot.value.residents.find(runtime => runtime.id === id);
                                 const attempt = returnAttempts.get(id), first = row.beats[row.continuation.pastCount];
-                                return cat && !hasHigherHallPresentationOwner(id) && isResidentInHall(cat) &&
-                                    hallEpisodeAuthority(cat) === row.authority && (!receipt.foodSource && receipt.awaySource?.phase !== 'return' ||
+                                return cat && (!receipt.focusSource || focusHallMemberCurrent(receipt, cat, hall)) && !hasHigherHallPresentationOwner(id) && isResidentInHall(cat) &&
+                                    hallEpisodeAuthority(cat) === row.authority && (!receipt.foodSource && receipt.awaySource?.phase !== 'return' && receipt.focusSource?.phase !== 'end' ||
                                         attempt && attempt.hallId === String(hall.id) && attempt.windowKey === hall.currentEpisodeWindow.windowKey &&
                                         attempt.authority === row.authority && attempt.attemptStartAt === row.continuation.startedAt &&
                                         first.foot.x === attempt.contact.x && first.foot.y === attempt.contact.y &&
@@ -13171,10 +13255,32 @@ ${buildLeanForegroundContext(cat)}`;
                                         normalRoomCanOwn(id, runtime.placementKey) && !runtime.furniture &&
                                         !['moving', 'suspended'].includes(runtime.state) && resident.domain.legalPoint(runtime.foot) &&
                                         runtime.foot.x === attempt.contact.x && runtime.foot.y === attempt.contact.y);
-                            });
+                            };
+                            const applicationCurrent = () => current() && [...replacements].every(replacementCurrent);
                             const observerDraft = draft.observerDraft && observerReactionDrafts.get(hall) === draft.observerDraft &&
                                 (hall.currentObserverReactionBatch?.startedAt || 0) <= draft.observerDraft.batch.startedAt ? draft.observerDraft : null;
-                            if (!saved || replacements.size || JSON.stringify(waiting) !== JSON.stringify(receipt.waitingIds)) {
+                            if (receipt.focusSource) {
+                                // One source/claim, but no participant is another participant's publish guard.
+                                const pending = new Set([...waiting, ...replacements.keys()]);
+                                for (const [id, row] of replacements) {
+                                    if (!current()) break;
+                                    if (!replacementCurrent([id, row])) continue;
+                                    const live = hall.currentEpisodeWindow;
+                                    const prior = live.partialReconciliations.find(item => item.sourceId === sourceId);
+                                    const entry = nextReceipt.rows.find(item => item.residentId === id);
+                                    const staged = { ...prior, waitingIds: [...pending].filter(member => member !== id),
+                                        rows: [...prior.rows.filter(item => item.residentId !== id), entry] };
+                                    const update = { ...live, residents: [...live.residents.map(item => item.residentId === id ? row : item),
+                                        ...(!live.residents.some(item => item.residentId === id) ? [row] : [])],
+                                        partialReconciliations: live.partialReconciliations.map(item => item.sourceId === sourceId ? staged : item) };
+                                    if (saveHallEpisodeWindow(hall, update, null, () => current() && replacementCurrent([id, row]))) pending.delete(id);
+                                }
+                                const live = hall.currentEpisodeWindow, prior = live.partialReconciliations.find(item => item.sourceId === sourceId);
+                                if (prior && JSON.stringify(prior.waitingIds) !== JSON.stringify([...pending]))
+                                    saveHallEpisodeWindow(hall, { ...live, partialReconciliations: live.partialReconciliations.map(item =>
+                                        item.sourceId === sourceId ? { ...item, waitingIds: [...pending] } : item) }, null, current);
+                                if (replacements.size) syncSpatialAmbient();
+                            } else if (!saved || replacements.size || JSON.stringify(waiting) !== JSON.stringify(receipt.waitingIds)) {
                                 if (!saveHallEpisodeWindow(hall, next, observerDraft, receipt.awaySource || receipt.foodSource ? applicationCurrent : null)) continue;
                                 if (observerDraft) dispatchObserverReactionContent(hall);
                                 if (replacements.size) syncSpatialAmbient();
@@ -13190,13 +13296,15 @@ ${buildLeanForegroundContext(cat)}`;
                                     beats: row.beats.filter(beat => canonical.rows.find(claim => claim.residentId === row.residentId).beatIds.includes(beat.id)) })) };
                                 const claimed = { ...canonical, state: settings.apiKey && frozen.residents.length ? 'claimed' : 'fallback' };
                                 const claimPlan = { ...currentPlan, partialReconciliations: currentPlan.partialReconciliations.map(row => row.sourceId === sourceId ? claimed : row) };
-                                if (!saveHallEpisodeWindow(hall, claimPlan, null, receipt.awaySource || receipt.foodSource ? applicationCurrent : null)) continue;
+                                if (!saveHallEpisodeWindow(hall, claimPlan, null, receipt.focusSource ? () => current() && eligibleRows.every(row =>
+                                    focusHallMemberCurrent(canonical, cats.value.find(cat => String(cat.id) === row.residentId), hall) && isHallEpisodeOwned(cats.value.find(cat => String(cat.id) === row.residentId))) :
+                                    receipt.awaySource || receipt.foodSource ? applicationCurrent : null)) continue;
                                 if (claimed.state === 'claimed') {
                                     const peerLines = buildPublicSharedPeerRelationshipLines(cats.value.filter(cat => frozen.residents.some(row => row.residentId === String(cat.id))));
                                     const packet = frozen.residents.map(row => {
                                         const cat = cats.value.find(cat => String(cat.id) === row.residentId);
                                         return [`[PUBLIC CANON PROFILE]\n${cat.prompt || cat.personality || ''}`, buildLeanAmbientContext(cat, { status: '', publicRelationshipLines: peerLines.get(row.residentId) || [] }),
-                                            JSON.stringify({ residentId: row.residentId, knownEvent: canonical.foodSource ? (row.residentId === canonical.targetId ? `已完成与 USER 的食物互动：${canonical.foodSource.itemName}。` : '共同活动因另一参与者当前活动改变而中断。') : canonical.awaySource ? (row.residentId === canonical.targetId ? '已回到馆内，从当前合法状态重新安顿。' : '共同活动因另一参与者离馆而中断。') : row.residentId === canonical.targetId
+                                            JSON.stringify({ residentId: row.residentId, knownEvent: canonical.focusSource ? (canonical.focusSource.participantIds.includes(row.residentId) ? '专注活动已结束，从当前合法状态重新安顿。' : '共同活动因参与者进入专注活动而中断。') : canonical.foodSource ? (row.residentId === canonical.targetId ? `已完成与 USER 的食物互动：${canonical.foodSource.itemName}。` : '共同活动因另一参与者当前活动改变而中断。') : canonical.awaySource ? (row.residentId === canonical.targetId ? '已回到馆内，从当前合法状态重新安顿。' : '共同活动因另一参与者离馆而中断。') : row.residentId === canonical.targetId
                                                 ? '完成了与 USER 的互动。' : canonical.reasons[row.residentId]?.includes('observer')
                                                     ? `USER 正在与 ${getResidentPublicName(target)} 互动。` : '共同活动的另一参与者已被合法打断。',
                                                 beats: row.beats.map(beat => ({ beatId: beat.id, room: beat.roomId, activity: beat.behaviorId, posture: beat.posture })) })].join('\n');
@@ -13206,19 +13314,33 @@ ${buildLeanForegroundContext(cat)}`;
                                     const publish = (entries, state) => {
                                         if (!current()) { addLog(`HALL AFFECTED STALE: source=${sourceId}`, 'info'); return; }
                                         const live = hall.currentEpisodeWindow;
-                                        const accepted = entries.filter(entry => {
-                                            const cat = cats.value.find(cat => String(cat.id) === entry.residentId), row = live.residents.find(row => row.residentId === entry.residentId);
+                                        const entryCurrent = entry => {
+                                            const cat = cats.value.find(cat => String(cat.id) === entry.residentId), row = hall.currentEpisodeWindow.residents.find(row => row.residentId === entry.residentId);
                                             const expected = frozen.residents.find(row => row.residentId === entry.residentId);
-                                            return cat && isHallEpisodeOwned(cat) && row?.authority === expected?.authority &&
-                                                row.continuation?.sourceId === sourceId && (!canonical.awaySource && !canonical.foodSource ||
+                                            return cat && (!canonical.focusSource || focusHallMemberCurrent(canonical, cat, hall)) && isHallEpisodeOwned(cat) && row?.authority === expected?.authority &&
+                                                row.continuation?.sourceId === sourceId && (!canonical.awaySource && !canonical.foodSource && !canonical.focusSource ||
                                                     row.continuation.startedAt === expected?.continuation?.startedAt) &&
                                                 row.beats.some(beat => beat.id === entry.beatId);
-                                        });
+                                        };
+                                        const accepted = entries.filter(entryCurrent);
+                                        if (canonical.focusSource) {
+                                            for (const id of new Set(accepted.map(entry => entry.residentId))) {
+                                                const memberEntries = accepted.filter(entry => entry.residentId === id), live = hall.currentEpisodeWindow;
+                                                const keys = new Set(memberEntries.map(entry => `${entry.residentId}|${entry.beatId}`));
+                                                saveHallEpisodeWindow(hall, { ...live, content: { ...live.content,
+                                                    entries: [...live.content.entries.filter(entry => !keys.has(`${entry.residentId}|${entry.beatId}`)), ...memberEntries] }
+                                                }, null, () => current() && memberEntries.every(entryCurrent));
+                                            }
+                                            const live = hall.currentEpisodeWindow;
+                                            saveHallEpisodeWindow(hall, { ...live, partialReconciliations: live.partialReconciliations.map(row =>
+                                                row.sourceId === sourceId ? { ...row, state } : row) }, null, current);
+                                            return;
+                                        }
                                         const keys = new Set(accepted.map(entry => `${entry.residentId}|${entry.beatId}`));
                                         const update = { ...live, content: { ...live.content, entries: [...live.content.entries.filter(entry =>
                                             !keys.has(`${entry.residentId}|${entry.beatId}`)), ...accepted] },
                                             partialReconciliations: live.partialReconciliations.map(row => row.sourceId === sourceId ? { ...row, state } : row) };
-                                        saveHallEpisodeWindow(hall, update, null, receipt.awaySource || receipt.foodSource ? current : null);
+                                        saveHallEpisodeWindow(hall, update, null, receipt.awaySource || receipt.foodSource || receipt.focusSource ? current : null);
                                     };
                                     void requestSharedHallContent(prompt, { maxTokens: 3600, priority: 'background', uiMode: 'background',
                                         origin: 'world-autonomy', originSurface: 'hall-affected', maxAttempts: 1,
@@ -30689,6 +30811,7 @@ ${outputContract}`;
                         if (!session) {
                             if (focusRuntimeSession || isFocusing.value) focusSessionGeneration.value += 1;
                             focusRuntimeSession = null; isFocusing.value = false;
+                            if (user.focusSession?.state === 'ended') publishFocusHallHandoff(user.focusSession, 'end');
                             return false;
                         }
                         bindFocusRuntime(session);
@@ -30696,7 +30819,7 @@ ${outputContract}`;
                     focusTime.value = focusRemainingSeconds(session);
                     if (!focusTime.value)
                         return finishFocus(session.plannedDuration / 60, true, { sessionId: session.id, recovery: true });
-                    if (!focusTimer.value) startFocusTimer(session);
+                    if (!focusTimer.value) { publishFocusHallHandoff(session, 'start'); startFocusTimer(session); }
                     return true;
                 };
                 // End canonical Focus session authority.
@@ -30847,6 +30970,7 @@ ${buildLeanAmbientContext(cat, {
                             action: focusSetupData.action.trim(), plannedDuration: focusSetupData.minutes * 60,
                             startedAt: new Date().toISOString(), endedAt: '', reportId: '' } };
                     }
+                    if (!focusStartDraft.hallDependencies) focusStartDraft.hallDependencies = captureFocusHallDependencies(focusStartDraft.session);
                     // The intent ID survives failure; activity starts only on this save attempt.
                     const session = { ...focusStartDraft.session, startedAt: new Date().toISOString() };
                     if (!normalizeFocusSession(session)) return false;
@@ -30862,6 +30986,7 @@ ${buildLeanAmbientContext(cat, {
                             appendInteractionEvent(cat, 'focus-start', '与馆长共同执行专注任务：' + session.action,
                                 { source: 'focus', focusSessionId: session.id, id: session.id + ':start:' + id });
                     }
+                    const hallHandoff = stageFocusHallReceipt(snapshot, session, 'start', focusStartDraft.hallDependencies);
                     if (!current() || window.Meeow.storage.persistSnapshot(snapshot) !== true || !current()) {
                         showToast('专注任务尚未保存，稍后可重试。', 'error'); return false;
                     }
@@ -30874,6 +30999,7 @@ ${buildLeanAmbientContext(cat, {
                     }
                     focusStartDraft = null; focusFinishDraft = null;
                     bindFocusRuntime(getActiveFocusSession());
+                    publishFocusHallHandoff(getActiveFocusSession(), 'start', hallHandoff);
                     participants.forEach(cat => terminateActiveSocialPresenceForResident(cat.id, 'stronger-authority'));
                     showFocusSetupModal.value = false;
                     currentFocusLog.value = [getCurrentTimeStr() + ' [系统] 目标已进入专注状态。监督程序启动。'];
@@ -30941,6 +31067,7 @@ ${buildLeanAmbientContext(cat, {
                         snapshot.user.focusSession = { ...session, state: 'ended', endedAt: report.archivedAt, reportId: report.id };
                         const endedFocusStatus = '刚刚结束「' + cleanText(session.action) + '」专注任务';
                         Object.assign(snapshot.user, buildUserStatusFields(endedFocusStatus, 'focus-completion', 'private'));
+                        const hallHandoff = stageFocusHallReceipt(snapshot, snapshot.user.focusSession, 'end');
                         if (!current() || window.Meeow.storage.persistSnapshot(snapshot) !== true || !current()) {
                             showToast('结算尚未保存，专注权威仍保留；请重试结束。', 'error'); return false;
                         }
@@ -30954,6 +31081,7 @@ ${buildLeanAmbientContext(cat, {
                         setUserCurrentStatus(endedFocusStatus, 'focus-completion', 'private');
                         tempUserStatus.value = endedFocusStatus;
                         isFocusing.value = false; focusRuntimeSession = null; focusFinishDraft = null;
+                        publishFocusHallHandoff(user.focusSession, 'end', hallHandoff);
                         if (audioPlayer.value) audioPlayer.value.pause();
                         focusMusic.modalOpen = false; focusMusic.addPanel = false; void releaseFocusWakeLock();
                         Object.assign(currentSettlement, report, { status: report.status === 'COMPLETED' ? 'success' : 'failed',
