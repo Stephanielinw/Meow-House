@@ -12664,7 +12664,10 @@ ${buildLeanForegroundContext(cat)}`;
                         new Set(plan.partialReconciliations.map(receipt => receipt?.sourceId)).size === plan.partialReconciliations.length &&
                         plan.partialReconciliations.every(receipt => receipt && typeof receipt.sourceId === 'string' && receipt.sourceId &&
                             typeof receipt.targetId === 'string' && typeof receipt.targetAuthority === 'string' &&
-                            (receipt.awaySource ? typeof receipt.awaySource.episodeId === 'string' &&
+                            (receipt.foodSource ? receipt.sourceId === receipt.foodSource.eventId &&
+                                typeof receipt.foodSource.itemName === 'string' && typeof receipt.foodSource.recordId === 'string' &&
+                                (!receipt.foodSource.preservedAuthority || typeof receipt.foodSource.preservedAuthority === 'string')
+                                : receipt.awaySource ? typeof receipt.awaySource.episodeId === 'string' &&
                                 ['departure', 'return'].includes(receipt.awaySource.phase) &&
                                 receipt.sourceId === `away:${receipt.awaySource.episodeId}:${receipt.awaySource.phase}`
                                 : typeof receipt.interactionEpisodeId === 'string' && Number.isFinite(receipt.targetInteractionAt)) && Number.isFinite(receipt.at) && ['pending', 'claimed', 'accepted', 'fallback', 'superseded'].includes(receipt.state) &&
@@ -12684,11 +12687,23 @@ ${buildLeanForegroundContext(cat)}`;
                     const row = plan.residents.find(row => row.residentId === String(cat.id));
                     return row ? { hall, plan, row } : null;
                 };
+                const foodHallSourceCurrent = (receipt, hall) => {
+                    const cat = cats.value.find(cat => String(cat.id) === receipt.targetId), source = receipt.foodSource;
+                    return Boolean(cat && source && isResidentInHall(cat) && !hasHigherHallPresentationOwner(cat.id) &&
+                        String(getResidentPhysicalHallId(cat)) === String(hall.id) && hallEpisodeAuthority(cat) === receipt.targetAuthority &&
+                        cat.todayInteractions?.some(record => record.id === source.recordId && record.type === 'item' &&
+                            record.source === 'item-interaction' && record.foodInteractionEventId === source.eventId) &&
+                        cat.chatHistory?.some(card => card.type === 'item-interaction' && card.foodInteractionEventId === source.eventId));
+                };
+                const hallEpisodeRowAuthorityCurrent = (row, cat, plan) => row.authority === hallEpisodeAuthority(cat) ||
+                    Boolean(plan.partialReconciliations?.some(receipt => receipt.targetId === String(cat.id) &&
+                        receipt.foodSource?.preservedAuthority === row.authority &&
+                        foodHallSourceCurrent(receipt, halls.value.find(hall => String(hall.id) === plan.hallId))));
                 const isHallEpisodeOwned = cat => {
                     const context = getHallEpisodeRow(cat);
                     const objects = context && hallEpisodeObjects.get(context.plan);
                     return Boolean(context && context.row.state === 'valid' &&
-                        context.row.authority === hallEpisodeAuthority(cat) &&
+                        hallEpisodeRowAuthorityCurrent(context.row, cat, context.plan) &&
                         (!objects || objects.get(String(cat.id)) === cat) && !hasHigherHallPresentationOwner(cat.id));
                 };
                 const saveHallEpisodeWindow = (hall, plan, observerDraft = null, isCurrent = null) => {
@@ -12855,7 +12870,12 @@ ${buildLeanForegroundContext(cat)}`;
                         if (!hallEpisodeObjects.has(plan)) hallEpisodeObjects.set(plan, new Map(cats.value.map(cat => [String(cat.id), cat])));
                         for (const row of plan.residents) {
                             const cat = cats.value.find(cat => String(cat.id) === row.residentId);
-                            if (row.state === 'valid' && (!cat || !isHallEpisodeOwned(cat)))
+                            // A durable Food fact may only change freshness. Failed receipt
+                            // saves hold execution until retry; they must not invalidate that row.
+                            const pendingFood = [...(hallAffectedDrafts.get(hall)?.values() || [])].some(draft =>
+                                draft.receipt.targetId === row.residentId && draft.receipt.foodSource?.preservedAuthority === row.authority &&
+                                foodHallSourceCurrent(draft.receipt, hall));
+                            if (row.state === 'valid' && (!cat || !isHallEpisodeOwned(cat)) && !pendingFood)
                                 recordHallEpisodeProgress(row.residentId, row.beats[0].id, 'invalidated', row.lastFoot, 'resident-authority-changed');
                         }
                         syncSpatialAmbient();
@@ -12958,6 +12978,54 @@ ${buildLeanForegroundContext(cat)}`;
                             ['completed', 'skipped'].includes(beat.state) ? beat : { ...beat, state: 'invalidated' }) } : row);
                     return { ...plan, residents, partialReconciliations: [...(plan.partialReconciliations || []), receipt] };
                 };
+                // C2 consumes existing durable Food history, never inventory/preference authority.
+                const captureFoodHallContinuitySource = cat => {
+                    const source = captureHallContinuitySource(cat);
+                    if (!source) return null;
+                    const row = source.hall.currentEpisodeWindow.residents.find(row => row.residentId === String(cat.id));
+                    return { ...source, dependency: source.dependency?.claim.isCurrent() ? source.dependency : null,
+                        authority: hallEpisodeAuthority(cat), itemUse: cat.currentItemUse,
+                        preservedAuthority: row?.state === 'valid' && hallEpisodeRowAuthorityCurrent(row, cat, source.hall.currentEpisodeWindow) ? row.authority : '' };
+                };
+                const queueFoodHallReconciliation = (cat, record, source) => {
+                    if (!source || source.resident !== cat || !cats.value.includes(cat) || !isResidentInHall(cat) ||
+                        String(getResidentPhysicalHallId(cat)) !== source.hallId || String(activeHallId.value) !== source.hallId ||
+                        !isContextuallyViewingHallPresentation(source.hallId) || record?.type !== 'item' || record.source !== 'item-interaction' ||
+                        typeof record.foodInteractionEventId !== 'string' || !record.foodInteractionEventId || typeof record.id !== 'string' || !record.id ||
+                        !cat.todayInteractions?.includes(record) || !cat.chatHistory?.some(card => card.type === 'item-interaction' &&
+                            card.foodInteractionEventId === record.foodInteractionEventId) ||
+                        !Number.isFinite(Date.parse(record.at)) || Date.parse(record.at) < source.hall.currentEpisodeWindow?.windowStart ||
+                        Date.parse(record.at) >= source.hall.currentEpisodeWindow?.windowEnd ||
+                        source.windowKey !== hallActivities.episodeWindow(Date.now()).key ||
+                        source.hall.currentEpisodeWindow?.windowKey !== source.windowKey) return false;
+                    const sourceId = record.foodInteractionEventId;
+                    if (source.hall.currentEpisodeWindow.partialReconciliations?.some(receipt => receipt.sourceId === sourceId)) return true;
+                    const drafts = hallAffectedDrafts.get(source.hall) || new Map();
+                    if (!drafts.has(sourceId)) {
+                        // Presentation freshness/inner thought are not physical activity changes.
+                        const physical = authority => JSON.stringify(JSON.parse(authority).filter((_, index) => index !== 8 && index !== 9));
+                        const compatible = physical(source.authority) === physical(hallEpisodeAuthority(cat)) && source.itemUse === cat.currentItemUse;
+                        const dependency = source.dependency, claim = dependency?.claim;
+                        const interrupted = !compatible && claim &&
+                            (claim.shared.phase === 'shared-active' && socialOpportunityClaims.get(source.hallId) === claim ||
+                                claim.shared.phase === 'cancelled' && !socialOpportunityClaims.has(source.hallId)) &&
+                            !claim.isCurrent() && dependency.partners.every(partner => cats.value.includes(partner.resident) &&
+                                hallEpisodeAuthority(partner.resident) === partner.authority);
+                        const input = { targetId: String(cat.id), observerIds: [], residentIds: cats.value.filter(member =>
+                            isResidentInHall(member) && String(getResidentPhysicalHallId(member)) === source.hallId).map(member => String(member.id)),
+                            dependencies: interrupted ? [{ participantIds: claim.participantIds, interrupted: true }] : [] };
+                        const affectedIds = hallActivities.buildAffectedResidentIds(input);
+                        drafts.set(sourceId, { rows: new Map(), receipt: { sourceId, targetId: String(cat.id),
+                            targetAuthority: hallEpisodeAuthority(cat), at: Date.parse(record.at),
+                            foodSource: { eventId: sourceId, recordId: record.id, itemName: cleanText(record.itemName || ''),
+                                preservedAuthority: compatible ? source.preservedAuthority : '' }, affectedIds,
+                            reasons: Object.fromEntries(affectedIds.map(id => [id, hallActivities.affectedResidentReasons(id, input)])),
+                            waitingIds: affectedIds, rows: [], state: 'pending' } });
+                        hallAffectedDrafts.set(source.hall, drafts);
+                    }
+                    void reconcileAffectedHallResidents();
+                    return true;
+                };
                 const captureHallContinuitySource = cat => {
                     const hallId = String(getResidentPhysicalHallId(cat)), hall = halls.value.find(row => String(row.id) === hallId);
                     if (!hall || hallId !== String(activeHallId.value) || !isContextuallyViewingHallPresentation(hallId) ||
@@ -13018,13 +13086,13 @@ ${buildLeanForegroundContext(cat)}`;
                     const hall = halls.value.find(hall => String(hall.id) === String(activeHallId.value));
                     if (!hall || hallEpisodeDisposed) return false;
                     const plan = hall.currentEpisodeWindow, drafts = hallAffectedDrafts.get(hall) || new Map();
-                    if (!drafts.size && !plan?.partialReconciliations?.some(receipt => receipt.waitingIds.length)) return true;
+                    if (!drafts.size && !plan?.partialReconciliations?.some(receipt => receipt.waitingIds.length || receipt.foodSource && receipt.state === 'pending' && receipt.rows.length)) return true;
                     if (!isContextuallyViewingHallPresentation(String(hall.id)) || document.visibilityState === 'hidden') return false;
                     if (hallAffectedInFlight.has(hall)) return hallAffectedInFlight.get(hall);
                     const task = (async () => {
                         const bucket = hallActivities.episodeWindow(now.getTime());
                         if (!usableHallEpisodeWindow(plan) || plan.windowKey !== bucket.key) { drafts.clear(); return false; }
-                        for (const receipt of plan.partialReconciliations || []) if (receipt.waitingIds.length && !drafts.has(receipt.sourceId))
+                        for (const receipt of plan.partialReconciliations || []) if ((receipt.waitingIds.length || receipt.foodSource && receipt.state === 'pending' && receipt.rows.length) && !drafts.has(receipt.sourceId))
                             drafts.set(receipt.sourceId, { receipt, rows: new Map() });
                         hallAffectedDrafts.set(hall, drafts);
                         for (const [sourceId, draft] of drafts) {
@@ -13035,11 +13103,11 @@ ${buildLeanForegroundContext(cat)}`;
                             const current = () => !hallEpisodeDisposed && hall.currentEpisodeWindow?.windowKey === bucket.key &&
                                 hallActivities.episodeWindow(Date.now()).key === bucket.key && String(activeHallId.value) === String(hall.id) &&
                                 isContextuallyViewingHallPresentation(String(hall.id)) && target && cats.value.includes(target) &&
-                                (receipt.awaySource ? awayHallSourceCurrent(receipt, hall) :
+                                (receipt.foodSource ? foodHallSourceCurrent(receipt, hall) : receipt.awaySource ? awayHallSourceCurrent(receipt, hall) :
                                     getResidentPhysicalHallId(target) === String(hall.id) && hallEpisodeAuthority(target) === receipt.targetAuthority &&
                                     target.todayInteractions?.some(record => record.id === sourceId && record.interactionEpisodeId === receipt.interactionEpisodeId));
                             if (!current()) { drafts.delete(sourceId); continue; }
-                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds, receipt.awaySource?.phase === 'return');
+                            const residents = await collectHallEpisodeResidents(String(hall.id), receipt.waitingIds, Boolean(receipt.foodSource) || receipt.awaySource?.phase === 'return');
                             if (!current()) { drafts.delete(sourceId); continue; }
                             currentPlan = hall.currentEpisodeWindow;
                             const claims = currentPlan.residents.flatMap(row => {
@@ -13052,7 +13120,8 @@ ${buildLeanForegroundContext(cat)}`;
                                 const cat = cats.value.find(cat => String(cat.id) === id);
                                 const row = currentPlan.residents.find(row => row.residentId === id);
                                 if ((!row && receipt.awaySource?.phase !== 'return') || !cat || !isResidentInHall(cat) || String(getResidentPhysicalHallId(cat)) !== String(hall.id)) continue;
-                                if (row?.state === 'valid' && row.authority === hallEpisodeAuthority(cat)) continue;
+                                if (row?.state === 'valid' && (row.authority === hallEpisodeAuthority(cat) || receipt.foodSource?.preservedAuthority === row.authority ||
+                                    hallEpisodeRowAuthorityCurrent(row, cat, currentPlan)) && !(receipt.foodSource && receipt.reasons[id]?.includes('shared_dependency'))) continue;
                                 if (hasHigherHallPresentationOwner(id)) { waiting.push(id); continue; }
                                 const resident = residents.find(resident => resident.id === id);
                                 if (!resident) { waiting.push(id); continue; }
@@ -13090,7 +13159,7 @@ ${buildLeanForegroundContext(cat)}`;
                                 const runtime = spatialAmbientSnapshot.value.residents.find(runtime => runtime.id === id);
                                 const attempt = returnAttempts.get(id), first = row.beats[row.continuation.pastCount];
                                 return cat && !hasHigherHallPresentationOwner(id) && isResidentInHall(cat) &&
-                                    hallEpisodeAuthority(cat) === row.authority && (receipt.awaySource?.phase !== 'return' ||
+                                    hallEpisodeAuthority(cat) === row.authority && (!receipt.foodSource && receipt.awaySource?.phase !== 'return' ||
                                         attempt && attempt.hallId === String(hall.id) && attempt.windowKey === hall.currentEpisodeWindow.windowKey &&
                                         attempt.authority === row.authority && attempt.attemptStartAt === row.continuation.startedAt &&
                                         first.foot.x === attempt.contact.x && first.foot.y === attempt.contact.y &&
@@ -13102,7 +13171,7 @@ ${buildLeanForegroundContext(cat)}`;
                             const observerDraft = draft.observerDraft && observerReactionDrafts.get(hall) === draft.observerDraft &&
                                 (hall.currentObserverReactionBatch?.startedAt || 0) <= draft.observerDraft.batch.startedAt ? draft.observerDraft : null;
                             if (!saved || replacements.size || JSON.stringify(waiting) !== JSON.stringify(receipt.waitingIds)) {
-                                if (!saveHallEpisodeWindow(hall, next, observerDraft, receipt.awaySource ? applicationCurrent : null)) continue;
+                                if (!saveHallEpisodeWindow(hall, next, observerDraft, receipt.awaySource || receipt.foodSource ? applicationCurrent : null)) continue;
                                 if (observerDraft) dispatchObserverReactionContent(hall);
                                 if (replacements.size) syncSpatialAmbient();
                                 addLog(`HALL AFFECTED: source=${sourceId}; hall=${hall.id}; window=${bucket.key}; reasons=${JSON.stringify(nextReceipt.reasons)}; replaced=[${[...replacements.keys()]}]`, 'info');
@@ -13117,13 +13186,13 @@ ${buildLeanForegroundContext(cat)}`;
                                     beats: row.beats.filter(beat => canonical.rows.find(claim => claim.residentId === row.residentId).beatIds.includes(beat.id)) })) };
                                 const claimed = { ...canonical, state: settings.apiKey && frozen.residents.length ? 'claimed' : 'fallback' };
                                 const claimPlan = { ...currentPlan, partialReconciliations: currentPlan.partialReconciliations.map(row => row.sourceId === sourceId ? claimed : row) };
-                                if (!saveHallEpisodeWindow(hall, claimPlan, null, receipt.awaySource ? applicationCurrent : null)) continue;
+                                if (!saveHallEpisodeWindow(hall, claimPlan, null, receipt.awaySource || receipt.foodSource ? applicationCurrent : null)) continue;
                                 if (claimed.state === 'claimed') {
                                     const peerLines = buildPublicSharedPeerRelationshipLines(cats.value.filter(cat => frozen.residents.some(row => row.residentId === String(cat.id))));
                                     const packet = frozen.residents.map(row => {
                                         const cat = cats.value.find(cat => String(cat.id) === row.residentId);
                                         return [`[PUBLIC CANON PROFILE]\n${cat.prompt || cat.personality || ''}`, buildLeanAmbientContext(cat, { status: '', publicRelationshipLines: peerLines.get(row.residentId) || [] }),
-                                            JSON.stringify({ residentId: row.residentId, knownEvent: canonical.awaySource ? (row.residentId === canonical.targetId ? '已回到馆内，从当前合法状态重新安顿。' : '共同活动因另一参与者离馆而中断。') : row.residentId === canonical.targetId
+                                            JSON.stringify({ residentId: row.residentId, knownEvent: canonical.foodSource ? (row.residentId === canonical.targetId ? `已完成与 USER 的食物互动：${canonical.foodSource.itemName}。` : '共同活动因另一参与者当前活动改变而中断。') : canonical.awaySource ? (row.residentId === canonical.targetId ? '已回到馆内，从当前合法状态重新安顿。' : '共同活动因另一参与者离馆而中断。') : row.residentId === canonical.targetId
                                                 ? '完成了与 USER 的互动。' : canonical.reasons[row.residentId]?.includes('observer')
                                                     ? `USER 正在与 ${getResidentPublicName(target)} 互动。` : '共同活动的另一参与者已被合法打断。',
                                                 beats: row.beats.map(beat => ({ beatId: beat.id, room: beat.roomId, activity: beat.behaviorId, posture: beat.posture })) })].join('\n');
@@ -13137,7 +13206,7 @@ ${buildLeanForegroundContext(cat)}`;
                                             const cat = cats.value.find(cat => String(cat.id) === entry.residentId), row = live.residents.find(row => row.residentId === entry.residentId);
                                             const expected = frozen.residents.find(row => row.residentId === entry.residentId);
                                             return cat && isHallEpisodeOwned(cat) && row?.authority === expected?.authority &&
-                                                row.continuation?.sourceId === sourceId && (!canonical.awaySource ||
+                                                row.continuation?.sourceId === sourceId && (!canonical.awaySource && !canonical.foodSource ||
                                                     row.continuation.startedAt === expected?.continuation?.startedAt) &&
                                                 row.beats.some(beat => beat.id === entry.beatId);
                                         });
@@ -13145,7 +13214,7 @@ ${buildLeanForegroundContext(cat)}`;
                                         const update = { ...live, content: { ...live.content, entries: [...live.content.entries.filter(entry =>
                                             !keys.has(`${entry.residentId}|${entry.beatId}`)), ...accepted] },
                                             partialReconciliations: live.partialReconciliations.map(row => row.sourceId === sourceId ? { ...row, state } : row) };
-                                        saveHallEpisodeWindow(hall, update, null, receipt.awaySource ? current : null);
+                                        saveHallEpisodeWindow(hall, update, null, receipt.awaySource || receipt.foodSource ? current : null);
                                     };
                                     void requestSharedHallContent(prompt, { maxTokens: 3600, priority: 'background', uiMode: 'background',
                                         origin: 'world-autonomy', originSurface: 'hall-affected', maxAttempts: 1,
@@ -33789,6 +33858,8 @@ ${statusOutputRules}`;
                     }
                     const foodInteractionEventId = isFoodInteraction
                         ? `food-interaction:${window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`}` : '';
+                    const foodHallContinuitySource = isFoodInteraction && typeof captureFoodHallContinuitySource === 'function'
+                        ? captureFoodHallContinuitySource(targetCat) : null;
                     const episodicMemory = buildUserSharedEpisodicMemoryContext(targetCat, {
                         userInput: `馆长把${isFoodInteraction ? foodSemanticItem.name : targetItem.name}交给你。${isFoodInteraction ? '' : targetItem.desc || ''}`,
                         itemName: isFoodInteraction ? foodSemanticItem.name : targetItem.name,
@@ -33932,6 +34003,10 @@ ${episodicMemory}`;
                     } finally {
                         if (thinkingStates[targetCatId] === itemEpisode) delete thinkingStates[targetCatId];
                         itemInteractionInFlight.value = false;
+                        if (isFoodInteraction && acceptedMomentItem && foodHallContinuitySource) {
+                            try { queueFoodHallReconciliation(targetCat, acceptedMomentItem, foodHallContinuitySource); }
+                            catch (error) { addLog(`FOOD HALL CONTINUITY DEFERRED: ${error.message}`, 'warn'); }
+                        }
                     }
                 };
 
