@@ -1,0 +1,6 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Registered local rollback worktree
+/Meow-House-pages-rollback/
