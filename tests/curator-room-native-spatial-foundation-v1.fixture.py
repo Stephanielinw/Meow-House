@@ -37,7 +37,7 @@ SURFACE_DEFINITIONS = [
      [(650, 50, 1015, 113)], "Paint covers the wardrobe roof in the closet layer, including one connected edge band."),
     ("curator-chair-seat", "chair.png", "seat", "furniture-level", "requires-future-transition", "medium-high",
      [(634, 814, 724, 883), (594, 826, 616, 875), (747, 826, 768, 873)],
-     "Three red islands overlap the chair cushion/body; purple marks its front legs separately."),
+     "Three red islands overlap the chair cushion/body; purple selects its approved foreground frame."),
     ("curator-bedside-cabinet-top", "cabin.png", "cabinet-top", "furniture-level", "requires-future-transition", "high",
      [(343, 291, 490, 333)], "Painted top wraps around lamp and plant on the cabinet layer."),
     ("curator-window-ledge", "window.png", "window-ledge", "elevated", "requires-future-transition", "medium-high",
@@ -124,13 +124,18 @@ def report(name: str, body: str, write: bool) -> None:
     target = QA / (name + ".txt")
     content = body.strip() + "\n"
     if write:
-        target.write_text(content)
+        if not target.exists() or target.read_text() != content:
+            target.write_text(content)
     else:
         assert target.read_text() == content, f"stale report: {name}"
 
 
 def image(target: Path, expected: Image.Image, write: bool) -> None:
     if write:
+        if target.exists():
+            actual = Image.open(target)
+            if actual.size == expected.size and actual.mode == expected.mode and np.array_equal(np.asarray(actual), np.asarray(expected)):
+                return
         target.parent.mkdir(parents=True, exist_ok=True)
         expected.save(target, format="PNG")
     else:
@@ -171,13 +176,13 @@ def main(write: bool) -> None:
     purple = (r >= 165) & (r <= 190) & (g >= 65) & (g <= 105) & (b >= 240) & (delta >= 40)
     assert not np.any((floor & red) | (floor & purple) | (red & purple))
     assert np.all(delta[floor | red | purple] > 0), "unchanged room art was captured"
-    assert (int(floor.sum()), int(red.sum()), int(purple.sum())) == (340122, 235220, 8512)
+    assert (int(floor.sum()), int(red.sum()), int(purple.sum())) == (340122, 235220, 19949)
     floor_components = connected_components(floor)
     red_components = connected_components(red)
     purple_components = connected_components(purple)
     assert len(floor_components) == 3
     assert len(red_components) == 10
-    assert len(purple_components) == 2
+    assert len(purple_components) == 1
 
     masks = {}
     surface_records = []
@@ -216,10 +221,10 @@ def main(write: bool) -> None:
     assert purple_overlap_chair >= int(purple.sum() * .99)
     occlusion = {"source": "reference.png:purple", "mask": "spatial/occlusion-candidate.png",
                  "pixelCount": int(purple.sum()), "bounds": bounds(purple),
-                 "ownerLayer": "chair.png", "portion": "two front chair legs / frame strips",
+                 "ownerLayer": "chair.png", "portion": "approved chair back / foreground frame and downward members",
                  "ownerAlphaOverlapPixels": purple_overlap_chair,
                  "relatedSurfaceIds": ["curator-chair-seat"],
-                 "mayOcclude": "chair-seat presentation or adjacent painted floor, subject to future depth authoring",
+                 "mayOcclude": "real chair pixels selected by purple may cover an authorized chair-seat resident",
                  "runtimeClippingEnabled": False,
                  "components": [{"pixels": item["pixels"], "bounds": item["bounds"]} for item in purple_components]}
     source = {"schemaVersion": 1, "roomId": "curator-room", "displayName": "馆长室",
@@ -236,8 +241,16 @@ def main(write: bool) -> None:
               "occlusionCandidate": occlusion,
               "entryPoints": [], "transitions": [], "behaviorAffordances": [],
               "obstacleMap": None}
-    source_json = json.dumps(source, ensure_ascii=False, indent=2) + "\n"
     metadata = SPATIAL / "curator-room-spatial-source.json"
+    # Interaction authoring lives in this source; geometry regeneration must
+    # preserve it. The production navigation contract validates its coordinates.
+    if metadata.exists():
+        existing = json.loads(metadata.read_text())
+        source["occlusionCandidate"]["runtimeClippingEnabled"] = existing.get("occlusionCandidate", {}).get("runtimeClippingEnabled", False)
+        authored = existing.get("furnitureInteractions")
+        if authored is not None:
+            source["furnitureInteractions"] = authored
+    source_json = json.dumps(source, ensure_ascii=False, indent=2) + "\n"
     if write:
         metadata.write_text(source_json)
     else:
@@ -326,8 +339,8 @@ def main(write: bool) -> None:
     report("purple-occlusion-ownership-audit", "PURPLE OCCLUSION CANDIDATE\n" +
            f"Pixels: {int(purple.sum())}; bounds {bounds(purple)}; components: {len(purple_components)}. "
            f"Chair layer overlap: {purple_overlap_chair}/{int(purple.sum())}.\n" +
-           "Two marked strips follow the front chair legs/frame. They may later cover a resident at the chair seat "
-           "or adjacent ground. Purple is presentation metadata only: no walkability, collision, transition or live clipping.", write)
+           "Approved purple follows the chair back/frame and downward foreground members. Original chair pixels may cover a resident at the chair seat "
+           "during its authorized interaction. Purple is presentation metadata only; it never grants walkability or world occupancy.", write)
     report("curator-room-spatial-source-contract", "MACHINE-READABLE CURATOR ROOM SOURCE\n" +
            "assets/meeow-map/curator/spatial/curator-room-spatial-source.json describes canonical 1024x1024, "
            "source hashes, exact floor and per-surface masks, classes, owners, bounds, components, confidence, "

@@ -3,6 +3,6 @@ Core annotation colors: {'black': [[0, 0, 0]], 'red': [[255, 0, 0], [255, 0, 4]]
 BLACK rule: R,G,B <= 8 and max channel delta from Overview >= 24.
 RED rule: R >= 245, G <= 18, B <= 22 and max channel delta from Overview >= 40.
 PURPLE rule: 165 <= R <= 190, 65 <= G <= 105, B >= 240 and max channel delta from Overview >= 40.
-Counts: BLACK 340122; RED 235220; PURPLE 8512.
+Counts: BLACK 340122; RED 235220; PURPLE 19949.
 Masks are mutually disjoint. Every accepted pixel differs from exact Overview. Thresholds reject unmarked art, including orange wood, dark outlines, green fabric, and plants. Ambiguous antialiased blend pixels outside narrow rules remain unauthorized; no dilation was used.
 Overview is the pixel-perfect unannotated baseline. BLACK/RED/PURPLE paint is source semantics; nonmatching colors never gain spatial authority.

@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "roomId": "living",
+  "canonicalSize": {
+    "width": 1024,
+    "height": 1024
+  },
+  "assetBase": "assets/meeow-map/living",
+  "layerOrder": [
+    "background.png",
+    "carpet.png",
+    "sofa.png",
+    "shelf.png",
+    "cat-toys.png",
+    "scratching-board-a.png",
+    "scratching-board-b.png"
+  ],
+  "annotation": {
+    "reference": "authoring/reference.png",
+    "baseline": "authoring/annotation-baseline.png",
+    "import": "approved-color-regions-only",
+    "palette": {
+      "black": [
+        0,
+        0,
+        0
+      ],
+      "red": [
+        255,
+        0,
+        0
+      ],
+      "purple": [
+        204,
+        0,
+        255
+      ]
+    }
+  },
+  "supportContact": {
+    "displayWidth": 72,
+    "viewportWidths": [
+      1024,
+      512,
+      320
+    ],
+    "poses": [
+      "sitting",
+      "lying"
+    ],
+    "policy": "canonical-paw-and-belly-bottom-contact",
+    "oneExclusiveSlotPerSurface": true
+  },
+  "groundForeground": [],
+  "furnitureForeground": [
+    {
+      "surfaceIds": [
+        "living-scratching-board-a-surface-1",
+        "living-scratching-board-a-surface-2"
+      ],
+      "surfaceOwnerLayer": "scratching-board-a.png",
+      "foregroundOwnerLayer": "scratching-board-a.png",
+      "foregroundClass": "purple",
+      "activation": "surface-behind-foreground-base"
+    },
+    {
+      "surfaceIds": [
+        "living-cat-toys-surface-1"
+      ],
+      "surfaceOwnerLayer": "cat-toys.png",
+      "foregroundOwnerLayer": "cat-toys.png",
+      "foregroundClass": "purple",
+      "activation": "surface-behind-foreground-base"
+    }
+  ],
+  "furnitureApproach": [
+    {
+      "ownerLayer": "scratching-board-a.png",
+      "side": "lower-base",
+      "registrationBounds": [
+        766,
+        313,
+        1008,
+        678
+      ]
+    }
+  ],
+  "assetHashes": {
+    "background.png": "454818ac695d864e007a243ffb9d63c299b93183b1adaedf8be9791de0d1933c",
+    "carpet.png": "9c2bf23f5a91f44fa9586f8e6c8f828d112b327d7625a438d04bb067576ea63a",
+    "sofa.png": "f728688a40f570b50fb5c811a1a7384d433164724a138c338a0e5b7786ae3c52",
+    "shelf.png": "ac09e27e49a1075ed3e9e2e391d99f5e64f294a5439019c06f225c6154e6dc60",
+    "cat-toys.png": "bd0ddb680111f3e921d6823ed8c39bca4651a21477b4fc41f96da63d4345edbf",
+    "scratching-board-a.png": "b70a1c4dfca1171589739fe7eadcb9b02fb4ff9e70eec990aa549c4911589522",
+    "scratching-board-b.png": "52823c6b7b6fe5410e95616084843d3f92b1ea58d09bd59e8beae19eb8f87c58"
+  },
+  "presentationClearance": {
+    "policy": "production-pose-alpha-against-solid-furniture",
+    "solidAlphaMinimum": 128,
+    "groundLayers": [
+      "carpet.png"
+    ],
+    "poseFootprints": "tests/normal-room-presentation-footprints.mjs",
+    "supportRule": "unchanged",
+    "foregroundAllowance": "current-surface-relation-only",
+    "backgroundAllowance": "current-owner-behind-support-columns-excluding-purple"
+  },
+  "cleanAssetImports": [
+    {
+      "source": "/Users/Feather/Desktop/Cat-House Art/LivingRoom/ScratchingBoardA.png",
+      "sha256": "0b2b0678a3d1f6175cc06bb51f3003b9d9018dee5d6162ed3e70bceab36083ce",
+      "production": "scratching-board-a.png",
+      "offset": [
+        766,
+        313
+      ],
+      "size": [
+        242,
+        349
+      ],
+      "operation": "exact-rgba-copy-no-resampling"
+    },
+    {
+      "source": "/Users/Feather/Desktop/Cat-House Art/LivingRoom/ScratchingBoardB.png",
+      "sha256": "4d593e56d729be20b2af3a53762682d5cb1cbfaaa3fea86a53269927719e5dba",
+      "production": "scratching-board-b.png",
+      "offset": [
+        0,
+        636
+      ],
+      "size": [
+        263,
+        351
+      ],
+      "operation": "exact-rgba-copy-no-resampling"
+    }
+  ]
+}
