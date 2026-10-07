@@ -157,6 +157,66 @@ for (const pose of ['standing', 'crouching', 'lying']) {
     assert.equal(runtime.decodedAssets(), afterFirstRegistration, `${pose} repeat must not decode assets`);
 }
 
+const tailIdentity = { ...DEFAULT_CONFIG, body: 'standard', tail: 'standard', bib: 'bib',
+    coat: 'blue', ear: 'folded', tailmark: 'rings', tailColor: 'gold', eyeLeft: 'blue', eyeRight: 'gold' };
+const tailFrameCases = [
+    { label: 'omitted', identity: tailIdentity, options: { pose: 'sitting' }, fallback: true },
+    { label: 'neutral', identity: tailIdentity, options: { pose: 'sitting', tailFrameId: 'neutral' }, fallback: true },
+    { label: 'curl-right-1', identity: tailIdentity, options: { pose: 'sitting', tailFrameId: 'curl-right-1' }, fallback: false },
+    { label: 'unknown', identity: tailIdentity, options: { pose: 'sitting', tailFrameId: 'unknown' }, fallback: true },
+    { label: 'malformed', identity: tailIdentity, options: { pose: 'sitting', tailFrameId: { id: 'curl-right-1' } }, fallback: true },
+    { label: 'unsupported-body', identity: { ...tailIdentity, body: 'chubby' }, options: { pose: 'sitting', tailFrameId: 'curl-right-1' }, fallback: true },
+    { label: 'unsupported-pose', identity: tailIdentity, options: { pose: 'standing', tailFrameId: 'curl-right-1' }, fallback: true },
+    { label: 'unsupported-tail-shape', identity: { ...tailIdentity, tail: 'long' }, options: { pose: 'sitting', tailFrameId: 'curl-right-1' }, fallback: true }
+];
+for (const { label, identity, options, fallback } of tailFrameCases) {
+    const expected = canonical(identity, options), actual = generated(identity, options);
+    assert.deepEqual(Buffer.from(actual.data), Buffer.from(expected.data), `${label}: canonical/runtime RGBA parity`);
+    assert.equal(actual.pose, expected.pose, `${label}: pose parity`);
+    assert.equal(JSON.stringify(actual.config), JSON.stringify(expected.config), `${label}: identity parity`);
+    assert.deepEqual(Array.from(actual.groundAnchor), Array.from(expected.groundAnchor), `${label}: anchor parity`);
+    assert.deepEqual(Buffer.from(actual.effectiveMasks.tail), Buffer.from(expected.effectiveMasks.tail), `${label}: tail-mask parity`);
+    const staticFrame = canonical(identity, { pose: options.pose });
+    if (fallback) assert.deepEqual(Buffer.from(expected.data), Buffer.from(staticFrame.data), `${label}: static fallback`);
+    else assert.notDeepEqual(Buffer.from(expected.data), Buffer.from(staticFrame.data), `${label}: alternate frame must change tail pixels`);
+}
+
+const frontLeftIdentity = { ...tailIdentity, frontLeft: 'long_socks', frontLeftColor: 'pink' };
+const frontLeftFrameCases = [
+    { label: 'omitted', identity: frontLeftIdentity, options: { pose: 'sitting' }, fallback: true },
+    { label: 'neutral', identity: frontLeftIdentity, options: { pose: 'sitting', frontLeftFrameId: 'neutral' }, fallback: true },
+    { label: 'distal-up-left-1', identity: frontLeftIdentity, options: { pose: 'sitting', frontLeftFrameId: 'distal-up-left-1' }, fallback: false },
+    { label: 'unknown', identity: frontLeftIdentity, options: { pose: 'sitting', frontLeftFrameId: 'unknown' }, fallback: true },
+    { label: 'malformed', identity: frontLeftIdentity, options: { pose: 'sitting', frontLeftFrameId: { id: 'distal-up-left-1' } }, fallback: true },
+    { label: 'unsupported-body', identity: { ...frontLeftIdentity, body: 'chubby' }, options: { pose: 'sitting', frontLeftFrameId: 'distal-up-left-1' }, fallback: true },
+    { label: 'unsupported-pose', identity: frontLeftIdentity, options: { pose: 'standing', frontLeftFrameId: 'distal-up-left-1' }, fallback: true },
+    { label: 'tail-neutral/paw-neutral', identity: frontLeftIdentity, options: { pose: 'sitting', tailFrameId: 'neutral', frontLeftFrameId: 'neutral' }, fallback: true },
+    { label: 'tail-alternate/paw-neutral', identity: frontLeftIdentity, options: { pose: 'sitting', tailFrameId: 'curl-right-1', frontLeftFrameId: 'neutral' }, fallback: false },
+    { label: 'tail-neutral/paw-alternate', identity: frontLeftIdentity, options: { pose: 'sitting', tailFrameId: 'neutral', frontLeftFrameId: 'distal-up-left-1' }, fallback: false },
+    { label: 'both-alternate', identity: frontLeftIdentity, options: { pose: 'sitting', tailFrameId: 'curl-right-1', frontLeftFrameId: 'distal-up-left-1' }, fallback: false },
+    { label: 'unknown-paw/valid-tail', identity: frontLeftIdentity, options: { pose: 'sitting', tailFrameId: 'curl-right-1', frontLeftFrameId: 'unknown' }, fallback: false },
+    { label: 'unknown-tail/valid-paw', identity: frontLeftIdentity, options: { pose: 'sitting', tailFrameId: 'unknown', frontLeftFrameId: 'distal-up-left-1' }, fallback: false }
+];
+for (const { label, identity, options, fallback } of frontLeftFrameCases) {
+    const expected = canonical(identity, options), actual = generated(identity, options);
+    assert.deepEqual(Buffer.from(actual.data), Buffer.from(expected.data), `${label}: canonical/runtime RGBA parity`);
+    assert.equal(actual.pose, expected.pose, `${label}: pose parity`);
+    assert.equal(JSON.stringify(actual.config), JSON.stringify(expected.config), `${label}: identity parity`);
+    assert.deepEqual(Array.from(actual.groundAnchor), Array.from(expected.groundAnchor), `${label}: anchor parity`);
+    assert.deepEqual(Buffer.from(actual.effectiveMasks.frontLeft), Buffer.from(expected.effectiveMasks.frontLeft), `${label}: paw-mask parity`);
+    assert.deepEqual(Buffer.from(actual.effectiveMasks.tail), Buffer.from(expected.effectiveMasks.tail), `${label}: tail-mask parity`);
+    const staticFrame = canonical(identity, { pose: options.pose });
+    if (fallback) assert.deepEqual(Buffer.from(expected.data), Buffer.from(staticFrame.data), `${label}: static fallback`);
+    else assert.notDeepEqual(Buffer.from(expected.data), Buffer.from(staticFrame.data), `${label}: requested frame did not render`);
+}
+const bothSelected = canonical(frontLeftIdentity, { pose: 'sitting', tailFrameId: 'curl-right-1', frontLeftFrameId: 'distal-up-left-1' });
+const tailSelected = canonical(frontLeftIdentity, { pose: 'sitting', tailFrameId: 'curl-right-1' });
+const pawSelected = canonical(frontLeftIdentity, { pose: 'sitting', frontLeftFrameId: 'distal-up-left-1' });
+assert.deepEqual(Buffer.from(bothSelected.effectiveMasks.tail), Buffer.from(tailSelected.effectiveMasks.tail), 'combined selector lost tail marking');
+assert.deepEqual(Buffer.from(bothSelected.effectiveMasks.frontLeft), Buffer.from(pawSelected.effectiveMasks.frontLeft), 'combined selector lost paw marking');
+assert.deepEqual(Buffer.from(canonical(frontLeftIdentity, { pose: 'sitting', tailFrameId: 'curl-right-1', frontLeftFrameId: 'unknown' }).data), Buffer.from(tailSelected.data), 'bad paw selector disabled valid tail');
+assert.deepEqual(Buffer.from(canonical(frontLeftIdentity, { pose: 'sitting', tailFrameId: 'unknown', frontLeftFrameId: 'distal-up-left-1' }).data), Buffer.from(pawSelected.data), 'bad tail selector disabled valid paw');
+
 let parityCases = 0;
 const hashes = {};
 for (const pose of POSES) {
@@ -294,6 +354,8 @@ assert.match(indexSource, /registerFilePoseBank\(renderer, packedBank\)/);
 console.log(JSON.stringify({
     status: 'PASS',
     parityCases,
+    tailFrameParityCases: tailFrameCases.length,
+    frontLeftFrameParityCases: frontLeftFrameCases.length,
     lyingPawParityCases,
     protectedPawPixels: protectedPawPixels.size,
     unchangedPawCases,

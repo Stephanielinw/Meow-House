@@ -115,10 +115,115 @@ export function buildForeheadMask(neutral, earOwned, features) {
   return {mask,roots};
 }
 
+function createStandardSittingTailCurl(shared, legacy, chassis) {
+  const valid=source=>source instanceof Uint8ClampedArray&&source.length===SIZE;
+  if(!valid(shared)||!valid(legacy?.own)||!valid(legacy?.base)||!valid(chassis)||
+    OPTIONS.tailmark.some(name=>!valid(legacy?.masks?.[name])))return null;
+  const move=source=>{
+    const out=new Uint8ClampedArray(source);
+    for(let y=72;y<=81;y++){
+      const row=y*WIDTH*4;
+      out.fill(0,row,row+WIDTH*4);
+      for(let x=0;x<WIDTH;x++){
+        const i=row+x*4;
+        if(!source[i+3])continue;
+        if(x+1>=WIDTH)return null;
+        out.set(source.subarray(i,i+4),i+4);
+      }
+    }
+    return out;
+  };
+  const geometry=move(shared),own=move(legacy.own),masks={};
+  if(!geometry||!own)return null;
+  for(const name of OPTIONS.tailmark){
+    masks[name]=move(legacy.masks[name]);
+    if(!masks[name])return null;
+  }
+  // The legacy base is a full-cat image. Its ownership mask includes chassis
+  // pixels, so move only pixels that are actually tail art in that image.
+  const base=new Uint8ClampedArray(legacy.base),moving=[];
+  for(let y=72;y<=81;y++)for(let x=0;x<WIDTH;x++){
+    const i=(y*WIDTH+x)*4;
+    if(!shared[i+3]&&!legacy.own[i+3])continue;
+    const matchesChassis=[0,1,2,3].every(k=>legacy.base[i+k]===chassis[i+k]);
+    if(!shared[i+3]&&matchesChassis)continue;
+    if(x+1>=WIDTH||chassis[i+3]||chassis[i+7])return null;
+    moving.push(i);
+    base.set(chassis.subarray(i,i+4),i);
+  }
+  for(const i of moving)base.set(legacy.base.subarray(i,i+4),i+4);
+  return {geometry,legacy:{...legacy,own,base,masks}};
+}
+
+function createStandardSittingFrontLeftFrame(component, paws, chassisByBib) {
+  const valid=source=>source instanceof Uint8ClampedArray&&source.length===SIZE;
+  if(!valid(component?.geometry)||!valid(component?.outline)||!valid(component?.coatOwn)||
+    !valid(component?.pawlessByBib?.none)||!valid(component?.pawlessByBib?.bib)||
+    !valid(chassisByBib?.none)||!valid(chassisByBib?.bib)||
+    OPTIONS.frontLeft.some(name=>!valid(paws?.[name])))return null;
+  const geometry=component.geometry,sourcePixels=[];
+  let outlinePixels=0;
+  for(let i=0;i<SIZE;i+=4) {
+    const owned=!!geometry[i+3];
+    if(owned)sourcePixels.push(i);
+    if(component.outline[i+3])outlinePixels++;
+    if(owned!==!!component.coatOwn[i+3]||(!owned&&component.outline[i+3])||
+      (!owned&&OPTIONS.frontLeft.some(name=>paws[name][i+3])))return null;
+  }
+  if(sourcePixels.length!==191||outlinePixels!==49)return null;
+  // The promoted pawless plates must reconstruct the approved neutral chassis.
+  for(const bib of ['none','bib']) {
+    const neutral=new Uint8ClampedArray(component.pawlessByBib[bib]);
+    for(const i of sourcePixels)neutral.set(geometry.subarray(i,i+4),i);
+    for(let i=0;i<SIZE;i++)if(neutral[i]!==chassisByBib[bib][i])return null;
+  }
+  const destinationByPixel=new Int32Array(WIDTH*HEIGHT).fill(-1);
+  let seamOverlaps=0;
+  for(const moving of [false,true])for(const i of sourcePixels) {
+    const y=Math.floor(i/(WIDTH*4));
+    if((y>=70)!==moving)continue;
+    const x=(i/4)%WIDTH,dx=moving?x-1:x,dy=moving?y-1:y;
+    if(dx<0||dy<0)return null;
+    if(destinationByPixel[dy*WIDTH+dx]>=0) {
+      if(dy!==69||dx<31||dx>38)return null;
+      seamOverlaps++;
+    }
+    destinationByPixel[dy*WIDTH+dx]=i;
+  }
+  if(seamOverlaps!==8)return null;
+  const map=source=>{
+    const out=new Uint8ClampedArray(SIZE);
+    for(let p=0;p<destinationByPixel.length;p++) {
+      const i=destinationByPixel[p];
+      if(i>=0)out.set(source.subarray(i,i+4),p*4);
+    }
+    return out;
+  };
+  const alternateGeometry=map(geometry),alternateOutline=map(component.outline),alternateCoatOwn=map(component.coatOwn);
+  for(let i=0;i<SIZE;i+=4)if(!!alternateGeometry[i+3]!==!!alternateCoatOwn[i+3]||
+    (alternateOutline[i+3]&&!alternateGeometry[i+3]))return null;
+  const alternateChassis={};
+  for(const bib of ['none','bib']) {
+    const raw=new Uint8ClampedArray(component.pawlessByBib[bib]);
+    for(let p=0;p<destinationByPixel.length;p++) {
+      const i=destinationByPixel[p];
+      if(i>=0)raw.set(geometry.subarray(i,i+4),p*4);
+    }
+    alternateChassis[bib]=raw;
+  }
+  return {chassisByBib:alternateChassis,geometry:alternateGeometry,
+    outline:alternateOutline,coatOwn:alternateCoatOwn,
+    paws:Object.fromEntries(OPTIONS.frontLeft.map(name=>[name,map(paws[name])]))};
+}
+
 export function createCatRenderer(bank, {poses={},catalog=PRODUCTION_OPTIONS}={}) {
   // Clone once: callers and returned frames cannot mutate the renderer's source bank.
   const clone = v => ArrayBuffer.isView(v) ? new Uint8ClampedArray(v) : Object.fromEntries(Object.entries(v).map(([k,x])=>[k,clone(x)]));
   const {assets,ears,legacyEars,faces,sem,chassis,sittingUniversalTails}=clone(bank);
+  const sittingTailCurl=createStandardSittingTailCurl(sittingUniversalTails?.standard,
+    assets?.Standard?.tails?.standard,assets?.Standard?.chassisByBib?.none);
+  const sittingFrontLeftFrame=createStandardSittingFrontLeftFrame(assets?.Standard?.frontLeftSitting,
+    assets?.Standard?.paws?.front_left,assets?.Standard?.chassisByBib);
   const eyeMasks={left:blank(),right:blank()};
   const eyePixels=[];for(let i=0;i<SIZE;i+=4)if(sem.eyes[i+3])eyePixels.push(i/4);
   const splitX=eyePixels.reduce((sum,p)=>sum+(p%WIDTH),0)/Math.max(1,eyePixels.length);
@@ -137,8 +242,11 @@ export function createCatRenderer(bank, {poses={},catalog=PRODUCTION_OPTIONS}={}
   registerPoseDefinitions(poses);
   const features=blank();
   for(const n of ['eyes','nose','mouth']) for(let i=0;i<SIZE;i+=4) if(sem[n][i+3]) features[i+3]=255;
-  const renderCat=function renderCat(input={}, {pose='sitting'}={}) {
+  const renderCat=function renderCat(input={}, {pose='sitting',sittingChassisOverride=null,tailFrameId,frontLeftFrameId}={}) {
     const c=config(input,catalog);
+    if(sittingChassisOverride!==null && (pose!=='sitting' ||
+      !(sittingChassisOverride instanceof Uint8ClampedArray) ||
+      sittingChassisOverride.length!==SIZE)) throw new TypeError('Invalid Sitting chassis override');
     const definition=pose==='sitting'?null:(poseAssets[pose+':'+c.body]??poseAssets[pose]);
     if(pose!=='sitting'&&!definition) throw poseCapabilityError('CAT_POSE_UNAVAILABLE', `Unsupported pose: ${pose}`);
     if(definition) for(const [key,values] of Object.entries(definition.supports)) {
@@ -148,10 +256,15 @@ export function createCatRenderer(bank, {poses={},catalog=PRODUCTION_OPTIONS}={}
     // bodies.  This changes asset selection only; the canonical identity config
     // returned to the caller remains untouched.
     const poseBody=definition?.assetBodyAlias??c.body;
-    const a=(definition?.assets??assets)[canonical('body',poseBody)], legacyTail=a.tails[c.tail], ear=(definition?.ears??(pose==='sitting'?ears:legacyEars))[c.ear];
+    const a=(definition?.assets??assets)[canonical('body',poseBody)];
+    const selectedFrontLeft=frontLeftFrameId==='distal-up-left-1'&&pose==='sitting'&&
+      c.body==='standard'&&sittingChassisOverride===null?sittingFrontLeftFrame:null;
+    const selectedTailCurl=tailFrameId==='curl-right-1'&&pose==='sitting'&&c.body==='standard'&&
+      c.tail==='standard'&&sittingChassisOverride===null?sittingTailCurl:null;
+    const legacyTail=selectedTailCurl?.legacy??a.tails[c.tail],ear=(definition?.ears??(pose==='sitting'?ears:legacyEars))[c.ear];
     const fixedEarOverlay=definition?.earComposition==='fixed-overlay';
     const earInnerOwns=i=>!!ear.inner[i+3]&&(!fixedEarOverlay||!!ear.own[i+3]);
-    const sharedTail=pose==='sitting'?sittingUniversalTails?.[c.tail]:null;
+    const sharedTail=pose==='sitting'?(selectedTailCurl?.geometry??sittingUniversalTails?.[c.tail]):null;
     const shiftLeft5=source=>{const out=blank();for(let y=0;y<HEIGHT;y++)for(let x=5;x<WIDTH;x++){const i=(y*WIDTH+x)*4;out.set(source.subarray(i,i+4),i-20);}return out;};
     const slimOffset=!!sharedTail&&c.body==='slim';
     const universalTail=slimOffset?shiftLeft5(sharedTail):sharedTail;
@@ -162,7 +275,8 @@ export function createCatRenderer(bank, {poses={},catalog=PRODUCTION_OPTIONS}={}
     // remain owned by the approved sitting head system.
     // The derived difference mask is material ownership only; it is never a
     // separately composited bib image.
-    const sittingBibChassis=pose==='sitting'&&a.chassisByBib?.[c.bib];
+    const sittingBibChassis=pose==='sitting'&&(sittingChassisOverride??
+      selectedFrontLeft?.chassisByBib[c.bib]??a.chassisByBib?.[c.bib]);
     const poseBibChassis=pose!=='sitting'&&a.chassisByBib?.[c.bib];
     const fixedBibChassis=sittingBibChassis||poseBibChassis;
     const bibOwnership=blank();
@@ -272,12 +386,41 @@ export function createCatRenderer(bank, {poses={},catalog=PRODUCTION_OPTIONS}={}
       effectiveMasks.muzzle=effective;
     }
     for(const [key,slot] of [['frontLeft','front_left'],['frontRight','front_right'],['rearLeft','rear_left'],['rearRight',a.paws.rear_right?'rear_right':'hind_visible']]) {
-      if(a.paws[slot]) paint(key,a.paws[slot][c[key]],c[key+'Color'],i=>!featureMask[i+3]&&!tail.own[i+3]&&!(standardPoseBibIsBodyMaterial&&bibOwnership[i+3]));
+      const pawMasks=key==='frontLeft'&&selectedFrontLeft?selectedFrontLeft.paws:a.paws[slot];
+      if(pawMasks) paint(key,pawMasks[c[key]],c[key+'Color'],i=>!featureMask[i+3]&&!tail.own[i+3]&&!(standardPoseBibIsBodyMaterial&&bibOwnership[i+3]));
     }
     paint('tail',tail.masks[c.tailmark],c.tailColor,i=>!universalTail||!!universalTail[i+3]);
     return {width:WIDTH,height:HEIGHT,data,config:c,pose,groundAnchor:[...(definition?.groundAnchor??[37,90])],effectiveMasks,foreheadRoots:forehead?.roots??[]};
   };
   Object.defineProperties(renderCat,{
+    renderWithSittingCleanPlate:{value:(input, {sourceConfig={},neutralSource,cleanPlate,region}={})=>{
+      const sourceIdentity=config(sourceConfig,catalog),targetIdentity=config(input,catalog);
+      if(sourceIdentity.body!==targetIdentity.body||sourceIdentity.bib!==targetIdentity.bib||
+        !(neutralSource instanceof Uint8ClampedArray)||neutralSource.length!==SIZE||
+        !(cleanPlate instanceof Uint8ClampedArray)||cleanPlate.length!==SIZE||
+        !region||![region.x,region.y,region.width,region.height].every(Number.isInteger)||
+        region.x<0||region.y<0||region.width<1||region.height<1||
+        region.x+region.width>WIDTH||region.y+region.height>HEIGHT)
+        throw new TypeError('Invalid Sitting clean plate');
+      const expected=renderCat(sourceConfig,{pose:'sitting'}).data;
+      for(let i=0;i<SIZE;i++)if(expected[i]!==neutralSource[i])
+        throw new RangeError('Neutral source differs from renderer authority');
+      const original=assets[canonical('body',sourceIdentity.body)].chassisByBib?.[sourceIdentity.bib];
+      if(!original)throw new RangeError('Sitting chassis unavailable');
+      const override=new Uint8ClampedArray(original);
+      let changed=0;
+      for(let y=0;y<HEIGHT;y++)for(let x=0;x<WIDTH;x++){
+        const i=(y*WIDTH+x)*4;
+        if(neutralSource[i]===cleanPlate[i]&&neutralSource[i+1]===cleanPlate[i+1]&&
+          neutralSource[i+2]===cleanPlate[i+2]&&neutralSource[i+3]===cleanPlate[i+3])continue;
+        if(x<region.x||x>=region.x+region.width||y<region.y||y>=region.y+region.height||
+          !original.subarray(i,i+4).every((value,k)=>value===neutralSource[i+k]))
+          throw new RangeError('Clean plate changes pixels outside the sitting chassis region');
+        override.set(cleanPlate.subarray(i,i+4),i);changed++;
+      }
+      if(!changed||changed>600)throw new RangeError('Clean plate motion region unsupported');
+      return renderCat(input,{pose:'sitting',sittingChassisOverride:override});
+    }},
     registerPoses:{value:registerPoseDefinitions},
     registerPoseTemplates:{value:entries=>{
       const additions={};

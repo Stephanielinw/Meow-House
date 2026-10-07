@@ -34,6 +34,25 @@
             "png": "assets/Standard/chassis/standard_sitting_bib.png"
           }
         },
+        "frontLeftSitting": {
+          "pawlessByBib": {
+            "none": {
+              "png": "assets/Standard/components/front_left_sitting/pawless-none.png"
+            },
+            "bib": {
+              "png": "assets/Standard/components/front_left_sitting/pawless-bib.png"
+            }
+          },
+          "geometry": {
+            "png": "assets/Standard/components/front_left_sitting/neutral-geometry.png"
+          },
+          "outline": {
+            "png": "assets/Standard/components/front_left_sitting/outline-ownership.png"
+          },
+          "coatOwn": {
+            "png": "assets/Standard/components/front_left_sitting/coat-ownership.png"
+          }
+        },
         "torso": {
           "none": {
             "png": "assets/Standard/torso/none.png"
