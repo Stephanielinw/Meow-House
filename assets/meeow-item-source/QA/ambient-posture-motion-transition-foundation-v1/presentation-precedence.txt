@@ -1,0 +1,6 @@
+PRESENTATION PRECEDENCE — V1
+1. Active higher-authority ownership excludes ambient runtime: Away/unavailable form, Social Presence, pending Arrival, current Item Usage, active user-directed Hall scene focus, interaction/focus/explore ownership.
+2. While the ambient controller owns the resident, its transient standing visual is passed explicitly to the active Hall map marker.
+3. With no transient pose, getMapCatVisualPresentation uses getMapCatPose and statusPosture.resolveMapPose, including the presentation-only legacy fallback.
+Historical Hall scene records alone do not permanently block ambient activity. An accepted new scene cancels the affected runtime.
+Active user-directed Hall focus is re-evaluated when its existing 20-minute ownership window expires; its expiry timer is removed on unmount.

@@ -1,0 +1,14 @@
+Living Hall spatial/motion architecture audit V1 — multiple Halls/performance
+
+Evidence: DEFAULT_HALLS in js/meeow-data.js:31-43; custom Hall builder at index.html:15720-15860; activeHallId/roomCats at index.html:11258-11274; map stage is v-if gated at index.html:5293/5515; contextual Status visibility at index.html:15445-15457.
+
+All Halls currently share the dorm/living/dining map art and point registry; built-in/custom Hall identity and source do not include a unique physical layout. Only the active Hall's room map is mounted. Inactive resident gameplay reconciliation (Away/Phone/etc.) remains separate from Hall visual rendering. V1 full visual simulation should run for the visible active Hall room only, pause on text mode/Hall switch/background, and not create invisible per-Hall animation loops. Do not stop unrelated coarse lifecycle systems.
+
+Capacity model, eight raw 112×104 RGBA frames each (excludes PNG/data URL/decoded copies):
+visible cats   raw frames   raw bytes approx   likely pressure
+1              8            0.36 MiB           negligible
+6              48           2.13 MiB           sensible first concurrency target
+12             96           4.27 MiB           cache/startup and overlap need profiling
+20             160          7.11 MiB           labels, DOM, decode memory and frame-time risk
+
+These numbers are arithmetic, not measured FPS. Current banks are roughly 441K sitting, 305K standing, 342K crouching, 87K lying packed JS before decoding. Main risks are synchronous composition bursts, duplicated decoded browser images, 20 DOM markers with labels/occlusion overlays, and offscreen work. Future profiling should record p95 frame duration, total long tasks, memory, first-frame latency and battery behavior on mobile; cap simultaneous animated cats or use static fallback if budget fails. No hidden Hall should consume animation CPU.

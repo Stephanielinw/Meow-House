@@ -1,0 +1,4 @@
+AMBIENT MOTION POSE AUTHORITY — V1
+ambientMotionPose is per-resident transient runtime state in createAmbientSimulation, exposed only through its snapshot. Values used in V1: null or standing. It is not a resident-object property or Status field.
+getHallMapCatVisualPresentation(cat, ambientMotionPose) consumes it only at the active Hall map marker boundary. Prewarming uses the same Cat Renderer with the unchanged visual.config and a Hall-local image cache.
+No ambient path calls save, Status serialization, history, AI, relationship, or Item Usage writers. Missing/invalid structured posture cannot start a transition, even when legacy prose visually implies Standing.

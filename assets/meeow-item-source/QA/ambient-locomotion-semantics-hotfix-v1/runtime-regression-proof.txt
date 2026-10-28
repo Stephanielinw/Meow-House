@@ -1,0 +1,7 @@
+Ambient Locomotion Semantics Hotfix V1 — runtime regression proof
+
+Focused autonomous ambient fixture: PASS. Covers structured Standing/Sitting/Crouching/Lying, missing/invalid authority despite visually Standing legacy fallback, decision-time authority loss, stationary occupancy and no reservation, slot conflict, accepted Standing-to-Sitting route cancellation, stale-frame suppression, fresh Sitting-to-Standing delay and repeated cycles, same-pose rerender, unrelated resident stability, no-free-target retry, lifecycle cleanup, graph validation, and disconnected rug/sofa components.
+
+Living Hall Spatial Foundation fixture: PASS (11 groups). Status posture authority, Status Sync prompt, Active Social Presence, Away legacy episode ID, Resident Homepage CAT visual, Resident Item Usage/Status, Shop Toy Persistent Ownership, and Item Visual Hint Ownership fixtures: PASS. The reviewed Living Hall production hash guard was advanced to exact current Hall bytes while preserving historical Shop hashes and visualHint source inventory.
+
+js/meeow-hall-spatial.js, focused fixture, and extracted index.html inline module syntax: PASS. git diff --check: PASS. index.html production literal callAI( count: 38. The spatial module contains no callAI, localStorage, scheduleSave, or persistNow. No Status cadence or schema change, Status write, save write, art change, or free-floor navigation was made.

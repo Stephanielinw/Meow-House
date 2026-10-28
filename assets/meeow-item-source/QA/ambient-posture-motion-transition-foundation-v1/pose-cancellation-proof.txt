@@ -1,0 +1,4 @@
+POSE CANCELLATION PROOF — V1
+Every transition and timer is guarded by a resident generation. Accepted posture/placement changes reconcile the affected entry; accepted Hall scenes cancel the affected resident. Higher-authority ownership changes also reconcile, and decision/frame callbacks recheck ownership.
+clearRuntime invalidates timers and frames, releases the target reservation, clears ambientMotionPose, and discards the route. The fixture invokes captured stale preparation, timer, and frame callbacks after preemption during preparing-standing, stand-up, moving, and settling; the snapshot does not change.
+A new accepted structured posture is read at reconciliation and wins over the cycle's original resting pose.

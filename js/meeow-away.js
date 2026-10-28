@@ -17,11 +17,10 @@
     const AWAY_SOUVENIR_CHANCE_PERCENT = 60;
 
     const isPercentRoll = value => Number.isInteger(value) && value >= 1 && value <= 100;
-    const createMailDecision = (rollPercent, chancePercent = AWAY_LETTER_CHANCE_PERCENT) => {
-        if (!Number.isInteger(chancePercent) || chancePercent < 0 || chancePercent > 100) throw new Error('Away letter chance must be an integer from 0 to 100');
+    const createMailDecision = rollPercent => {
         const roll = rollPercent();
         if (!isPercentRoll(roll)) throw new Error('Away letter roll must be an integer from 1 to 100');
-        if (roll > chancePercent) return { roll, shouldWrite: false };
+        if (roll > AWAY_LETTER_CHANCE_PERCENT) return { roll, shouldWrite: false };
         const souvenirRoll = rollPercent();
         if (!isPercentRoll(souvenirRoll)) throw new Error('Away souvenir roll must be an integer from 1 to 100');
         return {
@@ -32,7 +31,6 @@
     // A missing souvenirDecision belongs to pre-V1 state. Normalization keeps
     // it incomplete; only a pending operation at execution may finish the roll.
     const normalizeMailDecision = raw => {
-        if (raw && raw.roll === null && raw.shouldWrite === false) return { roll: null, shouldWrite: false };
         if (!raw || typeof raw !== 'object' || !isPercentRoll(Number(raw.roll)) || typeof raw.shouldWrite !== 'boolean') return null;
         const decision = { roll: Number(raw.roll), shouldWrite: raw.shouldWrite };
         if (raw.shouldWrite && raw.souvenirDecision !== undefined) {
@@ -118,47 +116,6 @@
         };
     };
 
-    // Compatibility identity uses only persisted, immutable episode facts.
-    // Lifecycle/delivery state and attachment/visual data are deliberately absent.
-    // Identical historical facts remain ambiguous; neither array order nor RNG
-    // can turn them into evidence of two independently identified episodes.
-    const getLegacyAwayEpisodeDeterministicId = (episode) => {
-        const text = value => typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
-        // Retain saved timestamp spelling/type rather than parsing a zone-less
-        // historical date in the current machine's timezone. Date inputs match
-        // their JSON save representation; no clock is consulted.
-        const timestamp = value => {
-            if (typeof value === 'string') return value.trim();
-            if (typeof value === 'number' && Number.isFinite(value)) return value;
-            if (value && Object.prototype.toString.call(value) === '[object Date]')
-                return Number.isNaN(value.getTime()) ? '' : value.toISOString();
-            return '';
-        };
-        const activities = (Array.isArray(episode?.activityPlans) ? episode.activityPlans
-            : episode?.activityPlan && typeof episode.activityPlan === 'object' ? [episode.activityPlan] : [])
-            .map(plan => [timestamp(plan?.activityAt), text(plan?.plannedResidentActivity), text(plan?.publicTrace)])
-            .filter(([at, activity, trace]) => at && activity && trace)
-            .sort((a, b) => JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0);
-        const mail = (Array.isArray(episode?.mailPlan) ? episode.mailPlan : [])
-            .filter(entry => entry && typeof entry === 'object').slice(0, 1)
-            .map(entry => [String(entry.id || ''), timestamp(entry.sendAt), text(entry.content)])
-            .filter(([, at, content]) => at && content);
-        const provenance = normalizeLifeThreadProvenance(episode?.provenance);
-        const key = JSON.stringify([1, String(episode?.residentId || ''), String(episode?.hallId || ''),
-            timestamp(episode?.departedAt), timestamp(episode?.plannedReturnAt), text(episode?.destination),
-            text(episode?.plannedReturnStatus), text(episode?.plannedArchiveNarrative),
-            text(episode?.ordinaryAwayOperationId), activities, mail,
-            provenance ? [provenance.threadId, provenance.threadExcursionId, provenance.actorId,
-                provenance.operationToken, [...provenance.basisFactIds].sort(),
-                provenance.continuationSourceEventId, provenance.outcomeSourceEventId] : null]);
-        // Fixed 128-bit FNV-style hash over UTF-16 code units, synchronous and
-        // dependency-free. This is not a claim of collision-proof uniqueness.
-        let hash = 0x6c62272e07bb014262b821756295c58dn;
-        for (let index = 0; index < key.length; index++)
-            hash = BigInt.asUintN(128, (hash ^ BigInt(key.charCodeAt(index))) * 0x1000000000000000000013bn);
-        return `away-legacy:v1:${hash.toString(16).padStart(32, '0')}`;
-    };
-
     const normalizeEpisodes = (episodes) => (Array.isArray(episodes) ? episodes : [])
         .filter(episode => episode && typeof episode === 'object')
         .map(episode => {
@@ -206,7 +163,7 @@
                 });
             }
             return {
-                id: String(episode.id || getLegacyAwayEpisodeDeterministicId(episode)),
+                id: String(episode.id || `away-episode-${departedAt || Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
                 residentId: String(episode.residentId || ''),
                 hallId: String(episode.hallId || ''),
                 departedAt,
@@ -542,14 +499,8 @@
         const returnPosture = plannedReturnStatus
             ? (normalizePosture(episode.plannedReturnPosture) || Meeow.statusPosture.getLegacyStatusPose(plannedReturnStatus))
             : (settledPromptly ? 'standing' : 'lying');
-        const liveCat = cat, liveEpisode = episode;
-        const staged = typeof hooks.commitReturn === 'function';
-        if (staged) {
-            episode = JSON.parse(JSON.stringify(episode));
-        }
-        const returnCat = staged ? JSON.parse(JSON.stringify(cat)) : cat;
-        returnCat.isOut = false;
-        if (hooks.onSettleReturn?.({ cat: returnCat, episode, logicalReturnAt, reconciledAt: now, returnStatus, returnPosture }) === false) return false;
+        cat.isOut = false;
+        if (hooks.onSettleReturn?.({ cat, episode, logicalReturnAt, reconciledAt: now, returnStatus, returnPosture }) === false) return false;
         // A frozen positive mail decision describes actual production, not a
         // best-effort slot reservation. Keep that one planned letter alive if
         // it has been deferred beyond the resident's return.
@@ -560,15 +511,13 @@
         episode.status = 'completed';
         episode.returnedAt = logicalReturnAt.toISOString();
         episode.settledAt = now.toISOString();
-        schedulePostReturnAwayOpportunity(returnCat, logicalReturnAt);
-        if (staged && hooks.commitReturn({ cat: returnCat, episode, liveCat, liveEpisode,
-            episodes: hooks.episodes, logicalReturnAt, reconciledAt: now }) !== true) return false;
+        schedulePostReturnAwayOpportunity(cat, logicalReturnAt);
         hooks.onDiaryReady?.(episode);
         addLog(`AWAY EPISODE RETURN SETTLED: episode=${episode.id}; resident=${episode.residentId}; returnedAt=${episode.returnedAt}`, 'sent');
         return true;
     };
 
-    const reconcileEpisodes = ({ episodes, cats, reconciliationTime = new Date(), onMaterializeActivity, onDeliverMail, onSettleReturn, onDiaryReady, commitReturn } = {}) => {
+    const reconcileEpisodes = ({ episodes, cats, reconciliationTime = new Date(), onMaterializeActivity, onDeliverMail, onSettleReturn, onDiaryReady } = {}) => {
         const now = parseLogicalDate(reconciliationTime) || new Date();
         const normalizedEpisodes = normalizeEpisodes(episodes);
         const dueEvents = [];
@@ -597,7 +546,7 @@
         const rank = { activity: 0, mail: 1, return: 2 };
         dueEvents.sort((a, b) => a.at - b.at || rank[a.type] - rank[b.type] ||
             (a.type === 'mail' && b.type === 'mail' ? String(a.mail.id).localeCompare(String(b.mail.id)) : 0));
-        const hooks = { cats: Array.isArray(cats) ? cats : [], episodes: normalizedEpisodes, onMaterializeActivity, onSettleReturn, onDiaryReady, commitReturn };
+        const hooks = { cats: Array.isArray(cats) ? cats : [], onMaterializeActivity, onSettleReturn, onDiaryReady };
         dueEvents.forEach(event => {
             if (event.type === 'activity') materializeActivity(event, now, hooks);
             else if (event.type === 'mail') onDeliverMail?.(event.episode, event.mail, event.at, now);
@@ -612,7 +561,6 @@
         createMailDecision,
         normalizeMailDecision,
         completeMailDecisionAtExecution,
-        getLegacyAwayEpisodeDeterministicId,
         normalizeEpisodes,
         getActiveEpisode,
         getRecentReturn,

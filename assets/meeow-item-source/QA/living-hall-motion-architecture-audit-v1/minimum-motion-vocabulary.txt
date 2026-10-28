@@ -1,0 +1,9 @@
+Living Hall spatial/motion architecture audit V1 — minimum vocabulary
+
+Existing usable end states: standing, sitting, crouching, lying; statusActivity.posture and static pose renderer support them. Missing: walk frames, transition frames, blink/ear/tail/head animation and facing-specific assets.
+
+Recommended first implementation vocabulary: standing idle (static), short Standard walk cycle, stop/settle, sitting idle (static). Two transitions may be simple timed holds until authored transition art exists, but must retain the same ground anchor. One locally chosen destination pair plus a bounded idle dwell is enough to prove a life loop. Do not equate static-image translation with a completed walk cycle; minimum new art is a reviewed small Standard side-walk chassis/mask set with two or more frames and anchor metadata.
+
+Next, in this order: stand/sit transition frames; blink; optional tail/ear idle; lying/stand transitions; head look. Blink and ear/tail movement should be subtle and intermittent, never a high-frequency random twitch. Crouch/lie remain status-driven static fallbacks until a motion contract and art are reviewed.
+
+First-slice acceptance: one Standard-config resident idles -> traverses two legal living-rug points -> stops -> sits, then can repeat; zero AI requests; no collision/teleport/save-per-frame; stable identity and foot anchor. This vocabulary intentionally excludes item interaction, relationship, combat, 55-resident animation and utility selection.

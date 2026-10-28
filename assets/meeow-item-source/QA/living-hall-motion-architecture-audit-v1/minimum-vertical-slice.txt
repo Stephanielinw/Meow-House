@@ -1,0 +1,9 @@
+Living Hall spatial/motion architecture audit V1 — first future implementation slice
+
+Proof location: already-authored living-room map in an existing Hall, central living-rug floor. The Curator room is not a dependency. Choose one existing Standard-config CAT-form test resident that is in Hall and neither Away nor engaged. Candidate slots near world (330,690) and (560,690) must be rechecked against actual rug/furniture coverage with a 32-px foot radius before coding. No elevated POI or room transition.
+
+Required future behavior: initial safe foot anchor; finite local idle dwell; PROGRAM picks the other legal slot; direct unobstructed in-memory path; resident faces/traverses it, stops at a stable ground anchor and sits; repeats without an AI request. A small reviewed Standard side-walk frame/mask set is the only new art needed for a convincing walk. A first engineering path probe may move the existing standing pose but must be labelled a motion placeholder, not accepted as the finished walk visual.
+
+Systems a later implementation must touch: a versioned living-rug spatial sidecar, a narrow active-Hall motion controller, map marker world->CSS projection/depth, a bounded frame cache, and minimal Standard walk art/renderer mapping. Integrate a cancellation hook at accepted status/presence changes. It must not modify Status Sync cadence, AI calls/prompts, Bond/Item Usage, relationships, Away probabilities, other Hall maps, Curator art, 55 resident configs or saves for this slice.
+
+Success checks: two destinations remain legal at mobile/desktop widths; no sofa/blocked-region crossing or foot drift; no extra save writes during frames; switch Hall/tab/background or start a higher-priority event cancels the loop cleanly; existing static fallback remains usable; zero AI calls from autonomous movement. Do not require full pathfinding, utility AI, every body type, all residents, scene/stat integration or a rewritten Hall UI.

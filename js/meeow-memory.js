@@ -26,7 +26,6 @@
     const EPISODIC_KNOWLEDGE_MODES = new Set([
         'direct-conversation', 'witnessed', 'self-experience', 'milestone'
     ]);
-    const MEMORY_AUTHORITIES = new Set(['HISTORICAL_FACT', 'USER_STATEMENT', 'INTERPRETATION', 'GENERATED_NARRATIVE']);
     const EPISODIC_MAX_SUMMARY_CHARS = 280;
     const EPISODIC_MAX_TAGS = 8;
     const EPISODIC_MAX_TAG_CHARS = 32;
@@ -153,9 +152,6 @@
             emotionalWeight,
             unresolved: memory.unresolved === true,
             knowledgeMode,
-            ...(MEMORY_AUTHORITIES.has(memory.authority) ? { authority: memory.authority } : {}),
-            ...(typeof memory.sourceRecordId === 'string' && memory.sourceRecordId.trim()
-                ? { sourceRecordId: memory.sourceRecordId.trim().slice(0, 180) } : {}),
             ...(retrieval ? { retrieval } : {})
         };
     };
@@ -338,24 +334,14 @@
             selected: eligible.slice(0, Math.max(0, Number.isInteger(context.maxEntries) ? context.maxEntries : 4))
         };
     };
-    // A label stored on prose is not evidence. Only raw-record projection below
-    // can issue verified facts; legacy/source labels never upgrade a summary.
-    const projectMemoryAuthority = (memory) => ({
-        authority: memory?.authority === 'GENERATED_NARRATIVE' ? 'GENERATED_NARRATIVE' : 'INTERPRETATION',
-        verification: 'UNVERIFIED'
-    });
-    const formatEpisodicMemoryEntry = (memory, { authorityBoundary = false } = {}) => {
+    const formatEpisodicMemoryEntry = (memory) => {
         const date = String(memory?.eventAt || '').slice(0, 10) || '历史';
         const tags = memory?.tags?.length ? ` · tags: ${memory.tags.join(', ')}` : '';
-        const projected = projectMemoryAuthority(memory);
-        const label = authorityBoundary ? ` [${projected.authority} / ${projected.verification}; date is record time, not proof of narrated events]` : '';
-        return `- [${date}]${label} ${memory?.summary || ''}${tags}`;
+        return `- [${date}] ${memory?.summary || ''}${tags}`;
     };
     const makeEpisodicMemorySnapshot = (memory) => ({
         id: String(memory?.id || ''), sourceKey: String(memory?.sourceKey || ''),
         eventAt: String(memory?.eventAt || ''), summary: String(memory?.summary || ''),
-        ...projectMemoryAuthority(memory),
-        ...(memory?.sourceRecordId ? { sourceRecordId: memory.sourceRecordId } : {}),
         tags: Array.isArray(memory?.tags) ? [...memory.tags] : []
     });
     const buildEpisodicMemoryContext = (cat, context = {}) => {
@@ -367,7 +353,7 @@
         const included = [];
         result.selected.forEach(entry => {
             const memory = entry.memory;
-            const line = formatEpisodicMemoryEntry(memory, context);
+            const line = formatEpisodicMemoryEntry(memory);
             if (length + line.length + 1 > maxChars) return;
             lines.push(line);
             length += line.length + 1;
@@ -379,149 +365,6 @@
             result: { ...result, selected: included }
         };
     };
-
-    const HISTORY_BOUNDARY_VERSION = 'homepage-history-opt-in-v2';
-    const classifyHistoricalIntent = (message, { dayKey = '', previousDayKey = '' } = {}) => {
-        const text = String(message || '').normalize('NFKC').toLowerCase();
-        // ponytail: explicit language patterns cover this v1, not arbitrary
-        // semantic inference. Extend with a reproduced missed historical query.
-        const pastTime = /以前|之前|过去|曾经|昨天|前天|上次|上周|上个月|去年|那次|当时|第一次|首次|最初|\d{4}[-年]\d{1,2}[-月]\d{1,2}/.test(text);
-        const historical = /(?:什么时候|何时).*(?:开始|喜欢|好感|爱|说|聊|谈|见|送|给|用|喂|做|发生|变|专注|任务|片段)/.test(text)
-            || /(?:记得|记不记得|回忆).*(?:说过|聊过|谈过|做过|发生过|送过|用过|去过|那次|昨天|第一次.*(?:聊|见)|我们.*(?:去|聊|见|做))/.test(text)
-            || pastTime && /发生了什么|做(?:了)?什么|说(?:了|过)什么|聊(?:了|过)什么|为什么|为何/.test(text)
-            || /(?:说过|聊过|谈过|做过|发生过|送过|用过|去过).*(?:吗|么|？|\?)/.test(text)
-            || /\b(?:when did|when was|what happened|why were|why did)\b/.test(text)
-            || /\b(?:remember|recollect)\b.*\b(?:when|said|told|we|yesterday|last|first|talked|gave|went)\b/.test(text);
-        const unsupported = /为什么|为何|最初|第一次|首次|\b(?:why|first|cause)\b|(?:开始|起初|何时|什么时候).*(?:喜欢|好感|爱)|(?:喜欢|好感|爱).*(?:开始|起初)|(?:start|began|begin).*(?:liking|loving|feelings)/i.test(text);
-        const kind = /说过|聊|谈|对话|消息|告诉|\b(?:said|say|told|talk|conversation|message)\b/i.test(text) ? 'chat'
-            : /物品|送|给过|使用|用过|喂|\b(?:item|gift|gave|fed)\b/i.test(text) ? 'item'
-            : /专注|任务|\b(?:focus|task)\b/i.test(text) ? 'focus'
-            : /片段|心事|\b(?:moment)\b/i.test(text) ? 'moment'
-            : /发生了什么|做了什么|\bwhat happened\b/i.test(text) ? 'any' : null;
-        const date = text.match(/(\d{4})[-年](\d{1,2})[-月](\d{1,2})/);
-        const requestedDay = date ? `${date[1]}-${date[2].padStart(2, '0')}-${date[3].padStart(2, '0')}`
-            : /昨天|\byesterday\b/.test(text) ? previousDayKey : /今天|\btoday\b/.test(text) ? dayKey : '';
-        const topic = kind === 'chat' ? text
-            .replace(/\d{4}[-年]\d{1,2}[-月]\d{1,2}日?/g, '')
-            .replace(/什么时候|记不记得|发生了什么|记得|说过|聊过|谈过|告诉|对话|消息|聊天|昨天|今天|上次|过去|以前|之前|曾经|何时|什么|我们|你|我|还|吗|呢|了|的|关于|一起/g, '')
-            .replace(/\b(?:do|did|you|we|i|me|us|our|when|what|remember|recollect|said|say|told|talk|talked|about|conversation|message|yesterday|today|last|time|ever)\b/g, '')
-            .replace(/[\s\p{P}]+/gu, '') : '';
-        return Object.freeze({ historical, unsupported: unsupported || /前天|上周|上个月|去年|\b(?:ago|last week|last month|last year)\b/.test(text), kind, dayKey: requestedDay, topic });
-    };
-    const buildHistoricalEvidenceBundle = (cat, { query = '', interactions = cat?.todayInteractions || [],
-        focusReports = [], momentRecords = [], excludeRecordId = '', dayKey = '', previousDayKey = '' } = {}) => {
-        const ownerId = String(cat?.id || '');
-        const intent = classifyHistoricalIntent(query, { dayKey, previousDayKey });
-        const candidates = [];
-        const add = (source, recordId, at, kind, fields, recordDay = '') => {
-            if (!ownerId || typeof recordId !== 'string' || !recordId.trim() || recordId.length > 180 ||
-                recordId === excludeRecordId || !parseEpisodicTimestamp(at)) return;
-            candidates.push({ id: `${source}:${recordId}`, recordId, residentId: ownerId, authority: 'HISTORICAL_FACT',
-                kind, at: new Date(at).toISOString(), dayKey: recordDay || dependencies.getOperationalDayKey(new Date(at)), ...fields });
-        };
-        interactions.forEach(record => {
-            if (!record || record.residentId && String(record.residentId) !== ownerId) return;
-            if (record.source === 'detail-chat' && ['chat-user', 'chat-reply'].includes(record.type)) {
-                const fields = { type: record.type };
-                // The raw user utterance proves only that it was said. Never
-                // extract event assertions from either speaker's generated prose.
-                if (record.type === 'chat-user' && typeof record.content === 'string') {
-                    fields.userStatement = record.content.slice(0, 400);
-                    fields.statementTruncated = record.content.length > 400;
-                }
-                add('interaction', record.id, record.at, 'chat', fields, record.dateKey);
-            } else if (record.type === 'item' && ['item-interaction', 'food-interaction'].includes(record.source) && record.itemId != null) {
-                const fields = { type: 'item', itemId: String(record.itemId).slice(0, 180) };
-                if (typeof record.itemName === 'string') fields.itemName = record.itemName.slice(0, 100);
-                if (record.reactionAuthority === 'program-semantic' && Number.isFinite(record.affinityDelta))
-                    fields.affinityDelta = record.affinityDelta;
-                add('interaction', record.id, record.at, 'item', fields, record.dateKey);
-            }
-        });
-        focusReports.forEach(record => {
-            if (!record?.participants?.some(p => String(p.id) === ownerId) ||
-                !['COMPLETED', 'FAILED'].includes(record.status) || !Number.isFinite(record.duration) || record.duration < 0) return;
-            const fields = { type: 'focus-settlement', duration: record.duration, status: record.status };
-            if (Number.isFinite(record.affinityDelta)) fields.affinityDelta = record.affinityDelta;
-            add('focus', record.id, record.archivedAt, 'focus', fields);
-        });
-        momentRecords.forEach(record => {
-            if (!record?.participantIds?.includes(ownerId) || !['thought', 'social', 'userInteraction'].includes(record.type)) return;
-            add('moment', record.recordId, record.at, 'moment', { type: record.type }, record.dayKey);
-        });
-        const grouped = new Map();
-        candidates.forEach(entry => {
-            const prior = grouped.get(entry.id);
-            // Conflicting copies of a record cannot both be trusted.
-            grouped.set(entry.id, prior === undefined ? entry : JSON.stringify(prior) === JSON.stringify(entry) ? prior : null);
-        });
-        const ranked = [...grouped.values()].filter(Boolean).map(entry => ({ entry,
-            score: (intent.kind === entry.kind ? 20 : 0) + (intent.dayKey && intent.dayKey === entry.dayKey ? 30 : 0) +
-                (hasMeaningfulMemoryOverlap(query, entry.userStatement || entry.itemName || '') ? 10 : 0)
-        })).sort((a, b) => b.score - a.score || b.entry.at.localeCompare(a.entry.at) || a.entry.id.localeCompare(b.entry.id));
-        const note = 'Bounded surviving records only; not a complete lifetime archive. Earliest included record is not the first occurrence. User quotations prove statements, not the events asserted in them.';
-        const lines = ['[FACTUAL EVIDENCE]', note];
-        const statements = [];
-        const entries = [];
-        let length = lines.join('\n').length + '[USER STATEMENTS]'.length + 2;
-        ranked.forEach(({ entry }) => {
-            if (entries.length >= 12) return;
-            const { userStatement, statementTruncated, ...fact } = entry;
-            const factLine = JSON.stringify(fact);
-            const statementLine = userStatement === undefined ? '' : JSON.stringify({ evidenceId: entry.id,
-                authority: 'USER_STATEMENT', text: userStatement, truncated: statementTruncated });
-            if (length + factLine.length + statementLine.length + 2 > 3600) return;
-            entries.push(Object.freeze(entry));
-            lines.push(factLine);
-            if (statementLine) statements.push(statementLine);
-            length += factLine.length + statementLine.length + 2;
-        });
-        const text = [...lines, '[USER STATEMENTS]', ...statements].join('\n');
-        return Object.freeze({ ownerId, intent, entries: Object.freeze(entries), text,
-            fingerprint: stableMemoryHash(JSON.stringify([HISTORY_BOUNDARY_VERSION, ownerId, intent, entries])) });
-    };
-    const validateHistoryGrounding = (grounding, bundle) => {
-        if (!grounding || typeof grounding !== 'object' || Array.isArray(grounding) ||
-            !['not_historical', 'supported', 'insufficient_evidence'].includes(grounding.mode) ||
-            !Array.isArray(grounding.evidenceIds) || grounding.evidenceIds.some(id => typeof id !== 'string') ||
-            new Set(grounding.evidenceIds).size !== grounding.evidenceIds.length) return 'Invalid historyGrounding contract.';
-        if (grounding.mode !== 'supported') {
-            if (grounding.evidenceIds.length) return 'Only supported history may cite evidence.';
-            if (bundle.intent.historical && grounding.mode === 'not_historical') return 'Historical question requires grounding.';
-            return true;
-        }
-        if (!grounding.evidenceIds.length || !bundle.intent.historical || bundle.intent.unsupported || !bundle.intent.kind)
-            return 'This historical question has no supported event projection.';
-        for (const id of grounding.evidenceIds) {
-            const entry = bundle.entries.find(record => record.id === id);
-            if (!entry || entry.residentId !== bundle.ownerId || entry.authority !== 'HISTORICAL_FACT' ||
-                bundle.intent.kind !== 'any' && entry.kind !== bundle.intent.kind ||
-                bundle.intent.dayKey && entry.dayKey !== bundle.intent.dayKey ||
-                bundle.intent.topic && !hasMeaningfulMemoryOverlap(bundle.intent.topic, entry.userStatement || ''))
-                return 'Historical evidence is absent or does not support this event type/day/topic.';
-        }
-        return true;
-    };
-    const validateHistoricalResponse = (active, bundle) => {
-        const grounding = validateHistoryGrounding(active.historyGrounding, bundle);
-        if (grounding !== true) return grounding;
-        if (active.historyGrounding.mode === 'insufficient_evidence') {
-            const reply = String(active.reply || '');
-            const uncertain = /说不出|说不准|说不清|记不清|想不起|不记得|不确定|不知道|(?:无法|不能|没法).{0,24}(?:确认|确定|指认|判断)|没有.{0,12}(?:记录|证据)|\b(?:not sure|cannot identify|can't identify|don't remember)\b/i;
-            const concretePast = /那次|那天|那一年|某一天|某次|有一次|有一回|当时你|我记得你|上次你|昨天你|前天你|就是.{0,12}(?:的时候|那一刻)|\d{4}[-年]\d{1,2}[-月]\d{1,2}/;
-            if (!uncertain.test(reply)) return 'Historical answer must acknowledge insufficient evidence.';
-            if (concretePast.test(reply + String(active.innerVoice || ''))) return 'Historical answer invents a concrete past scene without evidence.';
-        }
-        return true;
-    };
-    // Only a rejected/failed historical request uses this local fallback.
-    const makeHistoricalFallback = ({ form, status, posture }) => ({
-        reply: form === 'CAT' ? '它留在原处，安静听着。可靠记录不足以确认那个具体时刻或经过，不能把猜测当作回忆。'
-            : '我没法从可靠的记录里确认那个具体时刻或经过，不想拿猜出来的场景当作回忆。',
-        status, posture, innerVoice: '【我只把能确认的记录当作往事。】',
-        userStatus: '询问历史记录', memoryCandidate: null,
-        historyGrounding: { mode: 'insufficient_evidence', evidenceIds: [] }
-    });
 
     const getPermanentDiaryEntries = (cat, limit = 5) => (cat?.logs || []).slice(-limit)
         .map(entry => `[${entry.date || entry.time || '历史'}] ${cleanText(entry.content || '')}`);
@@ -554,8 +397,6 @@
         return [...(user.missionReports || [])].reverse()
             .find(report => report.missionName === '昨日总结报告' && getBriefingDateKey(report) === previousOperationalDayKey) || null;
     };
-    const eyeColorFor = cat => Meeow.adoptionDrafts?.residentEyeColorDisplay(cat) || cat?.eyeColor || '未设定';
-    const breedFor = cat => Meeow.catBreeds?.getResidentBreedDisplay(cat) || cat?.breed || '未设定';
     const buildCatIdentityBlock = (cat) => {
         const halls = dependencies.getHalls();
         const currentHall = dependencies.getCurrentHall();
@@ -563,7 +404,7 @@
         return `[IMMUTABLE CHARACTER IDENTITY]
 - Name: ${getResidentPublicName(cat)}; Hall: ${hall?.name || 'Meeow House'}
 - Canon personality / stored prompt: ${cat?.prompt || cat?.personality || '以原作设定为准'}
-- Fixed cat breed: ${breedFor(cat)}; fixed eye color: ${eyeColorFor(cat)}.
+- Fixed cat breed: ${cat?.breed || '未设定'}; fixed eye color: ${cat?.eyeColor || '未设定'}.
 - Current physical form: ${describeResidentForm(cat)}; closeness (affinity): ${cat?.affinity ?? 0}/100.
 - The supplied current physical form is the authoritative visible anatomy for this request.
 - The USER is already a trusted and accepted caretaker. Affinity controls intimacy and disclosure, never basic safety or permission to be nearby.
@@ -730,7 +571,7 @@ ${options.extra || ''}
         const context = `[STATUS SYNC CONTEXT]
 ID: ${String(cat?.id || '')}
 Name: ${getResidentPublicName(cat)}
-Breed: ${truncateMemoryText(breedFor(cat), 32)}; Eyes: ${truncateMemoryText(eyeColorFor(cat), 22)}
+Breed: ${truncateMemoryText(cat?.breed || '未设定', 32)}; Eyes: ${truncateMemoryText(cat?.eyeColor || '未设定', 22)}
 Traits: ${truncateMemoryText(cat?.personality || '以原作设定为准', 28)}
 Canon: ${truncateMemoryText(cat?.prompt || cat?.personality || '以原作设定为准', 85)}
 Affinity: ${cat?.affinity ?? 0}/100; Physical form: ${describeResidentForm(cat)}; Out: ${Boolean(cat?.isOut)}
@@ -763,14 +604,6 @@ Continuity: ${truncateMemoryText(continuity || 'None', 34)}`;
         hasEpisodicMemorySource,
         appendEpisodicMemory,
         EPISODIC_RETRIEVAL_LIMITS,
-        MEMORY_AUTHORITIES,
-        projectMemoryAuthority,
-        HISTORY_BOUNDARY_VERSION,
-        classifyHistoricalIntent,
-        buildHistoricalEvidenceBundle,
-        validateHistoryGrounding,
-        validateHistoricalResponse,
-        makeHistoricalFallback,
         USER_SHARED_EPISODIC_SOURCE_TYPES,
         getMeaningfulMemoryTerms,
         hasMeaningfulMemoryOverlap,

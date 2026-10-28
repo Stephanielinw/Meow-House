@@ -52,63 +52,9 @@
         return Math.max(1, 6 + bond.familiarity + 2 * bond.fondness +
             (Meeow.residentItems.isResidentItemCherished(bond) ? 4 : 0));
     };
-    const getObjectPreferenceBias = scored => scored?.state === 'scored' &&
-        typeof scored.score === 'number' && Number.isFinite(scored.score)
-        ? Math.max(-2, Math.min(2, scored.score)) : 0;
-    const getResidentItemFondnessPreferenceBand = ({ preferenceState, rawScore } = {}) => {
-        if (preferenceState === 'unprofiled') return 'unprofiled';
-        if (preferenceState !== 'scored' || !Number.isSafeInteger(rawScore)) return 'ineligible';
-        return rawScore > 0 ? 'positive' : rawScore < 0 ? 'negative' : 'neutral';
-    };
-    const getResidentItemFondnessMilestone = ({ preferenceState, rawScore, useOrdinal } = {}) => {
-        const preferenceBand = getResidentItemFondnessPreferenceBand({ preferenceState, rawScore });
-        const validOrdinal = Number.isSafeInteger(useOrdinal) && useOrdinal > 0;
-        const milestone = validOrdinal && (preferenceBand === 'positive'
-            ? useOrdinal >= 3 && (useOrdinal - 3) % 4 === 0
-            : preferenceBand === 'neutral' || preferenceBand === 'unprofiled'
-                ? useOrdinal >= 5 && (useOrdinal - 5) % 6 === 0
-                : preferenceBand === 'negative' && useOrdinal >= 8 && useOrdinal % 8 === 0);
-        return Object.freeze({ version: 1, useOrdinal, preferenceBand, milestone,
-            plannedDelta: milestone ? 1 : 0 });
-    };
-    // Validate the frozen wire evidence, never a later profile or item score.
-    const validObjectPreferenceEvidence = evidence => {
-        if (!isRecord(evidence) || !Array.isArray(evidence.matchedPreferences)) return false;
-        if (evidence.state === 'unprofiled' || evidence.state === 'unclassified-item')
-            return evidence.rawScore === null && evidence.bias === 0 && evidence.matchedPreferences.length === 0;
-        if (evidence.state !== 'scored' || !Number.isSafeInteger(evidence.rawScore)) return false;
-        const tags = new Set([...Meeow.semantics.OBJECT_VALUES.interaction.map(value => `interaction:${value}`),
-            ...Meeow.semantics.OBJECT_VALUES.stimulus.map(value => `stimulus:${value}`)]);
-        const seen = new Set();
-        for (const match of evidence.matchedPreferences) {
-            if (!isRecord(match) || !tags.has(match.tag) || seen.has(match.tag) ||
-                ![-2, -1, 1, 2].includes(match.weight)) return false;
-            seen.add(match.tag);
-        }
-        return evidence.rawScore === evidence.matchedPreferences.reduce((sum, match) => sum + match.weight, 0) &&
-            evidence.bias === getObjectPreferenceBias({ state: 'scored', score: evidence.rawScore });
-    };
-    const getResidentItemUsageCandidateWeight = ({ user, residents = [], residentId, item }) => {
-        const id = residentIdOf(residentId);
-        const eligible = getEligibleOwnedItems(user, id).includes(item);
-        const existingBondWeight = getItemUseWeight(
-            Meeow.residentItems.getResidentItemBond(user, id, item?.uniqueId));
-        // Matching and lookup stay in the shared Object Preference authority.
-        // A missing module/profile supplies no extra bias, preserving the baseline.
-        const scored = Meeow.objectPreferences?.scoreResidentObjectForResident(id, item, residents) || {
-            state: 'unprofiled', score: null, matchedPreferences: []
-        };
-        const objectPreference = Object.freeze({ state: scored.state, rawScore: scored.score,
-            bias: getObjectPreferenceBias(scored), matchedPreferences: Object.freeze(
-                scored.matchedPreferences.map(match => Object.freeze({ ...match }))) });
-        return Object.freeze({ eligible, existingBondWeight, objectPreference,
-            finalWeight: eligible ? Math.max(1, existingBondWeight + objectPreference.bias) : 0 });
-    };
-    const selectWeightedOwnedCandidate = (user, residentId, items, random, residents) => {
-        const candidates = items.map(item => {
-            const diagnostics = getResidentItemUsageCandidateWeight({ user, residents, residentId, item });
-            return { item, weight: diagnostics.finalWeight, objectPreference: diagnostics.objectPreference };
-        })
+    const selectWeightedOwnedItem = (user, residentId, items, random = Math.random) => {
+        const candidates = items.map(item => ({ item,
+            weight: getItemUseWeight(Meeow.residentItems.getResidentItemBond(user, residentId, item.uniqueId)) }))
             .filter(candidate => candidate.weight > 0);
         const total = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
         const roll = total ? safeRoll(random) : null;
@@ -116,12 +62,10 @@
         let target = roll * total;
         for (const candidate of candidates) {
             target -= candidate.weight;
-            if (target < 0) return candidate;
+            if (target < 0) return candidate.item;
         }
-        return candidates.at(-1) || null;
+        return candidates.at(-1)?.item || null;
     };
-    const selectWeightedOwnedItem = (user, residentId, items, random = Math.random, residents = []) =>
-        selectWeightedOwnedCandidate(user, residentId, items, random, residents)?.item || null;
     const freezeItemUseDecision = ({ user, residents, residentId, now = new Date(),
         random = Math.random, makeEventId = () => Meeow.shopCatalog.createInstanceUniqueId()
             .replace(/^item-instance:/, 'resident-item-use:') }) => {
@@ -132,15 +76,10 @@
         if (!eligible.length) return null;
         const chanceRoll = safeRoll(random);
         if (chanceRoll === null || chanceRoll >= BASE_ITEM_USAGE_CHANCE) return null;
-        const candidate = selectWeightedOwnedCandidate(user, id, eligible, random, residents);
-        const selected = candidate?.item;
+        const selected = selectWeightedOwnedItem(user, id, eligible, random);
         if (!selected) return null;
         const semantics = Meeow.semantics.getItemObjectSemantics(selected);
         const bond = Meeow.residentItems.getResidentItemBond(user, id, selected.uniqueId);
-        if (bond.useCount >= Number.MAX_SAFE_INTEGER || !validObjectPreferenceEvidence(candidate.objectPreference)) return null;
-        const fondnessEvolution = getResidentItemFondnessMilestone({
-            preferenceState: candidate.objectPreference.state, rawScore: candidate.objectPreference.rawScore,
-            useOrdinal: bond.useCount + 1 });
         let eventId;
         try { eventId = makeEventId(); } catch (_) { return null; }
         if (typeof eventId !== 'string' ||
@@ -153,62 +92,34 @@
             role: semantics.tags.find(tag => tag.startsWith('role:')).slice(5),
             interaction: Meeow.semantics.getPrimaryItemInteraction(selected),
             stimulus: Object.freeze(semantics.tags.filter(tag => tag.startsWith('stimulus:')).map(tag => tag.slice(9))),
-            bondDisplay: Object.freeze(Meeow.residentItems.getResidentItemBondDisplayState(bond)),
-            objectPreference: candidate.objectPreference,
-            fondnessEvolution
+            bondDisplay: Object.freeze(Meeow.residentItems.getResidentItemBondDisplayState(bond))
         });
         return Object.freeze({ event, itemRef: selected });
     };
-    const canCommitItemUse = (user, decision, now = new Date()) => {
-        if (!decision?.event || !(now instanceof Date) || Number.isNaN(now.getTime())) return false;
+    const canCommitItemUse = (user, decision) => {
+        if (!decision?.event || !decision.itemRef) return false;
         const event = decision.event;
-        // Resolve stable physical identity from current ownership, not a captured
-        // JS object: save import may rematerialize the same authoritative item.
-        const item = getEligibleOwnedItems(user, event.residentId)
-            .find(current => current.uniqueId === event.itemUniqueId);
-        if (!item || (item.sourceCatalogId ?? null) !== event.sourceCatalogId ||
-            isUsageCooldownActive(user, event.residentId, now)) return false;
-        const semantics = Meeow.semantics.getItemObjectSemantics(item);
+        const owned = Meeow.residentItems.getResidentOwnedItems(user?.residentItems, event.residentId);
+        if (!owned.includes(decision.itemRef) ||
+            owned.filter(item => item?.uniqueId === event.itemUniqueId).length !== 1 ||
+            decision.itemRef.uniqueId !== event.itemUniqueId ||
+            (decision.itemRef.sourceCatalogId ?? null) !== event.sourceCatalogId ||
+            !isEligibleOwnedItem(user, event.residentId, decision.itemRef)) return false;
+        const semantics = Meeow.semantics.getItemObjectSemantics(decision.itemRef);
         return semantics?.semanticType === event.semanticType &&
             semantics.tags.includes(`role:${event.role}`) &&
-            Meeow.semantics.getPrimaryItemInteraction(item) === event.interaction &&
+            Meeow.semantics.getPrimaryItemInteraction(decision.itemRef) === event.interaction &&
             JSON.stringify(semantics.tags.filter(tag => tag.startsWith('stimulus:')).map(tag => tag.slice(9))) ===
                 JSON.stringify(event.stimulus);
     };
-    const commitItemUse = ({ user, residents, decision, at = new Date().toISOString(), persist }) => {
+    const commitItemUse = ({ user, residents, decision, at = new Date().toISOString() }) => {
         if (committedEventIds.has(decision?.event?.eventId)) return { ok: false, reason: 'already-committed' };
-        if (!decision?.event) return { ok: false, reason: 'item-no-longer-current' };
-        const event = decision.event, plan = event.fondnessEvolution;
-        if (!validObjectPreferenceEvidence(event.objectPreference) || !isRecord(plan) ||
-            !Number.isSafeInteger(plan.useOrdinal) || plan.useOrdinal < 1) return { ok: false, reason: 'invalid-evolution-plan' };
-        const expected = getResidentItemFondnessMilestone({ preferenceState: event.objectPreference.state,
-            rawScore: event.objectPreference.rawScore, useOrdinal: plan.useOrdinal });
-        if (Object.keys(expected).some(key => plan[key] !== expected[key])) return { ok: false, reason: 'invalid-evolution-plan' };
-        const before = Meeow.residentItems.getResidentItemBond(user, event.residentId, event.itemUniqueId);
-        // Durable compare-and-set: neither retries nor a competing event may
-        // reinterpret a frozen ordinal as a later use/milestone after reload.
-        if (before && before.useCount !== plan.useOrdinal - 1) return { ok: false, reason: 'stale-use-ordinal' };
-        if (!canCommitItemUse(user, decision, new Date(at))) return { ok: false, reason: 'item-no-longer-current' };
-        const stagedUser = { ...user, residentItemBonds: { ...user.residentItemBonds,
-            [event.residentId]: { ...user.residentItemBonds[event.residentId] } } };
-        const result = Meeow.residentItems.recordResidentItemUse({ user: stagedUser, residents,
-            residentId: event.residentId, uniqueId: event.itemUniqueId,
+        if (!canCommitItemUse(user, decision)) return { ok: false, reason: 'item-no-longer-current' };
+        const result = Meeow.residentItems.recordResidentItemUse({ user, residents,
+            residentId: decision.event.residentId, uniqueId: decision.event.itemUniqueId,
             requireUsableSemantics: true, now: () => at });
-        if (!result.ok) return result;
-        if (plan.plannedDelta) {
-            const adjustment = Meeow.residentItems.adjustResidentItemFondness({ user: stagedUser, residents,
-                residentId: event.residentId, uniqueId: event.itemUniqueId,
-                delta: plan.plannedDelta, reason: 'authorized-interaction' });
-            if (!adjustment.ok) return adjustment;
-        }
-        const bond = Meeow.residentItems.getResidentItemBond(stagedUser, event.residentId, event.itemUniqueId);
-        if (typeof persist === 'function') {
-            try { if (persist({ bond, event }) !== true) return { ok: false, reason: 'persistence-failed' }; }
-            catch (_) { return { ok: false, reason: 'persistence-failed' }; }
-        }
-        user.residentItemBonds[event.residentId][physicalKey(event.itemUniqueId)] = bond;
-        committedEventIds.add(event.eventId);
-        return { ok: true, bond, fondnessDelta: bond.fondness - before.fondness };
+        if (result.ok) committedEventIds.add(decision.event.eventId);
+        return result;
     };
     const buildStatusItemUseContext = decision => {
         const event = decision?.event;
@@ -237,9 +148,7 @@ PROGRAM has already selected this exact owned physical item and interaction. Wri
     };
     Object.assign(usage, { BASE_ITEM_USAGE_CHANCE, RESIDENT_ITEM_USAGE_COOLDOWN_MS, INTERACTIONS,
         getResidentLastItemUseAt, isUsageCooldownActive, isEligibleOwnedItem, getEligibleOwnedItems,
-        getItemUseWeight, getObjectPreferenceBias, getResidentItemUsageCandidateWeight,
-        getResidentItemFondnessPreferenceBand, getResidentItemFondnessMilestone,
-        selectWeightedOwnedItem, freezeItemUseDecision, canCommitItemUse,
+        getItemUseWeight, selectWeightedOwnedItem, freezeItemUseDecision, canCommitItemUse,
         commitItemUse, buildStatusItemUseContext, getItemUseFallback });
     if (typeof module !== 'undefined' && module.exports) module.exports = usage;
 }(typeof window !== 'undefined' ? window : globalThis));

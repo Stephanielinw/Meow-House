@@ -1,0 +1,14 @@
+Living Hall spatial/motion architecture audit V1 — world coordinates
+
+Evidence: map points and regions use 1024 image coordinates in js/meeow-map.js; render projection is index.html:11419-11450; square stage at index.html:4164.
+
+Option                       Responsive   Authoring/path/depth       Save/redesign implications
+CSS pixels                   Poor         Easy only for DOM         Viewport changes alter world; reject.
+Normalized 0..1              Good         Harder to eyeball art     Portable sizes, but collision authoring awkward.
+Absolute canonical art px    Good if projected  Direct with map art   Stable at 1024; must define scaling for new sizes.
+Logical tiles only           Good         Simple A*                Coarse furniture/POI placement; pixel-art misalignment.
+Hybrid art px + coarse cells Good         Direct anchors, small A*  One coordinate authority with derived navigation.
+
+Recommendation: authoritative world positions in each map's declared canonical pixel coordinate system (1024×1024 for current art). A coarse navigation grid/graph is derived or authored in that same coordinate space; CSS percentages or transforms are projections only. This hybrid preserves exact POI/foot anchors, enables Y-depth, and survives browser resize. A future Hall may declare another size, but all geometry in its sidecar must use its own declared width/height and renderer must project consistently. Do not save viewport CSS pixels. Keep map version with any future persisted logical location so art replacement can map or reset safe spawn points.
+
+For the living-room first slice, use a conservative verified rug corridor rather than assigning coordinates to every existing POI. A desktop/mobile resize must leave the same world foot coordinate and legal path.
